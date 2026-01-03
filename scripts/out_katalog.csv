@@ -1,0 +1,3 @@
+﻿sep=;
+Nazwa;Opis;Kategoria;Stan
+"Test Part";"To jest testowy opis zawierający polskie znaki: ążśźćęół, oraz długie zdania aby przetestować łamanie linii w CSV. Powinno być łamane co 80 znaków bez łamania słów, czyli sprawdźmy to dokładnie.";TestCat;5

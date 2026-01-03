@@ -1,0 +1,1538 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Category;
+use App\Models\Part;
+use App\Models\PartRemoval;
+use App\Models\Supplier;
+use App\Models\User;
+use Illuminate\Http\Request;
+
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\PartsExport;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+
+class PartController extends Controller
+{
+    /* ===================== WIDOKI ===================== */
+
+    // DODAJ
+    public function addView()
+    {
+        return view('parts.add', [
+            'categories'  => Category::all(),
+            'suppliers'   => \App\Models\Supplier::orderBy('name')->get(),
+            'sessionAdds' => array_reverse(session('adds', [])),
+            'parts' => Part::with('category')->orderBy('name')->get(),
+        ]);
+    }
+
+    // POBIERZ
+    public function removeView()
+    {
+        return view('parts.remove', [
+            'sessionRemoves' => array_reverse(session('removes', [])),
+            'parts' => Part::with('category')->orderBy('name')->get(),
+            'suppliers' => Supplier::orderBy('name')->get(),
+        ]);
+    }
+
+    // SPRAWDŹ / KATALOG
+    public function checkView(Request $request)
+    {
+        $query = Part::with('category');
+
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        // Sortowanie
+        $sortBy = $request->get('sort_by', 'name');
+        $sortDir = $request->get('sort_dir', 'asc');
+        
+        if ($sortBy === 'category') {
+            $query->join('categories', 'parts.category_id', '=', 'categories.id')
+                  ->orderBy('categories.name', $sortDir)
+                  ->select('parts.*');
+        } else {
+            $query->orderBy($sortBy, $sortDir);
+        }
+
+        return view('parts.check', [
+            'parts'      => $query->get(),
+            'categories' => Category::all(),
+            'sortBy'     => $sortBy,
+            'sortDir'    => $sortDir,
+        ]);
+    }
+
+    // ZAMÓWIENIA
+    public function ordersView()
+    {
+        return view('parts.orders', [
+            'parts' => Part::with('category')->orderBy('name')->get(),
+            'categories' => Category::all(),
+            'suppliers' => \App\Models\Supplier::orderBy('name')->get(),
+            'orderSettings' => \DB::table('order_settings')->first(),
+            'orders' => \App\Models\Order::with(['user', 'receivedBy'])->orderBy('issued_at', 'desc')->get(),
+        ]);
+    }
+
+    // USTAWIENIA
+    public function settingsView()
+    {
+        return view('parts.settings', [
+            'categories' => Category::withCount('parts')->get(),
+            'suppliers' => \App\Models\Supplier::all(),
+            'companySettings' => \App\Models\CompanySetting::first(),
+            'orderSettings' => \DB::table('order_settings')->first(),
+        ]);
+    }
+
+    // DODAJ KATEGORIĘ
+    public function addCategory(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255|unique:categories,name',
+        ]);
+
+        Category::create([
+            'name' => $request->name,
+        ]);
+
+        return redirect()->route('magazyn.settings')->with('success', 'Kategoria "' . $request->name . '" została dodana.');
+    }
+
+    // USUŃ KATEGORIĘ
+    public function deleteCategory(Category $category)
+    {
+        // Check if category has products
+        if ($category->parts()->count() > 0) {
+            return redirect()->route('magazyn.settings')->with('error', 'Nie można usunąć kategorii "' . $category->name . '" - zawiera produkty.');
+        }
+
+        $name = $category->name;
+        $category->delete();
+
+        return redirect()->route('magazyn.settings')->with('success', 'Kategoria "' . $name . '" została usunięta.');
+    }
+
+    // USUWANIE ZAWARTOŚCI KATEGORII (wszystkie produkty w kategorii)
+    public function clearCategoryContents(Category $category)
+    {
+        $categoryName = $category->name;
+        $count = $category->parts()->count();
+        
+        $category->parts()->delete();
+
+        return redirect()->route('magazyn.settings')->with('success', "Usunięto {$count} produktów z kategorii \"{$categoryName}\".");
+    }
+
+    // EKSPORT DO EXCELA (CSV)
+    public function export(Request $request)
+    {
+        $query = Part::with('category')->orderBy('name');
+
+        // Jeśli są zaznaczone IDs, filtruj tylko te
+        if ($request->filled('selected_ids')) {
+            $ids = array_filter(explode(',', $request->selected_ids));
+            $query->whereIn('id', $ids);
+        } else {
+            // W przeciwnym razie stosuj filtry
+            if ($request->filled('search')) {
+                $query->where('name', 'like', '%' . $request->search . '%');
+            }
+
+            if ($request->filled('category_id')) {
+                $query->where('category_id', $request->category_id);
+            }
+        }
+
+        $parts = $query->get();
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="katalog.csv"',
+        ];
+
+        $callback = function() use ($parts) {
+            $output = fopen('php://output', 'w');
+            // UTF-8 BOM so Excel detects UTF-8 correctly
+            fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+            // Tell Excel to use semicolon as separator
+            fwrite($output, "sep=;\r\n");
+            fputcsv($output, ['Nazwa', 'Opis', 'Kategoria', 'Stan'], ';');
+
+            foreach ($parts as $p) {
+                // Ensure description is a single line: replace newlines with spaces and collapse multiple spaces
+                $description = $p->description ? preg_replace('/\s+/', ' ', str_replace(["\r", "\n"], ' ', $p->description)) : '-';
+
+                fputcsv($output, [
+                    $p->name,
+                    $description,
+                    $p->category->name ?? '-',
+                    $p->quantity,
+                ], ';');
+            }
+
+            fclose($output);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    // EKSPORT DO XLSX (sformatowany)
+    public function exportXlsx(Request $request)
+    {
+        // Guard: jeśli pakiet maatwebsite/excel nie jest zainstalowany, pokaż przyjazny komunikat zamiast fatalnego błędu
+        if (!class_exists(\Maatwebsite\Excel\Facades\Excel::class)) {
+            return redirect()->back()
+                ->with('error', 'Brak pakietu "maatwebsite/excel". Zainstaluj go: composer require maatwebsite/excel');
+        }
+
+        $query = Part::with('category')->orderBy('name');
+
+        // Jeśli są zaznaczone IDs, filtruj tylko te
+        if ($request->filled('selected_ids')) {
+            $ids = array_filter(explode(',', $request->selected_ids));
+            $query->whereIn('id', $ids);
+        } else {
+            // W przeciwnym razie stosuj filtry
+            if ($request->filled('search')) {
+                $query->where('name', 'like', '%' . $request->search . '%');
+            }
+
+            if ($request->filled('category_id')) {
+                $query->where('category_id', $request->category_id);
+            }
+        }
+
+        $parts = $query->get();
+
+        try {
+            return Excel::download(new PartsExport($parts), 'katalog.xlsx');
+        } catch (\Throwable $e) {
+            return redirect()->back()
+                ->with('error', 'Wystąpił błąd podczas generowania pliku: ' . $e->getMessage());
+        }
+    }
+
+    // EKSPORT DO WORD (.docx)
+    public function exportWord(Request $request)
+    {
+        if (!class_exists(\PhpOffice\PhpWord\PhpWord::class)) {
+            return redirect()->back()
+                ->with('error', 'Brak pakietu "phpoffice/phpword". Zainstaluj go: composer require phpoffice/phpword');
+        }
+
+        $query = Part::with('category')->orderBy('name');
+
+        // Jeśli są zaznaczone IDs, filtruj tylko te
+        if ($request->filled('selected_ids')) {
+            $ids = array_filter(explode(',', $request->selected_ids));
+            $query->whereIn('id', $ids);
+        } else {
+            // W przeciwnym razie stosuj filtry
+            if ($request->filled('search')) {
+                $query->where('name', 'like', '%' . $request->search . '%');
+            }
+
+            if ($request->filled('category_id')) {
+                $query->where('category_id', $request->category_id);
+            }
+        }
+
+        $parts = $query->get();
+
+        try {
+            $phpWord = new \PhpOffice\PhpWord\PhpWord();
+            $section = $phpWord->addSection();
+
+            // Pobierz dane firmy z bazy danych
+            $companySettings = \App\Models\CompanySetting::first();
+            
+            // header: logo + company info (keeps aspect ratio by setting height on image)
+            $logoPath = $companySettings && $companySettings->logo 
+                ? storage_path('app/public/' . $companySettings->logo)
+                : public_path('logo.png');
+            
+            $header = $section->addHeader();
+            $headerTable = $header->addTable(['cellMargin' => 40]);
+            $headerTable->addRow();
+            if (file_exists($logoPath)) {
+                // logo cell: set height to ~1.2cm (≈34pt) and center vertically; add small top margin to visually center with text
+                $headerTable->addCell(1600, ['valign' => 'center'])->addImage($logoPath, [
+                    'height' => 34,
+                    'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT,
+                    'marginTop' => 6,
+                ]);
+            } else {
+                $headerTable->addCell(1600, ['valign' => 'center']);
+            }
+
+            // company info cell: expanded width so the three-line block fits neatly
+            $companyCell = $headerTable->addCell(8000, ['valign' => 'center']);
+            // Reduce font sizes and spacing so text does not appear larger than the logo
+            
+            // Użyj danych z bazy lub domyślnych
+            $companyName = $companySettings && $companySettings->name ? $companySettings->name : '3C Automation sp. z o. o.';
+            $companyAddress = $companySettings && $companySettings->address && $companySettings->city 
+                ? ($companySettings->address . ', ' . ($companySettings->postal_code ? $companySettings->postal_code . ' ' : '') . $companySettings->city)
+                : 'ul. Gliwicka 14, 44-167 Kleszczów';
+            $companyEmail = $companySettings && $companySettings->email ? $companySettings->email : 'biuro@3cautomation.eu';
+            
+            $companyCell->addText($companyName, ['bold' => true, 'size' => 10], ['spaceAfter' => 0]);
+            $companyCell->addText($companyAddress, ['size' => 9], ['spaceAfter' => 0]);
+            $companyCell->addLink('mailto:' . $companyEmail, $companyEmail, ['size' => 9, 'color' => '4B5563'], ['spaceAfter' => 0]);
+
+            // Info line with date (kept in body below header)
+            $infoText = 'Wygenerowano żądaną zawartość magazynu — ' . now()->format('Y-m-d H:i');
+            $section->addText($infoText, ['size' => 9, 'italic' => true], ['spaceAfter' => 200]);
+
+            // table style + header (gray palette)
+            $tableStyle = [
+                'borderSize' => 6,
+                'borderColor' => 'CCCCCC',
+                'cellMargin' => 80,
+            ];
+            $phpWord->addTableStyle('PartsTable', $tableStyle);
+            $table = $section->addTable('PartsTable');
+
+            // Compute max text lengths for Kategoria and Stan so their column widths match widest text
+            // Include header text length ("Kategoria" = 9 chars, "Stan" = 4 chars) so headers don't wrap
+            $maxCategoryLen = max(9, collect($parts)->map(function ($p) { return mb_strlen($p->category->name ?? '-', 'UTF-8'); })->max() ?: 1);
+            $maxStanLen = max(4, collect($parts)->map(function ($p) { return mb_strlen((string)($p->quantity ?? ''), 'UTF-8'); })->max() ?: 1);
+
+            // Approximate width per character in Word (dxa); use higher multiplier for bold headers with padding
+            $charWidth = 220; // increased for bold text + centered alignment + padding
+            $categoryWidth = max(900, $maxCategoryLen * $charWidth);
+            $stanWidth = max(1100, $maxStanLen * $charWidth); // increased minimum to ensure "Stan" header fits
+
+            // header row (modern gray with white text)
+            $table->addRow();
+            $cellStyleHeader = ['bgColor' => '4B5563']; // gray-600
+            $headerFont = ['bold' => true, 'color' => 'FFFFFF'];
+
+            // Use calculated widths for Kategoria and Stan; keep Opis as-is
+            $table->addCell(4500, $cellStyleHeader)->addText('Nazwa', $headerFont);
+            $table->addCell(8500, $cellStyleHeader)->addText('Opis', $headerFont);
+            $table->addCell($categoryWidth, $cellStyleHeader)->addText('Kategoria', $headerFont, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $table->addCell($stanWidth, $cellStyleHeader)->addText('Stan', $headerFont, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+
+            $rowIndex = 0;
+            foreach ($parts as $p) {
+                $rowIndex++;
+                $table->addRow();
+                // alternating subtle gray rows
+                $cellStyle = ($rowIndex % 2 === 0) ? ['bgColor' => 'F3F4F6'] : [];
+
+                $table->addCell(4500, $cellStyle)->addText($p->name);
+                $table->addCell(8500, $cellStyle)->addText($p->description ?? '-');
+                $table->addCell($categoryWidth, $cellStyle)->addText($p->category->name ?? '-', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $table->addCell($stanWidth, $cellStyle)->addText((string)$p->quantity, null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            }
+
+            $temp = tempnam(sys_get_temp_dir(), 'word');
+            $file = $temp . '.docx';
+            \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007')->save($file);
+
+            return response()->download($file, 'katalog.docx')->deleteFileAfterSend(true);
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Wystąpił błąd podczas generowania dokumentu: ' . $e->getMessage());
+        }
+    }
+
+    /* ===================== PODGLĄD (AJAX) ===================== */
+
+    // PODGLĄD STANU + OPISU PO NAZWIE
+    public function preview(Request $request)
+    {
+        $part = Part::where('name', $request->name)->first();
+
+        if (!$part) {
+            return response()->json([
+                'exists' => false,
+            ]);
+        }
+
+        return response()->json([
+            'exists'      => true,
+            'quantity'    => $part->quantity,
+            'description' => $part->description,
+        ]);
+    }
+
+    // Szukaj podobnych nazw (do sprawdzenia literówek)
+    public function searchSimilar(Request $request)
+    {
+        $inputName = $request->input('name', '');
+        
+        if (strlen($inputName) < 2) {
+            return response()->json(['similar' => []]);
+        }
+
+        // Znajdź wszystkie części i oblicz podobieństwo
+        $parts = Part::all();
+        $similar = [];
+
+        foreach ($parts as $part) {
+            $similarity = $this->stringSimilarity($inputName, $part->name);
+            // Jeśli podobieństwo >= 60%, dodaj do listy
+            if ($similarity >= 60) {
+                $similar[] = [
+                    'name' => $part->name,
+                    'quantity' => $part->quantity,
+                    'description' => $part->description,
+                    'similarity' => round($similarity, 0)
+                ];
+            }
+        }
+
+        // Posortuj po podobieństwie (malejąco)
+        usort($similar, function($a, $b) {
+            return $b['similarity'] - $a['similarity'];
+        });
+
+        return response()->json(['similar' => $similar]);
+    }
+
+    // Funkcja obliczająca podobieństwo stringów (podobna do Levenshtein)
+    private function stringSimilarity($str1, $str2)
+    {
+        $str1 = strtolower($str1);
+        $str2 = strtolower($str2);
+        
+        $len1 = strlen($str1);
+        $len2 = strlen($str2);
+        $maxLen = max($len1, $len2);
+        
+        if ($maxLen === 0) {
+            return 100;
+        }
+
+        $distance = levenshtein($str1, $str2);
+        return (1 - ($distance / $maxLen)) * 100;
+    }
+
+
+    /* ===================== AKCJE ===================== */
+
+    // DODAWANIE
+    public function add(Request $request)
+    {
+        $data = $request->validate([
+            'name'        => 'required|string',
+            'description' => 'nullable|string',
+            'supplier'    => 'nullable|string',
+            'quantity'    => 'required|integer|min:1',
+            'category_id' => 'required|exists:categories,id',
+            'net_price'   => 'nullable|numeric|min:0',
+            'currency'    => 'nullable|in:PLN,EUR,$',
+        ]);
+
+        // znajdź lub utwórz część
+        $part = Part::firstOrCreate(
+            ['name' => $data['name']],
+            [
+                'category_id' => $data['category_id'],
+                'description' => $data['description'] ?? null,
+                'supplier'    => $data['supplier'] ?? null,
+                'quantity'    => 0,
+                'net_price'   => $data['net_price'] ?? null,
+                'currency'    => $data['currency'] ?? 'PLN',
+            ]
+        );
+
+        // aktualizacja opisu, dostawcy, ceny i waluty (jeśli zmieniony / wpisany)
+        if (array_key_exists('description', $data)) {
+            $part->description = $data['description'];
+        }
+        if (array_key_exists('supplier', $data)) {
+            $part->supplier = $data['supplier'];
+        }
+        if (array_key_exists('net_price', $data)) {
+            $part->net_price = $data['net_price'];
+        }
+        if (array_key_exists('currency', $data)) {
+            $part->currency = $data['currency'];
+        }
+
+        // zwiększenie stanu
+        $part->quantity += (int) $data['quantity'];
+        $part->save();
+
+        // historia sesji (DODAJ)
+        session()->push('adds', [
+            'date'        => now()->format('Y-m-d H:i'),
+            'name'        => $part->name,
+            'description' => $part->description,
+            'changed'     => (int) $data['quantity'],
+            'after'       => $part->quantity,
+            'category'    => $part->category->name ?? '-',
+        ]);
+
+        // Sprawdź czy to request AJAX
+        if ($request->wantsJson() || $request->ajax() || $request->header('Accept') === 'application/json') {
+            return response()->json([
+                'success' => true, 
+                'message' => 'Produkt dodany',
+                'quantity' => $part->quantity
+            ]);
+        }
+
+        if ($request->input('redirect_to') === 'check') {
+            $queryParams = [];
+            if ($request->filled('search')) {
+                $queryParams['search'] = $request->input('search');
+            }
+            if ($request->filled('filter_category_id')) {
+                $queryParams['category_id'] = $request->input('filter_category_id');
+            }
+            return redirect()->route('magazyn.check', $queryParams);
+        }
+        return redirect()->route('magazyn.add');
+    }
+
+    // POBIERANIE
+    public function remove(Request $request)
+    {
+        $data = $request->validate([
+            'name'     => 'required|string',
+            'quantity' => 'required|integer|min:1',
+        ]);
+
+        $part = Part::where('name', $data['name'])->first();
+
+        if (!$part) {
+            // Sprawdź czy to request AJAX
+            if ($request->wantsJson() || $request->ajax() || $request->header('Accept') === 'application/json') {
+                return response()->json(['error' => 'Część nie istnieje'], 404);
+            }
+            return redirect()->back()
+                ->with('error', 'Część nie istnieje');
+        }
+
+        if ($data['quantity'] > $part->quantity) {
+            // Sprawdź czy to request AJAX
+            if ($request->wantsJson() || $request->ajax() || $request->header('Accept') === 'application/json') {
+                return response()->json(['error' => 'Za mało części w magazynie'], 422);
+            }
+            return redirect()->back()
+                ->with('error', 'Za mało części w magazynie');
+        }
+
+        $removed = (int) $data['quantity'];
+
+        // zmniejszenie stanu
+        $part->quantity -= $removed;
+        $part->save();
+
+        // Zapis do bazy danych
+        PartRemoval::create([
+            'user_id' => auth()->id(),
+            'part_id' => $part->id,
+            'part_name' => $part->name,
+            'description' => $part->description,
+            'quantity' => $removed,
+            'price' => $part->price ?? null,
+            'currency' => $part->currency ?? 'PLN',
+            'stock_after' => $part->quantity,
+        ]);
+
+        // historia sesji (POBIERZ) — 🔧 DODANY OPIS
+        session()->push('removes', [
+            'date'        => now()->format('Y-m-d H:i'),
+            'name'        => $part->name,
+            'description' => $part->description,
+            'changed'     => $removed,
+            'after'       => $part->quantity,
+        ]);
+
+        // Sprawdź czy to request AJAX
+        if ($request->wantsJson() || $request->ajax() || $request->header('Accept') === 'application/json') {
+            return response()->json([
+                'success' => true, 
+                'message' => 'Produkt pobrany',
+                'quantity' => $part->quantity
+            ]);
+        }
+
+        if ($request->input('redirect_to') === 'check') {
+            $queryParams = [];
+            if ($request->filled('search')) {
+                $queryParams['search'] = $request->input('search');
+            }
+            if ($request->filled('filter_category_id')) {
+                $queryParams['category_id'] = $request->input('filter_category_id');
+            }
+            return redirect()->route('magazyn.check', $queryParams);
+        }
+        return redirect()->back();
+    }
+
+    // USUWANIE CZĘŚCI (❌ z katalogu)
+    public function destroy(Part $part)
+    {
+        // Nie pozwalaj usunąć części, jeśli jej stan > 0
+        if ($part->quantity > 0) {
+            return redirect()->back()
+                ->with('error', "Nie można usunąć '{$part->name}' — stan wynosi {$part->quantity}. Najpierw zmniejsz stan na 0.");
+        }
+
+        $part->delete();
+
+        return redirect()->back()
+            ->with('success', 'Część została usunięta z magazynu');
+    }
+
+    // MASOWE USUWANIE CZĘŚCI
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'part_ids' => 'required|array',
+            'part_ids.*' => 'exists:parts,id',
+        ]);
+
+        // Rozdziel części na usuwalne (stan = 0) i nieusuwalne (stan > 0)
+        $removableParts = Part::whereIn('id', $request->part_ids)
+            ->where('quantity', 0)
+            ->get();
+
+        $unremovableParts = Part::whereIn('id', $request->part_ids)
+            ->where('quantity', '>', 0)
+            ->get();
+
+        // Usuń tylko części ze stanem 0
+        $count = $removableParts->count();
+        if ($count > 0) {
+            Part::whereIn('id', $removableParts->pluck('id'))->delete();
+        }
+
+        // Przygotuj komunikaty
+        $response = redirect()->back();
+        
+        if ($count > 0) {
+            $names = $removableParts->pluck('name')->implode(', ');
+            $response->with('success', "Usunięto: {$names}");
+        }
+
+        if ($unremovableParts->count() > 0) {
+            $unremovableCount = $unremovableParts->count();
+            $partWord = match($unremovableCount % 10) {
+                1 => 'część',
+                default => 'części'
+            };
+            $errorMsg = "Nie usunięto {$unremovableCount} {$partWord} – stan nie wynosi zero.";
+            $response->with('error', $errorMsg);
+        }
+
+        return $response;
+    }
+
+    // AKTUALIZACJA CENY PRODUKTU
+    public function updatePrice(Request $request, Part $part)
+    {
+        $request->validate([
+            'net_price' => 'nullable|numeric|min:0',
+            'currency' => 'required|in:PLN,EUR,$',
+        ]);
+
+        $part->net_price = $request->net_price;
+        $part->currency = $request->currency;
+        $part->save();
+
+        return redirect()->route('magazyn.check')->with('success', "Cena produktu \"{$part->name}\" została zaktualizowana.");
+    }
+
+    // DODAWANIE UŻYTKOWNIKA
+    public function addUser(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|unique:users',
+            'email' => 'required|email|unique:users',
+            'phone' => 'nullable|string',
+            'password' => 'nullable|string',
+        ]);
+
+        User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'password' => $request->password ? Hash::make($request->password) : Hash::make(Str::random(32)),
+            'can_view_catalog' => true, // Domyślnie dostęp do katalogu
+        ]);
+
+        // Wyczyść stare wartości z sesji
+        $request->session()->forget('_old_input');
+
+        return redirect()->route('magazyn.settings')->with('success', "Użytkownik \"{$request->name}\" został dodany.");
+    }
+
+    // USUWANIE UŻYTKOWNIKA
+    public function deleteUser(User $user)
+    {
+        // Nie pozwalaj usunąć Admina
+        if ($user->is_admin) {
+            return redirect()->route('magazyn.settings')->with('error', 'Nie można usunąć konta Admin!');
+        }
+
+        $name = $user->name;
+        $user->delete();
+
+        return redirect()->route('magazyn.settings')->with('success', "Użytkownik \"{$name}\" został usunięty.");
+    }
+
+    // EDYCJA UŻYTKOWNIKA - WIDOK
+    public function editUserView(User $user)
+    {
+        return view('parts.user-edit', [
+            'user' => $user,
+        ]);
+    }
+
+    // EDYCJA UŻYTKOWNIKA - AKTUALIZACJA
+    public function updateUser(Request $request, User $user)
+    {
+        $request->validate([
+            'name' => 'required|string|unique:users,name,' . $user->id,
+            'email' => 'required|email|unique:users,email,' . $user->id,
+            'phone' => 'nullable|string',
+            'password' => 'nullable|string',
+        ]);
+
+        // Zaktualizuj nazwę, email i telefon
+        $user->name = $request->name;
+        $user->email = $request->email;
+        $user->phone = $request->phone;
+
+        // Zaktualizuj hasło jeśli zostało podane
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+        }
+
+        // Zaktualizuj uprawnienia (konwertuj na int dla boolean kolumn)
+        $user->can_view_catalog = (int) $request->has('can_view_catalog');
+        $user->can_add = (int) $request->has('can_add');
+        $user->can_remove = (int) $request->has('can_remove');
+        $user->can_orders = (int) $request->has('can_orders');
+        $user->can_settings = (int) $request->has('can_settings');
+        $user->can_delete_orders = (int) $request->has('can_delete_orders');
+
+        $user->save();
+
+        return redirect()->route('magazyn.settings')->with('success', "Użytkownik \"{$user->name}\" został zaktualizowany.");
+    }
+
+    // DODAJ DOSTAWCĘ
+    public function addSupplier(Request $request)
+    {
+        // Usuń myślniki z NIP przed walidacją
+        $nipClean = null;
+        $nipFormatted = null;
+        if ($request->has('nip') && $request->nip) {
+            $nipClean = str_replace('-', '', $request->nip);
+            
+            // Sformatuj NIP z myślnikami
+            if (strlen($nipClean) === 10) {
+                $nipFormatted = substr($nipClean, 0, 3) . '-' . 
+                                substr($nipClean, 3, 3) . '-' . 
+                                substr($nipClean, 6, 2) . '-' . 
+                                substr($nipClean, 8, 2);
+                
+                // Sprawdź czy NIP z myślnikami już istnieje w bazie
+                $existingSupplier = \App\Models\Supplier::where('nip', $nipFormatted)->first();
+                if ($existingSupplier) {
+                    return redirect()->back()
+                        ->withErrors(['nip' => 'Dostawca o podanym NIP-ie już istnieje w bazie danych.'])
+                        ->withInput();
+                }
+            }
+            
+            $request->merge(['nip' => $nipClean]);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'short_name' => 'nullable|string|max:100',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'nip' => 'nullable|digits:10',
+            'address' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:255',
+            'postal_code' => 'nullable|string|max:10',
+            'phone' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:255',
+        ]);
+
+        // Użyj sformatowanego NIP-u
+        if ($nipFormatted) {
+            $validated['nip'] = $nipFormatted;
+        }
+
+        // Obsługa uploadu loga
+        if ($request->hasFile('logo')) {
+            $logoPath = $request->file('logo')->store('supplier_logos', 'public');
+            $validated['logo'] = $logoPath;
+        }
+
+        $supplier = \App\Models\Supplier::create($validated);
+
+        return redirect()->route('magazyn.settings')->with('success', 'Dostawca "' . $supplier->name . '" został dodany.');
+    }
+
+    // USUŃ DOSTAWCĘ
+    public function deleteSupplier(\App\Models\Supplier $supplier)
+    {
+        $name = $supplier->name;
+        $supplier->delete();
+
+        return redirect()->route('magazyn.settings')->with('success', "Dostawca \"{$name}\" został usunięty.");
+    }
+
+    // POBIERZ DANE DOSTAWCY PO NIP
+    public function fetchSupplierByNip(Request $request)
+    {
+        $nip = $request->get('nip');
+        
+        if (!$nip || strlen($nip) !== 10) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nieprawidłowy NIP'
+            ]);
+        }
+
+        // Funkcja formatująca nazwę firmy
+        $formatCompanyName = function($name) {
+            $name = str_replace('SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ', 'SP. Z O. O.', $name);
+            $name = str_replace('SPÓŁKA AKCYJNA', 'S.A.', $name);
+            return $name;
+        };
+
+        // Funkcja formatująca NIP (xxx-xxx-xx-xx)
+        $formatNip = function($nip) {
+            if (strlen($nip) === 10) {
+                return substr($nip, 0, 3) . '-' . substr($nip, 3, 3) . '-' . substr($nip, 6, 2) . '-' . substr($nip, 8, 2);
+            }
+            return $nip;
+        };
+
+        try {
+            // Próba 1: API CEIDG - zwraca telefon i email (dla JDG)
+            $url = "https://dane.biznes.gov.pl/api/ceidg/v2/firmy?nip={$nip}&status=aktywny";
+            
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Accept: application/json',
+                'User-Agent: Mozilla/5.0'
+            ]);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+            
+            \Log::info('CEIDG API Response', ['code' => $httpCode, 'response' => $response, 'error' => $curlError]);
+            
+            if ($httpCode === 200 && $response) {
+                $data = json_decode($response, true);
+                
+                if (!empty($data['firmy']) && isset($data['firmy'][0])) {
+                    $company = $data['firmy'][0];
+                    
+                    // Budowanie adresu
+                    $address = trim(
+                        ($company['adres']['ulica'] ?? '') . ' ' . 
+                        ($company['adres']['nrNieruchomosci'] ?? '') . 
+                        (isset($company['adres']['nrLokalu']) ? '/' . $company['adres']['nrLokalu'] : '')
+                    );
+                    
+                    // Pobierz telefon i email
+                    $phone = '';
+                    $email = '';
+                    
+                    if (!empty($company['telefony'])) {
+                        $phone = is_array($company['telefony']) ? $company['telefony'][0] : $company['telefony'];
+                    }
+                    
+                    if (!empty($company['adresy_email'])) {
+                        $email = is_array($company['adresy_email']) ? $company['adresy_email'][0] : $company['adresy_email'];
+                    }
+                    
+                    return response()->json([
+                        'success' => true,
+                        'data' => [
+                            'name' => $formatCompanyName($company['nazwa'] ?? ''),
+                            'nip' => $formatNip($nip),
+                            'address' => trim($address),
+                            'city' => $company['adres']['miejscowosc'] ?? '',
+                            'postal_code' => $company['adres']['kodPocztowy'] ?? '',
+                            'phone' => $phone,
+                            'email' => $email,
+                        ],
+                        'message' => 'Dane pobrane z CEIDG (z telefonem i emailem)'
+                    ]);
+                }
+            }
+            
+            // Próba 2: API białej listy VAT (dla wszystkich firm, ale bez telefonu/emaila)
+            $url = "https://wl-api.mf.gov.pl/api/search/nip/{$nip}?date=" . date('Y-m-d');
+            
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+            
+            if ($httpCode === 200 && $response) {
+                $data = json_decode($response, true);
+                
+                \Log::info('Biała lista VAT Response', ['data' => $data]);
+                
+                if (isset($data['result']['subject'])) {
+                    $subject = $data['result']['subject'];
+                    $address = '';
+                    $city = '';
+                    $postalCode = '';
+                    
+                    // Parsowanie adresu - API zwraca go jako string "ULICA NR, KOD MIASTO"
+                    $addressString = $subject['workingAddress'] ?? $subject['residenceAddress'] ?? '';
+                    
+                    if ($addressString) {
+                        // Format: "TARNOGÓRSKA 9, 42-677 SZAŁSZA"
+                        $parts = explode(',', $addressString, 2);
+                        $address = trim($parts[0] ?? ''); // "TARNOGÓRSKA 9"
+                        
+                        if (isset($parts[1])) {
+                            // "42-677 SZAŁSZA"
+                            $cityPart = trim($parts[1]);
+                            if (preg_match('/^(\d{2}-\d{3})\s+(.+)$/', $cityPart, $matches)) {
+                                $postalCode = $matches[1]; // "42-677"
+                                $city = $matches[2];       // "SZAŁSZA"
+                            } else {
+                                $city = $cityPart;
+                            }
+                        }
+                    }
+                    
+                    return response()->json([
+                        'success' => true,
+                        'data' => [
+                            'name' => $formatCompanyName($subject['name'] ?? ''),
+                            'nip' => $formatNip($nip),
+                            'address' => $address,
+                            'city' => $city,
+                            'postal_code' => $postalCode,
+                            'phone' => '',
+                            'email' => '',
+                        ],
+                        'message' => 'Dane pobrane z białej listy VAT (bez telefonu i emaila)'
+                    ]);
+                }
+            }
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Nie znaleziono firmy o podanym NIP. Sprawdź NIP lub dodaj dane ręcznie.'
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Błąd podczas pobierania danych: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    // CZYSZCZENIE HISTORII SESJI
+    public function clearSession(Request $request)
+    {
+        $type = $request->input('type', 'adds');
+        
+        if ($type === 'removes') {
+            session()->forget('removes');
+            $message = 'Historia pobrań została wyczyszczona.';
+        } else {
+            session()->forget('adds');
+            $message = 'Historia dodań została wyczyszczona.';
+        }
+        
+        return redirect()->back()->with('success', $message);
+    }
+
+    // ZAPIS DANYCH FIRMY
+    public function saveCompanySettings(Request $request)
+    {
+        $request->validate([
+            'name' => 'nullable|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:255',
+            'postal_code' => 'nullable|string|max:20',
+            'nip' => 'nullable|string|max:20',
+            'phone' => 'nullable|string|max:50',
+            'email' => 'nullable|email|max:255',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+        ]);
+
+        $companySetting = \App\Models\CompanySetting::firstOrNew(['id' => 1]);
+        
+        $companySetting->name = $request->name;
+        $companySetting->address = $request->address;
+        $companySetting->city = $request->city;
+        $companySetting->postal_code = $request->postal_code;
+        $companySetting->nip = $request->nip;
+        $companySetting->phone = $request->phone;
+        $companySetting->email = $request->email;
+
+        if ($request->hasFile('logo')) {
+            $logoPath = $request->file('logo')->store('logos', 'public');
+            $companySetting->logo = $logoPath;
+        }
+
+        $companySetting->save();
+
+        return redirect()->route('magazyn.settings')->with('success', 'Dane firmy zostały zapisane.');
+    }
+
+    // ZAPIS USTAWIEŃ ZAMÓWIEŃ
+    public function saveOrderSettings(Request $request)
+    {
+        $validated = $request->validate([
+            'element1_type' => 'nullable|string|max:50',
+            'element1_value' => 'nullable|string|max:255',
+            'separator1' => 'nullable|string|max:5',
+            'element2_type' => 'nullable|string|max:50',
+            'element2_value' => 'nullable|string|max:255',
+            'separator2' => 'nullable|string|max:5',
+            'element3_type' => 'nullable|string|max:50',
+            'element3_value' => 'nullable|string|max:255',
+            'element3_digits' => 'nullable|integer|min:1|max:5',
+            'start_number' => 'nullable|integer|min:0',
+            'separator3' => 'nullable|string|max:5',
+            'element4_type' => 'nullable|string|max:50',
+            'element4_value' => 'nullable|string|max:255',
+            'separator4' => 'nullable|string|max:5',
+        ]);
+
+        // Usuń wszystkie poprzednie ustawienia i stwórz nowe (zawsze tylko 1 rekord)
+        \DB::table('order_settings')->truncate();
+        \DB::table('order_settings')->insert($validated);
+
+        return redirect()->route('magazyn.settings')->with('success', 'Konfiguracja zamówień została zapisana.');
+    }
+
+    // UTWÓRZ ZAMÓWIENIE - GENERUJ DOKUMENT WORD
+    public function createOrder(Request $request)
+    {
+        $request->validate([
+            'order_name' => 'required|string|max:255',
+            'products' => 'required|array|min:1',
+            'products.*.name' => 'required|string',
+            'products.*.supplier' => 'nullable|string',
+            'products.*.quantity' => 'required|integer|min:1',
+            'supplier' => 'nullable|string',
+            'supplier_offer_number' => 'nullable|string',
+            'payment_method' => 'nullable|string',
+            'payment_days' => 'nullable|string',
+            'delivery_time' => 'nullable|string',
+            'increment_counter' => 'nullable|boolean',
+        ]);
+
+        $orderNameTemplate = $request->input('order_name');
+        $supplierName = $request->input('supplier');
+        $products = $request->input('products');
+        
+        // Generuj rzeczywistą nazwę zamówienia
+        $orderName = $this->generateRealOrderName($orderNameTemplate, $supplierName);
+
+        // Tworzenie dokumentu Word
+        $phpWord = new \PhpOffice\PhpWord\PhpWord();
+        
+        // Dodaj sekcję
+        $section = $phpWord->addSection();
+        
+        // Pobierz dane firmy z bazy danych
+        $companySettings = \App\Models\CompanySetting::first();
+        
+        // Pobierz dane dostawcy z bazy danych
+        $supplier = null;
+        if (!empty($supplierName)) {
+            $supplier = \App\Models\Supplier::where('name', $supplierName)->first();
+        }
+        
+        // HEADER - tylko dane Mojej Firmy
+        $logoPath = $companySettings && $companySettings->logo 
+            ? storage_path('app/public/' . $companySettings->logo)
+            : public_path('logo.png');
+        
+        $header = $section->addHeader();
+        $headerTable = $header->addTable(['cellMargin' => 40]);
+        $headerTable->addRow();
+        
+        if (file_exists($logoPath)) {
+            $headerTable->addCell(1600, ['valign' => 'center'])->addImage($logoPath, [
+                'height' => 34,
+                'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT,
+                'marginTop' => 6,
+            ]);
+        } else {
+            $headerTable->addCell(1600, ['valign' => 'center']);
+        }
+
+        $companyCell = $headerTable->addCell(8000, ['valign' => 'center']);
+        
+        $companyName = $companySettings && $companySettings->name ? $companySettings->name : '3C Automation sp. z o. o.';
+        $companyAddress = $companySettings && $companySettings->address && $companySettings->city 
+            ? ('Ul. ' . $companySettings->address . ', ' . ($companySettings->postal_code ? $companySettings->postal_code . ' ' : '') . $companySettings->city)
+            : 'ul. Gliwicka 14, 44-167 Kleszczów';
+        $companyEmail = $companySettings && $companySettings->email ? $companySettings->email : 'biuro@3cautomation.eu';
+        
+        $companyCell->addText($companyName, ['bold' => true, 'size' => 10], ['spaceAfter' => 0]);
+        $companyCell->addText($companyAddress, ['size' => 9], ['spaceAfter' => 0]);
+        $companyCell->addLink('mailto:' . $companyEmail, $companyEmail, ['size' => 9, 'color' => '4B5563'], ['spaceAfter' => 0]);
+        
+        // FOOTER - Stopka z informacją o zakazie kopiowania
+        $footer = $section->addFooter();
+        $footer->addText(
+            'Dokumentu nie wolno kopiować ani rozpowszechniać bez zgody ' . $companyName,
+            ['size' => 8, 'italic' => true, 'color' => '666666'],
+            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
+        );
+        
+        // Data z miejscowością w prawym górnym rogu
+        $companyCity = $companySettings && $companySettings->city ? $companySettings->city : 'Kleszczów';
+        $dateText = $companyCity . ', ' . now()->format('d.m.Y');
+        $section->addText(
+            $dateText,
+            ['size' => 10],
+            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT, 'spaceAfter' => 0]
+        );
+        
+        // BODY - Dane dostawcy po prawej stronie (jeśli są)
+        if ($supplier) {
+            // Przerwa przed danymi dostawcy (1 linijka)
+            $section->addTextBreak(1);
+            
+            $mainTable = $section->addTable(['cellMargin' => 40]);
+            $mainTable->addRow();
+            
+            // Pusta komórka po lewej dla wyrównania do prawej
+            $mainTable->addCell(5000, ['valign' => 'top']);
+            
+            // Dane dostawcy
+            $supplierDataCell = $mainTable->addCell(5200, ['valign' => 'top']);
+            
+            if ($supplier->name) {
+                $supplierDataCell->addText($supplier->name, ['bold' => true, 'size' => 10], ['spaceAfter' => 0, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            }
+            
+            if ($supplier->nip) {
+                $supplierDataCell->addText('NIP: ' . $supplier->nip, ['size' => 9], ['spaceAfter' => 0, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            }
+            
+            if ($supplier->address) {
+                $supplierDataCell->addText('Ul. ' . $supplier->address, ['size' => 9], ['spaceAfter' => 0, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            }
+            
+            if ($supplier->postal_code || $supplier->city) {
+                $cityLine = trim(($supplier->postal_code ?? '') . ' ' . ($supplier->city ?? ''));
+                $supplierDataCell->addText($cityLine, ['size' => 9], ['spaceAfter' => 0, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            }
+            
+            if ($supplier->email) {
+                $supplierDataCell->addLink('mailto:' . $supplier->email, $supplier->email, ['size' => 9, 'color' => '4B5563'], ['spaceAfter' => 100, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            }
+            
+            // Logo dostawcy poniżej (jeśli jest) - maksymalnie do prawej
+            $supplierLogoPath = $supplier->logo ? storage_path('app/public/' . $supplier->logo) : null;
+            if ($supplierLogoPath && file_exists($supplierLogoPath)) {
+                $supplierDataCell->addImage($supplierLogoPath, [
+                    'height' => 40,
+                    'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT,
+                    'wrappingStyle' => 'inline'
+                ]);
+            }
+            
+            $section->addTextBreak(1);
+        }
+        
+        // Zamówienie wycentrowane poniżej
+        $section->addText(
+            'Zamówienie: ' . $orderName,
+            ['bold' => true, 'size' => 14],
+            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER, 'spaceAfter' => 200]
+        );
+        
+        // Oblicz maksymalną długość dla kolumny Ilość
+        $maxQuantityLen = max(5, collect($products)->map(function ($p) { 
+            return mb_strlen((string)($p['quantity'] ?? ''), 'UTF-8'); 
+        })->max() ?: 1);
+        $quantityWidth = max(800, $maxQuantityLen * 200);
+        
+        // Tabela z produktami
+        $table = $section->addTable([
+            'borderSize' => 6,
+            'borderColor' => 'CCCCCC',
+            'cellMargin' => 40,
+        ]);
+        
+        // Nagłówek tabeli - szary 200
+        $table->addRow();
+        $cellStyleHeader = ['bgColor' => 'E0E0E0', 'valign' => 'center'];
+        $table->addCell(3500, $cellStyleHeader)->addText('Produkt', ['bold' => true, 'size' => 9]);
+        $table->addCell(2500, $cellStyleHeader)->addText('Dostawca', ['bold' => true, 'size' => 9]);
+        $table->addCell($quantityWidth, $cellStyleHeader)->addText('Ilość', ['bold' => true, 'size' => 9]);
+        
+        // Wiersze z produktami - co drugi szary 100
+        $rowIndex = 0;
+        foreach ($products as $product) {
+            $rowIndex++;
+            $table->addRow();
+            
+            // Co drugi wiersz szary
+            $cellStyle = ($rowIndex % 2 === 0) ? ['bgColor' => 'F5F5F5', 'valign' => 'center'] : ['valign' => 'center'];
+            
+            $table->addCell(3500, $cellStyle)->addText($product['name'], ['size' => 9]);
+            
+            // Pobierz skróconą nazwę dostawcy z bazy danych
+            $supplierShortName = '-';
+            if (!empty($product['supplier'])) {
+                $supplier = \App\Models\Supplier::where('name', $product['supplier'])->first();
+                if ($supplier && !empty($supplier->short_name)) {
+                    $supplierShortName = $supplier->short_name;
+                } elseif ($supplier) {
+                    $supplierShortName = $supplier->name;
+                } else {
+                    // Jeśli nie znaleziono w bazie, użyj tego co przyszło
+                    $supplierShortName = $product['supplier'];
+                }
+            }
+            
+            $table->addCell(2500, $cellStyle)->addText($supplierShortName, ['size' => 9]);
+            $table->addCell($quantityWidth, $cellStyle)->addText((string)$product['quantity'], ['size' => 9]);
+        }
+        
+        // Opis i zakres zamówienia
+        $section->addTextBreak(1);
+        $section->addText('Opis i zakres zamówienia:', ['bold' => true, 'size' => 11], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+        $section->addTextBreak(3);
+        
+        // Kreska przerywana - używamy tekstu z ciągiem myślników
+        $section->addText(
+            str_repeat('- ', 80),
+            ['size' => 8, 'color' => '999999'],
+            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]
+        );
+        
+        // Informacje pod tabelką
+        $section->addTextBreak(1);
+        
+        $deliveryTime = $request->input('delivery_time');
+        if (!empty($deliveryTime)) {
+            $section->addText('Termin dostawy: ' . $deliveryTime, ['size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+        }
+        
+        $supplierOfferNumber = $request->input('supplier_offer_number');
+        if (!empty($supplierOfferNumber)) {
+            $section->addText('Oferta dostawcy: ' . $supplierOfferNumber, ['size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+        }
+        
+        $paymentMethod = $request->input('payment_method');
+        if (!empty($paymentMethod)) {
+            $paymentText = 'Rodzaj płatności: ' . $paymentMethod;
+            if ($paymentMethod === 'przelew') {
+                $paymentDays = $request->input('payment_days', '30 dni');
+                $paymentText .= ' (' . $paymentDays . ')';
+            }
+            $section->addText($paymentText, ['size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+        }
+        
+        // Informacja o kontakcie - na samym dole strony
+        $section->addTextBreak(4);
+        
+        // Pobierz dane zalogowanego użytkownika
+        $user = auth()->user();
+        $userName = $user ? $user->name : '';
+        $userEmail = $user ? $user->email : '';
+        $userPhone = $user ? $user->phone : '';
+        
+        $section->addText(
+            'W razie problemów z realizacją zamówienia prosimy o kontakt z osobą składającą zamówienie:',
+            ['size' => 9, 'italic' => true],
+            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT, 'spaceAfter' => 0]
+        );
+        
+        // Pozdrowienia na samym dole
+        $section->addTextBreak(1);
+        $section->addText('Pozdrawiam:', ['size' => 11], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT, 'spaceAfter' => 0]);
+        if (!empty($userName)) {
+            $section->addText($userName, ['size' => 11], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT, 'spaceAfter' => 0]);
+        }
+        if (!empty($userEmail)) {
+            $section->addText('email: ' . $userEmail, ['size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT, 'spaceAfter' => 0]);
+        }
+        if (!empty($userPhone)) {
+            $section->addText('nr. tel.: ' . $userPhone, ['size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT, 'spaceAfter' => 0]);
+        }
+        
+        // Nazwa pliku (bezpieczna dla systemu plików) - używamy już przetworzonej nazwy z zamienioną nazwą dostawcy
+        $fileName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $orderName) . '.docx';
+        
+        // Zapisz do tymczasowego pliku
+        $tempFile = tempnam(sys_get_temp_dir(), 'order_');
+        $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+        $objWriter->save($tempFile);
+        
+        // Zwiększ numer zamówienia w bazie danych (tylko jeśli nazwa nie została zmieniona ręcznie)
+        $shouldIncrement = $request->input('increment_counter', true);
+        if ($shouldIncrement) {
+            $orderSettings = \DB::table('order_settings')->first();
+            if ($orderSettings && $orderSettings->element3_type === 'number') {
+                \DB::table('order_settings')->update([
+                    'start_number' => ($orderSettings->start_number ?? 1) + 1
+                ]);
+            }
+        }
+        
+        // Zapisz zamówienie w bazie danych
+        \App\Models\Order::create([
+            'order_number' => $orderName,
+            'supplier' => $supplierName,
+            'products' => $products,
+            'issued_at' => now(),
+            'user_id' => auth()->id(),
+        ]);
+        
+        // Zwróć plik do pobrania
+        return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
+    }
+    
+    // Generuj rzeczywistą nazwę zamówienia ze skróconą nazwą dostawcy
+    private function generateRealOrderName($template, $supplierName)
+    {
+        if (empty($supplierName)) {
+            return $template;
+        }
+        
+        // Pobierz skróconą nazwę dostawcy
+        $supplier = \App\Models\Supplier::where('name', $supplierName)->first();
+        $shortName = $supplier && !empty($supplier->short_name) ? $supplier->short_name : $supplierName;
+        
+        // Zamień "DOSTAWCA" na rzeczywistą skróconą nazwę
+        return str_replace('DOSTAWCA', $shortName, $template);
+    }
+    
+    // Pobierz następną nazwę zamówienia (dla odświeżenia po utworzeniu zamówienia)
+    public function getNextOrderName(Request $request)
+    {
+        $orderSettings = \DB::table('order_settings')->first();
+        $supplierName = $request->input('supplier', '');
+        $shouldIncrement = $request->input('increment', 0);
+        
+        // Jeśli flaga increment=1, zwiększ licznik teraz
+        if ($shouldIncrement && $orderSettings && $orderSettings->element3_type === 'number') {
+            \DB::table('order_settings')->update([
+                'start_number' => ($orderSettings->start_number ?? 1) + 1
+            ]);
+            // Pobierz zaktualizowane ustawienia
+            $orderSettings = \DB::table('order_settings')->first();
+        }
+        
+        if (!$orderSettings) {
+            return response()->json(['order_name' => 'Nie skonfigurowano']);
+        }
+        
+        // Generuj nazwę używając tej samej logiki co w widoku
+        $orderName = $this->generateOrderNamePreview($orderSettings, $supplierName);
+        
+        return response()->json(['order_name' => $orderName]);
+    }
+    
+    // Generuj podgląd nazwy zamówienia (ta sama logika co w Blade)
+    private function generateOrderNamePreview($settings, $supplierName = '')
+    {
+        $parts = [];
+        
+        // Element 1
+        if (isset($settings->element1_type) && $settings->element1_type !== 'empty') {
+            $parts[] = $this->generateElementValue($settings->element1_type, $settings->element1_value ?? null, $settings);
+        }
+        
+        // Separator 1
+        if (!empty($parts) && isset($settings->element2_type) && $settings->element2_type !== 'empty') {
+            $parts[] = $settings->separator1 ?? '_';
+        }
+        
+        // Element 2
+        if (isset($settings->element2_type) && $settings->element2_type !== 'empty') {
+            $parts[] = $this->generateElementValue($settings->element2_type, $settings->element2_value ?? null, $settings);
+        }
+        
+        // Separator 2
+        if (!empty($parts) && isset($settings->element3_type) && $settings->element3_type !== 'empty') {
+            $parts[] = $settings->separator2 ?? '_';
+        }
+        
+        // Element 3
+        if (isset($settings->element3_type) && $settings->element3_type !== 'empty') {
+            $parts[] = $this->generateElementValue($settings->element3_type, $settings->element3_value ?? null, $settings);
+        }
+        
+        // Separator 3
+        if (!empty($parts) && isset($settings->element4_type) && $settings->element4_type !== 'empty') {
+            $parts[] = $settings->separator3 ?? '_';
+        }
+        
+        // Element 4
+        if (isset($settings->element4_type) && $settings->element4_type !== 'empty') {
+            $value = $settings->element4_type === 'supplier_short_name' ? $supplierName : null;
+            $parts[] = $this->generateElementValue($settings->element4_type, $value, $settings);
+        }
+        
+        return implode('', array_filter($parts, fn($p) => $p !== null && $p !== ''));
+    }
+    
+    private function generateElementValue($type, $value, $settings)
+    {
+        switch($type) {
+            case 'text':
+                return $value ?? 'Tekst';
+            case 'date':
+                $format = $value ?? 'yyyy-mm-dd';
+                if ($format === 'yyyymmdd') {
+                    return date('Ymd');
+                }
+                return date('Y-m-d');
+            case 'time':
+                $format = $value ?? 'hh-mm-ss';
+                if ($format === 'hhmmss') {
+                    return date('His');
+                } elseif ($format === 'hh-mm') {
+                    return date('H-i');
+                } elseif ($format === 'hh') {
+                    return date('H');
+                }
+                return date('H-i-s');
+            case 'number':
+                $digits = $settings->element3_digits ?? 4;
+                $start = $settings->start_number ?? 1;
+                return str_pad($start, $digits, '0', STR_PAD_LEFT);
+            case 'supplier_short_name':
+                if (empty($value)) {
+                    return 'DOSTAWCA';
+                }
+                $supplier = \App\Models\Supplier::where('name', $value)->first();
+                return $supplier && !empty($supplier->short_name) ? $supplier->short_name : ($value ?? 'DOSTAWCA');
+            default:
+                return '';
+        }
+    }
+    
+    // Usuń zamówienie
+    public function deleteOrder(\App\Models\Order $order)
+    {
+        $order->delete();
+        return response()->json(['success' => true, 'message' => 'Zamówienie zostało usunięte']);
+    }
+
+    // Usuń wiele zamówień
+    public function deleteMultipleOrders(Request $request)
+    {
+        $data = $request->validate([
+            'order_ids' => 'required|array',
+            'order_ids.*' => 'required|integer|exists:orders,id'
+        ]);
+
+        $deleted = \App\Models\Order::whereIn('id', $data['order_ids'])->delete();
+
+        return response()->json([
+            'success' => true, 
+            'message' => 'Zamówienia zostały usunięte',
+            'deleted' => $deleted
+        ]);
+    }
+
+    // Przyjmij zamówienie
+    public function receiveOrder(\App\Models\Order $order)
+    {
+        // Sprawdź czy zamówienie już zostało przyjęte
+        if ($order->status === 'received') {
+            return response()->json([
+                'success' => false,
+                'message' => 'To zamówienie zostało już przyjęte'
+            ], 400);
+        }
+
+        // Pobierz produkty z zamówienia
+        $products = $order->products;
+
+        if (!is_array($products) || empty($products)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Brak produktów w zamówieniu'
+            ], 400);
+        }
+
+        // Dodaj produkty do magazynu
+        foreach ($products as $product) {
+            $partName = $product['name'] ?? null;
+            $quantity = $product['quantity'] ?? 0;
+            $supplier = $product['supplier'] ?? null;
+            $price = $product['price'] ?? null;
+            $currency = $product['currency'] ?? 'PLN';
+
+            if (!$partName || $quantity <= 0) {
+                continue;
+            }
+
+            // Znajdź część w bazie
+            $part = Part::where('name', $partName)->first();
+
+            if ($part) {
+                // Jeśli część istnieje, zwiększ stan
+                $part->quantity += $quantity;
+                
+                // Zaktualizuj dostawcę i cenę jeśli są podane
+                if ($supplier) {
+                    $part->supplier = $supplier;
+                }
+                if ($price) {
+                    $part->net_price = $price;
+                    $part->currency = $currency;
+                }
+                
+                $part->save();
+            } else {
+                // Jeśli część nie istnieje, możesz ją utworzyć lub pominąć
+                // Na razie pomijamy - można dodać tworzenie nowej części
+                continue;
+            }
+        }
+
+        // Zaktualizuj status zamówienia
+        $order->status = 'received';
+        $order->received_at = now();
+        $order->received_by_user_id = auth()->id();
+        $order->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Zamówienie zostało przyjęte i produkty dodane do magazynu'
+        ]);
+    }
+}
