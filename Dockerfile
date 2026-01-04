@@ -1,4 +1,3 @@
-
 FROM php:8.2-cli
 
 # Wymuszenie rebuildu warstwy Node.js - force rebuild 2025-01-04
@@ -38,7 +37,7 @@ RUN php -m && php -i
 #
 # Railway rebuild trigger
 
-CMD php artisan config:clear && php artisan storage:link && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8080
+CMD php artisan config:clear && php artisan storage:link && php artisan migrate --force && php artisan db:seed --force && php artisan serve --host=0.0.0.0 --port=8080
 
 
 # force rebuild
