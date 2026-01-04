@@ -11,14 +11,11 @@ COPY . /app
 RUN mkdir -p /app/bootstrap/cache && chmod -R 777 /app/bootstrap/cache
 
 RUN apt-get update \
-    # Instalacja Node.js i npm na samym początku
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
+    && apt-get install -y nodejs git unzip libpng-dev libonig-dev libxml2-dev libjpeg-dev libzip-dev zip curl \
     && echo "NODEJS INSTALLED" \
     && echo "Node version: $(node -v)" \
     && echo "NPM version: $(npm -v)" \
-    # Dalej reszta zależności
-    && apt-get install -y git unzip libpng-dev libonig-dev libxml2-dev libjpeg-dev libzip-dev zip curl \
     && docker-php-ext-configure gd --with-jpeg \
     && docker-php-ext-install gd zip \
     # --- force rebuild ---
