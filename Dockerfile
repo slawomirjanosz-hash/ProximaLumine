@@ -30,8 +30,7 @@ RUN apt-get update \
     && npm install \
     && npm run build \
     && php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache
+    && php artisan route:cache
     
 
 # Railway rebuild trigger
