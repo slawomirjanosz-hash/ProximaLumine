@@ -11,6 +11,7 @@ COPY . /app
 
 RUN mkdir -p /app/bootstrap/cache && chmod -R 777 /app/bootstrap/cache
 
+# FORCE REBUILD 2025-01-04-15-35 - Install Node.js before apt-get install
 RUN apt-get update \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs git unzip libpng-dev libonig-dev libxml2-dev libjpeg-dev libzip-dev zip curl \
