@@ -68,16 +68,6 @@
                     Zaloguj się
                 </button>
             </form>
-
-            <div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <p class="text-gray-700 text-sm"><strong>Konto testowe:</strong></p>
-                <p class="text-gray-600 text-sm">Email: test@example.com</p>
-                <p class="text-gray-600 text-sm">Hasło: password</p>
-                
-                <p class="text-gray-700 text-sm mt-3"><strong>Konto Admin:</strong></p>
-                <p class="text-gray-600 text-sm">Email: slawomir.janosz@gmail.com</p>
-                <p class="text-gray-600 text-sm">Hasło: admin</p>
-            </div>
         </div>
     </div>
 </body>
