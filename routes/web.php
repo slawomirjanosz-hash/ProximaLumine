@@ -4,6 +4,17 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PartController;
 use App\Http\Controllers\AuthController;
 
+// TEST ENDPOINT
+Route::get('/test', function () {
+    return response()->json([
+        'status' => 'OK',
+        'message' => 'Laravel działa!',
+        'env' => config('app.env'),
+        'debug' => config('app.debug'),
+        'db' => DB::connection()->getPdo() ? 'DB connected' : 'DB failed'
+    ]);
+});
+
 // STRONA STARTOWA
 Route::get('/', function () {
     return view('welcome');
