@@ -21,8 +21,8 @@ RUN apt-get update \
     && docker-php-ext-configure gd --with-jpeg \
     && docker-php-ext-install gd zip \
     # --- force rebuild ---
-    && mkdir -p bootstrap/cache \
-    && chmod -R 777 bootstrap/cache \
+    && mkdir -p bootstrap/cache storage/framework/views storage/framework/sessions storage/framework/cache storage/logs \
+    && chmod -R 777 bootstrap/cache storage \
     && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
     && echo "PHP MODULES:" \
     && php -m \
