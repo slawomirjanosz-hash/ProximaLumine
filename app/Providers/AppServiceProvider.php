@@ -22,9 +22,6 @@ class AppServiceProvider extends ServiceProvider
         // Force HTTPS on production (Railway)
         if ($this->app->environment('production')) {
             \Illuminate\Support\Facades\URL::forceScheme('https');
-            
-            // Trust Railway proxy headers for sessions to work properly
-            $this->app['request']->server->set('HTTPS', 'on');
         }
     }
 }
