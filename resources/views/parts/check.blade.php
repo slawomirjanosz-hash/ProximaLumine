@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Magazyn 3C – Sprawdź</title>
+    <title>Magazyn – Sprawdź</title>
     @vite(['resources/css/app.css'])
 </head>
 <body class="bg-gray-100">

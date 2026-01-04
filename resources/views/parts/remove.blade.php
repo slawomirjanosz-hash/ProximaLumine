@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>Magazyn 3C – Pobierz</title>
+    <title>Magazyn – Pobierz</title>
     @vite(['resources/css/app.css'])
 </head>
 <body class="bg-gray-100">
