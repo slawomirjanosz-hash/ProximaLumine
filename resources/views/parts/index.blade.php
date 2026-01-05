@@ -9,7 +9,7 @@
 
 <div class="max-w-6xl mx-auto mt-10 bg-white p-6 rounded shadow">
 
-    <h1 class="text-3xl font-bold mb-6">Magazyn 3C</h1>
+    <h1 class="text-3xl font-bold mb-6">Magazyn</h1>
 
     <!-- ZAKŁADKI -->
     <div class="flex gap-4 mb-6">
