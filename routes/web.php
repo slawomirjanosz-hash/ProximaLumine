@@ -17,9 +17,6 @@ Route::get('/test', function () {
 
 // STRONA STARTOWA
 Route::get('/', function () {
-    if (Auth::check()) {
-        return redirect('/magazyn/sprawdz');
-    }
     return view('welcome');
 });
 

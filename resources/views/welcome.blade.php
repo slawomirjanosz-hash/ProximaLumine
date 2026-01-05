@@ -27,7 +27,24 @@
         </div>
 
         <!-- MENU -->
-        
+        @auth
+        <nav class="flex gap-2 items-center flex-wrap justify-end">
+            <a href="{{ route('magazyn.check') }}"
+               class="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded whitespace-nowrap">
+                Wejdź do magazynu
+            </a>
+            
+            <div class="border-l border-gray-300 pl-2 flex items-center gap-2">
+                <span class="text-gray-700 text-sm whitespace-nowrap">{{ Auth::user()->name }}</span>
+                <form action="{{ route('logout') }}" method="POST" class="inline">
+                    @csrf
+                    <button type="submit" class="px-3 py-2 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded transition whitespace-nowrap">
+                        Wyloguj
+                    </button>
+                </form>
+            </div>
+        </nav>
+        @endauth
     </div>
 </header>
 
