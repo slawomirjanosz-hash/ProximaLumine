@@ -886,9 +886,9 @@
         
         if (fetchNipBtn && nipInput) {
             fetchNipBtn.addEventListener('click', function() {
-                const nip = nipInput.value.trim();
-                if (!nip) {
-                    alert('Wpisz NIP');
+                const nip = nipInput.value.trim().replace(/[^0-9]/g, '');
+                if (!nip || nip.length !== 10) {
+                    alert('Wpisz poprawny NIP (10 cyfr)');
                     return;
                 }
                 
@@ -897,31 +897,38 @@
                 
                 fetch(`/magazyn/ustawienia/supplier/fetch-by-nip?nip=${encodeURIComponent(nip)}`)
                     .then(response => response.json())
-                    .then(data => {
-                        if (data.error) {
-                            alert('Błąd: ' + data.error);
-                        } else {
+                    .then(result => {
+                        if (result.success && result.data) {
                             // Wypełnij formularz danymi z GUS
+                            const data = result.data;
                             document.getElementById('supplier-name').value = data.name || '';
-                            document.getElementById('supplier-name').value = data.full_name || data.name || '';
-                            if (document.querySelector('[name="nip"]')) {
-                                document.querySelector('[name="nip"]').value = data.nip || '';
+                            document.getElementById('supplier-nip').value = data.nip || '';
+                            document.getElementById('supplier-address').value = data.address || '';
+                            document.getElementById('supplier-city').value = data.city || '';
+                            
+                            const postalInput = document.getElementById('supplier-postal-code');
+                            if (postalInput) {
+                                postalInput.value = data.postal_code || '';
                             }
-                            if (document.querySelector('[name="address"]')) {
-                                document.querySelector('[name="address"]').value = data.address || '';
+                            
+                            const phoneInput = document.getElementById('supplier-phone');
+                            if (phoneInput && data.phone) {
+                                phoneInput.value = data.phone;
                             }
-                            if (document.querySelector('[name="city"]')) {
-                                document.querySelector('[name="city"]').value = data.city || '';
+                            
+                            const emailInput = document.getElementById('supplier-email');
+                            if (emailInput && data.email) {
+                                emailInput.value = data.email;
                             }
-                            if (document.querySelector('[name="postal_code"]')) {
-                                document.querySelector('[name="postal_code"]').value = data.postal_code || '';
-                            }
-                            alert('Dane pobrane pomyślnie! Sprawdź i uzupełnij pozostałe pola.');
+                            
+                            alert('Dane pobrane pomyślnie! ' + (result.message || 'Sprawdź i uzupełnij pozostałe pola.'));
+                        } else {
+                            alert(result.message || 'Nie znaleziono firmy o podanym NIP');
                         }
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        alert('Błąd podczas pobierania danych: ' + error.message);
+                        alert('Błąd podczas pobierania danych. Sprawdź połączenie internetowe.');
                     })
                     .finally(() => {
                         fetchNipBtn.disabled = false;
