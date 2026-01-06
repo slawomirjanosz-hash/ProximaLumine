@@ -5,7 +5,16 @@
         <div class="flex items-center gap-4">
             @php
                 $companySettings = \App\Models\CompanySetting::first();
-                $logoPath = $companySettings && $companySettings->logo ? asset('storage/' . $companySettings->logo) : '/logo.png';
+                // Logo może być w formacie base64 (data:image/...) lub ścieżka do pliku
+                if ($companySettings && $companySettings->logo) {
+                    if (str_starts_with($companySettings->logo, 'data:image')) {
+                        $logoPath = $companySettings->logo; // już jest base64
+                    } else {
+                        $logoPath = asset('storage/' . $companySettings->logo); // stary format
+                    }
+                } else {
+                    $logoPath = '/logo.png';
+                }
                 $companyName = $companySettings && $companySettings->name ? $companySettings->name : 'Magazyn 3C Automation';
             @endphp
             <img src="{{ $logoPath }}" alt="{{ $companyName }}" class="h-10">

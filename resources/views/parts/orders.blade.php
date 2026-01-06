@@ -365,7 +365,8 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
     const catalogCheckboxes = document.querySelectorAll('.catalog-checkbox');
     const selectedProductsBtn = document.getElementById('selected-products-btn');
     const selectedProductsContent = document.getElementById('selected-products-inner');
-    const selectedProductsTable = document.getElementById('selected-products-table-inner').querySelector('tbody');
+    const selectedProductsTableEl = document.getElementById('selected-products-table-inner');
+    const selectedProductsTable = selectedProductsTableEl ? selectedProductsTableEl.querySelector('tbody') : null;
     const removeAllBtnInner = document.getElementById('remove-all-selected-btn-inner');
     const createOrderBtn = document.getElementById('create-order-btn-inner');
     const orderNameInput = document.getElementById('order-name-input');
@@ -403,6 +404,8 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
     }
 
     function updateSelectedProductsDisplay() {
+        if (!selectedProductsTable) return;
+        
         selectedProductsTable.innerHTML = '';
         
         Object.entries(selectedProducts).forEach(([name, data]) => {
@@ -507,10 +510,12 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
         });
 
         // Podświetl nagłówek na zielono jeśli są wybrane produkty
-        if (Object.keys(selectedProducts).length > 0) {
-            selectedProductsBtn.classList.add('bg-green-100');
-        } else {
-            selectedProductsBtn.classList.remove('bg-green-100');
+        if (selectedProductsBtn) {
+            if (Object.keys(selectedProducts).length > 0) {
+                selectedProductsBtn.classList.add('bg-green-100');
+            } else {
+                selectedProductsBtn.classList.remove('bg-green-100');
+            }
         }
     }
 
@@ -540,11 +545,13 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
         });
     });
 
-    removeAllBtnInner.addEventListener('click', function() {
-        selectedProducts = {};
-        catalogCheckboxes.forEach(cb => cb.checked = false);
-        updateSelectedProductsDisplay();
-    });
+    if (removeAllBtnInner) {
+        removeAllBtnInner.addEventListener('click', function() {
+            selectedProducts = {};
+            catalogCheckboxes.forEach(cb => cb.checked = false);
+            updateSelectedProductsDisplay();
+        });
+    }
 
     if (createOrderBtn) {
         createOrderBtn.addEventListener('click', function() {

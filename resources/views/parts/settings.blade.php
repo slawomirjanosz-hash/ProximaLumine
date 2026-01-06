@@ -142,7 +142,15 @@
                                 <tr>
                                     <td class="border p-2">
                                         @if($supplier->logo)
-                                            <img src="{{ asset('storage/' . $supplier->logo) }}" alt="Logo" class="h-8 w-auto">
+                                            @php
+                                                // Logo może być w formacie base64 (data:image/...) lub ścieżka do pliku
+                                                if (str_starts_with($supplier->logo, 'data:image')) {
+                                                    $supplierLogoSrc = $supplier->logo; // już jest base64
+                                                } else {
+                                                    $supplierLogoSrc = asset('storage/' . $supplier->logo); // stary format
+                                                }
+                                            @endphp
+                                            <img src="{{ $supplierLogoSrc }}" alt="Logo" class="h-8 w-auto">
                                         @else
                                             -
                                         @endif
@@ -1435,5 +1443,6 @@
     @endif
 </script>
 
+<div style="position: fixed; right: 20px; bottom: 10px; z-index: 50; color: #888; font-style: italic; font-size: 1rem; pointer-events: none;">Powered by ProximaLumine</div>
 </body>
 </html>

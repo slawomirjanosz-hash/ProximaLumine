@@ -14,7 +14,16 @@
             @php
                 try {
                     $companySettings = \App\Models\CompanySetting::first();
-                    $logoPath = $companySettings && $companySettings->logo ? asset('storage/' . $companySettings->logo) : '/logo.png';
+                    // Logo może być w formacie base64 (data:image/...) lub ścieżka do pliku
+                    if ($companySettings && $companySettings->logo) {
+                        if (str_starts_with($companySettings->logo, 'data:image')) {
+                            $logoPath = $companySettings->logo; // już jest base64
+                        } else {
+                            $logoPath = asset('storage/' . $companySettings->logo); // stary format
+                        }
+                    } else {
+                        $logoPath = '/logo.png';
+                    }
                     $companyName = $companySettings && $companySettings->name ? $companySettings->name : '3C Automation';
                 } catch (\Exception $e) {
                     $logoPath = '/logo.png';
@@ -78,5 +87,6 @@
     @endauth
 </main>
 
+<div style="position: fixed; right: 20px; bottom: 10px; z-index: 50; color: #888; font-style: italic; font-size: 1rem; pointer-events: none;">Powered by ProximaLumine</div>
 </body>
 </html>

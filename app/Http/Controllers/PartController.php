@@ -258,9 +258,29 @@ class PartController extends Controller
             $companySettings = \App\Models\CompanySetting::first();
             
             // header: logo + company info (keeps aspect ratio by setting height on image)
-            $logoPath = $companySettings && $companySettings->logo 
-                ? storage_path('app/public/' . $companySettings->logo)
-                : public_path('logo.png');
+            $logoData = $companySettings && $companySettings->logo 
+                ? $companySettings->logo
+                : null;
+            
+            // Jeśli logo jest w formacie base64 (data:image/...), należy je zapisać tymczasowo
+            if ($logoData && str_starts_with($logoData, 'data:image')) {
+                // Wyodrębniamy dane base64
+                preg_match('/data:image\\/([a-zA-Z]+);base64,(.*)/', $logoData, $matches);
+                if ($matches) {
+                    $extension = $matches[1];
+                    $base64Data = $matches[2];
+                    $tempLogoPath = sys_get_temp_dir() . '/temp_logo_' . uniqid() . '.' . $extension;
+                    file_put_contents($tempLogoPath, base64_decode($base64Data));
+                    $logoPath = $tempLogoPath;
+                } else {
+                    $logoPath = public_path('logo.png');
+                }
+            } elseif ($logoData) {
+                // Stary format - ścieżka do pliku
+                $logoPath = storage_path('app/public/' . $logoData);
+            } else {
+                $logoPath = public_path('logo.png');
+            }
             
             $header = $section->addHeader();
             $headerTable = $header->addTable(['cellMargin' => 40]);
@@ -272,6 +292,11 @@ class PartController extends Controller
                     'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT,
                     'marginTop' => 6,
                 ]);
+                
+                // Usuwamy tymczasowy plik jeśli został utworzony
+                if (isset($tempLogoPath) && file_exists($tempLogoPath)) {
+                    unlink($tempLogoPath);
+                }
             } else {
                 $headerTable->addCell(1600, ['valign' => 'center']);
             }
@@ -776,8 +801,10 @@ class PartController extends Controller
 
         // Obsługa uploadu loga
         if ($request->hasFile('logo')) {
-            $logoPath = $request->file('logo')->store('supplier_logos', 'public');
-            $validated['logo'] = $logoPath;
+            $logoFile = $request->file('logo');
+            $logoBase64 = base64_encode(file_get_contents($logoFile->getRealPath()));
+            $mimeType = $logoFile->getMimeType();
+            $validated['logo'] = 'data:' . $mimeType . ';base64,' . $logoBase64;
         }
 
         $supplier = \App\Models\Supplier::create($validated);
@@ -1000,8 +1027,10 @@ class PartController extends Controller
         $companySetting->email = $request->email;
 
         if ($request->hasFile('logo')) {
-            $logoPath = $request->file('logo')->store('logos', 'public');
-            $companySetting->logo = $logoPath;
+            $logoFile = $request->file('logo');
+            $logoBase64 = base64_encode(file_get_contents($logoFile->getRealPath()));
+            $mimeType = $logoFile->getMimeType();
+            $companySetting->logo = 'data:' . $mimeType . ';base64,' . $logoBase64;
         }
 
         $companySetting->save();
