@@ -546,13 +546,14 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
         updateSelectedProductsDisplay();
     });
 
-    createOrderBtn.addEventListener('click', function() {
-        if (Object.keys(selectedProducts).length === 0) {
-            alert('Wybierz produkty do zamówienia');
-            return;
-        }
+    if (createOrderBtn) {
+        createOrderBtn.addEventListener('click', function() {
+            if (Object.keys(selectedProducts).length === 0) {
+                alert('Wybierz produkty do zamówienia');
+                return;
+            }
         
-        const orderName = document.getElementById('order-name-input').value;
+            const orderName = document.getElementById('order-name-input').value;
         if (!orderName || orderName.trim() === '') {
             alert('Wprowadź nazwę zamówienia');
             return;
@@ -793,7 +794,8 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
             console.error('Błąd:', error);
             alert('Wystąpił błąd podczas tworzenia zamówienia');
         });
-    });
+        });
+    }
     
     // Funkcja obsługi edycji zamówienia
     function handleEditOrder(e) {
@@ -1124,5 +1126,6 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
 
 </script>
 
+<div style="position: fixed; right: 20px; bottom: 10px; z-index: 50; color: #888; font-style: italic; font-size: 1rem; pointer-events: none;">Powered by ProximaLumine</div>
 </body>
 </html>
