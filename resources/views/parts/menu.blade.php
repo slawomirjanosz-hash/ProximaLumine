@@ -47,7 +47,7 @@
 
             <a href="{{ route('magazyn.orders') }}"
                class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
-                📦Zamówienia
+                📦Zamówienia!
             </a>
 
             <a href="{{ route('magazyn.settings') }}"

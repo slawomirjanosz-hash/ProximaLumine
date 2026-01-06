@@ -75,11 +75,15 @@ class PartController extends Controller
     // ZAMÓWIENIA
     public function ordersView()
     {
+        $orderSettings = \DB::table('order_settings')->first();
+        $orderNamePreview = $orderSettings ? $this->generateOrderNamePreview($orderSettings) : 'Zamówienie';
+        
         return view('parts.orders', [
             'parts' => Part::with('category')->orderBy('name')->get(),
             'categories' => Category::all(),
             'suppliers' => \App\Models\Supplier::orderBy('name')->get(),
-            'orderSettings' => \DB::table('order_settings')->first(),
+            'orderSettings' => $orderSettings,
+            'orderNamePreview' => $orderNamePreview,
             'orders' => \App\Models\Order::with(['user', 'receivedBy'])->orderBy('issued_at', 'desc')->get(),
         ]);
     }

@@ -572,182 +572,185 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         
             const orderName = document.getElementById('order-name-input').value;
-        if (!orderName || orderName.trim() === '') {
-            alert('Wprowadź nazwę zamówienia');
-            return;
-        }
+            if (!orderName || orderName.trim() === '') {
+                alert('Wprowadź nazwę zamówienia');
+                return;
+            }
         
-        // Przygotuj dane produktów
-        const productsData = Object.entries(selectedProducts).map(([name, data]) => ({
-            name: name,
-            supplier: data.supplier || '',
-            price: data.price || '',
-            currency: data.currency || 'PLN',
-            quantity: data.orderQuantity
-        }));
+            // Przygotuj dane produktów
+            const productsData = Object.entries(selectedProducts).map(([name, data]) => ({
+                name: name,
+                supplier: data.supplier || '',
+                price: data.price || '',
+                currency: data.currency || 'PLN',
+                quantity: data.orderQuantity
+            }));
         
-        // Pobierz pierwszego dostawcę (dla nazwy zamówienia)
-        const firstSupplier = productsData.find(p => p.supplier)?.supplier || '';
+            // Pobierz pierwszego dostawcę (dla nazwy zamówienia)
+            const firstSupplier = productsData.find(p => p.supplier)?.supplier || '';
         
-        // Pobierz dane z formularza
-        const supplierOfferNumber = document.getElementById('supplier-offer-number').value;
-        const paymentMethod = document.getElementById('payment-method').value;
-        const paymentDays = document.getElementById('payment-days').value;
-        const deliveryTime = document.getElementById('delivery-time').value;
-        const deliveryTimeCustom = document.getElementById('delivery-time-custom').value;
+            // Pobierz dane z formularza
+            const supplierOfferNumber = document.getElementById('supplier-offer-number').value;
+            const paymentMethod = document.getElementById('payment-method').value;
+            const paymentDays = document.getElementById('payment-days').value;
+            const deliveryTime = document.getElementById('delivery-time').value;
+            const deliveryTimeCustom = document.getElementById('delivery-time-custom').value;
         
-        // Ustal ostateczny termin dostawy
-        const finalDeliveryTime = deliveryTime === 'ręcznie' ? deliveryTimeCustom : deliveryTime;
+            // Ustal ostateczny termin dostawy
+            const finalDeliveryTime = deliveryTime === 'ręcznie' ? deliveryTimeCustom : deliveryTime;
         
-        // Sprawdź czy nazwa została zmieniona ręcznie
-        const wasManuallyChanged = orderName !== originalOrderName;
+            // Sprawdź czy nazwa została zmieniona ręcznie
+            const wasManuallyChanged = orderName !== originalOrderName;
         
-        // Wyślij żądanie do serwera
-        fetch('{{ route('magazyn.order.create') }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({
-                order_name: orderName,
-                products: productsData,
-                supplier: firstSupplier,
-                supplier_offer_number: supplierOfferNumber,
-                payment_method: paymentMethod,
-                payment_days: paymentDays,
-                delivery_time: finalDeliveryTime,
-                increment_counter: !wasManuallyChanged
+            // Wyślij żądanie do serwera
+            fetch('{{ route('magazyn.order.create') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    order_name: orderName,
+                    products: productsData,
+                    supplier: firstSupplier,
+                    supplier_offer_number: supplierOfferNumber,
+                    payment_method: paymentMethod,
+                    payment_days: paymentDays,
+                    delivery_time: finalDeliveryTime,
+                    increment_counter: !wasManuallyChanged
+                })
             })
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Błąd tworzenia zamówienia');
-            }
-            // Pobierz nazwę pliku z nagłówka Content-Disposition
-            const contentDisposition = response.headers.get('Content-Disposition');
-            let fileName = 'zamowienie.docx';
-            if (contentDisposition) {
-                const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
-                if (matches != null && matches[1]) {
-                    fileName = matches[1].replace(/['"]/g, '');
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Błąd tworzenia zamówienia');
                 }
-            }
-            return response.blob().then(blob => ({ blob, fileName }));
-        })
-        .then(({ blob, fileName }) => {
-            // Pobierz plik z nazwą z serwera
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-            
-            // Dodaj zamówienie do tabeli wystawionych zamówień
-            const issuedOrdersTbody = document.getElementById('issued-orders-tbody');
-            const noOrdersRow = document.getElementById('no-orders-row');
-            
-            // Usuń wiersz "Brak wystawionych zamówień" jeśli istnieje
-            if (noOrdersRow) {
-                noOrdersRow.remove();
-            }
-            
-            // Pobierz aktualną datę i godzinę
-            const now = new Date();
-            const dateStr = now.getFullYear() + '-' + 
-                           String(now.getMonth() + 1).padStart(2, '0') + '-' + 
-                           String(now.getDate()).padStart(2, '0');
-            const timeStr = String(now.getHours()).padStart(2, '0') + ':' + 
-                           String(now.getMinutes()).padStart(2, '0') + ':' + 
-                           String(now.getSeconds()).padStart(2, '0');
-            
-            // Pobierz skróconą nazwę dostawcy
-            let supplierDisplay = '-';
-            if (firstSupplier) {
-                // Sprawdź czy mamy dostawcę w liście
-                const supplierSelect = document.querySelector('.product-supplier');
-                if (supplierSelect) {
-                    const selectedOption = Array.from(supplierSelect.options).find(opt => opt.value === firstSupplier);
-                    supplierDisplay = selectedOption ? selectedOption.text : firstSupplier;
+                // Pobierz nazwę pliku z nagłówka Content-Disposition
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let fileName = 'zamowienie.docx';
+                if (contentDisposition) {
+                    const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
+                    if (matches != null && matches[1]) {
+                        fileName = matches[1].replace(/['"]/g, '');
+                    }
                 }
-            }
+                return response.blob().then(blob => ({ blob, fileName }));
+            })
+            .then(({ blob, fileName }) => {
+                // Pobierz plik z nazwą z serwera
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
             
-            // Dodaj nowy wiersz na początku tabeli
-            const newRow = document.createElement('tr');
-            const issuedDateTime = dateStr + ' ' + timeStr;
-            const currentUser = '{{ auth()->user()->name ?? "N/A" }}';
+                // Dodaj zamówienie do tabeli wystawionych zamówień
+                const issuedOrdersTbody = document.getElementById('issued-orders-tbody');
+                const noOrdersRow = document.getElementById('no-orders-row');
             
-            newRow.innerHTML = `
-                <td class="border p-2 text-center">
-                    <input type="checkbox" class="order-checkbox w-4 h-4 cursor-pointer" data-order-id="${data.order_id}">
-                </td>
-                <td class="border p-2 font-mono">${orderName}</td>
-                <td class="border p-2">${supplierDisplay}</td>
-                <td class="border p-2 text-center">${dateStr}</td>
-                <td class="border p-2 text-center">${timeStr}</td>
-                <td class="border p-2 text-center">
-                    <div class="flex items-center justify-center gap-1 flex-wrap">
-                        <button class="bg-blue-100 hover:bg-blue-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center preview-order-btn" 
-                            style="min-width: 70px;"
-                            data-order-id="${data.order_id}"
-                            data-order-number="${orderName}"
-                            data-order-supplier="${firstSupplier}"
-                            data-order-status="pending"
-                            data-order-issued="${issuedDateTime}"
-                            data-order-user="${currentUser}"
-                            data-order-products='${JSON.stringify(productsData)}'>
-                            👁️ Podgląd
-                        </button>
-                        <button class="bg-green-100 hover:bg-green-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center edit-order-btn" 
-                            style="min-width: 70px;"
-                            data-order-id="${data.order_id}"
-                            data-order-number="${orderName}"
-                            data-order-products='${JSON.stringify(productsData)}'>
-                            ✏️ Edytuj
-                        </button>
-                        <button class="bg-red-100 hover:bg-red-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center delete-order-btn" 
-                            style="min-width: 70px;"
-                            data-order-id="${data.order_id}"
-                            data-order-number="${orderName}">
-                            🗑️ Usuń
-                        </button>
-                    </div>
-                </td>
-            `;
-            issuedOrdersTbody.insertBefore(newRow, issuedOrdersTbody.firstChild);
+                // Usuń wiersz "Brak wystawionych zamówień" jeśli istnieje
+                if (noOrdersRow) {
+                    noOrdersRow.remove();
+                }
             
-            // Dodaj event listenery do nowych przycisków
-            newRow.querySelector('.preview-order-btn').addEventListener('click', function() {
-                // Użyj tego samego kodu co dla istniejących przycisków
-                const btn = this;
-                const orderId = btn.getAttribute('data-order-id');
-                const orderNumber = btn.getAttribute('data-order-number');
-                const supplier = btn.getAttribute('data-order-supplier');
-                const status = btn.getAttribute('data-order-status');
-                const issuedAt = btn.getAttribute('data-order-issued');
-                const userName = btn.getAttribute('data-order-user');
-                const productsJson = btn.getAttribute('data-order-products');
+                // Pobierz aktualną datę i godzinę
+                const now = new Date();
+                const dateStr = now.getFullYear() + '-' + 
+                               String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                               String(now.getDate()).padStart(2, '0');
+                const timeStr = String(now.getHours()).padStart(2, '0') + ':' + 
+                               String(now.getMinutes()).padStart(2, '0') + ':' + 
+                               String(now.getSeconds()).padStart(2, '0');
+            
+                // Pobierz skróconą nazwę dostawcy
+                let supplierDisplay = '-';
+                if (firstSupplier) {
+                    // Sprawdź czy mamy dostawcę w liście
+                    const supplierSelect = document.querySelector('.product-supplier');
+                    if (supplierSelect) {
+                        const selectedOption = Array.from(supplierSelect.options).find(opt => opt.value === firstSupplier);
+                        supplierDisplay = selectedOption ? selectedOption.text : firstSupplier;
+                    }
+                }
+            
+                // Dodaj nowy wiersz na początku tabeli
+                const newRow = document.createElement('tr');
+                const issuedDateTime = dateStr + ' ' + timeStr;
+                const currentUser = '{{ auth()->user()->name ?? "N/A" }}';
                 
-                currentPreviewOrderId = orderId;
-                
-                try {
-                    const products = JSON.parse(productsJson);
-                    
-                    let html = `
-                        <div class="grid grid-cols-2 gap-4 mb-4">
-                            <div><strong>Numer zamówienia:</strong> ${orderNumber}</div>
-                            <div><strong>Status:</strong> <span class="px-2 py-1 rounded ${status === 'received' ? 'bg-green-200' : 'bg-yellow-200'}">${status === 'received' ? 'Przyjęte' : 'Oczekujące'}</span></div>
-                            <div><strong>Dostawca:</strong> ${supplier || '-'}</div>
-                            <div><strong>Data wystawienia:</strong> ${issuedAt}</div>
-                            <div><strong>Zamówił:</strong> ${userName}</div>
+                // Wygeneruj tymczasowe ID (używamy timestamp)
+                const tempOrderId = Date.now();
+            
+                newRow.innerHTML = `
+                    <td class="border p-2 text-center">
+                        <input type="checkbox" class="order-checkbox w-4 h-4 cursor-pointer" data-order-id="${tempOrderId}">
+                    </td>
+                    <td class="border p-2 font-mono">${orderName}</td>
+                    <td class="border p-2">${supplierDisplay}</td>
+                    <td class="border p-2 text-center">${dateStr}</td>
+                    <td class="border p-2 text-center">${timeStr}</td>
+                    <td class="border p-2 text-center">
+                        <div class="flex items-center justify-center gap-1 flex-wrap">
+                            <button class="bg-blue-100 hover:bg-blue-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center preview-order-btn" 
+                                style="min-width: 70px;"
+                                data-order-id="${tempOrderId}"
+                                data-order-number="${orderName}"
+                                data-order-supplier="${firstSupplier}"
+                                data-order-status="pending"
+                                data-order-issued="${issuedDateTime}"
+                                data-order-user="${currentUser}"
+                                data-order-products='${JSON.stringify(productsData)}'>
+                                👁️ Podgląd
+                            </button>
+                            <button class="bg-green-100 hover:bg-green-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center edit-order-btn" 
+                                style="min-width: 70px;"
+                                data-order-id="${tempOrderId}"
+                                data-order-number="${orderName}"
+                                data-order-products='${JSON.stringify(productsData)}'>
+                                ✏️ Edytuj
+                            </button>
+                            <button class="bg-red-100 hover:bg-red-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center delete-order-btn" 
+                                style="min-width: 70px;"
+                                data-order-id="${tempOrderId}"
+                                data-order-number="${orderName}">
+                                🗑️ Usuń
+                            </button>
                         </div>
-                        <h5 class="font-bold mb-2">Produkty:</h5>
-                        <table class="w-full border border-collapse text-xs">
-                            <thead class="bg-gray-200">
-                                <tr>
+                    </td>
+                `;
+                issuedOrdersTbody.insertBefore(newRow, issuedOrdersTbody.firstChild);
+            
+                // Dodaj event listenery do nowych przycisków
+                newRow.querySelector('.preview-order-btn').addEventListener('click', function() {
+                    // Użyj tego samego kodu co dla istniejących przycisków
+                    const btn = this;
+                    const orderId = btn.getAttribute('data-order-id');
+                    const orderNumber = btn.getAttribute('data-order-number');
+                    const supplier = btn.getAttribute('data-order-supplier');
+                    const status = btn.getAttribute('data-order-status');
+                    const issuedAt = btn.getAttribute('data-order-issued');
+                    const userName = btn.getAttribute('data-order-user');
+                    const productsJson = btn.getAttribute('data-order-products');
+                
+                    currentPreviewOrderId = orderId;
+                
+                    try {
+                        const products = JSON.parse(productsJson);
+                    
+                        let html = `
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div><strong>Numer zamówienia:</strong> ${orderNumber}</div>
+                                <div><strong>Status:</strong> <span class="px-2 py-1 rounded ${status === 'received' ? 'bg-green-200' : 'bg-yellow-200'}">${status === 'received' ? 'Przyjęte' : 'Oczekujące'}</span></div>
+                                <div><strong>Dostawca:</strong> ${supplier || '-'}</div>
+                                <div><strong>Data wystawienia:</strong> ${issuedAt}</div>
+                                <div><strong>Zamówił:</strong> ${userName}</div>
+                            </div>
+                            <h5 class="font-bold mb-2">Produkty:</h5>
+                            <table class="w-full border border-collapse text-xs">
+                                <thead class="bg-gray-200">
+                                    <tr>
                                     <th class="border p-1 text-left">Produkt</th>
                                     <th class="border p-1 text-left">Dostawca</th>
                                     <th class="border p-1 text-center">Cena netto</th>
@@ -769,49 +772,49 @@ document.addEventListener('DOMContentLoaded', function() {
                         `;
                     });
                     
-                    html += `
-                            </tbody>
-                        </table>
-                    `;
+                        html += `
+                                </tbody>
+                            </table>
+                        `;
                     
-                    document.getElementById('order-preview-content').innerHTML = html;
-                    document.getElementById('receive-order-btn').style.display = status === 'received' ? 'none' : 'block';
-                    document.getElementById('order-preview-section').classList.remove('hidden');
+                        document.getElementById('order-preview-content').innerHTML = html;
+                        document.getElementById('receive-order-btn').style.display = status === 'received' ? 'none' : 'block';
+                        document.getElementById('order-preview-section').classList.remove('hidden');
                     
-                    const receiveSection = document.getElementById('receive-order-content');
-                    if (receiveSection.classList.contains('hidden')) {
-                        const receiveBtn = document.querySelector('[data-target="receive-order-content"]');
-                        if (receiveBtn) {
-                            receiveBtn.click();
+                        const receiveSection = document.getElementById('receive-order-content');
+                        if (receiveSection.classList.contains('hidden')) {
+                            const receiveBtn = document.querySelector('[data-target="receive-order-content"]');
+                            if (receiveBtn) {
+                                receiveBtn.click();
+                            }
                         }
+                    } catch (error) {
+                        console.error('Błąd parsowania produktów:', error);
+                        alert('Błąd wyświetlania podglądu zamówienia');
                     }
-                } catch (error) {
-                    console.error('Błąd parsowania produktów:', error);
-                    alert('Błąd wyświetlania podglądu zamówienia');
-                }
-            });
-            newRow.querySelector('.edit-order-btn').addEventListener('click', handleEditOrder);
-            newRow.querySelector('.delete-order-btn').addEventListener('click', handleDeleteOrder);
+                });
+                newRow.querySelector('.edit-order-btn').addEventListener('click', handleEditOrder);
+                newRow.querySelector('.delete-order-btn').addEventListener('click', handleDeleteOrder);
             
-            // Odśwież nazwę zamówienia
-            if (!wasManuallyChanged) {
-                // Jeśli nie było zmiany ręcznej, pobierz nową nazwę (licznik już zwiększony)
-                fetch('{{ route('magazyn.order.nextName') }}?supplier=' + encodeURIComponent(firstSupplier))
-                    .then(response => response.json())
+                // Odśwież nazwę zamówienia
+                if (!wasManuallyChanged) {
+                    // Jeśli nie było zmiany ręcznej, pobierz nową nazwę (licznik już zwiększony)
+                    fetch('{{ route('magazyn.order.nextName') }}?supplier=' + encodeURIComponent(firstSupplier))
+                        .then(response => response.json())
                     .then(data => {
                         orderNameInput.value = data.order_name;
                         originalOrderName = data.order_name;
                     })
                     .catch(err => console.error('Błąd aktualizacji nazwy:', err));
-            } else {
-                // Jeśli była zmiana ręczna, wróć do oryginalnej nazwy (BEZ zwiększania licznika)
-                orderNameInput.value = originalOrderName;
-            }
-        })
-        .catch(error => {
-            console.error('Błąd:', error);
-            alert('Wystąpił błąd podczas tworzenia zamówienia');
-        });
+                } else {
+                    // Jeśli była zmiana ręczna, wróć do oryginalnej nazwy (BEZ zwiększania licznika)
+                    orderNameInput.value = originalOrderName;
+                }
+            })
+            .catch(error => {
+                console.error('Błąd:', error);
+                alert('Wystąpił błąd podczas tworzenia zamówienia');
+            });
         });
     }
     

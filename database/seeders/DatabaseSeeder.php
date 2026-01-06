@@ -93,6 +93,29 @@ class DatabaseSeeder extends Seeder
         foreach ($parts as $part) {
             Part::firstOrCreate(['name' => $part['name']], $part);
         }
+        
+        // Ustawienia firmy i zamówień
+        $this->call([
+            CompanySettingsSeeder::class,
+        ]);
+        
+        // Upewnij się że order_settings ma domyślne wartości
+        if (!\DB::table('order_settings')->exists()) {
+            \DB::table('order_settings')->insert([
+                'element1_type' => 'text',
+                'element1_value' => 'ZAM',
+                'separator1' => '_',
+                'element2_type' => 'date',
+                'element2_value' => 'yyyymmdd',
+                'separator2' => '_',
+                'element3_type' => 'number',
+                'start_number' => 1,
+                'separator3' => '_',
+                'element4_type' => 'supplier_short_name',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     }
 }
 

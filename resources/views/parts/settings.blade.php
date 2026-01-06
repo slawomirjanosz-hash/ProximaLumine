@@ -407,7 +407,15 @@
                     <label class="block text-sm font-semibold mb-2">Logo firmy</label>
                     @if($companySettings && $companySettings->logo)
                         <div class="mb-3">
-                            <img src="{{ asset('storage/' . $companySettings->logo) }}" alt="Logo firmy" class="max-h-32 border rounded">
+                            @php
+                                // Logo może być w formacie base64 (data:image/...) lub ścieżka do pliku
+                                if (str_starts_with($companySettings->logo, 'data:image')) {
+                                    $companyLogoSrc = $companySettings->logo; // już jest base64
+                                } else {
+                                    $companyLogoSrc = asset('storage/' . $companySettings->logo); // stary format
+                                }
+                            @endphp
+                            <img src="{{ $companyLogoSrc }}" alt="Logo firmy" class="max-h-32 border rounded">
                             <p class="text-xs text-gray-600 mt-1">Aktualne logo</p>
                         </div>
                     @endif
