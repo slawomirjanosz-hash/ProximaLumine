@@ -783,7 +783,17 @@
                                     ✏️
                                 </a>
                                 @endif
-                                @if(!$user->is_admin)
+                                @if(auth()->user()->email === 'proximalumine@gmail.com')
+                                    {{-- Główny admin może usunąć każdego użytkownika --}}
+                                    <form action="{{ route('magazyn.user.delete', $user->id) }}" method="POST" class="inline" id="delete-user-form-{{ $user->id }}">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="button" class="text-red-600 hover:text-red-800 font-bold text-sm" title="Usuń użytkownika" onclick="if(confirm('Czy na pewno usunąć użytkownika &quot;{{ $user->name }}&quot;?')) { document.getElementById('delete-user-form-{{ $user->id }}').submit(); }">
+                                            ✕
+                                        </button>
+                                    </form>
+                                @elseif(!$user->is_admin)
+                                    {{-- Inni admini mogą usunąć tylko nie-adminów --}}
                                     <form action="{{ route('magazyn.user.delete', $user->id) }}" method="POST" class="inline" id="delete-user-form-{{ $user->id }}">
                                         @csrf
                                         @method('DELETE')
