@@ -15,7 +15,7 @@
                 Nie masz uprawnień do dostępu do tej strony. Skontaktuj się z administratorem.
             </p>
             
-            <a href="{{ route('magazyn.add') }}" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition">
+            <a href="{{ url('/') }}" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition">
                 Wróć do magazynu
             </a>
         </div>

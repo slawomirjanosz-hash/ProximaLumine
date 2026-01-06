@@ -25,7 +25,7 @@ class PartController extends Controller
             'categories'  => Category::all(),
             'suppliers'   => \App\Models\Supplier::orderBy('name')->get(),
             'sessionAdds' => array_reverse(session('adds', [])),
-            'parts' => Part::with('category')->orderBy('name')->get(),
+            'parts' => Part::with(['category', 'lastModifiedBy'])->orderBy('name')->get(),
         ]);
     }
 
@@ -34,7 +34,7 @@ class PartController extends Controller
     {
         return view('parts.remove', [
             'sessionRemoves' => array_reverse(session('removes', [])),
-            'parts' => Part::with('category')->orderBy('name')->get(),
+            'parts' => Part::with(['category', 'lastModifiedBy'])->orderBy('name')->get(),
             'suppliers' => Supplier::orderBy('name')->get(),
         ]);
     }
@@ -42,7 +42,7 @@ class PartController extends Controller
     // SPRAWDŹ / KATALOG
     public function checkView(Request $request)
     {
-        $query = Part::with('category');
+        $query = Part::with(['category', 'lastModifiedBy']);
 
         if ($request->filled('search')) {
             $query->where('name', 'like', '%' . $request->search . '%');
@@ -67,6 +67,7 @@ class PartController extends Controller
         return view('parts.check', [
             'parts'      => $query->get(),
             'categories' => Category::all(),
+            'suppliers'  => \App\Models\Supplier::orderBy('name')->get(),
             'sortBy'     => $sortBy,
             'sortDir'    => $sortDir,
         ]);
@@ -79,7 +80,7 @@ class PartController extends Controller
         $orderNamePreview = $orderSettings ? $this->generateOrderNamePreview($orderSettings) : 'Zamówienie';
         
         return view('parts.orders', [
-            'parts' => Part::with('category')->orderBy('name')->get(),
+            'parts' => Part::with(['category', 'lastModifiedBy'])->orderBy('name')->get(),
             'categories' => Category::all(),
             'suppliers' => \App\Models\Supplier::orderBy('name')->get(),
             'orderSettings' => $orderSettings,
@@ -494,6 +495,10 @@ class PartController extends Controller
 
         // zwiększenie stanu
         $part->quantity += (int) $data['quantity'];
+        
+        // przypisanie użytkownika, który dodał/zmodyfikował produkt
+        $part->last_modified_by = auth()->id();
+        
         $part->save();
 
         // historia sesji (DODAJ)
@@ -560,6 +565,10 @@ class PartController extends Controller
 
         // zmniejszenie stanu
         $part->quantity -= $removed;
+        
+        // przypisanie użytkownika, który zmodyfikował produkt
+        $part->last_modified_by = auth()->id();
+        
         $part->save();
 
         // Zapis do bazy danych
@@ -674,6 +683,7 @@ class PartController extends Controller
 
         $part->net_price = $request->net_price;
         $part->currency = $request->currency;
+        $part->last_modified_by = auth()->id();
         $part->save();
 
         return redirect()->route('magazyn.check')->with('success', "Cena produktu \"{$part->name}\" została zaktualizowana.");
@@ -683,14 +693,38 @@ class PartController extends Controller
     public function addUser(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|unique:users',
+            'first_name' => 'required|string',
+            'last_name' => 'required|string',
             'email' => 'required|email|unique:users',
             'phone' => 'nullable|string',
             'password' => 'nullable|string',
         ]);
 
+        // Generowanie pełnej nazwy
+        $fullName = $request->first_name . ' ' . $request->last_name;
+
+        // Generowanie skróconej nazwy: 3 znaki z imienia + 3 z nazwiska (pierwsze wielkie)
+        $shortName = $request->input('short_name');
+        if (!$shortName) {
+            $firstName = $request->first_name;
+            $lastName = $request->last_name;
+            
+            $firstPart = mb_strlen($firstName) >= 3 
+                ? mb_strtoupper(mb_substr($firstName, 0, 1)) . mb_strtolower(mb_substr($firstName, 1, 2))
+                : mb_strtoupper(mb_substr($firstName, 0, 1)) . mb_strtolower(mb_substr($firstName, 1));
+            
+            $lastPart = mb_strlen($lastName) >= 3 
+                ? mb_strtoupper(mb_substr($lastName, 0, 1)) . mb_strtolower(mb_substr($lastName, 1, 2))
+                : mb_strtoupper(mb_substr($lastName, 0, 1)) . mb_strtolower(mb_substr($lastName, 1));
+            
+            $shortName = $firstPart . $lastPart;
+        }
+
         User::create([
-            'name' => $request->name,
+            'name' => $fullName,
+            'first_name' => $request->first_name,
+            'last_name' => $request->last_name,
+            'short_name' => $shortName,
             'email' => $request->email,
             'phone' => $request->phone,
             'password' => $request->password ? Hash::make($request->password) : Hash::make(Str::random(32)),
@@ -700,7 +734,7 @@ class PartController extends Controller
         // Wyczyść stare wartości z sesji
         $request->session()->forget('_old_input');
 
-        return redirect()->route('magazyn.settings')->with('success', "Użytkownik \"{$request->name}\" został dodany.");
+        return redirect()->route('magazyn.settings')->with('success', "Użytkownik \"{$fullName}\" został dodany.");
     }
 
     // USUWANIE UŻYTKOWNIKA
@@ -720,6 +754,11 @@ class PartController extends Controller
     // EDYCJA UŻYTKOWNIKA - WIDOK
     public function editUserView(User $user)
     {
+        // Zwykły użytkownik (nie admin) nie może edytować admina
+        if (!auth()->user()->is_admin && $user->is_admin) {
+            return redirect()->route('magazyn.settings')->with('error', 'Nie masz uprawnień do edycji konta administratora.');
+        }
+        
         return view('parts.user-edit', [
             'user' => $user,
         ]);
@@ -728,15 +767,44 @@ class PartController extends Controller
     // EDYCJA UŻYTKOWNIKA - AKTUALIZACJA
     public function updateUser(Request $request, User $user)
     {
+        // Zwykły użytkownik (nie admin) nie może edytować admina
+        if (!auth()->user()->is_admin && $user->is_admin) {
+            return redirect()->route('magazyn.settings')->with('error', 'Nie masz uprawnień do edycji konta administratora.');
+        }
+        
         $request->validate([
-            'name' => 'required|string|unique:users,name,' . $user->id,
+            'first_name' => 'required|string',
+            'last_name' => 'required|string',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'phone' => 'nullable|string',
             'password' => 'nullable|string',
         ]);
 
+        // Generowanie pełnej nazwy
+        $fullName = $request->first_name . ' ' . $request->last_name;
+
+        // Generowanie skróconej nazwy: 3 znaki z imienia + 3 z nazwiska (pierwsze wielkie)
+        $shortName = $request->input('short_name');
+        if (!$shortName) {
+            $firstName = $request->first_name;
+            $lastName = $request->last_name;
+            
+            $firstPart = mb_strlen($firstName) >= 3 
+                ? mb_strtoupper(mb_substr($firstName, 0, 1)) . mb_strtolower(mb_substr($firstName, 1, 2))
+                : mb_strtoupper(mb_substr($firstName, 0, 1)) . mb_strtolower(mb_substr($firstName, 1));
+            
+            $lastPart = mb_strlen($lastName) >= 3 
+                ? mb_strtoupper(mb_substr($lastName, 0, 1)) . mb_strtolower(mb_substr($lastName, 1, 2))
+                : mb_strtoupper(mb_substr($lastName, 0, 1)) . mb_strtolower(mb_substr($lastName, 1));
+            
+            $shortName = $firstPart . $lastPart;
+        }
+
         // Zaktualizuj nazwę, email i telefon
-        $user->name = $request->name;
+        $user->name = $fullName;
+        $user->first_name = $request->first_name;
+        $user->last_name = $request->last_name;
+        $user->short_name = $shortName;
         $user->email = $request->email;
         $user->phone = $request->phone;
 
@@ -751,7 +819,14 @@ class PartController extends Controller
         $user->can_remove = (int) $request->has('can_remove');
         $user->can_orders = (int) $request->has('can_orders');
         $user->can_settings = (int) $request->has('can_settings');
+        $user->can_settings_categories = (int) $request->has('can_settings_categories');
+        $user->can_settings_suppliers = (int) $request->has('can_settings_suppliers');
+        $user->can_settings_company = (int) $request->has('can_settings_company');
+        $user->can_settings_users = (int) $request->has('can_settings_users');
+        $user->can_settings_export = (int) $request->has('can_settings_export');
+        $user->can_settings_other = (int) $request->has('can_settings_other');
         $user->can_delete_orders = (int) $request->has('can_delete_orders');
+        $user->show_action_column = (int) $request->has('show_action_column');
 
         $user->save();
 
@@ -823,6 +898,178 @@ class PartController extends Controller
         $supplier->delete();
 
         return redirect()->route('magazyn.settings')->with('success', "Dostawca \"{$name}\" został usunięty.");
+    }
+
+    // EDYTUJ DOSTAWCĘ
+    public function updateSupplier(Request $request, \App\Models\Supplier $supplier)
+    {
+        // Usuń myślniki z NIP przed walidacją
+        $nipClean = null;
+        $nipFormatted = null;
+        if ($request->has('nip') && $request->nip) {
+            $nipClean = str_replace('-', '', $request->nip);
+            
+            // Sformatuj NIP z myślnikami
+            if (strlen($nipClean) === 10) {
+                $nipFormatted = substr($nipClean, 0, 3) . '-' . 
+                                substr($nipClean, 3, 3) . '-' . 
+                                substr($nipClean, 6, 2) . '-' . 
+                                substr($nipClean, 8, 2);
+                
+                // Sprawdź czy NIP z myślnikami już istnieje w bazie (u innego dostawcy)
+                $existingSupplier = \App\Models\Supplier::where('nip', $nipFormatted)
+                    ->where('id', '!=', $supplier->id)
+                    ->first();
+                if ($existingSupplier) {
+                    return redirect()->back()
+                        ->withErrors(['nip' => 'Inny dostawca o podanym NIP-ie już istnieje w bazie danych.'])
+                        ->withInput();
+                }
+            }
+            
+            $request->merge(['nip' => $nipClean]);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'short_name' => 'nullable|string|max:100',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'nip' => 'nullable|digits:10',
+            'address' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:255',
+            'postal_code' => 'nullable|string|max:10',
+            'phone' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:255',
+        ]);
+
+        // Użyj sformatowanego NIP-u
+        if ($nipFormatted) {
+            $validated['nip'] = $nipFormatted;
+        } elseif (empty($request->nip)) {
+            $validated['nip'] = null;
+        }
+
+        // Obsługa uploadu loga
+        if ($request->hasFile('logo')) {
+            $logoFile = $request->file('logo');
+            $logoBase64 = base64_encode(file_get_contents($logoFile->getRealPath()));
+            $mimeType = $logoFile->getMimeType();
+            $validated['logo'] = 'data:' . $mimeType . ';base64,' . $logoBase64;
+        } else {
+            // Zachowaj obecne logo jeśli nie przesłano nowego
+            unset($validated['logo']);
+        }
+
+        $supplier->update($validated);
+
+        return redirect()->route('magazyn.settings')->with('success', 'Dostawca "' . $supplier->name . '" został zaktualizowany.');
+    }
+
+    // POBIERZ DANE MOJEJ FIRMY PO NIP
+    public function fetchCompanyByNip(Request $request)
+    {
+        $nip = $request->get('nip');
+        if (!$nip || strlen($nip) !== 10) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nieprawidłowy NIP'
+            ]);
+        }
+
+        $formatCompanyName = function($name) {
+            $name = str_replace('SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ', 'SP. Z O. O.', $name);
+            $name = str_replace('SPÓŁKA AKCYJNA', 'S.A.', $name);
+            return $name;
+        };
+        $formatNip = function($nip) {
+            if (strlen($nip) === 10) {
+                return substr($nip, 0, 3) . '-' . substr($nip, 3, 3) . '-' . substr($nip, 6, 2) . '-' . substr($nip, 8, 2);
+            }
+            return $nip;
+        };
+
+        try {
+            // API CEIDG
+            $url = "https://dane.biznes.gov.pl/api/ceidg/v2/firmy?nip={$nip}&status=aktywny";
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Accept: application/json',
+                'User-Agent: Mozilla/5.0'
+            ]);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+            \Log::info('CEIDG API Response (Company)', ['code' => $httpCode, 'response' => $response, 'error' => $curlError]);
+            if ($httpCode === 200 && $response) {
+                $data = json_decode($response, true);
+                if (!empty($data['firmy']) && isset($data['firmy'][0])) {
+                    $company = $data['firmy'][0];
+                    $address = trim(
+                        ($company['adres']['ulica'] ?? '') . ' ' .
+                        ($company['adres']['nrNieruchomosci'] ?? '') .
+                        (isset($company['adres']['nrLokalu']) ? '/' . $company['adres']['nrLokalu'] : '')
+                    );
+                    return response()->json([
+                        'success' => true,
+                        'data' => [
+                            'name' => $formatCompanyName($company['nazwa'] ?? ''),
+                            'nip' => $formatNip($nip),
+                            'address' => trim($address),
+                            'city' => $company['adres']['miejscowosc'] ?? '',
+                            'postal_code' => $company['adres']['kodPocztowy'] ?? '',
+                        ],
+                        'message' => 'Dane pobrane z CEIDG'
+                    ]);
+                }
+            }
+            // API białej listy VAT
+            $url = "https://wl-api.mf.gov.pl/api/search/nip/{$nip}?date=" . date('Y-m-d');
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Accept: application/json',
+                'User-Agent: Mozilla/5.0'
+            ]);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+            \Log::info('MF VAT API Response (Company)', ['code' => $httpCode, 'response' => $response, 'error' => $curlError]);
+            if ($httpCode === 200 && $response) {
+                $data = json_decode($response, true);
+                if (!empty($data['result']['subject'])) {
+                    $subject = $data['result']['subject'];
+                    $address = $subject['workingAddress'] ?? ($subject['residenceAddress'] ?? '');
+                    return response()->json([
+                        'success' => true,
+                        'data' => [
+                            'name' => $formatCompanyName($subject['name'] ?? ''),
+                            'nip' => $formatNip($nip),
+                            'address' => $address,
+                            'city' => '',
+                            'postal_code' => '',
+                        ],
+                        'message' => 'Dane pobrane z MF VAT API'
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error('Błąd pobierania danych firmy po NIP: ' . $e->getMessage());
+        }
+        return response()->json([
+            'success' => false,
+            'message' => 'Nie znaleziono danych dla podanego NIP'
+        ]);
     }
 
     // POBIERZ DANE DOSTAWCY PO NIP
@@ -1069,7 +1316,7 @@ class PartController extends Controller
         return redirect()->route('magazyn.settings')->with('success', 'Konfiguracja zamówień została zapisana.');
     }
 
-    // UTWÓRZ ZAMÓWIENIE - GENERUJ DOKUMENT WORD
+    // UTWÓRZ ZAMÓWIENIE - ZAPISZ DO BAZY DANYCH
     public function createOrder(Request $request)
     {
         $request->validate([
@@ -1087,11 +1334,79 @@ class PartController extends Controller
         ]);
 
         $orderNameTemplate = $request->input('order_name');
-        $supplierName = $request->input('supplier');
         $products = $request->input('products');
         
-        // Generuj rzeczywistą nazwę zamówienia
-        $orderName = $this->generateRealOrderName($orderNameTemplate, $supplierName);
+        // Grupuj produkty według dostawców
+        $productsBySupplier = [];
+        foreach ($products as $product) {
+            $supplierName = $product['supplier'] ?? '';
+            if (!isset($productsBySupplier[$supplierName])) {
+                $productsBySupplier[$supplierName] = [];
+            }
+            $productsBySupplier[$supplierName][] = $product;
+        }
+        
+        $createdOrders = [];
+        $shouldIncrement = $request->input('increment_counter', true);
+        
+        // Dla każdego dostawcy utwórz osobne zamówienie
+        foreach ($productsBySupplier as $supplierName => $supplierProducts) {
+            // Generuj rzeczywistą nazwę zamówienia
+            $orderName = $this->generateRealOrderName($orderNameTemplate, $supplierName);
+            
+            // Zwiększ numer zamówienia w bazie danych (tylko jeśli nazwa nie została zmieniona ręcznie)
+            if ($shouldIncrement) {
+                $orderSettings = \DB::table('order_settings')->first();
+                if ($orderSettings && $orderSettings->element3_type === 'number') {
+                    \DB::table('order_settings')->update([
+                        'start_number' => ($orderSettings->start_number ?? 1) + 1
+                    ]);
+                }
+            }
+            
+            // Zapisz zamówienie w bazie danych
+            $order = \App\Models\Order::create([
+                'order_number' => $orderName,
+                'supplier' => empty($supplierName) ? null : $supplierName,
+                'products' => $supplierProducts,
+                'supplier_offer_number' => $request->input('supplier_offer_number'),
+                'payment_method' => $request->input('payment_method'),
+                'payment_days' => $request->input('payment_days'),
+                'delivery_time' => $request->input('delivery_time'),
+                'issued_at' => now(),
+                'user_id' => auth()->id(),
+            ]);
+            
+            $createdOrders[] = [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'supplier' => $order->supplier,
+                'issued_at' => $order->issued_at->format('Y-m-d H:i:s'),
+                'products' => $order->products,
+                'delivery_time' => $order->delivery_time,
+                'supplier_offer_number' => $order->supplier_offer_number,
+                'payment_method' => $order->payment_method,
+                'payment_days' => $order->payment_days,
+            ];
+        }
+        
+        return response()->json([
+            'success' => true,
+            'message' => count($createdOrders) === 1 
+                ? 'Zamówienie zostało utworzone' 
+                : 'Utworzono ' . count($createdOrders) . ' zamówienia dla różnych dostawców',
+            'orders' => $createdOrders
+        ]);
+    }
+    
+    // GENERUJ DOKUMENT WORD DLA ZAMÓWIENIA
+    public function generateOrderWord($orderId)
+    {
+        $order = \App\Models\Order::findOrFail($orderId);
+        
+        $orderName = $order->order_number;
+        $supplierName = $order->supplier;
+        $products = $order->products;
 
         // Tworzenie dokumentu Word
         $phpWord = new \PhpOffice\PhpWord\PhpWord();
@@ -1108,23 +1423,66 @@ class PartController extends Controller
             $supplier = \App\Models\Supplier::where('name', $supplierName)->first();
         }
         
-        // HEADER - tylko dane Mojej Firmy
-        $logoPath = $companySettings && $companySettings->logo 
-            ? storage_path('app/public/' . $companySettings->logo)
-            : public_path('logo.png');
+        // Tablica na pliki tymczasowe do usunięcia na końcu
+        $tempFilesToDelete = [];
         
+        // HEADER - tylko dane Mojej Firmy
         $header = $section->addHeader();
         $headerTable = $header->addTable(['cellMargin' => 40]);
         $headerTable->addRow();
         
-        if (file_exists($logoPath)) {
-            $headerTable->addCell(1600, ['valign' => 'center'])->addImage($logoPath, [
-                'height' => 34,
-                'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT,
-                'marginTop' => 6,
-            ]);
+        // Logo firmy - obsługa base64 data URI
+        if ($companySettings && $companySettings->logo) {
+            try {
+                // Jeśli logo to data URI (base64)
+                if (strpos($companySettings->logo, 'data:image') === 0) {
+                    // Wyciągnij dane base64
+                    $imageData = explode(',', $companySettings->logo);
+                    if (count($imageData) === 2) {
+                        $base64Data = $imageData[1];
+                        $imageContent = base64_decode($base64Data);
+                        
+                        // Określ rozszerzenie na podstawie typu MIME
+                        $extension = '.png';
+                        if (strpos($companySettings->logo, 'data:image/jpeg') === 0) {
+                            $extension = '.jpg';
+                        } elseif (strpos($companySettings->logo, 'data:image/gif') === 0) {
+                            $extension = '.gif';
+                        }
+                        
+                        // Zapisz do tymczasowego pliku
+                        $tempLogoPath = tempnam(sys_get_temp_dir(), 'logo_') . $extension;
+                        file_put_contents($tempLogoPath, $imageContent);
+                        $tempFilesToDelete[] = $tempLogoPath;
+                        
+                        $headerTable->addCell(2000, ['valign' => 'center', 'borderRightSize' => 0])->addImage($tempLogoPath, [
+                            'height' => 34,
+                            'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT,
+                            'marginTop' => 6,
+                            'marginRight' => 200,
+                        ]);
+                    } else {
+                        $headerTable->addCell(2000, ['valign' => 'center']);
+                    }
+                } else {
+                    // Jeśli to ścieżka do pliku
+                    $logoPath = storage_path('app/public/' . $companySettings->logo);
+                    if (file_exists($logoPath)) {
+                        $headerTable->addCell(2000, ['valign' => 'center', 'borderRightSize' => 0])->addImage($logoPath, [
+                            'height' => 34,
+                            'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT,
+                            'marginTop' => 6,
+                            'marginRight' => 200,
+                        ]);
+                    } else {
+                        $headerTable->addCell(2000, ['valign' => 'center']);
+                    }
+                }
+            } catch (\Exception $e) {
+                $headerTable->addCell(2000, ['valign' => 'center']);
+            }
         } else {
-            $headerTable->addCell(1600, ['valign' => 'center']);
+            $headerTable->addCell(2000, ['valign' => 'center']);
         }
 
         $companyCell = $headerTable->addCell(8000, ['valign' => 'center']);
@@ -1138,7 +1496,7 @@ class PartController extends Controller
         $companyCell->addText($companyName, ['bold' => true, 'size' => 10], ['spaceAfter' => 0]);
         $companyCell->addText($companyAddress, ['size' => 9], ['spaceAfter' => 0]);
         $companyCell->addLink('mailto:' . $companyEmail, $companyEmail, ['size' => 9, 'color' => '4B5563'], ['spaceAfter' => 0]);
-        
+
         // FOOTER - Stopka z informacją o zakazie kopiowania
         $footer = $section->addFooter();
         $footer->addText(
@@ -1156,20 +1514,20 @@ class PartController extends Controller
             ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT, 'spaceAfter' => 0]
         );
         
-        // BODY - Dane dostawcy po prawej stronie (jeśli są)
+        // BODY - Dane dostawcy po prawej stronie
+        // Przerwa przed danymi dostawcy (1 linijka)
+        $section->addTextBreak(1);
+        
+        $mainTable = $section->addTable(['cellMargin' => 40]);
+        $mainTable->addRow();
+        
+        // Pusta komórka po lewej dla wyrównania do prawej
+        $mainTable->addCell(5000, ['valign' => 'top']);
+        
+        // Dane dostawcy
+        $supplierDataCell = $mainTable->addCell(5200, ['valign' => 'top']);
+        
         if ($supplier) {
-            // Przerwa przed danymi dostawcy (1 linijka)
-            $section->addTextBreak(1);
-            
-            $mainTable = $section->addTable(['cellMargin' => 40]);
-            $mainTable->addRow();
-            
-            // Pusta komórka po lewej dla wyrównania do prawej
-            $mainTable->addCell(5000, ['valign' => 'top']);
-            
-            // Dane dostawcy
-            $supplierDataCell = $mainTable->addCell(5200, ['valign' => 'top']);
-            
             if ($supplier->name) {
                 $supplierDataCell->addText($supplier->name, ['bold' => true, 'size' => 10], ['spaceAfter' => 0, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
             }
@@ -1192,17 +1550,60 @@ class PartController extends Controller
             }
             
             // Logo dostawcy poniżej (jeśli jest) - maksymalnie do prawej
-            $supplierLogoPath = $supplier->logo ? storage_path('app/public/' . $supplier->logo) : null;
-            if ($supplierLogoPath && file_exists($supplierLogoPath)) {
-                $supplierDataCell->addImage($supplierLogoPath, [
-                    'height' => 40,
-                    'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT,
-                    'wrappingStyle' => 'inline'
-                ]);
+            if ($supplier->logo) {
+                try {
+                    // Jeśli logo to data URI (base64)
+                    if (strpos($supplier->logo, 'data:image') === 0) {
+                        // Wyciągnij dane base64
+                        $imageData = explode(',', $supplier->logo);
+                        if (count($imageData) === 2) {
+                            $base64Data = $imageData[1];
+                            $imageContent = base64_decode($base64Data);
+                            
+                            // Określ rozszerzenie na podstawie typu MIME
+                            $extension = '.png';
+                            if (strpos($supplier->logo, 'data:image/jpeg') === 0) {
+                                $extension = '.jpg';
+                            } elseif (strpos($supplier->logo, 'data:image/gif') === 0) {
+                                $extension = '.gif';
+                            }
+                            
+                            // Zapisz do tymczasowego pliku
+                            $tempSupplierLogoPath = tempnam(sys_get_temp_dir(), 'supplier_logo_') . $extension;
+                            file_put_contents($tempSupplierLogoPath, $imageContent);
+                            $tempFilesToDelete[] = $tempSupplierLogoPath;
+                            
+                            $supplierDataCell->addImage($tempSupplierLogoPath, [
+                                'height' => 40,
+                                'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT,
+                                'wrappingStyle' => 'inline'
+                            ]);
+                        }
+                    } else {
+                        // Jeśli to ścieżka do pliku
+                        $supplierLogoPath = storage_path('app/public/' . $supplier->logo);
+                        if (file_exists($supplierLogoPath)) {
+                            $supplierDataCell->addImage($supplierLogoPath, [
+                                'height' => 40,
+                                'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT,
+                                'wrappingStyle' => 'inline'
+                            ]);
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Logo nie załadowane
+                }
             }
-            
-            $section->addTextBreak(1);
+        } else {
+            // Miejsce na dostawcę do wpisania ręcznie
+            $supplierDataCell->addText('Dostawca: _______________________', ['size' => 10], ['spaceAfter' => 0, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            $supplierDataCell->addText('NIP: _______________________', ['size' => 9], ['spaceAfter' => 0, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            $supplierDataCell->addText('Adres: _______________________', ['size' => 9], ['spaceAfter' => 0, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            $supplierDataCell->addText('_______________________', ['size' => 9], ['spaceAfter' => 0, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            $supplierDataCell->addText('Email: _______________________', ['size' => 9], ['spaceAfter' => 100, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
         }
+        
+        $section->addTextBreak(1);
         
         // Zamówienie wycentrowane poniżej
         $section->addText(
@@ -1217,19 +1618,21 @@ class PartController extends Controller
         })->max() ?: 1);
         $quantityWidth = max(800, $maxQuantityLen * 200);
         
-        // Tabela z produktami
+        // Tabela z produktami - wyśrodkowana
         $table = $section->addTable([
             'borderSize' => 6,
             'borderColor' => 'CCCCCC',
             'cellMargin' => 40,
+            'alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::CENTER,
         ]);
         
         // Nagłówek tabeli - szary 200
         $table->addRow();
         $cellStyleHeader = ['bgColor' => 'E0E0E0', 'valign' => 'center'];
         $table->addCell(3500, $cellStyleHeader)->addText('Produkt', ['bold' => true, 'size' => 9]);
-        $table->addCell(2500, $cellStyleHeader)->addText('Dostawca', ['bold' => true, 'size' => 9]);
-        $table->addCell($quantityWidth, $cellStyleHeader)->addText('Ilość', ['bold' => true, 'size' => 9]);
+        $table->addCell(2000, $cellStyleHeader)->addText('Dostawca', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+        $table->addCell($quantityWidth, $cellStyleHeader)->addText('Ilość', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+        $table->addCell(1500, $cellStyleHeader)->addText('Cena netto', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
         
         // Wiersze z produktami - co drugi szary 100
         $rowIndex = 0;
@@ -1245,20 +1648,50 @@ class PartController extends Controller
             // Pobierz skróconą nazwę dostawcy z bazy danych
             $supplierShortName = '-';
             if (!empty($product['supplier'])) {
-                $supplier = \App\Models\Supplier::where('name', $product['supplier'])->first();
-                if ($supplier && !empty($supplier->short_name)) {
-                    $supplierShortName = $supplier->short_name;
-                } elseif ($supplier) {
-                    $supplierShortName = $supplier->name;
+                $supplierInTable = \App\Models\Supplier::where('name', $product['supplier'])->first();
+                if ($supplierInTable && !empty($supplierInTable->short_name)) {
+                    $supplierShortName = $supplierInTable->short_name;
+                } elseif ($supplierInTable) {
+                    $supplierShortName = $supplierInTable->name;
                 } else {
                     // Jeśli nie znaleziono w bazie, użyj tego co przyszło
                     $supplierShortName = $product['supplier'];
                 }
             }
             
-            $table->addCell(2500, $cellStyle)->addText($supplierShortName, ['size' => 9]);
-            $table->addCell($quantityWidth, $cellStyle)->addText((string)$product['quantity'], ['size' => 9]);
+            $table->addCell(2000, $cellStyle)->addText($supplierShortName, ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            
+            // Ilość
+            $table->addCell($quantityWidth, $cellStyle)->addText((string)$product['quantity'], ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            
+            // Cena netto
+            $priceText = '-';
+            if (!empty($product['price'])) {
+                $currency = $product['currency'] ?? 'PLN';
+                $priceText = $product['price'] . ' ' . $currency;
+            }
+            $table->addCell(1500, $cellStyle)->addText($priceText, ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
         }
+        
+        // Wiersz z sumą netto
+        $totalNet = 0;
+        $mainCurrency = 'PLN';
+        foreach ($products as $product) {
+            if (!empty($product['price'])) {
+                $priceValue = floatval(str_replace(',', '.', $product['price']));
+                $totalNet += $priceValue * ($product['quantity'] ?? 1);
+                if (!empty($product['currency'])) {
+                    $mainCurrency = $product['currency'];
+                }
+            }
+        }
+        
+        $table->addRow();
+        $sumCellStyle = ['bgColor' => 'E8E8E8', 'valign' => 'center'];
+        $table->addCell(3500, $sumCellStyle)->addText('');
+        $table->addCell(2000, $sumCellStyle)->addText('');
+        $table->addCell($quantityWidth, $sumCellStyle)->addText('SUMA:', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+        $table->addCell(1500, $sumCellStyle)->addText(number_format($totalNet, 2, ',', ' ') . ' ' . $mainCurrency, ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
         
         // Opis i zakres zamówienia
         $section->addTextBreak(1);
@@ -1272,24 +1705,25 @@ class PartController extends Controller
             ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]
         );
         
-        // Informacje pod tabelką
+        // Informacje pod kreską
         $section->addTextBreak(1);
         
-        $deliveryTime = $request->input('delivery_time');
+        $deliveryTime = $order->delivery_time;
+        $supplierOfferNumber = $order->supplier_offer_number;
+        $paymentMethod = $order->payment_method;
+        
         if (!empty($deliveryTime)) {
             $section->addText('Termin dostawy: ' . $deliveryTime, ['size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
         }
         
-        $supplierOfferNumber = $request->input('supplier_offer_number');
         if (!empty($supplierOfferNumber)) {
             $section->addText('Oferta dostawcy: ' . $supplierOfferNumber, ['size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
         }
         
-        $paymentMethod = $request->input('payment_method');
         if (!empty($paymentMethod)) {
             $paymentText = 'Rodzaj płatności: ' . $paymentMethod;
             if ($paymentMethod === 'przelew') {
-                $paymentDays = $request->input('payment_days', '30 dni');
+                $paymentDays = $order->payment_days ?? '30 dni';
                 $paymentText .= ' (' . $paymentDays . ')';
             }
             $section->addText($paymentText, ['size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
@@ -1298,8 +1732,8 @@ class PartController extends Controller
         // Informacja o kontakcie - na samym dole strony
         $section->addTextBreak(4);
         
-        // Pobierz dane zalogowanego użytkownika
-        $user = auth()->user();
+        // Pobierz dane użytkownika który utworzył zamówienie
+        $user = $order->user;
         $userName = $user ? $user->name : '';
         $userEmail = $user ? $user->email : '';
         $userPhone = $user ? $user->phone : '';
@@ -1331,35 +1765,268 @@ class PartController extends Controller
         $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
         $objWriter->save($tempFile);
         
-        // Zwiększ numer zamówienia w bazie danych (tylko jeśli nazwa nie została zmieniona ręcznie)
-        $shouldIncrement = $request->input('increment_counter', true);
-        if ($shouldIncrement) {
-            $orderSettings = \DB::table('order_settings')->first();
-            if ($orderSettings && $orderSettings->element3_type === 'number') {
-                \DB::table('order_settings')->update([
-                    'start_number' => ($orderSettings->start_number ?? 1) + 1
-                ]);
-            }
+        // Usuń pliki tymczasowe logo PO zapisaniu dokumentu
+        foreach ($tempFilesToDelete as $tempFilePath) {
+            @unlink($tempFilePath);
         }
-        
-        // Zapisz zamówienie w bazie danych
-        \App\Models\Order::create([
-            'order_number' => $orderName,
-            'supplier' => $supplierName,
-            'products' => $products,
-            'issued_at' => now(),
-            'user_id' => auth()->id(),
-        ]);
         
         // Zwróć plik do pobrania
         return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
+    }
+    
+    // GENERUJ DOKUMENT PDF DLA ZAMÓWIENIA
+    public function generateOrderPdf($orderId)
+    {
+        $order = \App\Models\Order::findOrFail($orderId);
+        
+        $orderName = $order->order_number;
+        $supplierName = $order->supplier;
+        $products = $order->products;
+
+        // Pobierz dane firmy z bazy danych
+        $companySettings = \App\Models\CompanySetting::first();
+        
+        // Pobierz dane dostawcy z bazy danych
+        $supplier = null;
+        if (!empty($supplierName)) {
+            $supplier = \App\Models\Supplier::where('name', $supplierName)->first();
+        }
+        
+        // Pobierz dane użytkownika który utworzył zamówienie
+        $user = $order->user;
+        $userName = $user ? $user->name : '';
+        $userEmail = $user ? $user->email : '';
+        $userPhone = $user ? $user->phone : '';
+        
+        // Przygotuj dane firmy
+        $companyName = $companySettings && $companySettings->name ? $companySettings->name : '3C Automation sp. z o. o.';
+        $companyAddress = $companySettings && $companySettings->address && $companySettings->city 
+            ? ('Ul. ' . $companySettings->address . ', ' . ($companySettings->postal_code ? $companySettings->postal_code . ' ' : '') . $companySettings->city)
+            : 'ul. Gliwicka 14, 44-167 Kleszczów';
+        $companyEmail = $companySettings && $companySettings->email ? $companySettings->email : 'biuro@3cautomation.eu';
+        $companyCity = $companySettings && $companySettings->city ? $companySettings->city : 'Kleszczów';
+        $companyLogo = $companySettings && $companySettings->logo ? $companySettings->logo : null;
+        
+        // Oblicz sumę netto
+        $totalNet = 0;
+        $mainCurrency = 'PLN';
+        foreach ($products as $product) {
+            if (!empty($product['price'])) {
+                $priceValue = floatval(str_replace(',', '.', $product['price']));
+                $totalNet += $priceValue * ($product['quantity'] ?? 1);
+                if (!empty($product['currency'])) {
+                    $mainCurrency = $product['currency'];
+                }
+            }
+        }
+        
+        // Generuj HTML dla PDF
+        $html = '
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body { font-family: DejaVu Sans, sans-serif; font-size: 10px; margin: 20px; }
+                .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+                .header-left { display: flex; align-items: center; gap: 20px; }
+                .header-logo img { height: 40px; }
+                .header-company { }
+                .header-company .name { font-weight: bold; font-size: 11px; }
+                .header-company .address { font-size: 9px; color: #666; }
+                .date { text-align: right; margin-bottom: 20px; }
+                .supplier-info { text-align: right; margin-bottom: 20px; }
+                .supplier-info .name { font-weight: bold; }
+                .supplier-info .detail { font-size: 9px; }
+                .order-title { text-align: center; font-size: 14px; font-weight: bold; margin: 20px 0; }
+                table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+                th, td { border: 1px solid #ccc; padding: 5px; font-size: 9px; vertical-align: middle; }
+                th { background-color: #e0e0e0; font-weight: bold; }
+                .row-even { background-color: #f5f5f5; }
+                .text-center { text-align: center; }
+                .text-right { text-align: right; }
+                .sum-row { background-color: #e8e8e8; }
+                .description-section { margin-top: 20px; }
+                .description-title { font-weight: bold; font-size: 11px; }
+                .dashed-line { border-top: 1px dashed #999; margin: 30px 0 10px 0; }
+                .info-section { margin-top: 10px; }
+                .contact-info { font-style: italic; font-size: 9px; margin-top: 30px; }
+                .signature { text-align: right; margin-top: 20px; }
+                .footer { text-align: center; font-size: 8px; color: #666; font-style: italic; margin-top: 50px; border-top: 1px solid #ccc; padding-top: 10px; }
+            </style>
+        </head>
+        <body>
+            <table style="border: none; width: 100%; margin-bottom: 20px;">
+                <tr>
+                    <td style="border: none; width: 60px; vertical-align: middle;">';
+        
+        if ($companyLogo) {
+            $html .= '<img src="' . $companyLogo . '" style="height: 40px;">';
+        }
+        
+        $html .= '</td>
+                    <td style="border: none; vertical-align: middle; padding-left: 15px;">
+                        <div style="font-weight: bold; font-size: 11px;">' . htmlspecialchars($companyName) . '</div>
+                        <div style="font-size: 9px;">' . htmlspecialchars($companyAddress) . '</div>
+                        <div style="font-size: 9px; color: #4B5563;">' . htmlspecialchars($companyEmail) . '</div>
+                    </td>
+                </tr>
+            </table>
+            
+            <div class="date">' . htmlspecialchars($companyCity) . ', ' . now()->format('d.m.Y') . '</div>
+            
+            <div class="supplier-info">';
+        
+        if ($supplier) {
+            if ($supplier->name) {
+                $html .= '<div class="name">' . htmlspecialchars($supplier->name) . '</div>';
+            }
+            if ($supplier->nip) {
+                $html .= '<div class="detail">NIP: ' . htmlspecialchars($supplier->nip) . '</div>';
+            }
+            if ($supplier->address) {
+                $html .= '<div class="detail">Ul. ' . htmlspecialchars($supplier->address) . '</div>';
+            }
+            if ($supplier->postal_code || $supplier->city) {
+                $html .= '<div class="detail">' . htmlspecialchars(trim(($supplier->postal_code ?? '') . ' ' . ($supplier->city ?? ''))) . '</div>';
+            }
+            if ($supplier->email) {
+                $html .= '<div class="detail">' . htmlspecialchars($supplier->email) . '</div>';
+            }
+            if ($supplier->logo) {
+                $html .= '<div style="margin-top: 10px;"><img src="' . $supplier->logo . '" style="height: 40px;"></div>';
+            }
+        } else {
+            $html .= '<div>Dostawca: _______________________</div>';
+            $html .= '<div class="detail">NIP: _______________________</div>';
+            $html .= '<div class="detail">Adres: _______________________</div>';
+        }
+        
+        $html .= '</div>
+            
+            <div class="order-title">Zamówienie: ' . htmlspecialchars($orderName) . '</div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Produkt</th>
+                        <th class="text-center">Dostawca</th>
+                        <th class="text-center">Ilość</th>
+                        <th class="text-right">Cena netto</th>
+                    </tr>
+                </thead>
+                <tbody>';
+        
+        $rowIndex = 0;
+        foreach ($products as $product) {
+            $rowIndex++;
+            $rowClass = ($rowIndex % 2 === 0) ? 'row-even' : '';
+            
+            $supplierShortName = '-';
+            if (!empty($product['supplier'])) {
+                $supplierInTable = \App\Models\Supplier::where('name', $product['supplier'])->first();
+                if ($supplierInTable && !empty($supplierInTable->short_name)) {
+                    $supplierShortName = $supplierInTable->short_name;
+                } elseif ($supplierInTable) {
+                    $supplierShortName = $supplierInTable->name;
+                } else {
+                    $supplierShortName = $product['supplier'];
+                }
+            }
+            
+            $priceText = '-';
+            if (!empty($product['price'])) {
+                $currency = $product['currency'] ?? 'PLN';
+                $priceText = $product['price'] . ' ' . $currency;
+            }
+            
+            $html .= '<tr class="' . $rowClass . '">
+                <td>' . htmlspecialchars($product['name']) . '</td>
+                <td class="text-center">' . htmlspecialchars($supplierShortName) . '</td>
+                <td class="text-center">' . htmlspecialchars($product['quantity']) . '</td>
+                <td class="text-right">' . htmlspecialchars($priceText) . '</td>
+            </tr>';
+        }
+        
+        $html .= '<tr class="sum-row">
+                <td></td>
+                <td></td>
+                <td class="text-right"><strong>SUMA:</strong></td>
+                <td class="text-right"><strong>' . number_format($totalNet, 2, ',', ' ') . ' ' . $mainCurrency . '</strong></td>
+            </tr>
+                </tbody>
+            </table>
+            
+            <div class="description-section">
+                <div class="description-title">Opis i zakres zamówienia:</div>
+                <br><br><br>
+            </div>
+            
+            <div class="dashed-line"></div>
+            
+            <div class="info-section">';
+        
+        if (!empty($order->delivery_time)) {
+            $html .= '<div>Termin dostawy: ' . htmlspecialchars($order->delivery_time) . '</div>';
+        }
+        if (!empty($order->supplier_offer_number)) {
+            $html .= '<div>Oferta dostawcy: ' . htmlspecialchars($order->supplier_offer_number) . '</div>';
+        }
+        if (!empty($order->payment_method)) {
+            $paymentText = $order->payment_method;
+            if ($order->payment_method === 'przelew' && $order->payment_days) {
+                $paymentText .= ' (' . $order->payment_days . ')';
+            }
+            $html .= '<div>Rodzaj płatności: ' . htmlspecialchars($paymentText) . '</div>';
+        }
+        
+        $html .= '</div>
+            
+            <div class="contact-info">
+                W razie problemów z realizacją zamówienia prosimy o kontakt z osobą składającą zamówienie:
+            </div>
+            
+            <div class="signature">
+                <div>Pozdrawiam:</div>';
+        
+        if (!empty($userName)) {
+            $html .= '<div>' . htmlspecialchars($userName) . '</div>';
+        }
+        if (!empty($userEmail)) {
+            $html .= '<div style="font-size: 10px;">email: ' . htmlspecialchars($userEmail) . '</div>';
+        }
+        if (!empty($userPhone)) {
+            $html .= '<div style="font-size: 10px;">nr. tel.: ' . htmlspecialchars($userPhone) . '</div>';
+        }
+        
+        $html .= '</div>
+            
+            <div class="footer">
+                Dokumentu nie wolno kopiować ani rozpowszechniać bez zgody ' . htmlspecialchars($companyName) . '
+            </div>
+        </body>
+        </html>';
+        
+        // Użyj Dompdf do generowania PDF
+        $dompdf = new \Dompdf\Dompdf();
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+        
+        // Nazwa pliku
+        $fileName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $orderName) . '.pdf';
+        
+        return response($dompdf->output(), 200)
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
     }
     
     // Generuj rzeczywistą nazwę zamówienia ze skróconą nazwą dostawcy
     private function generateRealOrderName($template, $supplierName)
     {
         if (empty($supplierName)) {
-            return $template;
+            // Zamień "DOSTAWCA" na "brak" gdy nie ma dostawcy
+            return str_replace('DOSTAWCA', 'brak', $template);
         }
         
         // Pobierz skróconą nazwę dostawcy

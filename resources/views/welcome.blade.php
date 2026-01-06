@@ -38,11 +38,6 @@
         <!-- MENU -->
         @auth
         <nav class="flex gap-2 items-center flex-wrap justify-end">
-            <a href="{{ route('magazyn.check') }}"
-               class="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded whitespace-nowrap">
-                Wejdź do magazynu
-            </a>
-            
             <div class="border-l border-gray-300 pl-2 flex items-center gap-2">
                 <span class="text-gray-700 text-sm whitespace-nowrap">{{ Auth::user()->name }}</span>
                 <form action="{{ route('logout') }}" method="POST" class="inline">
@@ -87,5 +82,10 @@
     @endauth
 </main>
 
+<!-- Stopka z logo i napisem Powered by ProximaLumine -->
+<div style="position: fixed; right: 20px; bottom: 10px; z-index: 50; color: #888; font-style: italic; font-size: 1rem; pointer-events: none; display: flex; align-items: center; gap: 8px;">
+    <img src="{{ asset('logo_proxima.png') }}" alt="ProximaLumine" style="height:44px;vertical-align:middle;">
+    <span>Powered by ProximaLumine</span>
+</div>
 </body>
 </html>

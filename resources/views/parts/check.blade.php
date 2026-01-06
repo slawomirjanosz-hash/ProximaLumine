@@ -99,54 +99,46 @@
     {{-- TABELA --}}
 
     {{-- TABELA --}}
-    <table class="w-full border border-collapse">
+    <table class="w-full border border-collapse text-xs">
         <thead>
             <tr class="bg-gray-100">
-                <th class="border p-2">
+                <th class="border p-2 text-center text-xs">
                     <input type="checkbox" id="select-all" class="w-4 h-4 cursor-pointer" title="Zaznacz wszystkie">
                 </th>
-                <th class="border p-2 cursor-pointer hover:bg-gray-200" onclick="sortTable('name')">
-                    Produkty
-                    <span class="{{ $sortBy === 'name' ? '' : 'text-gray-400' }}">
-                        {{ $sortBy === 'name' && $sortDir === 'desc' ? '▼' : '▲' }}
-                    </span>
+                <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap min-w-[16rem] max-w-[24rem]" onclick="sortTable('name')">
+                    Produkty <span class="align-middle ml-1 {{ $sortBy === 'name' ? '' : 'text-gray-400' }}">{{ $sortBy === 'name' && $sortDir === 'desc' ? '▼' : '▲' }}</span>
                 </th>
-                <th class="border p-2 cursor-pointer hover:bg-gray-200" onclick="sortTable('description')">
-                    Opis
-                    <span class="{{ $sortBy === 'description' ? '' : 'text-gray-400' }}">
-                        {{ $sortBy === 'description' && $sortDir === 'desc' ? '▼' : '▲' }}
-                    </span>
+                <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap min-w-[16rem] max-w-[28rem]" onclick="sortTable('description')">
+                    Opis <span class="align-middle ml-1 {{ $sortBy === 'description' ? '' : 'text-gray-400' }}">{{ $sortBy === 'description' && $sortDir === 'desc' ? '▼' : '▲' }}</span>
                 </th>
-                <th class="border p-2 cursor-pointer hover:bg-gray-200" onclick="sortTable('supplier')">
-                    Dostawca
-                    <span class="{{ $sortBy === 'supplier' ? '' : 'text-gray-400' }}">
-                        {{ $sortBy === 'supplier' && $sortDir === 'desc' ? '▼' : '▲' }}
-                    </span>
+                <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap min-w-[3.5rem] max-w-[6rem]" onclick="sortTable('supplier')">
+                    Dost. <span class="align-middle ml-1 {{ $sortBy === 'supplier' ? '' : 'text-gray-400' }}">{{ $sortBy === 'supplier' && $sortDir === 'desc' ? '▼' : '▲' }}</span>
                 </th>
-                <th class="border p-2 cursor-pointer hover:bg-gray-200" onclick="sortTable('net_price')">
-                    Cena netto
-                    <span class="{{ $sortBy === 'net_price' ? '' : 'text-gray-400' }}">
-                        {{ $sortBy === 'net_price' && $sortDir === 'desc' ? '▼' : '▲' }}
-                    </span>
+                <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap min-w-[3.5rem] max-w-[6rem]" onclick="sortTable('net_price')">
+                    Cena netto <span class="align-middle ml-1 {{ $sortBy === 'net_price' ? '' : 'text-gray-400' }}">{{ $sortBy === 'net_price' && $sortDir === 'desc' ? '▼' : '▲' }}</span>
                 </th>
-                <th class="border p-2 cursor-pointer hover:bg-gray-200" onclick="sortTable('category')">
-                    Kategoria
-                    <span class="{{ $sortBy === 'category' ? '' : 'text-gray-400' }}">
-                        {{ $sortBy === 'category' && $sortDir === 'desc' ? '▼' : '▲' }}
-                    </span>
+                <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap min-w-[6.5rem]" onclick="sortTable('category')">
+                    Kategoria <span class="align-middle ml-1 {{ $sortBy === 'category' ? '' : 'text-gray-400' }}">{{ $sortBy === 'category' && $sortDir === 'desc' ? '▼' : '▲' }}</span>
                 </th>
-                <th class="border p-2 text-center cursor-pointer hover:bg-gray-200" onclick="sortTable('quantity')">
-                    Stan
-                    <span class="{{ $sortBy === 'quantity' ? '' : 'text-gray-400' }}">
-                        {{ $sortBy === 'quantity' && $sortDir === 'desc' ? '▼' : '▲' }}
-                    </span>
+                <th class="border p-2 text-center cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap min-w-[2.5rem] max-w-[4rem]" onclick="sortTable('quantity')">
+                    Stan <span class="align-middle ml-1 {{ $sortBy === 'quantity' ? '' : 'text-gray-400' }}">{{ $sortBy === 'quantity' && $sortDir === 'desc' ? '▼' : '▲' }}</span>
                 </th>
-                <th class="border p-2 text-center">Akcja</th>
+                <th class="border p-1 text-center text-xs whitespace-nowrap min-w-[4.5rem]" style="width: 6ch;">User</th>
+                @if(auth()->user()->show_action_column)
+                    <th class="border p-2 text-center text-xs whitespace-nowrap min-w-[5.5rem]">Akcja</th>
+                @endif
             </tr>
         </thead>
 
         <tbody>
             @foreach($parts as $p)
+                @php
+                    $supplierShort = '';
+                    if ($p->supplier) {
+                        $sup = $suppliers->firstWhere('name', $p->supplier);
+                        $supplierShort = $sup ? ($sup->short_name ?? $sup->name) : $p->supplier;
+                    }
+                @endphp
                 <tr>
                     {{-- CHECKBOX --}}
                     <td class="border p-2 text-center">
@@ -159,19 +151,19 @@
                     </td>
 
                     {{-- OPIS --}}
-                    <td class="border p-2 text-sm text-gray-700">
+                    <td class="border p-2 text-xs text-gray-700">
                         {{ $p->description ?? '-' }}
                     </td>
 
                     {{-- DOSTAWCA --}}
-                    <td class="border p-2 text-gray-700">
-                        <span style="font-size: 10px;">{{ $p->supplier ?? '-' }}</span>
+                    <td class="border p-2 text-center text-xs text-gray-700">
+                        {{ $supplierShort ?: '-' }}
                     </td>
 
                     {{-- CENA NETTO --}}
                     <td class="border p-2 text-center">
                         @if($p->net_price)
-                            {{ number_format($p->net_price, 2) }} {{ $p->currency }}
+                            {{ number_format($p->net_price, 2) }} <span class="text-xs">{{ $p->currency }}</span>
                         @else
                             -
                         @endif
@@ -183,72 +175,79 @@
                     </td>
 
                     {{-- STAN --}}
-                    <td class="border p-2 text-center font-bold">
+                    <td class="border p-2 text-center font-bold text-xs">
                         {{ $p->quantity }}
                     </td>
 
+                    {{-- UŻYTKOWNIK --}}
+                    <td class="border p-2 text-center text-xs text-gray-600">
+                        {{ $p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-' }}
+                    </td>
+
                     {{-- AKCJE --}}
-                    <td class="border p-2">
-                        <div class="flex items-center justify-between gap-2">
+                    @if(auth()->user()->show_action_column)
+                        <td class="border p-2">
+                            <div class="flex items-center justify-between gap-2">
 
-                            <!-- + / - -->
-                            <div class="flex gap-2 justify-center flex-1">
+                                <!-- + / - -->
+                                <div class="flex gap-2 justify-center flex-1">
 
-                                {{-- ➕ --}}
-                                <form method="POST" action="{{ route('parts.add') }}">
+                                    {{-- ➕ --}}
+                                    <form method="POST" action="{{ route('parts.add') }}">
+                                        @csrf
+                                        <input type="hidden" name="name" value="{{ $p->name }}">
+                                        <input type="hidden" name="category_id" value="{{ $p->category_id }}">
+                                        <input type="hidden" name="quantity" value="1">
+                                        <input type="hidden" name="redirect_to" value="check">
+                                        <input type="hidden" name="search" value="{{ request('search') }}">
+                                        <input type="hidden" name="filter_category_id" value="{{ request('category_id') }}">
+
+                                        <button class="bg-gray-200 px-2 rounded">
+                                            ➕
+                                        </button>
+                                    </form>
+
+                                    {{-- ➖ --}}
+                                    <form method="POST" action="{{ route('parts.remove') }}">
+                                        @csrf
+                                        <input type="hidden" name="name" value="{{ $p->name }}">
+                                        <input type="hidden" name="quantity" value="1">
+                                        <input type="hidden" name="redirect_to" value="check">
+                                        <input type="hidden" name="search" value="{{ request('search') }}">
+                                        <input type="hidden" name="filter_category_id" value="{{ request('category_id') }}">
+
+                                        <button class="bg-gray-200 px-2 rounded">
+                                            ➖
+                                        </button>
+                                    </form>
+
+                                </div>
+
+                                {{-- ✏️ EDYCJA --}}
+                                <button class="bg-blue-100 hover:bg-blue-200 px-2 rounded text-sm edit-part-btn" 
+                                        data-part-id="{{ $p->id }}"
+                                        data-part-name="{{ $p->name }}"
+                                        data-part-price="{{ $p->net_price }}"
+                                        data-part-currency="{{ $p->currency }}"
+                                        title="Edytuj cenę">
+                                    ✏️
+                                </button>
+
+                                {{-- ❌ --}}
+                                <form method="POST"
+                                      action="{{ route('parts.destroy', $p->id) }}"
+                                      onsubmit="return confirm('Usunąć część z bazy danych?');">
                                     @csrf
-                                    <input type="hidden" name="name" value="{{ $p->name }}">
-                                    <input type="hidden" name="category_id" value="{{ $p->category_id }}">
-                                    <input type="hidden" name="quantity" value="1">
-                                    <input type="hidden" name="redirect_to" value="check">
-                                    <input type="hidden" name="search" value="{{ request('search') }}">
-                                    <input type="hidden" name="filter_category_id" value="{{ request('category_id') }}">
+                                    @method('DELETE')
 
                                     <button class="bg-gray-200 px-2 rounded">
-                                        ➕
-                                    </button>
-                                </form>
-
-                                {{-- ➖ --}}
-                                <form method="POST" action="{{ route('parts.remove') }}">
-                                    @csrf
-                                    <input type="hidden" name="name" value="{{ $p->name }}">
-                                    <input type="hidden" name="quantity" value="1">
-                                    <input type="hidden" name="redirect_to" value="check">
-                                    <input type="hidden" name="search" value="{{ request('search') }}">
-                                    <input type="hidden" name="filter_category_id" value="{{ request('category_id') }}">
-
-                                    <button class="bg-gray-200 px-2 rounded">
-                                        ➖
+                                        ❌
                                     </button>
                                 </form>
 
                             </div>
-
-                            {{-- ✏️ EDYCJA --}}
-                            <button class="bg-blue-100 hover:bg-blue-200 px-2 rounded text-sm edit-part-btn" 
-                                    data-part-id="{{ $p->id }}"
-                                    data-part-name="{{ $p->name }}"
-                                    data-part-price="{{ $p->net_price }}"
-                                    data-part-currency="{{ $p->currency }}"
-                                    title="Edytuj cenę">
-                                ✏️
-                            </button>
-
-                            {{-- ❌ --}}
-                            <form method="POST"
-                                  action="{{ route('parts.destroy', $p->id) }}"
-                                  onsubmit="return confirm('Usunąć część z bazy danych?');">
-                                @csrf
-                                @method('DELETE')
-
-                                <button class="bg-gray-200 px-2 rounded">
-                                    ❌
-                                </button>
-                            </form>
-
-                        </div>
-                    </td>
+                        </td>
+                    @endif
                 </tr>
             @endforeach
         </tbody>

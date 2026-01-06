@@ -19,6 +19,9 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'first_name',
+        'last_name',
+        'short_name',
         'email',
         'password',
         'phone',
@@ -28,7 +31,14 @@ class User extends Authenticatable
         'can_remove',
         'can_orders',
         'can_settings',
+        'can_settings_categories',
+        'can_settings_suppliers',
+        'can_settings_company',
+        'can_settings_users',
+        'can_settings_export',
+        'can_settings_other',
         'can_delete_orders',
+        'show_action_column',
     ];
 
     /**
@@ -57,6 +67,40 @@ class User extends Authenticatable
             'can_remove' => 'boolean',
             'can_orders' => 'boolean',
             'can_settings' => 'boolean',
+            'can_settings_categories' => 'boolean',
+            'can_settings_suppliers' => 'boolean',
+            'can_settings_company' => 'boolean',
+            'can_settings_users' => 'boolean',
+            'can_settings_export' => 'boolean',
+            'can_settings_other' => 'boolean',
         ];
+    }
+
+    /**
+     * Boot method - automatyczne ustawienia dla adminów
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Przed zapisaniem nowego użytkownika
+        static::creating(function ($user) {
+            // admin@admin.com zawsze ma określone dane
+            if (strtolower($user->email) === 'admin@admin.com') {
+                $user->first_name = 'Admin';
+                $user->last_name = 'Admin';
+                $user->short_name = 'AdmAdm';
+            }
+        });
+
+        // Przed aktualizacją użytkownika
+        static::updating(function ($user) {
+            // admin@admin.com zawsze ma określone dane (hasło nie zmieniamy)
+            if (strtolower($user->email) === 'admin@admin.com') {
+                $user->first_name = 'Admin';
+                $user->last_name = 'Admin';
+                $user->short_name = 'AdmAdm';
+            }
+        });
     }
 }

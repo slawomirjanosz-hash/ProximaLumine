@@ -47,13 +47,17 @@ Route::middleware('auth')->group(function () {
     Route::put('/magazyn/ustawienia/user/{user}', [PartController::class, 'updateUser'])->name('magazyn.user.update')->middleware('permission:settings');
     Route::delete('/magazyn/ustawienia/user/{user}', [PartController::class, 'deleteUser'])->name('magazyn.user.delete')->middleware('permission:settings');
     Route::post('/magazyn/ustawienia/supplier', [PartController::class, 'addSupplier'])->name('magazyn.supplier.add')->middleware('permission:settings');
+    Route::put('/magazyn/ustawienia/supplier/{supplier}', [PartController::class, 'updateSupplier'])->name('magazyn.supplier.update')->middleware('permission:settings');
     Route::delete('/magazyn/ustawienia/supplier/{supplier}', [PartController::class, 'deleteSupplier'])->name('magazyn.supplier.delete')->middleware('permission:settings');
     Route::get('/magazyn/ustawienia/supplier/fetch-by-nip', [PartController::class, 'fetchSupplierByNip'])->name('magazyn.supplier.fetchByNip')->middleware('permission:settings');
+    Route::get('/magazyn/ustawienia/company/fetch-by-nip', [PartController::class, 'fetchCompanyByNip'])->name('magazyn.company.fetchByNip')->middleware('permission:settings');
     Route::post('/magazyn/ustawienia/company', [PartController::class, 'saveCompanySettings'])->name('magazyn.company.save')->middleware('permission:settings');
     Route::post('/magazyn/ustawienia/order-settings', [PartController::class, 'saveOrderSettings'])->name('magazyn.order-settings.save')->middleware('permission:settings');
     Route::delete('/magazyn/parts/bulk-delete', [PartController::class, 'bulkDelete'])->name('magazyn.parts.bulkDelete')->middleware('permission:view_catalog');
     Route::put('/magazyn/parts/{part}/update-price', [PartController::class, 'updatePrice'])->name('magazyn.parts.updatePrice')->middleware('permission:view_catalog');
     Route::post('/magazyn/zamowienia/create', [PartController::class, 'createOrder'])->name('magazyn.order.create')->middleware('permission:orders');
+    Route::get('/magazyn/zamowienia/{order}/generate-word', [PartController::class, 'generateOrderWord'])->name('magazyn.order.generateWord')->middleware('permission:orders');
+    Route::get('/magazyn/zamowienia/{order}/generate-pdf', [PartController::class, 'generateOrderPdf'])->name('magazyn.order.generatePdf')->middleware('permission:orders');
     Route::get('/magazyn/zamowienia/next-name', [PartController::class, 'getNextOrderName'])->name('magazyn.order.nextName')->middleware('permission:orders');
     Route::delete('/magazyn/zamowienia/{order}', [PartController::class, 'deleteOrder'])->name('magazyn.order.delete')->middleware('permission:orders');
     Route::post('/magazyn/zamowienia/delete-multiple', [PartController::class, 'deleteMultipleOrders'])->name('magazyn.order.deleteMultiple')->middleware('permission:orders');

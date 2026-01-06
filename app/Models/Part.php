@@ -16,10 +16,16 @@ class Part extends Model
         'quantity',
         'net_price',
         'currency',
+        'last_modified_by',
     ];
 
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function lastModifiedBy()
+    {
+        return $this->belongsTo(User::class, 'last_modified_by');
     }
 }

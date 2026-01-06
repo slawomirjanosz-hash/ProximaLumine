@@ -107,16 +107,17 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
                     <h4 class="font-semibold text-sm">Produkty do zamówienia</h4>
                 </button>
                 <div id="selected-products-inner" class="collapsible-content hidden mt-4 p-4 bg-gray-50 rounded border border-gray-300">
-                    <table id="selected-products-table-inner" class="w-full border border-collapse text-xs mb-4">
+                    <table id="selected-products-table-inner" class="w-full border border-collapse mb-4" style="font-size: 10px;">
                         <thead class="bg-blue-100">
                             <tr>
-                                <th class="border p-1 text-center" style="width: 30px;"></th>
+                                <th class="border p-1 text-center" style="width: 25px;"></th>
                                 <th class="border p-1 text-left" style="white-space: nowrap;">Produkt</th>
-                                <th class="border p-1 text-left" style="width: 60px;">Dostawca</th>
-                                <th class="border p-1 text-center" style="width: 100px;">Cena netto</th>
-                                <th class="border p-1 text-center" style="width: 45px;">Stan</th>
-                                <th class="border p-1 text-center" style="width: 50px;">Il. do zam.</th>
-                                <th class="border p-1 text-center" style="width: 60px;">Akcja</th>
+                                <th class="border p-1 text-left" style="max-width: 150px;">Opis</th>
+                                <th class="border p-1 text-center" style="width: 80px;">Dostawca</th>
+                                <th class="border p-1 text-center" style="width: 70px;">Cena</th>
+                                <th class="border p-1 text-center" style="width: 35px;">Stan</th>
+                                <th class="border p-1 text-center" style="width: 40px;">Il.</th>
+                                <th class="border p-1 text-center" style="width: 45px;">Akcja</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -185,16 +186,17 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
                     <h4 class="font-semibold text-sm">Katalog Produktów</h4>
                 </button>
                 <div id="catalog-content" class="collapsible-content hidden mt-4 p-4 bg-gray-50 rounded border border-gray-300">
-                    <table class="w-full border border-collapse text-sm">
+                    <table class="w-full border border-collapse text-xs">
                         <thead class="bg-gray-100">
                             <tr>
-                                <th class="border p-2 text-center" style="width: 40px;"></th>
-                                <th class="border p-2 text-left">Produkty</th>
-                                <th class="border p-2 text-left">Opis</th>
-                                <th class="border p-2 text-left">Dostawca</th>
-                                <th class="border p-2 text-center" style="width: 100px;">Cena netto</th>
-                                <th class="border p-2 text-left">Kategoria</th>
-                                <th class="border p-2 text-center">Stan</th>
+                                <th class="border p-2 text-center text-xs" style="width: 40px;"></th>
+                                <th class="border p-2 text-left text-xs whitespace-nowrap min-w-[16rem] max-w-[24rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('name')">Produkty <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                                <th class="border p-2 text-left text-xs whitespace-nowrap min-w-[12rem] max-w-[20rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('description')">Opis <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                                <th class="border p-2 text-xs whitespace-nowrap min-w-[3.5rem] max-w-[6rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('supplier')">Dostawca <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                                <th class="border p-2 text-xs whitespace-nowrap min-w-[3.5rem] max-w-[6rem] cursor-pointer hover:bg-gray-200" style="width: 100px;" onclick="sortTable('net_price')">Cena netto <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                                <th class="border p-2 text-left text-xs whitespace-nowrap min-w-[6.5rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('category')">Kategoria <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                                <th class="border p-2 text-center text-xs whitespace-nowrap min-w-[2.5rem] max-w-[4rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('quantity')">Stan <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                                <th class="border p-1 text-center text-xs whitespace-nowrap min-w-[4.5rem]" style="width: 6ch;">User</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -211,21 +213,22 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
                                         <input type="checkbox" class="catalog-checkbox w-4 h-4 cursor-pointer" data-part-name="{{ $p->name }}" data-part-desc="{{ $p->description ?? '' }}" data-part-supplier="{{ $p->supplier ?? '' }}" data-part-supplier-short="{{ $supplierShort }}" data-part-price="{{ $p->net_price ?? '' }}" data-part-currency="{{ $p->currency ?? 'PLN' }}" data-part-qty="{{ $p->quantity }}>">
                                     </td>
                                     <td class="border p-2">{{ $p->name }}</td>
-                                    <td class="border p-2 text-gray-700">{{ $p->description ?? '-' }}</td>
-                                    <td class="border p-2 text-gray-700"><span style="font-size: 10px;">{{ $p->supplier ?? '-' }}</span></td>
+                                    <td class="border p-2 text-xs text-gray-700">{{ $p->description ?? '-' }}</td>
+                                    <td class="border p-2 text-gray-700 text-xs text-center"><span style="font-size: 10px;">{{ $supplierShort ?: '-' }}</span></td>
                                     <td class="border p-2 text-center text-xs">
-                                        @if($p->net_price)
-                                            {{ $p->net_price }} {{ $p->currency ?? 'PLN' }}
-                                        @else
-                                            -
-                                        @endif
+                                            @if($p->net_price)
+                                                {{ $p->net_price }} <span class="text-xs">{{ $p->currency ?? 'PLN' }}</span>
+                                            @else
+                                                -
+                                            @endif
                                     </td>
                                     <td class="border p-2">{{ $p->category->name ?? '-' }}</td>
                                     <td class="border p-2 text-center font-bold {{ $p->quantity == 0 ? 'text-red-600 bg-red-50' : '' }}">{{ $p->quantity }}</td>
+                                    <td class="border p-2 text-center text-xs text-gray-600">{{ $p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-' }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td class="border p-2 text-center text-gray-400 italic" colspan="7">Brak produktów w katalogu</td>
+                                    <td class="border p-2 text-center text-gray-400 italic" colspan="8">Brak produktów w katalogu</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -235,11 +238,11 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
         </div>
     </div>
 
-    {{-- SEKCJA: PRZYJMIJ ZAMÓWIENIE (ROZWIJALNA) --}}
+    {{-- SEKCJA: WYSTAWIONE ZAMÓWIENIA (ROZWIJALNA) --}}
     <div class="bg-white rounded shadow mb-6 border">
         <button type="button" class="collapsible-btn w-full flex items-center gap-2 p-6 cursor-pointer hover:bg-gray-50" data-target="receive-order-content">
             <span class="toggle-arrow text-lg">▶</span>
-            <h3 class="text-lg font-semibold">Przyjmij zamówienie</h3>
+            <h3 class="text-lg font-semibold">Wystawione zamówienia</h3>
         </button>
         <div id="receive-order-content" class="collapsible-content hidden p-6 border-t">
             {{-- SEKCJA: PODGLĄD ZAMÓWIENIA --}}
@@ -253,36 +256,47 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
                     <!-- Zawartość będzie wstawiana dynamicznie przez JavaScript -->
                 </div>
                 
-                <div class="mt-4 flex gap-2">
+                <div class="mt-4 flex gap-2 flex-wrap">
                     <button id="receive-order-btn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-semibold">
                         ✅ Przyjmij zamówienie
+                    </button>
+                    <button id="preview-generate-word-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-semibold">
+                        📄 Pobierz do Word
+                    </button>
+                    <button id="preview-generate-pdf-btn" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded font-semibold">
+                        📄 Pobierz do PDF
+                    </button>
+                    <button id="preview-edit-order-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded font-semibold">
+                        ✏️ Edytuj
+                    </button>
+                    <button id="preview-delete-order-btn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded font-semibold">
+                        🗑️ Usuń
                     </button>
                 </div>
             </div>
 
-            {{-- PODSEKCJA: WYSTAWIONE ZAMÓWIENIA (COLLAPSIBLE) --}}
+            {{-- PODSEKCJA: TABELA ZAMÓWIEŃ --}}
             <div class="mb-6">
-                <button type="button" class="collapsible-btn w-full flex items-center gap-2 px-0 py-2 cursor-pointer hover:bg-gray-50" data-target="issued-orders-content">
-                    <span class="toggle-arrow text-lg">▶</span>
-                    <h4 class="font-semibold text-sm">Wystawione zamówienia</h4>
-                </button>
-                <div id="issued-orders-content" class="collapsible-content hidden mt-4 p-4 bg-gray-50 rounded border border-gray-300">
+                <div class="w-full flex items-center gap-2 px-0 py-2">
+                    <h4 class="font-semibold text-sm">Tabela zamówień:</h4>
+                </div>
+                <div id="issued-orders-content" class="mt-4 p-4 bg-gray-50 rounded border border-gray-300">
                     <div class="flex justify-end mb-2">
-                        <button id="delete-selected-orders-btn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
+                        <button id="delete-selected-orders-btn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm hidden">
                             🗑️ Usuń zaznaczone
                         </button>
                     </div>
-                    <table class="w-full border border-collapse text-sm">
+                    <table class="w-full border border-collapse text-xs">
                         <thead class="bg-green-100">
                             <tr>
                                 <th class="border p-2 text-center" style="width: 40px;">
                                     <input type="checkbox" id="select-all-orders" class="w-4 h-4 cursor-pointer">
                                 </th>
                                 <th class="border p-2 text-left">Numer zamówienia</th>
-                                <th class="border p-2 text-left">Dostawca</th>
-                                <th class="border p-2 text-center" style="width: 150px;">Data wystawienia</th>
-                                <th class="border p-2 text-center" style="width: 100px;">Godzina</th>
-                                <th class="border p-2 text-center" style="width: 100px;">Akcje</th>
+                                <th class="border p-2 text-left" style="min-width: 200px;">Dostawca</th>
+                                <th class="border p-2 text-center" style="width: 90px;">Data</th>
+                                <th class="border p-2 text-center" style="width: 55px;">Godz.</th>
+                                <th class="border p-2 text-center" style="width: 180px;">Akcje</th>
                             </tr>
                         </thead>
                         <tbody id="issued-orders-tbody">
@@ -294,11 +308,11 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
                                     <td class="border p-2 font-mono">{{ $order->order_number }}</td>
                                     <td class="border p-2">{{ $order->supplier ?? '-' }}</td>
                                     <td class="border p-2 text-center">{{ $order->issued_at->format('Y-m-d') }}</td>
-                                    <td class="border p-2 text-center">{{ $order->issued_at->format('H:i:s') }}</td>
+                                    <td class="border p-2 text-center">{{ $order->issued_at->format('H:i') }}</td>
                                     <td class="border p-2 text-center">
                                         <div class="flex items-center justify-center gap-1 flex-wrap">
                                             <button class="bg-blue-100 hover:bg-blue-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center preview-order-btn" 
-                                                    style="min-width: 70px;"
+                                                    title="Podgląd zamówienia"
                                                     data-order-id="{{ $order->id }}"
                                                     data-order-number="{{ $order->order_number }}"
                                                     data-order-supplier="{{ $order->supplier ?? '' }}"
@@ -307,22 +321,32 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
                                                     data-order-user="{{ $order->user->name ?? 'N/A' }}"
                                                     data-order-received="{{ $order->received_at ? $order->received_at->format('Y-m-d H:i:s') : '' }}"
                                                     data-order-received-by="{{ $order->receivedBy->name ?? '' }}"
-                                                    data-order-products='@json($order->products)'>
-                                                👁️ Podgląd
+                                                    data-order-products='@json($order->products)'
+                                                    data-order-delivery-time="{{ $order->delivery_time ?? '' }}"
+                                                    data-order-supplier-offer="{{ $order->supplier_offer_number ?? '' }}"
+                                                    data-order-payment-method="{{ $order->payment_method ?? '' }}"
+                                                    data-order-payment-days="{{ $order->payment_days ?? '' }}">
+                                                <span role="img" aria-label="Podgląd" class="pointer-events-none">👁️</span>
+                                            </button>
+                                            <button class="bg-purple-100 hover:bg-purple-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center generate-word-btn" 
+                                                    title="Generuj dokument Word"
+                                                    data-order-id="{{ $order->id }}"
+                                                    data-order-number="{{ $order->order_number }}">
+                                                <span role="img" aria-label="Generuj Word" class="pointer-events-none">📄</span>
                                             </button>
                                             @if($order->status !== 'received')
                                             <button class="bg-green-100 hover:bg-green-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center edit-order-btn" 
-                                                    style="min-width: 70px;"
+                                                    title="Edytuj zamówienie"
                                                     data-order-id="{{ $order->id }}"
                                                     data-order-number="{{ $order->order_number }}"
                                                     data-order-products='@json($order->products)'>
-                                                ✏️ Edytuj
+                                                <span role="img" aria-label="Edytuj" class="pointer-events-none">✏️</span>
                                             </button>
                                             <button class="bg-red-100 hover:bg-red-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center delete-order-btn" 
-                                                    style="min-width: 70px;"
+                                                    title="Usuń zamówienie"
                                                     data-order-id="{{ $order->id }}"
                                                     data-order-number="{{ $order->order_number }}">
-                                                🗑️ Usuń
+                                                <span role="img" aria-label="Usuń" class="pointer-events-none">🗑️</span>
                                             </button>
                                             @endif
                                         </div>
@@ -344,6 +368,28 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Orders page JavaScript loaded');
+    
+    // Funkcja wyświetlania powiadomień
+    function showNotification(message, type = 'success') {
+        const existingNotification = document.getElementById('notification-bar');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+        
+        const notification = document.createElement('div');
+        notification.id = 'notification-bar';
+        notification.className = `fixed top-4 right-4 px-6 py-3 rounded shadow-lg z-50 transition-opacity duration-500 ${type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => notification.remove(), 500);
+        }, 4000);
+    }
+    
+    // Expose showNotification globally
+    window.showNotification = showNotification;
     
     // Accordion - Collapsible sekcje
     document.querySelectorAll('.collapsible-btn').forEach(btn => {
@@ -430,6 +476,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <input type="checkbox" checked class="w-4 h-4 cursor-pointer selected-product-checkbox" data-product-name="${name}">
                 </td>
                 <td class="border p-1">${name}</td>
+                <td class="border p-1 text-xs text-gray-600" style="max-width: 150px; word-wrap: break-word;">${data.description || ''}</td>
                 <td class="border p-1">
                     <select class="w-16 px-1 py-0.5 border rounded text-xs product-supplier" data-product-name="${name}">
                         ${supplierOptions}
@@ -624,29 +671,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!response.ok) {
                     throw new Error('Błąd tworzenia zamówienia');
                 }
-                // Pobierz nazwę pliku z nagłówka Content-Disposition
-                const contentDisposition = response.headers.get('Content-Disposition');
-                let fileName = 'zamowienie.docx';
-                if (contentDisposition) {
-                    const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
-                    if (matches != null && matches[1]) {
-                        fileName = matches[1].replace(/['"]/g, '');
-                    }
-                }
-                return response.blob().then(blob => ({ blob, fileName }));
+                return response.json();
             })
-            .then(({ blob, fileName }) => {
-                // Pobierz plik z nazwą z serwera
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = fileName;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
+            .then(data => {
+                // Pokaż zielony pasek z komunikatem
+                const orderCount = data.orders ? data.orders.length : 1;
+                showNotification(`Wygenerowano ${orderCount} ${orderCount === 1 ? 'zamówienie' : (orderCount < 5 ? 'zamówienia' : 'zamówień')}`, 'success');
             
-                // Dodaj zamówienie do tabeli wystawionych zamówień
+                // Dodaj zamówienia do tabeli wystawionych zamówień
                 const issuedOrdersTbody = document.getElementById('issued-orders-tbody');
                 const noOrdersRow = document.getElementById('no-orders-row');
             
@@ -655,146 +687,176 @@ document.addEventListener('DOMContentLoaded', function() {
                     noOrdersRow.remove();
                 }
             
-                // Pobierz aktualną datę i godzinę
-                const now = new Date();
-                const dateStr = now.getFullYear() + '-' + 
-                               String(now.getMonth() + 1).padStart(2, '0') + '-' + 
-                               String(now.getDate()).padStart(2, '0');
-                const timeStr = String(now.getHours()).padStart(2, '0') + ':' + 
-                               String(now.getMinutes()).padStart(2, '0') + ':' + 
-                               String(now.getSeconds()).padStart(2, '0');
-            
-                // Pobierz skróconą nazwę dostawcy
-                let supplierDisplay = '-';
-                if (firstSupplier) {
-                    // Sprawdź czy mamy dostawcę w liście
-                    const supplierSelect = document.querySelector('.product-supplier');
-                    if (supplierSelect) {
-                        const selectedOption = Array.from(supplierSelect.options).find(opt => opt.value === firstSupplier);
-                        supplierDisplay = selectedOption ? selectedOption.text : firstSupplier;
-                    }
-                }
-            
-                // Dodaj nowy wiersz na początku tabeli
-                const newRow = document.createElement('tr');
-                const issuedDateTime = dateStr + ' ' + timeStr;
-                const currentUser = '{{ auth()->user()->name ?? "N/A" }}';
+                // Dla każdego utworzonego zamówienia
+                data.orders.forEach(order => {
+                    // Pobierz aktualną datę i godzinę
+                    const issuedDate = new Date(order.issued_at);
+                    const dateStr = issuedDate.getFullYear() + '-' + 
+                                   String(issuedDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                                   String(issuedDate.getDate()).padStart(2, '0');
+                    const timeStr = String(issuedDate.getHours()).padStart(2, '0') + ':' + 
+                                   String(issuedDate.getMinutes()).padStart(2, '0');
                 
-                // Wygeneruj tymczasowe ID (używamy timestamp)
-                const tempOrderId = Date.now();
-            
-                newRow.innerHTML = `
-                    <td class="border p-2 text-center">
-                        <input type="checkbox" class="order-checkbox w-4 h-4 cursor-pointer" data-order-id="${tempOrderId}">
-                    </td>
-                    <td class="border p-2 font-mono">${orderName}</td>
-                    <td class="border p-2">${supplierDisplay}</td>
-                    <td class="border p-2 text-center">${dateStr}</td>
-                    <td class="border p-2 text-center">${timeStr}</td>
-                    <td class="border p-2 text-center">
-                        <div class="flex items-center justify-center gap-1 flex-wrap">
-                            <button class="bg-blue-100 hover:bg-blue-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center preview-order-btn" 
-                                style="min-width: 70px;"
-                                data-order-id="${tempOrderId}"
-                                data-order-number="${orderName}"
-                                data-order-supplier="${firstSupplier}"
-                                data-order-status="pending"
-                                data-order-issued="${issuedDateTime}"
-                                data-order-user="${currentUser}"
-                                data-order-products='${JSON.stringify(productsData)}'>
-                                👁️ Podgląd
-                            </button>
-                            <button class="bg-green-100 hover:bg-green-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center edit-order-btn" 
-                                style="min-width: 70px;"
-                                data-order-id="${tempOrderId}"
-                                data-order-number="${orderName}"
-                                data-order-products='${JSON.stringify(productsData)}'>
-                                ✏️ Edytuj
-                            </button>
-                            <button class="bg-red-100 hover:bg-red-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center delete-order-btn" 
-                                style="min-width: 70px;"
-                                data-order-id="${tempOrderId}"
-                                data-order-number="${orderName}">
-                                🗑️ Usuń
-                            </button>
-                        </div>
-                    </td>
-                `;
-                issuedOrdersTbody.insertBefore(newRow, issuedOrdersTbody.firstChild);
-            
-                // Dodaj event listenery do nowych przycisków
-                newRow.querySelector('.preview-order-btn').addEventListener('click', function() {
-                    // Użyj tego samego kodu co dla istniejących przycisków
-                    const btn = this;
-                    const orderId = btn.getAttribute('data-order-id');
-                    const orderNumber = btn.getAttribute('data-order-number');
-                    const supplier = btn.getAttribute('data-order-supplier');
-                    const status = btn.getAttribute('data-order-status');
-                    const issuedAt = btn.getAttribute('data-order-issued');
-                    const userName = btn.getAttribute('data-order-user');
-                    const productsJson = btn.getAttribute('data-order-products');
+                    // Dostawca - użyj pełnej nazwy
+                    let supplierDisplay = order.supplier || '-';
                 
-                    currentPreviewOrderId = orderId;
+                    // Dodaj nowy wiersz na początku tabeli
+                    const newRow = document.createElement('tr');
+                    const currentUser = '{{ auth()->user()->name ?? "N/A" }}';
                 
-                    try {
-                        const products = JSON.parse(productsJson);
-                    
-                        let html = `
-                            <div class="grid grid-cols-2 gap-4 mb-4">
-                                <div><strong>Numer zamówienia:</strong> ${orderNumber}</div>
-                                <div><strong>Status:</strong> <span class="px-2 py-1 rounded ${status === 'received' ? 'bg-green-200' : 'bg-yellow-200'}">${status === 'received' ? 'Przyjęte' : 'Oczekujące'}</span></div>
-                                <div><strong>Dostawca:</strong> ${supplier || '-'}</div>
-                                <div><strong>Data wystawienia:</strong> ${issuedAt}</div>
-                                <div><strong>Zamówił:</strong> ${userName}</div>
+                    newRow.innerHTML = `
+                        <td class="border p-2 text-center">
+                            <input type="checkbox" class="order-checkbox w-4 h-4 cursor-pointer" data-order-id="${order.id}">
+                        </td>
+                        <td class="border p-2 font-mono">${order.order_number}</td>
+                        <td class="border p-2">${supplierDisplay}</td>
+                        <td class="border p-2 text-center">${dateStr}</td>
+                        <td class="border p-2 text-center">${timeStr}</td>
+                        <td class="border p-2 text-center">
+                            <div class="flex items-center justify-center gap-1 flex-wrap">
+                                <button class="bg-blue-100 hover:bg-blue-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center preview-order-btn" 
+                                    title="Podgląd zamówienia"
+                                    data-order-id="${order.id}"
+                                    data-order-number="${order.order_number}"
+                                    data-order-supplier="${order.supplier || ''}"
+                                    data-order-status="pending"
+                                    data-order-issued="${order.issued_at}"
+                                    data-order-user="${currentUser}"
+                                    data-order-products='${JSON.stringify(order.products)}'
+                                    data-order-delivery-time="${order.delivery_time || ''}"
+                                    data-order-supplier-offer="${order.supplier_offer_number || ''}"
+                                    data-order-payment-method="${order.payment_method || ''}"
+                                    data-order-payment-days="${order.payment_days || ''}">
+                                    <span role="img" aria-label="Podgląd" class="pointer-events-none">👁️</span>
+                                </button>
+                                <button class="bg-purple-100 hover:bg-purple-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center generate-word-btn" 
+                                    title="Generuj dokument Word"
+                                    data-order-id="${order.id}"
+                                    data-order-number="${order.order_number}">
+                                    <span role="img" aria-label="Generuj Word" class="pointer-events-none">📄</span>
+                                </button>
+                                <button class="bg-green-100 hover:bg-green-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center edit-order-btn" 
+                                    title="Edytuj zamówienie"
+                                    data-order-id="${order.id}"
+                                    data-order-number="${order.order_number}"
+                                    data-order-products='${JSON.stringify(order.products)}'>
+                                    <span role="img" aria-label="Edytuj" class="pointer-events-none">✏️</span>
+                                </button>
+                                <button class="bg-red-100 hover:bg-red-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center delete-order-btn" 
+                                    title="Usuń zamówienie"
+                                    data-order-id="${order.id}"
+                                    data-order-number="${order.order_number}">
+                                    <span role="img" aria-label="Usuń" class="pointer-events-none">🗑️</span>
+                                </button>
                             </div>
-                            <h5 class="font-bold mb-2">Produkty:</h5>
-                            <table class="w-full border border-collapse text-xs">
-                                <thead class="bg-gray-200">
-                                    <tr>
-                                    <th class="border p-1 text-left">Produkt</th>
-                                    <th class="border p-1 text-left">Dostawca</th>
-                                    <th class="border p-1 text-center">Cena netto</th>
-                                    <th class="border p-1 text-center">Ilość</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                        </td>
                     `;
+                    issuedOrdersTbody.insertBefore(newRow, issuedOrdersTbody.firstChild);
+                
+                    // Dodaj event listenery do nowych przycisków
+                    newRow.querySelector('.preview-order-btn').addEventListener('click', function() {
+                        // Użyj tego samego kodu co dla istniejących przycisków
+                        const btn = this;
+                        const orderId = btn.getAttribute('data-order-id');
+                        const orderNumber = btn.getAttribute('data-order-number');
+                        const supplier = btn.getAttribute('data-order-supplier');
+                        const status = btn.getAttribute('data-order-status');
+                        const issuedAt = btn.getAttribute('data-order-issued');
+                        const userName = btn.getAttribute('data-order-user');
+                        const productsJson = btn.getAttribute('data-order-products');
+                        const deliveryTime = btn.getAttribute('data-order-delivery-time');
+                        const supplierOffer = btn.getAttribute('data-order-supplier-offer');
+                        const paymentMethod = btn.getAttribute('data-order-payment-method');
+                        const paymentDays = btn.getAttribute('data-order-payment-days');
                     
-                    products.forEach(product => {
-                        const priceDisplay = product.price ? `${product.price} ${product.currency || 'PLN'}` : '-';
-                        html += `
-                            <tr>
-                                <td class="border p-1">${product.name}</td>
-                                <td class="border p-1">${product.supplier || '-'}</td>
-                                <td class="border p-1 text-center">${priceDisplay}</td>
-                                <td class="border p-1 text-center">${product.quantity}</td>
-                            </tr>
+                        currentPreviewOrderId = orderId;
+                    
+                        try {
+                            const products = JSON.parse(productsJson);
+                        
+                            let html = `
+                                <div class="grid grid-cols-2 gap-4 mb-4">
+                                    <div><strong>Numer zamówienia:</strong> ${orderNumber}</div>
+                                    <div><strong>Status:</strong> <span class="px-2 py-1 rounded ${status === 'received' ? 'bg-green-200' : 'bg-yellow-200'}">${status === 'received' ? 'Przyjęte' : 'Oczekujące'}</span></div>
+                                    <div><strong>Dostawca:</strong> ${supplier || '-'}</div>
+                                    <div><strong>Data wystawienia:</strong> ${issuedAt}</div>
+                                    <div><strong>Zamówił:</strong> ${userName}</div>
+                                </div>
+                            `;
+                            
+                            // Dodaj informacje o zamówieniu
+                            if (deliveryTime || supplierOffer || paymentMethod) {
+                                html += `<div class="grid grid-cols-3 gap-4 mb-4 p-2 bg-blue-50 rounded">`;
+                                if (deliveryTime) {
+                                    html += `<div><strong>Termin dostawy:</strong> ${deliveryTime}</div>`;
+                                }
+                                if (supplierOffer) {
+                                    html += `<div><strong>Oferta dostawcy nr:</strong> ${supplierOffer}</div>`;
+                                }
+                                if (paymentMethod) {
+                                    let paymentText = paymentMethod;
+                                    if (paymentMethod === 'przelew' && paymentDays) {
+                                        paymentText += ` (${paymentDays})`;
+                                    }
+                                    html += `<div><strong>Forma płatności:</strong> ${paymentText}</div>`;
+                                }
+                                html += `</div>`;
+                            }
+                            
+                            html += `
+                                <h5 class="font-bold mb-2">Produkty:</h5>
+                                <table class="w-full border border-collapse text-xs">
+                                    <thead class="bg-gray-200">
+                                        <tr>
+                                        <th class="border p-1 text-left">Produkt</th>
+                                        <th class="border p-1 text-left">Dostawca</th>
+                                        <th class="border p-1 text-center">Ilość</th>
+                                        <th class="border p-1 text-center">Cena netto</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
                         `;
+                        
+                        products.forEach(product => {
+                            const priceDisplay = product.price ? `${product.price} ${product.currency || 'PLN'}` : '-';
+                            html += `
+                                <tr>
+                                    <td class="border p-1">${product.name}</td>
+                                    <td class="border p-1">${product.supplier || '-'}</td>
+                                    <td class="border p-1 text-center">${product.quantity}</td>
+                                    <td class="border p-1 text-center">${priceDisplay}</td>
+                                </tr>
+                            `;
+                        });
+                        
+                            html += `
+                                    </tbody>
+                                </table>
+                            `;
+                        
+                            document.getElementById('order-preview-content').innerHTML = html;
+                            document.getElementById('receive-order-btn').style.display = status === 'received' ? 'none' : 'block';
+                            document.getElementById('preview-edit-order-btn').style.display = status === 'received' ? 'none' : 'block';
+                            document.getElementById('preview-delete-order-btn').style.display = status === 'received' ? 'none' : 'block';
+                            document.getElementById('order-preview-section').classList.remove('hidden');
+                        
+                            const receiveSection = document.getElementById('receive-order-content');
+                            if (receiveSection.classList.contains('hidden')) {
+                                const receiveBtn = document.querySelector('[data-target="receive-order-content"]');
+                                if (receiveBtn) {
+                                    receiveBtn.click();
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Błąd parsowania produktów:', error);
+                            alert('Błąd wyświetlania podglądu zamówienia');
+                        }
                     });
                     
-                        html += `
-                                </tbody>
-                            </table>
-                        `;
-                    
-                        document.getElementById('order-preview-content').innerHTML = html;
-                        document.getElementById('receive-order-btn').style.display = status === 'received' ? 'none' : 'block';
-                        document.getElementById('order-preview-section').classList.remove('hidden');
-                    
-                        const receiveSection = document.getElementById('receive-order-content');
-                        if (receiveSection.classList.contains('hidden')) {
-                            const receiveBtn = document.querySelector('[data-target="receive-order-content"]');
-                            if (receiveBtn) {
-                                receiveBtn.click();
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Błąd parsowania produktów:', error);
-                        alert('Błąd wyświetlania podglądu zamówienia');
-                    }
+                    newRow.querySelector('.generate-word-btn').addEventListener('click', handleGenerateWord);
+                    newRow.querySelector('.edit-order-btn').addEventListener('click', handleEditOrder);
+                    newRow.querySelector('.delete-order-btn').addEventListener('click', handleDeleteOrder);
                 });
-                newRow.querySelector('.edit-order-btn').addEventListener('click', handleEditOrder);
-                newRow.querySelector('.delete-order-btn').addEventListener('click', handleDeleteOrder);
             
                 // Odśwież nazwę zamówienia
                 if (!wasManuallyChanged) {
@@ -816,6 +878,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Wystąpił błąd podczas tworzenia zamówienia');
             });
         });
+    }
+    
+    // Funkcja obsługi generowania Worda
+    function handleGenerateWord(e) {
+        const btn = e.currentTarget;
+        const orderId = btn.getAttribute('data-order-id');
+        const orderNumber = btn.getAttribute('data-order-number');
+        
+        if (!orderId) {
+            alert('Brak ID zamówienia');
+            return;
+        }
+        
+        // Wyślij żądanie do serwera
+        window.location.href = `/magazyn/zamowienia/${orderId}/generate-word`;
     }
     
     // Funkcja obsługi edycji zamówienia
@@ -867,14 +944,25 @@ document.addEventListener('DOMContentLoaded', function() {
             orderNameInput.value = orderNumber;
             originalOrderName = orderNumber;
             
+            // Najpierw rozwiń sekcję "Zrób zamówienie" jeśli jest zwinięta
+            const createOrderSection = document.getElementById('create-order-content');
+            if (createOrderSection && createOrderSection.classList.contains('hidden')) {
+                const createOrderBtn = document.querySelector('[data-target="create-order-content"]');
+                if (createOrderBtn) {
+                    createOrderBtn.click();
+                }
+            }
+            
             // Rozwiń sekcję "Produkty do zamówienia" jeśli jest zwinięta
             const productsSection = document.getElementById('selected-products-inner');
             if (productsSection && productsSection.classList.contains('hidden')) {
                 document.getElementById('selected-products-btn').click();
             }
             
-            // Przewiń do sekcji produktów
-            productsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Przewiń do sekcji produktów z małym opóźnieniem żeby sekcje zdążyły się rozwinąć
+            setTimeout(() => {
+                productsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
             
         } catch (err) {
             console.error('Błąd parsowania produktów:', err);
@@ -882,7 +970,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Dodaj event listenery do istniejących przycisków edycji
+    // Dodaj event listenery do istniejących przycisków
+    document.querySelectorAll('.generate-word-btn').forEach(btn => {
+        btn.addEventListener('click', handleGenerateWord);
+    });
+    
     document.querySelectorAll('.edit-order-btn').forEach(btn => {
         btn.addEventListener('click', handleEditOrder);
     });
@@ -934,14 +1026,35 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', handleDeleteOrder);
     });
 
+    // Funkcja aktualizująca widoczność przycisku "Usuń zaznaczone"
+    function updateDeleteButtonVisibility() {
+        const selectedCheckboxes = document.querySelectorAll('.order-checkbox:checked');
+        const deleteBtn = document.getElementById('delete-selected-orders-btn');
+        if (deleteBtn) {
+            if (selectedCheckboxes.length > 0) {
+                deleteBtn.classList.remove('hidden');
+            } else {
+                deleteBtn.classList.add('hidden');
+            }
+        }
+    }
+
     // Obsługa zaznaczania wszystkich zamówień
     const selectAllCheckbox = document.getElementById('select-all-orders');
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', (e) => {
             const checkboxes = document.querySelectorAll('.order-checkbox');
             checkboxes.forEach(cb => cb.checked = e.target.checked);
+            updateDeleteButtonVisibility();
         });
     }
+
+    // Obsługa pojedynczych checkboxów
+    document.addEventListener('change', (e) => {
+        if (e.target.classList.contains('order-checkbox')) {
+            updateDeleteButtonVisibility();
+        }
+    });
 
     // Obsługa usuwania zaznaczonych zamówień
     const deleteSelectedBtn = document.getElementById('delete-selected-orders-btn');
@@ -1018,6 +1131,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const receivedAt = this.getAttribute('data-order-received');
             const receivedBy = this.getAttribute('data-order-received-by');
             const productsJson = this.getAttribute('data-order-products');
+            const deliveryTime = this.getAttribute('data-order-delivery-time');
+            const supplierOffer = this.getAttribute('data-order-supplier-offer');
+            const paymentMethod = this.getAttribute('data-order-payment-method');
+            const paymentDays = this.getAttribute('data-order-payment-days');
             
             currentPreviewOrderId = orderId;
             
@@ -1033,14 +1150,36 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div><strong>Data wystawienia:</strong> ${issuedAt}</div>
                         <div><strong>Zamówił:</strong> ${userName}</div>
                     </div>
+                `;
+                
+                // Dodaj informacje o zamówieniu
+                if (deliveryTime || supplierOffer || paymentMethod) {
+                    html += `<div class="grid grid-cols-3 gap-4 mb-4 p-2 bg-blue-50 rounded">`;
+                    if (deliveryTime) {
+                        html += `<div><strong>Termin dostawy:</strong> ${deliveryTime}</div>`;
+                    }
+                    if (supplierOffer) {
+                        html += `<div><strong>Oferta dostawcy nr:</strong> ${supplierOffer}</div>`;
+                    }
+                    if (paymentMethod) {
+                        let paymentText = paymentMethod;
+                        if (paymentMethod === 'przelew' && paymentDays) {
+                            paymentText += ` (${paymentDays})`;
+                        }
+                        html += `<div><strong>Forma płatności:</strong> ${paymentText}</div>`;
+                    }
+                    html += `</div>`;
+                }
+                
+                html += `
                     <h5 class="font-bold mb-2">Produkty:</h5>
                     <table class="w-full border border-collapse text-xs">
                         <thead class="bg-gray-200">
                             <tr>
                                 <th class="border p-1 text-left">Produkt</th>
                                 <th class="border p-1 text-left">Dostawca</th>
-                                <th class="border p-1 text-center">Cena netto</th>
                                 <th class="border p-1 text-center">Ilość</th>
+                                <th class="border p-1 text-center">Cena netto</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1052,8 +1191,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         <tr>
                             <td class="border p-1">${product.name}</td>
                             <td class="border p-1">${product.supplier || '-'}</td>
-                            <td class="border p-1 text-center">${priceDisplay}</td>
                             <td class="border p-1 text-center">${product.quantity}</td>
+                            <td class="border p-1 text-center">${priceDisplay}</td>
                         </tr>
                     `;
                 });
@@ -1075,23 +1214,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 document.getElementById('order-preview-content').innerHTML = html;
                 
-                // Pokaż/ukryj przycisk "Przyjmij zamówienie"
+                // Pokaż/ukryj przyciski w zależności od statusu
                 const receiveBtn = document.getElementById('receive-order-btn');
+                const editBtn = document.getElementById('preview-edit-order-btn');
+                const deleteBtn = document.getElementById('preview-delete-order-btn');
+                
                 if (status === 'received') {
                     receiveBtn.style.display = 'none';
+                    editBtn.style.display = 'none';
+                    deleteBtn.style.display = 'none';
                 } else {
                     receiveBtn.style.display = 'block';
+                    editBtn.style.display = 'block';
+                    deleteBtn.style.display = 'block';
                 }
                 
                 // Pokaż sekcję podglądu
                 document.getElementById('order-preview-section').classList.remove('hidden');
                 
-                // Rozwiń sekcję "Przyjmij zamówienie" jeśli jest zwinięta
+                // Rozwiń sekcję "Wystawione zamówienia" jeśli jest zwinięta
                 const receiveSection = document.getElementById('receive-order-content');
                 if (receiveSection.classList.contains('hidden')) {
-                    const receiveBtn = document.querySelector('[data-target="receive-order-content"]');
-                    if (receiveBtn) {
-                        receiveBtn.click();
+                    const expandBtn = document.querySelector('[data-target="receive-order-content"]');
+                    if (expandBtn) {
+                        expandBtn.click();
                     }
                 }
                 
@@ -1134,14 +1280,93 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
         })
         .then(data => {
-            alert(data.message || 'Zamówienie zostało przyjęte');
+            showNotification(data.message || 'Zamówienie zostało przyjęte', 'success');
             
-            // Odśwież stronę aby zaktualizować tabelę
-            window.location.reload();
+            // Ukryj przyciski edycji/usuwania po przyjęciu
+            document.getElementById('receive-order-btn').style.display = 'none';
+            document.getElementById('preview-edit-order-btn').style.display = 'none';
+            document.getElementById('preview-delete-order-btn').style.display = 'none';
+            
+            // Zaktualizuj status w tabeli bez przeładowania
+            const orderRow = document.querySelector(`tr:has(.order-checkbox[data-order-id="${currentPreviewOrderId}"])`);
+            if (orderRow) {
+                // Dodaj zielone podświetlenie
+                orderRow.classList.add('bg-green-50');
+            }
         })
         .catch(error => {
             console.error('Błąd:', error);
             alert('Wystąpił błąd podczas przyjmowania zamówienia');
+        });
+    });
+    
+    // Pobierz do Word z podglądu
+    document.getElementById('preview-generate-word-btn').addEventListener('click', function() {
+        if (!currentPreviewOrderId) {
+            alert('Nie wybrano zamówienia');
+            return;
+        }
+        window.location.href = `/magazyn/zamowienia/${currentPreviewOrderId}/generate-word`;
+    });
+    
+    // Pobierz do PDF z podglądu
+    document.getElementById('preview-generate-pdf-btn').addEventListener('click', function() {
+        if (!currentPreviewOrderId) {
+            alert('Nie wybrano zamówienia');
+            return;
+        }
+        window.location.href = `/magazyn/zamowienia/${currentPreviewOrderId}/generate-pdf`;
+    });
+    
+    // Edytuj zamówienie z podglądu
+    document.getElementById('preview-edit-order-btn').addEventListener('click', function() {
+        if (!currentPreviewOrderId) {
+            alert('Nie wybrano zamówienia');
+            return;
+        }
+        // Znajdź przycisk edycji w tabeli dla tego zamówienia i kliknij go
+        const editBtn = document.querySelector(`.edit-order-btn[data-order-id="${currentPreviewOrderId}"]`);
+        if (editBtn) {
+            editBtn.click();
+        } else {
+            alert('Nie można znaleźć opcji edycji dla tego zamówienia');
+        }
+    });
+    
+    // Usuń zamówienie z podglądu
+    document.getElementById('preview-delete-order-btn').addEventListener('click', function() {
+        if (!currentPreviewOrderId) {
+            alert('Nie wybrano zamówienia');
+            return;
+        }
+        
+        if (!confirm('Czy na pewno chcesz usunąć to zamówienie?')) {
+            return;
+        }
+        
+        fetch(`/magazyn/zamowienia/${currentPreviewOrderId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Błąd usuwania zamówienia');
+            }
+            return response.json();
+        })
+        .then(data => {
+            alert(data.message || 'Zamówienie zostało usunięte');
+            document.getElementById('order-preview-section').classList.add('hidden');
+            currentPreviewOrderId = null;
+            window.location.reload();
+        })
+        .catch(error => {
+            console.error('Błąd:', error);
+            alert('Wystąpił błąd podczas usuwania zamówienia');
         });
     });
     

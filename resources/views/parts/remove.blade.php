@@ -113,14 +113,16 @@
 
             {{-- KATALOG PRODUKTÓW --}}
             <table class="w-full border border-collapse text-sm">
+                <table class="w-full border border-collapse text-xs">
                 <thead class="bg-gray-100">
                     <tr>
-                        <th class="border p-2 text-center" style="width: 40px;"></th>
-                        <th class="border p-2 text-left">Produkty</th>
-                        <th class="border p-2 text-left">Opis</th>
-                        <th class="border p-2 text-left">Dostawca</th>
-                        <th class="border p-2 text-left">Kategoria</th>
-                        <th class="border p-2 text-center">Stan</th>
+                        <th class="border p-2 text-center text-xs" style="width: 40px;"></th>
+                        <th class="border p-2 text-left text-xs whitespace-nowrap min-w-[16rem] max-w-[24rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('name')">Produkty <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                        <th class="border p-2 text-left text-xs whitespace-nowrap min-w-[16rem] max-w-[28rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('description')">Opis <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                        <th class="border p-2 text-xs whitespace-nowrap min-w-[3.5rem] max-w-[6rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('supplier')">Dost. <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                        <th class="border p-2 text-left text-xs whitespace-nowrap min-w-[6.5rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('category')">Kategoria <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                        <th class="border p-2 text-center text-xs whitespace-nowrap min-w-[2.5rem] max-w-[4rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('quantity')">Stan <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                        <th class="border p-1 text-center text-xs whitespace-nowrap min-w-[4.5rem]" style="width: 6ch;">User</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -145,14 +147,15 @@
                                        data-part-cat-name="{{ $p->category->name ?? '' }}">
                             </td>
                             <td class="border p-2">{{ $p->name }}</td>
-                            <td class="border p-2 text-gray-700">{{ $p->description ?? '-' }}</td>
-                            <td class="border p-2 text-gray-700"><span style="font-size: 10px;">{{ $part->supplier ?? '-' }}</span></td>
+                            <td class="border p-2 text-xs text-gray-700">{{ $p->description ?? '-' }}</td>
+                            <td class="border p-2 text-center text-xs text-gray-700">{{ $supplierShort ?: '-' }}</td>
                             <td class="border p-2">{{ $p->category->name ?? '-' }}</td>
-                            <td class="border p-2 text-center font-bold {{ $p->quantity == 0 ? 'text-red-600 bg-red-50' : '' }}">{{ $p->quantity }}</td>
+                            <td class="border p-2 text-center font-bold text-xs {{ $p->quantity == 0 ? 'text-red-600 bg-red-50' : '' }}">{{ $p->quantity }}</td>
+                            <td class="border p-2 text-center text-xs text-gray-600">{{ $p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-' }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td class="border p-2 text-center text-gray-400 italic" colspan="6">Brak produktów w katalogu</td>
+                            <td class="border p-2 text-center text-gray-400 italic" colspan="7">Brak produktów w katalogu</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -177,6 +180,7 @@
                 </div>
 
                 <table class="w-full border border-collapse text-sm">
+                    <table class="w-full border border-collapse text-xs">
             <thead class="bg-gray-100">
                 <tr>
                     <th class="border p-2 text-left">Produkt</th>

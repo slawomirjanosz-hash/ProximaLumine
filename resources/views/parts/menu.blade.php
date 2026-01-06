@@ -15,11 +15,14 @@
                 } else {
                     $logoPath = '/logo.png';
                 }
-                $companyName = $companySettings && $companySettings->name ? $companySettings->name : 'Magazyn 3C Automation';
+                $companyName = $companySettings && $companySettings->name ? $companySettings->name : 'Magazyn "ProximaLumine"';
             @endphp
             <img src="{{ $logoPath }}" alt="{{ $companyName }}" class="h-10">
             <span class="text-xl font-bold">
                 {{ $companyName }}
+                @if(!$companySettings || !$companySettings->name)
+                    <span class="block text-xs text-gray-400 font-normal mt-1">(Ustaw dane swojej firmy w Ustawieniach/Dane Mojej Firmy)</span>
+                @endif
             </span>
         </div>
 
@@ -30,34 +33,47 @@
                 Start
             </a>
 
-            <a href="{{ route('magazyn.check') }}"
-               class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
-                🔍Katalog
-            </a>
+            @if(auth()->check() && auth()->user()->can_view_catalog)
+                <a href="{{ route('magazyn.check') }}"
+                   class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
+                    🔍Katalog
+                </a>
+            @endif
 
-            <a href="{{ route('magazyn.remove') }}"
-               class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
-                ➖Pobierz
-            </a>
+            @if(auth()->check() && auth()->user()->can_remove)
+                <a href="{{ route('magazyn.remove') }}"
+                   class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
+                    ➖Pobierz
+                </a>
+            @endif
 
-            <a href="{{ route('magazyn.add') }}"
-               class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
-                ➕Dodaj
-            </a>
+            @if(auth()->check() && auth()->user()->can_add)
+                <a href="{{ route('magazyn.add') }}"
+                   class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
+                    ➕Dodaj
+                </a>
+            @endif
 
-            <a href="{{ route('magazyn.orders') }}"
-               class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
-                📦Zamówienia!
-            </a>
+            @if(auth()->check() && auth()->user()->can_orders)
+                <a href="{{ route('magazyn.orders') }}"
+                   class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
+                    📦Zamówienia
+                </a>
+            @endif
 
-            <a href="{{ route('magazyn.settings') }}"
-               class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
-                ⚙️Ustawienia
-            </a>
+            @if(auth()->check() && auth()->user()->can_settings)
+                <a href="{{ route('magazyn.settings') }}"
+                   class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
+                    ⚙️Ustawienia
+                </a>
+            @endif
 
             @auth
                 <div class="border-l border-gray-300 pl-2 flex items-center gap-2">
-                    <span class="text-gray-700 text-sm whitespace-nowrap">{{ Auth::user()->name }}</span>
+                    <div class="text-right">
+                        <span class="text-gray-700 text-sm whitespace-nowrap block">{{ Auth::user()->name }}</span>
+                        <span class="text-gray-500 text-xs whitespace-nowrap block">{{ Auth::user()->is_admin ? 'Administrator' : 'Użytkownik' }}</span>
+                    </div>
                     <form action="{{ route('logout') }}" method="POST" class="inline">
                         @csrf
                         <button type="submit" class="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition whitespace-nowrap">

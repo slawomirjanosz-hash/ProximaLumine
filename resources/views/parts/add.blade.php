@@ -21,91 +21,92 @@
         </button>
         <div id="form-content" class="collapsible-content hidden p-6 border-t">
             {{-- FORMULARZ --}}
-            <form id="add-form" method="POST" action="{{ route('parts.add') }}" class="grid grid-cols-6 gap-2 mb-6">
-        @csrf
-
-        {{-- NAZWA --}}
-        <input
-            id="part-name"
-            name="name"
-            placeholder="Nazwa produktu"
-            class="border p-2 rounded"
-            required
-        >
-
-        {{-- OPIS --}}
-        <input
-            id="part-description"
-            name="description"
-            placeholder="Opis (opcjonalnie)"
-            class="border p-2 rounded"
-        >
-
-        {{-- CENA NETTO --}}
-        <input
-            id="part-net-price"
-            name="net_price"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="Cena netto (opcjonalnie)"
-            class="border p-2 rounded"
-        >
-
-        {{-- WALUTA --}}
-        <select
-            id="part-currency"
-            name="currency"
-            class="border p-2 rounded text-sm"
-        >
-            <option value="PLN">PLN</option>
-            <option value="EUR">EUR</option>
-            <option value="$">$</option>
-        </select>
-
-        {{-- DOSTAWCA --}}
-        <select
-            id="part-supplier"
-            name="supplier"
-            class="border p-2 rounded text-sm"
-        >
-            <option value="">- wybierz dostawcę -</option>
-            @foreach($suppliers as $s)
-                <option value="{{ $s->name }}">{{ $s->name }}</option>
-            @endforeach
-        </select>
-
-        {{-- ILOŚĆ --}}
-        <input
-            name="quantity"
-            type="number"
-            min="1"
-            value="1"
-            class="border p-2 rounded"
-            required
-        >
-
-        {{-- KATEGORIA --}}
-        <select
-            name="category_id"
-            class="border p-2 rounded"
-            required
-        >
-            @foreach($categories as $c)
-                <option value="{{ $c->id }}">
-                    {{ $c->name }}
-                </option>
-            @endforeach
-        </select>
-
-        {{-- PRZYCISK --}}
-        <button
-            type="submit"
-            class="bg-green-500 hover:bg-green-600 text-white rounded px-4"
-        >
-            ➕ Dodaj
-        </button>
-        </form>
+            <form id="add-form" method="POST" action="{{ route('parts.add') }}" class="space-y-3 mb-6">
+                @csrf
+                {{-- NAZWA --}}
+                <div>
+                    <input
+                        id="part-name"
+                        name="name"
+                        placeholder="Nazwa produktu"
+                        class="border p-2 rounded w-full"
+                        required
+                    >
+                </div>
+                {{-- OPIS --}}
+                <div>
+                    <input
+                        id="part-description"
+                        name="description"
+                        placeholder="Opis (opcjonalnie)"
+                        class="border p-2 rounded w-full"
+                    >
+                </div>
+                {{-- ILOŚĆ, CENA, WALUTA --}}
+                <div class="flex gap-2">
+                    <input
+                        name="quantity"
+                        type="number"
+                        min="1"
+                        value="1"
+                        class="border p-2 rounded w-24"
+                        required
+                        placeholder="Ilość"
+                    >
+                    <input
+                        id="part-net-price"
+                        name="net_price"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Cena netto"
+                        class="border p-2 rounded w-32"
+                    >
+                    <select
+                        id="part-currency"
+                        name="currency"
+                        class="border p-2 rounded text-sm w-24"
+                    >
+                        <option value="PLN">PLN</option>
+                        <option value="EUR">EUR</option>
+                        <option value="$">$</option>
+                    </select>
+                </div>
+                {{-- DOSTAWCA, KATEGORIA --}}
+                <div class="flex gap-2">
+                    <select
+                        id="part-supplier"
+                        name="supplier"
+                        class="border p-2 rounded text-sm flex-1"
+                    >
+                        <option value="">- wybierz dostawcę -</option>
+                        @foreach($suppliers as $s)
+                            <option value="{{ $s->name }}">{{ $s->short_name ?? $s->name }}</option>
+                        @endforeach
+                    </select>
+                    <select
+                        name="category_id"
+                        class="border p-2 rounded flex-1"
+                        required
+                    >
+                        @foreach($categories as $c)
+                            <option value="{{ $c->id }}">
+                                {{ $c->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                {{-- PRZYCISK --}}
+                <button
+                    type="submit"
+                    class="bg-green-500 hover:bg-green-600 text-white rounded px-4 py-2 mt-2"
+                >
+                    ➕ Dodaj
+                </button>
+                <div class="text-xs text-gray-500 mt-2 text-left">
+                    Dodaje: {{ Auth::user()->name ?? 'Gość' }}
+                </div>
+            </form>
 
             {{-- PODGLĄD STANU --}}
             <div class="mb-4 text-sm text-gray-600">
@@ -140,7 +141,7 @@
                             <tr>
                                 <th class="border p-1 text-center" style="width: 30px;"></th>
                                 <th class="border p-1 text-left" style="white-space: nowrap;">Produkt</th>
-                                <th class="border p-1 text-left" style="width: 60px;">Dostawca</th>
+                                <th class="border p-1 text-left" style="width: 60px;">Dost.</th>
                                 <th class="border p-1 text-center" style="width: 100px;">Cena netto</th>
                                 <th class="border p-1 text-left" style="width: 120px;">Kategoria</th>
                                 <th class="border p-1 text-center" style="width: 45px;">Stan</th>
@@ -160,17 +161,25 @@
             <table class="w-full border border-collapse text-xs">
                 <thead class="bg-gray-100">
                     <tr>
-                        <th class="border p-2 text-center" style="width: 40px;"></th>
-                        <th class="border p-2 text-left">Produkty</th>
-                        <th class="border p-2 text-left">Opis</th>
-                        <th class="border p-2 text-left">Dostawca</th>
-                        <th class="border p-2 text-center" style="width: 100px;">Cena netto</th>
-                        <th class="border p-2 text-left">Kategoria</th>
-                        <th class="border p-2 text-center">Stan</th>
+                        <th class="border p-2 text-center text-xs" style="width: 40px;"></th>
+                        <th class="border p-2 text-left text-xs whitespace-nowrap min-w-[16rem] max-w-[24rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('name')">Produkty <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                        <th class="border p-2 text-left text-xs whitespace-nowrap min-w-[12rem] max-w-[20rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('description')">Opis <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                        <th class="border p-2 text-xs whitespace-nowrap min-w-[3.5rem] max-w-[6rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('supplier')">Dost. <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                        <th class="border p-2 text-xs whitespace-nowrap min-w-[3.5rem] max-w-[6rem] cursor-pointer hover:bg-gray-200" style="width: 100px;" onclick="sortTable('net_price')">Cena netto <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                        <th class="border p-2 text-left text-xs whitespace-nowrap min-w-[6.5rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('category')">Kategoria <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                        <th class="border p-2 text-center text-xs whitespace-nowrap min-w-[2.5rem] max-w-[4rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('quantity')">Stan <span class="align-middle ml-1 text-gray-400">↕</span></th>
+                        <th class="border p-1 text-center text-xs whitespace-nowrap min-w-[4.5rem]" style="width: 6ch;">User</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($parts ?? [] as $p)
+                        @php
+                            $supplierShort = '';
+                            if ($p->supplier) {
+                                $sup = $suppliers->firstWhere('name', $p->supplier);
+                                $supplierShort = $sup ? ($sup->short_name ?? $sup->name) : $p->supplier;
+                            }
+                        @endphp
                         <tr>
                             <td class="border p-2 text-center">
                                 <input type="checkbox" class="catalog-checkbox w-4 h-4 cursor-pointer" 
@@ -184,17 +193,18 @@
                                        data-part-currency="{{ $p->currency ?? 'PLN' }}">
                             </td>
                             <td class="border p-2">{{ $p->name }}</td>
-                            <td class="border p-2 text-gray-700">{{ $p->description ?? '-' }}</td>
-                            <td class="border p-2 text-gray-700">{{ $p->supplier ?? '-' }}</td>
+                            <td class="border p-2 text-xs text-gray-700">{{ $p->description ?? '-' }}</td>
+                            <td class="border p-2 text-center text-xs text-gray-700">{{ $supplierShort ?: '-' }}</td>
                             <td class="border p-2 text-center">
                                 @if($p->net_price)
-                                    {{ number_format($p->net_price, 2) }} {{ $p->currency }}
+                                    {{ number_format($p->net_price, 2) }} <span class="text-xs">{{ $p->currency }}</span>
                                 @else
                                     -
                                 @endif
                             </td>
                             <td class="border p-2">{{ $p->category->name ?? '-' }}</td>
-                            <td class="border p-2 text-center font-bold {{ $p->quantity == 0 ? 'text-red-600 bg-red-50' : '' }}">{{ $p->quantity }}</td>
+                            <td class="border p-2 text-center text-xs {{ $p->quantity == 0 ? 'text-red-600 bg-red-50' : '' }}">{{ $p->quantity }}</td>
+                            <td class="border p-2 text-center text-xs text-gray-600">{{ $p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-' }}</td>
                         </tr>
                     @empty
                         <tr>
@@ -222,7 +232,7 @@
                     </form>
                 </div>
 
-                <table class="w-full border border-collapse text-sm">
+                <table class="w-full border border-collapse text-xs">
                     <thead class="bg-gray-100">
                         <tr>
                             <th class="border p-2 text-left">Produkt</th>
