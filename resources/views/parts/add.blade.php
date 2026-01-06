@@ -163,7 +163,9 @@
             <table class="w-full border border-collapse text-xs">
                 <thead class="bg-gray-100">
                     <tr>
-                        <th class="border p-2 text-center text-xs" style="width: 40px;"></th>
+                        <th class="border p-2 text-center text-xs" style="width: 40px;">
+                            <input type="checkbox" id="select-all-catalog-add" class="w-4 h-4 cursor-pointer" title="Zaznacz wszystkie">
+                        </th>
                         <th class="border p-2 text-left text-xs whitespace-nowrap min-w-[16rem] max-w-[24rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('name')">Produkty <span class="align-middle ml-1 text-gray-400">↕</span></th>
                         <th class="border p-2 text-left text-xs whitespace-nowrap min-w-[12rem] max-w-[20rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('description')">Opis <span class="align-middle ml-1 text-gray-400">↕</span></th>
                         <th class="border p-2 text-xs whitespace-nowrap min-w-[3.5rem] max-w-[6rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('supplier')">Dost. <span class="align-middle ml-1 text-gray-400">↕</span></th>
@@ -308,7 +310,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const removeAllBtnInner = document.getElementById('remove-all-selected-btn-inner');
     const addAllBtn = document.getElementById('add-all-btn-inner');
     const selectAllAddCheckbox = document.getElementById('select-all-add-products');
+    const selectAllCatalogAddCheckbox = document.getElementById('select-all-catalog-add');
     let selectedProducts = {};
+
+    // Globalny checkbox "Zaznacz wszystkie" w katalogu produktów
+    if (selectAllCatalogAddCheckbox) {
+        selectAllCatalogAddCheckbox.addEventListener('change', function() {
+            catalogCheckboxes.forEach(cb => {
+                cb.checked = this.checked;
+                const event = new Event('change', { bubbles: true });
+                cb.dispatchEvent(event);
+            });
+        });
+    }
 
     function updateSelectedProductsDisplay() {
         selectedProductsTable.innerHTML = '';
