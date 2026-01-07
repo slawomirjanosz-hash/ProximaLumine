@@ -875,7 +875,7 @@
                         }
                     @endphp
                     
-                    <form action="{{ route('magazyn.orders.save-settings') }}" method="POST" class="space-y-4">
+                    <form action="{{ route('magazyn.order-settings.save') }}" method="POST" class="space-y-4">
                         @csrf
                         
                         {{-- Element 1 --}}
