@@ -78,7 +78,7 @@ function generateElement($type, $value, $settings) {
             $digits = $settings->element3_digits ?? 4;
             $start = $settings->start_number ?? 1;
             return str_pad($start, $digits, '0', STR_PAD_LEFT);
-        case 'supplier_short_name':
+        case 'supplier':
             return 'DOSTAWCA';
         default:
             return '';

@@ -228,9 +228,13 @@
                                 <button class="bg-blue-100 hover:bg-blue-200 px-2 rounded text-sm edit-part-btn" 
                                         data-part-id="{{ $p->id }}"
                                         data-part-name="{{ $p->name }}"
+                                        data-part-description="{{ $p->description ?? '' }}"
+                                        data-part-quantity="{{ $p->quantity }}"
                                         data-part-price="{{ $p->net_price }}"
                                         data-part-currency="{{ $p->currency }}"
-                                        title="Edytuj cenę">
+                                        data-part-supplier="{{ $p->supplier ?? '' }}"
+                                        data-part-category-id="{{ $p->category_id }}"
+                                        title="Edytuj produkt">
                                     ✏️
                                 </button>
 
@@ -476,38 +480,89 @@
         attachDownloaderWithSelected('btn-download-word', 'katalog.docx', 'eksport-word');
     })();
 
-    // Modal edycji ceny
+    // Modal edycji produktu
     const editButtons = document.querySelectorAll('.edit-part-btn');
+    const categories = @json($categories);
+    const suppliers = @json($suppliers);
+    
     editButtons.forEach(btn => {
         btn.addEventListener('click', function() {
             const partId = this.dataset.partId;
             const partName = this.dataset.partName;
-            const partPrice = this.dataset.partPrice;
-            const partCurrency = this.dataset.partCurrency;
+            const partDescription = this.dataset.partDescription || '';
+            const partQuantity = this.dataset.partQuantity || 0;
+            const partPrice = this.dataset.partPrice || '';
+            const partCurrency = this.dataset.partCurrency || 'PLN';
+            const partSupplier = this.dataset.partSupplier || '';
+            const partCategoryId = this.dataset.partCategoryId;
+
+            const categoriesOptions = categories.map(cat => 
+                `<option value="${cat.id}" ${cat.id == partCategoryId ? 'selected' : ''}>${cat.name}</option>`
+            ).join('');
+            
+            const suppliersOptions = '<option value="">Brak</option>' + suppliers.map(sup => 
+                `<option value="${sup.name}" ${sup.name === partSupplier ? 'selected' : ''}>${sup.name}</option>`
+            ).join('');
 
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
             modal.innerHTML = `
-                <div class="bg-white rounded-lg p-6 max-w-md w-full">
-                    <h3 class="text-xl font-bold mb-4">Edycja ceny: ${partName}</h3>
-                    <form action="/magazyn/parts/${partId}/update-price" method="POST">
+                <div class="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <h3 class="text-xl font-bold mb-4">Edycja produktu</h3>
+                    <form action="/magazyn/parts/${partId}/update" method="POST">
                         <input type="hidden" name="_token" value="${document.querySelector('meta[name="csrf-token"]')?.content || ''}">
                         <input type="hidden" name="_method" value="PUT">
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium mb-2">Cena netto:</label>
-                            <input type="number" name="net_price" step="0.01" min="0" value="${partPrice || ''}" 
-                                   class="w-full px-3 py-2 border rounded" placeholder="Pozostaw puste aby usunąć">
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="col-span-2">
+                                <label class="block text-sm font-medium mb-2">Nazwa produktu *</label>
+                                <input type="text" name="name" value="${partName}" required
+                                       class="w-full px-3 py-2 border rounded">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Kategoria *</label>
+                                <select name="category_id" required class="w-full px-3 py-2 border rounded">
+                                    ${categoriesOptions}
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Ilość *</label>
+                                <input type="number" name="quantity" value="${partQuantity}" min="0" required
+                                       class="w-full px-3 py-2 border rounded">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Cena netto</label>
+                                <input type="number" name="net_price" step="0.01" min="0" value="${partPrice}" 
+                                       class="w-full px-3 py-2 border rounded" placeholder="Opcjonalne">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Waluta *</label>
+                                <select name="currency" required class="w-full px-3 py-2 border rounded">
+                                    <option value="PLN" ${partCurrency === 'PLN' ? 'selected' : ''}>PLN</option>
+                                    <option value="EUR" ${partCurrency === 'EUR' ? 'selected' : ''}>EUR</option>
+                                    <option value="$" ${partCurrency === '$' ? 'selected' : ''}>$</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="block text-sm font-medium mb-2">Dostawca</label>
+                                <select name="supplier" class="w-full px-3 py-2 border rounded">
+                                    ${suppliersOptions}
+                                </select>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="block text-sm font-medium mb-2">Opis</label>
+                                <textarea name="description" rows="3" class="w-full px-3 py-2 border rounded" placeholder="Opcjonalne">${partDescription}</textarea>
+                            </div>
                         </div>
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium mb-2">Waluta:</label>
-                            <select name="currency" class="w-full px-3 py-2 border rounded">
-                                <option value="PLN" ${partCurrency === 'PLN' ? 'selected' : ''}>PLN</option>
-                                <option value="EUR" ${partCurrency === 'EUR' ? 'selected' : ''}>EUR</option>
-                                <option value="$" ${partCurrency === '$' ? 'selected' : ''}>$</option>
-                            </select>
-                        </div>
-                        <div class="flex gap-2">
-                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Zapisz</button>
+                        
+                        <div class="flex gap-2 mt-6">
+                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Zapisz zmiany</button>
                             <button type="button" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500 close-modal">Anuluj</button>
                         </div>
                     </form>

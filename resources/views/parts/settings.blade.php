@@ -73,8 +73,7 @@
                                     @method('DELETE')
                                     <button type="button" class="text-orange-600 hover:text-orange-800 font-bold text-sm leading-none" title="Usuń zawartość kategorii" onclick="if(confirm('Czy na pewno chcesz usunąć zawartość kategorii &quot;{{ $cat->name }}&quot;?')) { document.getElementById('clear-form-{{ $cat->id }}').submit(); }">
                                         🗑️
-                                    </button>
-                                </form>
+                                    </form>
                             @endif
                             @if($cat->parts_count === 0)
                                 <form action="{{ route('magazyn.category.delete', $cat->id) }}" method="POST" class="inline" id="delete-form-{{ $cat->id }}">
@@ -82,8 +81,7 @@
                                     @method('DELETE')
                                     <button type="button" class="text-red-600 hover:text-red-800 font-bold text-sm leading-none" title="Usuń kategorię" onclick="if(confirm('Czy na pewno usunąć kategorię &quot;{{ $cat->name }}&quot;?')) { document.getElementById('delete-form-{{ $cat->id }}').submit(); }">
                                         ✕
-                                    </button>
-                                </form>
+                                    </form>
                             @endif
                         </div>
                     @empty
@@ -800,8 +798,7 @@
                                         @method('DELETE')
                                         <button type="button" class="text-red-600 hover:text-red-800 font-bold text-sm" title="Usuń użytkownika" onclick="if(confirm('Czy na pewno usunąć użytkownika &quot;{{ $user->name }}&quot;?')) { document.getElementById('delete-user-form-{{ $user->id }}').submit(); }">
                                             ✕
-                                        </button>
-                                    </form>
+                                        </form>
                                 @else
                                     <span class="text-gray-400 text-xs italic ml-2">Admin</span>
                                 @endif
@@ -875,157 +872,122 @@
                         }
                     @endphp
                     
-                    <form action="{{ route('magazyn.order-settings.save') }}" method="POST" class="space-y-4">
+                    <form action="{{ route('magazyn.order-settings.save') }}" method="POST" class="space-y-4" id="order-settings-form">
                         @csrf
                         
                         {{-- Element 1 --}}
                         <div class="bg-white p-3 rounded border">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Element 1:</label>
                             <div class="flex gap-2 items-center">
-                                <select name="element1_type" class="px-2 py-1 border border-gray-300 rounded text-sm" onchange="toggleElement1Input(this.value)">
+                                <select name="element1_type" class="px-2 py-1 border border-gray-300 rounded text-sm w-auto" onchange="toggleElementInput('element1', this.value)">
                                     <option value="empty" {{ ($orderSettings->element1_type ?? '') === 'empty' ? 'selected' : '' }}>-- brak --</option>
                                     <option value="text" {{ ($orderSettings->element1_type ?? '') === 'text' ? 'selected' : '' }}>Tekst</option>
                                     <option value="date" {{ ($orderSettings->element1_type ?? '') === 'date' ? 'selected' : '' }}>Data (YYYYMMDD)</option>
                                     <option value="time" {{ ($orderSettings->element1_type ?? '') === 'time' ? 'selected' : '' }}>Godzina (HHMM)</option>
-                                    <option value="number" {{ ($orderSettings->element1_type ?? '') === 'number' ? 'selected' : '' }}>Numer inkrementowany</option>
                                     <option value="supplier" {{ ($orderSettings->element1_type ?? '') === 'supplier' ? 'selected' : '' }}>Skrót dostawcy</option>
                                 </select>
-                                
                                 <input 
                                     type="text" 
                                     name="element1_value" 
                                     id="element1_value"
                                     value="{{ $orderSettings->element1_value ?? '' }}"
-                                    placeholder="Wartość (np. ZAM)"
-                                    class="px-2 py-1 border border-gray-300 rounded text-sm flex-1"
-                                    {{ ($orderSettings->element1_type ?? 'empty') !== 'text' ? 'style=display:none' : '' }}
+                                    placeholder="Wartość"
+                                    maxlength="6"
+                                    class="px-2 py-1 border border-gray-400 rounded text-sm w-24"
+                                    style="{{ ($orderSettings->element1_type ?? 'empty') !== 'text' ? 'display:none;' : '' }}"
                                 >
+                                <div class="flex items-center gap-1">
+                                    <label class="text-xs text-gray-600">Separator:</label>
+                                    <select name="separator1" class="px-2 py-1 border border-gray-300 rounded text-sm w-16">
+                                        <option value="_" {{ ($orderSettings->separator1 ?? '_') === '_' ? 'selected' : '' }}>_</option>
+                                        <option value="-" {{ ($orderSettings->separator1 ?? '') === '-' ? 'selected' : '' }}>-</option>
+                                        <option value="," {{ ($orderSettings->separator1 ?? '') === ',' ? 'selected' : '' }}>,</option>
+                                        <option value="." {{ ($orderSettings->separator1 ?? '') === '.' ? 'selected' : '' }}>.</option>
+                                        <option value="/" {{ ($orderSettings->separator1 ?? '') === '/' ? 'selected' : '' }}>/</option>
+                                        <option value="\\" {{ ($orderSettings->separator1 ?? '') === '\\' ? 'selected' : '' }}>\</option>
+                                    </select>
+                                </div>
                             </div>
-                        </div>
-                        
-                        {{-- Separator 1 --}}
-                        <div class="bg-white p-3 rounded border">
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Separator 1:</label>
-                            <input 
-                                type="text" 
-                                name="separator1" 
-                                value="{{ $orderSettings->separator1 ?? '_' }}"
-                                placeholder="_"
-                                maxlength="3"
-                                class="px-2 py-1 border border-gray-300 rounded text-sm w-20"
-                            >
-                            <span class="text-xs text-gray-500 ml-2">(np. _ - / itd.)</span>
                         </div>
                         
                         {{-- Element 2 --}}
                         <div class="bg-white p-3 rounded border">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Element 2:</label>
                             <div class="flex gap-2 items-center">
-                                <select name="element2_type" class="px-2 py-1 border border-gray-300 rounded text-sm" onchange="toggleElement2Input(this.value)">
+                                <select name="element2_type" class="px-2 py-1 border border-gray-300 rounded text-sm w-auto" onchange="toggleElementInput('element2', this.value)">
                                     <option value="empty" {{ ($orderSettings->element2_type ?? '') === 'empty' ? 'selected' : '' }}>-- brak --</option>
                                     <option value="text" {{ ($orderSettings->element2_type ?? '') === 'text' ? 'selected' : '' }}>Tekst</option>
                                     <option value="date" {{ ($orderSettings->element2_type ?? '') === 'date' ? 'selected' : '' }}>Data (YYYYMMDD)</option>
                                     <option value="time" {{ ($orderSettings->element2_type ?? '') === 'time' ? 'selected' : '' }}>Godzina (HHMM)</option>
-                                    <option value="number" {{ ($orderSettings->element2_type ?? '') === 'number' ? 'selected' : '' }}>Numer inkrementowany</option>
                                     <option value="supplier" {{ ($orderSettings->element2_type ?? '') === 'supplier' ? 'selected' : '' }}>Skrót dostawcy</option>
                                 </select>
-                                
                                 <input 
                                     type="text" 
                                     name="element2_value" 
                                     id="element2_value"
                                     value="{{ $orderSettings->element2_value ?? '' }}"
                                     placeholder="Wartość"
-                                    class="px-2 py-1 border border-gray-300 rounded text-sm flex-1"
-                                    {{ ($orderSettings->element2_type ?? 'empty') !== 'text' ? 'style=display:none' : '' }}
+                                    maxlength="6"
+                                    class="px-2 py-1 border border-gray-400 rounded text-sm w-24"
+                                    style="{{ ($orderSettings->element2_type ?? 'empty') !== 'text' ? 'display:none;' : '' }}"
                                 >
+                                <div class="flex items-center gap-1">
+                                    <label class="text-xs text-gray-600">Separator:</label>
+                                    <select name="separator2" class="px-2 py-1 border border-gray-300 rounded text-sm w-16">
+                                        <option value="_" {{ ($orderSettings->separator2 ?? '_') === '_' ? 'selected' : '' }}>_</option>
+                                        <option value="-" {{ ($orderSettings->separator2 ?? '') === '-' ? 'selected' : '' }}>-</option>
+                                        <option value="," {{ ($orderSettings->separator2 ?? '') === ',' ? 'selected' : '' }}>,</option>
+                                        <option value="." {{ ($orderSettings->separator2 ?? '') === '.' ? 'selected' : '' }}>.</option>
+                                        <option value="/" {{ ($orderSettings->separator2 ?? '') === '/' ? 'selected' : '' }}>/</option>
+                                        <option value="\\" {{ ($orderSettings->separator2 ?? '') === '\\' ? 'selected' : '' }}>\</option>
+                                    </select>
+                                </div>
                             </div>
-                        </div>
-                        
-                        {{-- Separator 2 --}}
-                        <div class="bg-white p-3 rounded border">
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Separator 2:</label>
-                            <input 
-                                type="text" 
-                                name="separator2" 
-                                value="{{ $orderSettings->separator2 ?? '_' }}"
-                                placeholder="_"
-                                maxlength="3"
-                                class="px-2 py-1 border border-gray-300 rounded text-sm w-20"
-                            >
-                            <span class="text-xs text-gray-500 ml-2">(np. _ - / itd.)</span>
                         </div>
                         
                         {{-- Element 3 --}}
                         <div class="bg-white p-3 rounded border">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Element 3:</label>
                             <div class="flex gap-2 items-center">
-                                <select name="element3_type" class="px-2 py-1 border border-gray-300 rounded text-sm" onchange="toggleElement3Input(this.value)">
+                                <select name="element3_type" class="px-2 py-1 border border-gray-300 rounded text-sm w-auto" onchange="toggleElementInput('element3', this.value)">
                                     <option value="empty" {{ ($orderSettings->element3_type ?? '') === 'empty' ? 'selected' : '' }}>-- brak --</option>
                                     <option value="text" {{ ($orderSettings->element3_type ?? '') === 'text' ? 'selected' : '' }}>Tekst</option>
                                     <option value="date" {{ ($orderSettings->element3_type ?? '') === 'date' ? 'selected' : '' }}>Data (YYYYMMDD)</option>
                                     <option value="time" {{ ($orderSettings->element3_type ?? '') === 'time' ? 'selected' : '' }}>Godzina (HHMM)</option>
-                                    <option value="number" {{ ($orderSettings->element3_type ?? '') === 'number' ? 'selected' : '' }}>Numer inkrementowany</option>
+                                    <option value="number" {{ ($orderSettings->element3_type ?? '') === 'number' ? 'selected' : '' }}>Nr oferty</option>
                                     <option value="supplier" {{ ($orderSettings->element3_type ?? '') === 'supplier' ? 'selected' : '' }}>Skrót dostawcy</option>
                                 </select>
-                                
                                 <input 
                                     type="text" 
                                     name="element3_value" 
                                     id="element3_value"
                                     value="{{ $orderSettings->element3_value ?? '' }}"
                                     placeholder="Wartość"
-                                    class="px-2 py-1 border border-gray-300 rounded text-sm flex-1"
-                                    {{ ($orderSettings->element3_type ?? 'empty') !== 'text' ? 'style=display:none' : '' }}
+                                    maxlength="6"
+                                    class="px-2 py-1 border border-gray-400 rounded text-sm w-24"
+                                    style="{{ ($orderSettings->element3_type ?? 'empty') !== 'text' ? 'display:none;' : '' }}"
                                 >
-                            </div>
-                        </div>
-                        
-                        {{-- Separator 3 --}}
-                        <div class="bg-white p-3 rounded border">
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Separator 3:</label>
-                            <input 
-                                type="text" 
-                                name="separator3" 
-                                value="{{ $orderSettings->separator3 ?? '_' }}"
-                                placeholder="_"
-                                maxlength="3"
-                                class="px-2 py-1 border border-gray-300 rounded text-sm w-20"
-                            >
-                            <span class="text-xs text-gray-500 ml-2">(np. _ - / itd.)</span>
-                        </div>
-                        
-                        {{-- Element 4 --}}
-                        <div class="bg-white p-3 rounded border">
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Element 4:</label>
-                            <div class="flex gap-2 items-center">
-                                <select name="element4_type" class="px-2 py-1 border border-gray-300 rounded text-sm" onchange="toggleElement4Input(this.value)">
-                                    <option value="empty" {{ ($orderSettings->element4_type ?? '') === 'empty' ? 'selected' : '' }}>-- brak --</option>
-                                    <option value="text" {{ ($orderSettings->element4_type ?? '') === 'text' ? 'selected' : '' }}>Tekst</option>
-                                    <option value="date" {{ ($orderSettings->element4_type ?? '') === 'date' ? 'selected' : '' }}>Data (YYYYMMDD)</option>
-                                    <option value="time" {{ ($orderSettings->element4_type ?? '') === 'time' ? 'selected' : '' }}>Godzina (HHMM)</option>
-                                    <option value="number" {{ ($orderSettings->element4_type ?? '') === 'number' ? 'selected' : '' }}>Numer inkrementowany</option>
-                                    <option value="supplier" {{ ($orderSettings->element4_type ?? '') === 'supplier' ? 'selected' : '' }}>Skrót dostawcy</option>
-                                </select>
-                                
-                                <input 
-                                    type="text" 
-                                    name="element4_value" 
-                                    id="element4_value"
-                                    value="{{ $orderSettings->element4_value ?? '' }}"
-                                    placeholder="Wartość"
-                                    class="px-2 py-1 border border-gray-300 rounded text-sm flex-1"
-                                    {{ ($orderSettings->element4_type ?? 'empty') !== 'text' ? 'style=display:none' : '' }}
-                                >
+                                <div class="flex items-center gap-1">
+                                    <label class="text-xs text-gray-600">Separator:</label>
+                                    <select name="separator3" class="px-2 py-1 border border-gray-300 rounded text-sm w-16">
+                                        <option value="_" {{ ($orderSettings->separator3 ?? '_') === '_' ? 'selected' : '' }}>_</option>
+                                        <option value="-" {{ ($orderSettings->separator3 ?? '') === '-' ? 'selected' : '' }}>-</option>
+                                        <option value="," {{ ($orderSettings->separator3 ?? '') === ',' ? 'selected' : '' }}>,</option>
+                                        <option value="." {{ ($orderSettings->separator3 ?? '') === '.' ? 'selected' : '' }}>.</option>
+                                        <option value="/" {{ ($orderSettings->separator3 ?? '') === '/' ? 'selected' : '' }}>/</option>
+                                        <option value="\\" {{ ($orderSettings->separator3 ?? '') === '\\' ? 'selected' : '' }}>\</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                         
                         {{-- Numer startowy (dla type=number) --}}
                         <div class="bg-white p-3 rounded border">
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Numer startowy (dla elementu typu "Numer inkrementowany"):</label>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Numer startowy (dla elementu typu "Nr oferty"):</label>
                             <input 
                                 type="number" 
                                 name="start_number" 
+                                id="start_number"
                                 value="{{ $orderSettings->start_number ?? 1 }}"
                                 min="1"
                                 class="px-2 py-1 border border-gray-300 rounded text-sm w-32"
@@ -1033,40 +995,80 @@
                             <span class="text-xs text-gray-500 ml-2">(np. 1, 100, 1000 itd.)</span>
                         </div>
                         
+                        {{-- Element 4 --}}
+                        <div class="bg-white p-3 rounded border">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Element 4:</label>
+                            <div class="flex gap-2 items-center">
+                                <select name="element4_type" class="px-2 py-1 border border-gray-300 rounded text-sm w-auto" onchange="toggleElementInput('element4', this.value)">
+                                    <option value="empty" {{ ($orderSettings->element4_type ?? '') === 'empty' ? 'selected' : '' }}>-- brak --</option>
+                                    <option value="text" {{ ($orderSettings->element4_type ?? '') === 'text' ? 'selected' : '' }}>Tekst</option>
+                                    <option value="date" {{ ($orderSettings->element4_type ?? '') === 'date' ? 'selected' : '' }}>Data (YYYYMMDD)</option>
+                                    <option value="time" {{ ($orderSettings->element4_type ?? '') === 'time' ? 'selected' : '' }}>Godzina (HHMM)</option>
+                                    <option value="number" {{ ($orderSettings->element4_type ?? '') === 'number' ? 'selected' : '' }}>Nr oferty</option>
+                                    <option value="supplier" {{ ($orderSettings->element4_type ?? '') === 'supplier' ? 'selected' : '' }}>Skrót dostawcy</option>
+                                </select>
+                                <input 
+                                    type="text" 
+                                    name="element4_value" 
+                                    id="element4_value"
+                                    value="{{ $orderSettings->element4_value ?? '' }}"
+                                    placeholder="Wartość"
+                                    maxlength="6"
+                                    class="px-2 py-1 border border-gray-400 rounded text-sm w-24"
+                                    style="{{ ($orderSettings->element4_type ?? 'empty') !== 'text' ? 'display:none;' : '' }}"
+                                >
+                            </div>
+                        </div>
+                        
                         {{-- Podgląd --}}
                         <div class="bg-blue-50 p-3 rounded border border-blue-200">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Podgląd nazwy zamówienia:</label>
-                            <div id="order-name-preview" class="font-mono text-lg text-blue-700 font-bold">
-                                {{ 
-                                    ($orderSettings->element1_type ?? 'empty') !== 'empty' 
-                                    ? (($orderSettings->element1_type ?? '') === 'text' ? ($orderSettings->element1_value ?? 'ZAM') : 'ELEMENT1')
-                                    : ''
-                                }}{{ 
-                                    ($orderSettings->element2_type ?? 'empty') !== 'empty' && ($orderSettings->element1_type ?? 'empty') !== 'empty'
-                                    ? ($orderSettings->separator1 ?? '_')
-                                    : ''
-                                }}{{ 
-                                    ($orderSettings->element2_type ?? 'empty') !== 'empty' 
-                                    ? (($orderSettings->element2_type ?? '') === 'text' ? ($orderSettings->element2_value ?? 'ELEMENT2') : 'ELEMENT2')
-                                    : ''
-                                }}{{
-                                    ($orderSettings->element3_type ?? 'empty') !== 'empty' && ($orderSettings->element2_type ?? 'empty') !== 'empty'
-                                    ? ($orderSettings->separator2 ?? '_')
-                                    : ''
-                                }}{{ 
-                                    ($orderSettings->element3_type ?? 'empty') !== 'empty' 
-                                    ? (($orderSettings->element3_type ?? '') === 'text' ? ($orderSettings->element3_value ?? 'ELEMENT3') : 'ELEMENT3')
-                                    : ''
-                                }}{{
-                                    ($orderSettings->element4_type ?? 'empty') !== 'empty' && ($orderSettings->element3_type ?? 'empty') !== 'empty'
-                                    ? ($orderSettings->separator3 ?? '_')
-                                    : ''
-                                }}{{ 
-                                    ($orderSettings->element4_type ?? 'empty') !== 'empty' 
-                                    ? (($orderSettings->element4_type ?? '') === 'text' ? ($orderSettings->element4_value ?? 'ELEMENT4') : 'ELEMENT4')
-                                    : ''
-                                }}
-                            </div>
+                            <div id="order-name-preview" class="font-mono text-lg text-blue-700 font-bold"></div>
+                            <script>
+                                function getOrderNamePreview() {
+                                    const types = [
+                                        document.querySelector('[name="element1_type"]').value,
+                                        document.querySelector('[name="element2_type"]').value,
+                                        document.querySelector('[name="element3_type"]').value,
+                                        document.querySelector('[name="element4_type"]').value
+                                    ];
+                                    const values = [
+                                        document.getElementById('element1_value').value,
+                                        document.getElementById('element2_value').value,
+                                        document.getElementById('element3_value').value,
+                                        document.getElementById('element4_value').value
+                                    ];
+                                    const seps = [
+                                        document.querySelector('[name="separator1"]').value,
+                                        document.querySelector('[name="separator2"]').value,
+                                        document.querySelector('[name="separator3"]').value
+                                    ];
+                                    const startNumber = parseInt(document.getElementById('start_number')?.value || 1);
+                                    let parts = [];
+                                    for (let i = 0; i < 4; i++) {
+                                        if (types[i] === 'empty') continue;
+                                        if (types[i] === 'text') {
+                                            parts.push(values[i] || `ELEMENT${i+1}`);
+                                        } else if (types[i] === 'date') {
+                                            parts.push('20260107');
+                                        } else if (types[i] === 'time') {
+                                            parts.push('1200');
+                                        } else if (types[i] === 'number') {
+                                            parts.push(String(startNumber).padStart(4, '0'));
+                                        } else if (types[i] === 'supplier') {
+                                            parts.push('SUPPL');
+                                        }
+                                    }
+                                    let preview = '';
+                                    for (let i = 0; i < parts.length; i++) {
+                                        preview += parts[i];
+                                        if (i < parts.length - 1) preview += seps[i] || '_';
+                                    }
+                                    document.getElementById('order-name-preview').textContent = preview;
+                                }
+                                document.getElementById('order-settings-form').addEventListener('input', getOrderNamePreview);
+                                window.addEventListener('DOMContentLoaded', getOrderNamePreview);
+                            </script>
                         </div>
                         
                         <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
@@ -1075,17 +1077,9 @@
                     </form>
                     
                     <script>
-                        function toggleElement1Input(type) {
-                            document.getElementById('element1_value').style.display = type === 'text' ? 'block' : 'none';
-                        }
-                        function toggleElement2Input(type) {
-                            document.getElementById('element2_value').style.display = type === 'text' ? 'block' : 'none';
-                        }
-                        function toggleElement3Input(type) {
-                            document.getElementById('element3_value').style.display = type === 'text' ? 'block' : 'none';
-                        }
-                        function toggleElement4Input(type) {
-                            document.getElementById('element4_value').style.display = type === 'text' ? 'block' : 'none';
+                        function toggleElementInput(element, type) {
+                            document.getElementById(element + '_value').style.display = type === 'text' ? 'block' : 'none';
+                            getOrderNamePreview();
                         }
                     </script>
                 </div>

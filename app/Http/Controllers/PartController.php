@@ -708,6 +708,32 @@ class PartController extends Controller
         return redirect()->route('magazyn.check')->with('success', "Cena produktu \"{$part->name}\" została zaktualizowana.");
     }
 
+    public function updatePart(Request $request, Part $part)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'category_id' => 'required|exists:categories,id',
+            'description' => 'nullable|string',
+            'quantity' => 'required|integer|min:0',
+            'net_price' => 'nullable|numeric|min:0',
+            'currency' => 'required|in:PLN,EUR,$',
+            'supplier' => 'nullable|string|max:255',
+        ]);
+
+        $part->update([
+            'name' => $request->name,
+            'category_id' => $request->category_id,
+            'description' => $request->description,
+            'quantity' => $request->quantity,
+            'net_price' => $request->net_price,
+            'currency' => $request->currency,
+            'supplier' => $request->supplier,
+            'last_modified_by' => auth()->id(),
+        ]);
+
+        return redirect()->route('magazyn.check')->with('success', "Produkt \"{$part->name}\" został zaktualizowany.");
+    }
+
     // DODAWANIE UŻYTKOWNIKA
     public function addUser(Request $request)
     {
@@ -1373,20 +1399,20 @@ class PartController extends Controller
         $createdOrders = [];
         $shouldIncrement = $request->input('increment_counter', true);
         
+        // Pobierz ustawienia zamówień RAZ, na zewnątrz pętli
+        $orderSettings = \DB::table('order_settings')->first();
+        $hasNumberElement = false;
+        if ($orderSettings) {
+            $hasNumberElement = ($orderSettings->element1_type ?? '') === 'number' 
+                || ($orderSettings->element2_type ?? '') === 'number'
+                || ($orderSettings->element3_type ?? '') === 'number'
+                || ($orderSettings->element4_type ?? '') === 'number';
+        }
+        
         // Dla każdego dostawcy utwórz osobne zamówienie
         foreach ($productsBySupplier as $supplierName => $supplierProducts) {
             // Generuj rzeczywistą nazwę zamówienia
             $orderName = $this->generateRealOrderName($orderNameTemplate, $supplierName);
-            
-            // Zwiększ numer zamówienia w bazie danych (tylko jeśli nazwa nie została zmieniona ręcznie)
-            if ($shouldIncrement) {
-                $orderSettings = \DB::table('order_settings')->first();
-                if ($orderSettings && $orderSettings->element3_type === 'number') {
-                    \DB::table('order_settings')->update([
-                        'start_number' => ($orderSettings->start_number ?? 1) + 1
-                    ]);
-                }
-            }
             
             // Zapisz zamówienie w bazie danych
             $order = \App\Models\Order::create([
@@ -1400,6 +1426,17 @@ class PartController extends Controller
                 'issued_at' => now(),
                 'user_id' => auth()->id(),
             ]);
+            
+            // Zwiększ numer zamówienia ZARAZ PO zapisaniu (przed następną iteracją)
+            if ($shouldIncrement && $orderSettings && $hasNumberElement) {
+                \DB::table('order_settings')->update([
+                    'start_number' => ($orderSettings->start_number ?? 1) + 1
+                ]);
+                // Odśwież wartość dla następnej iteracji
+                $orderSettings = \DB::table('order_settings')->first();
+                // Zaktualizuj też template dla następnej iteracji
+                $orderNameTemplate = $this->generateOrderNamePreview($orderSettings, '');
+            }
             
             $createdOrders[] = [
                 'id' => $order->id,
@@ -2069,12 +2106,20 @@ class PartController extends Controller
         $shouldIncrement = $request->input('increment', 0);
         
         // Jeśli flaga increment=1, zwiększ licznik teraz
-        if ($shouldIncrement && $orderSettings && $orderSettings->element3_type === 'number') {
-            \DB::table('order_settings')->update([
-                'start_number' => ($orderSettings->start_number ?? 1) + 1
-            ]);
-            // Pobierz zaktualizowane ustawienia
-            $orderSettings = \DB::table('order_settings')->first();
+        if ($shouldIncrement && $orderSettings) {
+            // Sprawdź czy którykolwiek element używa numeru
+            $hasNumberElement = ($orderSettings->element1_type ?? '') === 'number' 
+                || ($orderSettings->element2_type ?? '') === 'number'
+                || ($orderSettings->element3_type ?? '') === 'number'
+                || ($orderSettings->element4_type ?? '') === 'number';
+                
+            if ($hasNumberElement) {
+                \DB::table('order_settings')->update([
+                    'start_number' => ($orderSettings->start_number ?? 1) + 1
+                ]);
+                // Pobierz zaktualizowane ustawienia
+                $orderSettings = \DB::table('order_settings')->first();
+            }
         }
         
         if (!$orderSettings) {
@@ -2124,7 +2169,7 @@ class PartController extends Controller
         
         // Element 4
         if (isset($settings->element4_type) && $settings->element4_type !== 'empty') {
-            $value = $settings->element4_type === 'supplier_short_name' ? $supplierName : null;
+            $value = $settings->element4_type === 'supplier' ? $supplierName : null;
             $parts[] = $this->generateElementValue($settings->element4_type, $value, $settings);
         }
         
@@ -2156,7 +2201,7 @@ class PartController extends Controller
                 $digits = $settings->element3_digits ?? 4;
                 $start = $settings->start_number ?? 1;
                 return str_pad($start, $digits, '0', STR_PAD_LEFT);
-            case 'supplier_short_name':
+            case 'supplier':
                 if (empty($value)) {
                     return 'DOSTAWCA';
                 }

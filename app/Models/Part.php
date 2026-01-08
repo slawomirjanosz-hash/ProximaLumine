@@ -16,6 +16,7 @@ class Part extends Model
         'quantity',
         'net_price',
         'currency',
+        'supplier',
         'last_modified_by',
     ];
 
