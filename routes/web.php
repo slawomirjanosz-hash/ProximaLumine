@@ -69,7 +69,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/parts/search-similar', [PartController::class, 'searchSimilar'])->name('parts.searchSimilar')->middleware('permission:view_catalog');
     Route::post('/parts/clear-session', [PartController::class, 'clearSession'])->name('parts.clearSession');
 
-    Route::get('/magazyn/projekty', function() {
-        return view('parts.projects');
-    })->name('magazyn.projects')->middleware('auth');
+    Route::get('/magazyn/projekty', [PartController::class, 'projectsView'])->name('magazyn.projects')->middleware('auth');
+    Route::post('/magazyn/projekty', [PartController::class, 'storeProject'])->name('magazyn.projects.store')->middleware('auth');
 });

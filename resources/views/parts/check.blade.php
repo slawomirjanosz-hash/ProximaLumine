@@ -372,8 +372,9 @@
         
         // Funkcja zbierająca ID zaznaczonych produktów
         function getCheckedProductIds() {
-            const checkedCheckboxes = Array.from(table.querySelectorAll('.part-checkbox:checked'));
-            return checkedCheckboxes.map(cb => cb.value);
+            // Zbierz wszystkie zaznaczone checkboxy (niezależnie od widoczności wiersza)
+            const checkedCheckboxes = Array.from(document.querySelectorAll('.part-checkbox:checked'));
+            return checkedCheckboxes.map(cb => cb.value).filter(id => id);
         }
         
         // Funkcja aktualizująca linki pobierania
@@ -551,6 +552,9 @@
                     row.style.display = '';
                 });
             }
+            
+            // Aktualizuj linki pobierania po zmianie widoku
+            updateDownloadLinks();
         });
 
         selectAllCheckbox.addEventListener('change', function() {

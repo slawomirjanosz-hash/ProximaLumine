@@ -104,6 +104,47 @@ class PartController extends Controller
         ]);
     }
 
+    // PROJEKTY
+    public function projectsView()
+    {
+        return view('parts.projects', [
+            'users' => User::orderBy('name')->get(),
+            'parts' => Part::with('category')->orderBy('name')->get(),
+            'inProgressProjects' => \App\Models\Project::where('status', 'in_progress')->with('responsibleUser')->get(),
+            'warrantyProjects' => \App\Models\Project::where('status', 'warranty')->with('responsibleUser')->get(),
+            'archivedProjects' => \App\Models\Project::where('status', 'archived')->with('responsibleUser')->get(),
+        ]);
+    }
+
+    public function storeProject(Request $request)
+    {
+        $request->validate([
+            'project_number' => 'required|string|unique:projects,project_number',
+            'name' => 'required|string|max:255',
+            'budget' => 'nullable|numeric|min:0',
+            'responsible_user_id' => 'nullable|exists:users,id',
+            'parts_data' => 'nullable|json',
+        ]);
+
+        $project = \App\Models\Project::create([
+            'project_number' => $request->project_number,
+            'name' => $request->name,
+            'budget' => $request->budget,
+            'responsible_user_id' => $request->responsible_user_id,
+            'status' => 'in_progress',
+        ]);
+
+        // Przypisz części do projektu
+        if ($request->filled('parts_data')) {
+            $partsData = json_decode($request->parts_data, true);
+            foreach ($partsData as $partData) {
+                $project->parts()->attach($partData['part_id'], ['quantity' => $partData['quantity']]);
+            }
+        }
+
+        return redirect()->route('magazyn.projects')->with('success', 'Projekt "' . $project->name . '" został utworzony.');
+    }
+
     // DODAJ KATEGORIĘ
     public function addCategory(Request $request)
     {
