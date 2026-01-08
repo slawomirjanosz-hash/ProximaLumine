@@ -43,7 +43,7 @@
                         class="border p-2 rounded w-full"
                     >
                 </div>
-                {{-- ILOŚĆ, CENA, WALUTA --}}
+                {{-- ILOŚĆ, STAN MIN., CENA, WALUTA --}}
                 <div class="flex gap-2">
                     <input
                         name="quantity"
@@ -53,6 +53,15 @@
                         class="border p-2 rounded w-24"
                         required
                         placeholder="Ilość"
+                    >
+                    <input
+                        name="minimum_stock"
+                        type="number"
+                        min="0"
+                        value="0"
+                        class="border p-2 rounded w-24"
+                        placeholder="Stan min."
+                        title="Stan minimalny"
                     >
                     <input
                         id="part-net-price"
@@ -172,8 +181,7 @@
                         <th class="border p-2 text-xs whitespace-nowrap min-w-[3.5rem] max-w-[6rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('supplier')">Dost. <span class="align-middle ml-1 text-gray-400">↕</span></th>
                         <th class="border p-2 text-xs whitespace-nowrap min-w-[3.5rem] max-w-[6rem] cursor-pointer hover:bg-gray-200" style="width: 100px;" onclick="sortTable('net_price')">Cena netto <span class="align-middle ml-1 text-gray-400">↕</span></th>
                         <th class="border p-2 text-left text-xs whitespace-nowrap min-w-[6.5rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('category')">Kategoria <span class="align-middle ml-1 text-gray-400">↕</span></th>
-                        <th class="border p-2 text-center text-xs whitespace-nowrap min-w-[2.5rem] max-w-[4rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('quantity')">Stan <span class="align-middle ml-1 text-gray-400">↕</span></th>
-                        <th class="border p-1 text-center text-xs whitespace-nowrap min-w-[4.5rem]" style="width: 6ch;">User</th>
+                        <th class="border p-2 text-center text-xs whitespace-nowrap min-w-[2.5rem] max-w-[4rem] cursor-pointer hover:bg-gray-200" onclick="sortTable('quantity')">Stan <span class="align-middle ml-1 text-gray-400">↕</span></th>                        <th class="border p-2 text-center text-xs whitespace-nowrap min-w-[2.5rem] max-w-[4rem]">Stan min.</th>                        <th class="border p-1 text-center text-xs whitespace-nowrap min-w-[4.5rem]" style="width: 6ch;">User</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -209,7 +217,8 @@
                                 @endif
                             </td>
                             <td class="border p-2">{{ $p->category->name ?? '-' }}</td>
-                            <td class="border p-2 text-center text-xs {{ $p->quantity == 0 ? 'text-red-600 bg-red-50' : '' }}">{{ $p->quantity }}</td>
+                            <td class="border p-2 text-center text-xs {{ $p->quantity <= $p->minimum_stock ? 'bg-red-200' : '' }}">{{ $p->quantity }}</td>
+                            <td class="border p-2 text-center text-xs text-gray-600">{{ $p->minimum_stock }}</td>
                             <td class="border p-2 text-center text-xs text-gray-600">{{ $p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-' }}</td>
                         </tr>
                     @empty

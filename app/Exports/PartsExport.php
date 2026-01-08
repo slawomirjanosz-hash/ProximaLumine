@@ -31,13 +31,14 @@ class PartsExport implements FromCollection, WithHeadings, ShouldAutoSize, WithE
                 'Opis' => $description,
                 'Kategoria' => $p->category->name ?? '-',
                 'Stan' => $p->quantity,
+                'Stan minimalny' => $p->minimum_stock,
             ];
         })->toArray());
     }
 
     public function headings(): array
     {
-        return ['Nazwa', 'Opis', 'Kategoria', 'Stan'];
+        return ['Nazwa', 'Opis', 'Kategoria', 'Stan', 'Stan minimalny'];
     }
 
     public function registerEvents(): array

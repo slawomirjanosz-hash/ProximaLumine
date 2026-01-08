@@ -101,6 +101,20 @@
     {{-- JS ALERT CONTAINER (dla pobierania) --}}
     <div id="js-alert-container" class="max-w-6xl mx-auto mt-4"></div>
 
+    {{-- KOMUNIKAT O PRODUKTACH PONIŻEJ STANU MINIMALNEGO --}}
+    @php
+        $belowMinimum = $parts->filter(function($p) {
+            return $p->quantity <= $p->minimum_stock && $p->minimum_stock > 0;
+        });
+        $belowMinimumCount = $belowMinimum->count();
+    @endphp
+    
+    @if($belowMinimumCount > 0)
+        <div class="mb-4 p-3 bg-red-100 border border-red-400 rounded">
+            <p class="text-red-800 font-semibold">⚠️ {{ $belowMinimumCount }} {{ $belowMinimumCount === 1 ? 'pozycja jest' : 'pozycji jest' }} poniżej stanu minimum</p>
+        </div>
+    @endif
+
     {{-- TABELA --}}
 
     {{-- TABELA --}}
@@ -127,6 +141,9 @@
                 </th>
                 <th class="border p-2 text-center cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap min-w-[2.5rem] max-w-[4rem] sortable" data-column="quantity">
                     Stan <span class="sort-icon">▲</span>
+                </th>
+                <th class="border p-2 text-center text-xs whitespace-nowrap min-w-[2.5rem] max-w-[4rem]">
+                    Stan min.
                 </th>
                 <th class="border p-1 text-center text-xs whitespace-nowrap min-w-[4.5rem]" style="width: 6ch;">User</th>
                 @if(auth()->user()->show_action_column)
@@ -185,8 +202,13 @@
                     </td>
 
                     {{-- STAN --}}
-                    <td class="border p-2 text-center font-bold text-xs">
+                    <td class="border p-2 text-center font-bold text-xs {{ $p->quantity <= $p->minimum_stock ? 'bg-red-200' : '' }}">
                         {{ $p->quantity }}
+                    </td>
+
+                    {{-- STAN MINIMALNY --}}
+                    <td class="border p-2 text-center text-xs text-gray-600">
+                        {{ $p->minimum_stock }}
                     </td>
 
                     {{-- UŻYTKOWNIK --}}
@@ -239,6 +261,7 @@
                                         data-part-name="{{ $p->name }}"
                                         data-part-description="{{ $p->description ?? '' }}"
                                         data-part-quantity="{{ $p->quantity }}"
+                                        data-part-minimum-stock="{{ $p->minimum_stock }}"
                                         data-part-price="{{ $p->net_price }}"
                                         data-part-currency="{{ $p->currency }}"
                                         data-part-supplier="{{ $p->supplier ?? '' }}"
@@ -336,6 +359,45 @@
         const supplierFilter = document.getElementById('supplier-filter');
         const clearFiltersBtn = document.getElementById('clear-filters-btn');
         
+        // Funkcja zbierająca ID widocznych produktów
+        function getVisibleProductIds() {
+            const visibleRows = Array.from(table.querySelectorAll('tbody tr[data-name]'))
+                .filter(row => row.style.display !== 'none');
+            
+            return visibleRows.map(row => {
+                const checkbox = row.querySelector('.part-checkbox');
+                return checkbox ? checkbox.value : null;
+            }).filter(id => id !== null);
+        }
+        
+        // Funkcja zbierająca ID zaznaczonych produktów
+        function getCheckedProductIds() {
+            const checkedCheckboxes = Array.from(table.querySelectorAll('.part-checkbox:checked'));
+            return checkedCheckboxes.map(cb => cb.value);
+        }
+        
+        // Funkcja aktualizująca linki pobierania
+        function updateDownloadLinks() {
+            // Priorytet: zaznaczone checkboxy > widoczne produkty
+            const checkedIds = getCheckedProductIds();
+            const idsToUse = checkedIds.length > 0 ? checkedIds : getVisibleProductIds();
+            const idsParam = idsToUse.length > 0 ? idsToUse.join(',') : '';
+            
+            // Aktualizuj CSV export link
+            const csvLink = document.getElementById('csv-export-link');
+            if (csvLink) {
+                const baseUrl = csvLink.href.split('?')[0];
+                csvLink.href = idsParam ? `${baseUrl}?ids=${idsParam}` : baseUrl;
+            }
+            
+            // Aktualizuj przyciski Excel i Word
+            const xlsxBtn = document.getElementById('btn-download-xlsx');
+            const wordBtn = document.getElementById('btn-download-word');
+            
+            if (xlsxBtn) xlsxBtn.dataset.selectedIds = idsParam;
+            if (wordBtn) wordBtn.dataset.selectedIds = idsParam;
+        }
+        
         // Funkcja filtrowania tabeli
         function filterTable() {
             const searchTerm = searchInput.value.toLowerCase().trim();
@@ -361,6 +423,9 @@
                     row.style.display = 'none';
                 }
             });
+            
+            // Aktualizuj linki pobierania po każdym filtrowaniu
+            updateDownloadLinks();
         }
         
         // Event listeners dla filtrów
@@ -388,6 +453,9 @@
                 filterTable();
             });
         }
+        
+        // Inicjalizuj linki pobierania przy załadowaniu strony
+        updateDownloadLinks();
 
 
         function showAlert(type, message, timeout = 5000) {
@@ -489,6 +557,7 @@
             partCheckboxes.forEach(cb => cb.checked = this.checked);
             updateBulkDeleteButton();
             updateSelectedIds();
+            updateDownloadLinks();
         });
 
         partCheckboxes.forEach(cb => {
@@ -496,6 +565,7 @@
                 selectAllCheckbox.checked = [...partCheckboxes].every(c => c.checked);
                 updateBulkDeleteButton();
                 updateSelectedIds();
+                updateDownloadLinks();
             });
         });
 
@@ -533,7 +603,9 @@
                 e.preventDefault();
                 const selectedIds = this.getAttribute('data-selected-ids');
                 const params = new URLSearchParams();
-                if (selectedIds) params.append('selected_ids', selectedIds);
+                if (selectedIds) {
+                    params.append('ids', selectedIds);
+                }
                 const url = `/magazyn/sprawdz/${endpoint}?${params.toString()}`;
                 
                 fetch(url)
@@ -578,6 +650,7 @@
             const partName = this.dataset.partName;
             const partDescription = this.dataset.partDescription || '';
             const partQuantity = this.dataset.partQuantity || 0;
+            const partMinimumStock = this.dataset.partMinimumStock || 0;
             const partPrice = this.dataset.partPrice || '';
             const partCurrency = this.dataset.partCurrency || 'PLN';
             const partSupplier = this.dataset.partSupplier || '';
@@ -618,6 +691,12 @@
                                 <label class="block text-sm font-medium mb-2">Ilość *</label>
                                 <input type="number" name="quantity" value="${partQuantity}" min="0" required
                                        class="w-full px-3 py-2 border rounded">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Stan minimalny</label>
+                                <input type="number" name="minimum_stock" value="${partMinimumStock}" min="0"
+                                       class="w-full px-3 py-2 border rounded" placeholder="0">
                             </div>
                             
                             <div>

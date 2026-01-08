@@ -148,9 +148,12 @@ class PartController extends Controller
     {
         $query = Part::with('category')->orderBy('name');
 
-        // Jeśli są zaznaczone IDs, filtruj tylko te
+        // Jeśli są zaznaczone IDs (z checkboxów lub filtrów), filtruj tylko te
         if ($request->filled('selected_ids')) {
             $ids = array_filter(explode(',', $request->selected_ids));
+            $query->whereIn('id', $ids);
+        } elseif ($request->filled('ids')) {
+            $ids = array_filter(explode(',', $request->ids));
             $query->whereIn('id', $ids);
         } else {
             // W przeciwnym razie stosuj filtry
@@ -207,9 +210,12 @@ class PartController extends Controller
 
         $query = Part::with('category')->orderBy('name');
 
-        // Jeśli są zaznaczone IDs, filtruj tylko te
+        // Jeśli są zaznaczone IDs (z checkboxów lub filtrów), filtruj tylko te
         if ($request->filled('selected_ids')) {
             $ids = array_filter(explode(',', $request->selected_ids));
+            $query->whereIn('id', $ids);
+        } elseif ($request->filled('ids')) {
+            $ids = array_filter(explode(',', $request->ids));
             $query->whereIn('id', $ids);
         } else {
             // W przeciwnym razie stosuj filtry
@@ -242,9 +248,12 @@ class PartController extends Controller
 
         $query = Part::with('category')->orderBy('name');
 
-        // Jeśli są zaznaczone IDs, filtruj tylko te
+        // Jeśli są zaznaczone IDs (z checkboxów lub filtrów), filtruj tylko te
         if ($request->filled('selected_ids')) {
             $ids = array_filter(explode(',', $request->selected_ids));
+            $query->whereIn('id', $ids);
+        } elseif ($request->filled('ids')) {
+            $ids = array_filter(explode(',', $request->ids));
             $query->whereIn('id', $ids);
         } else {
             // W przeciwnym razie stosuj filtry
@@ -342,11 +351,13 @@ class PartController extends Controller
             // Include header text length ("Kategoria" = 9 chars, "Stan" = 4 chars) so headers don't wrap
             $maxCategoryLen = max(9, collect($parts)->map(function ($p) { return mb_strlen($p->category->name ?? '-', 'UTF-8'); })->max() ?: 1);
             $maxStanLen = max(4, collect($parts)->map(function ($p) { return mb_strlen((string)($p->quantity ?? ''), 'UTF-8'); })->max() ?: 1);
+            $maxStanMinLen = max(9, collect($parts)->map(function ($p) { return mb_strlen((string)($p->minimum_stock ?? ''), 'UTF-8'); })->max() ?: 1);
 
             // Approximate width per character in Word (dxa); use higher multiplier for bold headers with padding
             $charWidth = 220; // increased for bold text + centered alignment + padding
             $categoryWidth = max(900, $maxCategoryLen * $charWidth);
             $stanWidth = max(1100, $maxStanLen * $charWidth); // increased minimum to ensure "Stan" header fits
+            $stanMinWidth = max(1300, $maxStanMinLen * $charWidth); // "Stan min." = 9 chars
 
             // header row (modern gray with white text)
             $table->addRow();
@@ -358,6 +369,7 @@ class PartController extends Controller
             $table->addCell(8500, $cellStyleHeader)->addText('Opis', $headerFont);
             $table->addCell($categoryWidth, $cellStyleHeader)->addText('Kategoria', $headerFont, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $table->addCell($stanWidth, $cellStyleHeader)->addText('Stan', $headerFont, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $table->addCell($stanMinWidth, $cellStyleHeader)->addText('Stan min.', $headerFont, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
 
             $rowIndex = 0;
             foreach ($parts as $p) {
@@ -370,6 +382,7 @@ class PartController extends Controller
                 $table->addCell(8500, $cellStyle)->addText($p->description ?? '-');
                 $table->addCell($categoryWidth, $cellStyle)->addText($p->category->name ?? '-', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
                 $table->addCell($stanWidth, $cellStyle)->addText((string)$p->quantity, null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $table->addCell($stanMinWidth, $cellStyle)->addText((string)$p->minimum_stock, null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             }
 
             $temp = tempnam(sys_get_temp_dir(), 'word');
@@ -465,6 +478,7 @@ class PartController extends Controller
             'description' => 'nullable|string',
             'supplier'    => 'nullable|string',
             'quantity'    => 'required|integer|min:1',
+            'minimum_stock' => 'nullable|integer|min:0',
             'category_id' => 'required|exists:categories,id',
             'net_price'   => 'nullable|numeric|min:0',
             'currency'    => 'nullable|in:PLN,EUR,$',
@@ -478,6 +492,7 @@ class PartController extends Controller
                 'description' => $data['description'] ?? null,
                 'supplier'    => $data['supplier'] ?? null,
                 'quantity'    => 0,
+                'minimum_stock' => $data['minimum_stock'] ?? 0,
                 'net_price'   => $data['net_price'] ?? null,
                 'currency'    => $data['currency'] ?? 'PLN',
             ]
@@ -489,6 +504,9 @@ class PartController extends Controller
         }
         if (array_key_exists('supplier', $data)) {
             $part->supplier = $data['supplier'];
+        }
+        if (array_key_exists('minimum_stock', $data)) {
+            $part->minimum_stock = $data['minimum_stock'];
         }
         if (array_key_exists('net_price', $data)) {
             $part->net_price = $data['net_price'];
@@ -719,6 +737,7 @@ class PartController extends Controller
             'category_id' => 'required|exists:categories,id',
             'description' => 'nullable|string',
             'quantity' => 'required|integer|min:0',
+            'minimum_stock' => 'nullable|integer|min:0',
             'net_price' => 'nullable|numeric|min:0',
             'currency' => 'required|in:PLN,EUR,$',
             'supplier' => 'nullable|string|max:255',
@@ -729,6 +748,7 @@ class PartController extends Controller
             'category_id' => $request->category_id,
             'description' => $request->description,
             'quantity' => $request->quantity,
+            'minimum_stock' => $request->minimum_stock ?? 0,
             'net_price' => $request->net_price,
             'currency' => $request->currency,
             'supplier' => $request->supplier,
