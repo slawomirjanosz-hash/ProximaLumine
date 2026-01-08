@@ -52,6 +52,10 @@ class PartController extends Controller
             $query->where('category_id', $request->category_id);
         }
 
+        if ($request->filled('supplier')) {
+            $query->where('supplier', $request->supplier);
+        }
+
         // Sortowanie
         $sortBy = $request->get('sort_by', 'name');
         $sortDir = $request->get('sort_dir', 'asc');

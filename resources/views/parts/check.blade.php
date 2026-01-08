@@ -32,52 +32,73 @@
     {{-- FILTRY --}}
     <form method="GET"
           action="{{ route('magazyn.check') }}"
-          class="flex gap-2 mb-4">
+          class="mb-4">
+        
+        <div class="flex gap-2 mb-2">
+            <input
+                type="text"
+                name="search"
+                placeholder="Szukaj po nazwie (wpisuj na żywo)"
+                value="{{ request('search') }}"
+                class="border p-2 flex-1"
+                id="search-input"
+            >
 
-        <input
-            type="text"
-            name="search"
-            placeholder="Szukaj po nazwie"
-            value="{{ request('search') }}"
-            class="border p-2 w-64"
-        >
+            <select name="category_id" class="border p-2" id="category-filter">
+                <option value="">Wszystkie kategorie</option>
+                @foreach($categories as $c)
+                    <option value="{{ $c->id }}"
+                        @selected(request('category_id') == $c->id)>
+                        {{ $c->name }}
+                    </option>
+                @endforeach
+            </select>
 
-        <select name="category_id" class="border p-2">
-            <option value="">Wszystkie kategorie</option>
-            @foreach($categories as $c)
-                <option value="{{ $c->id }}"
-                    @selected(request('category_id') == $c->id)>
-                    {{ $c->name }}
-                </option>
-            @endforeach
-        </select>
+            <select name="supplier" class="border p-2" id="supplier-filter">
+                <option value="">Wszyscy dostawcy</option>
+                @foreach($suppliers as $s)
+                    <option value="{{ $s->name }}"
+                        @selected(request('supplier') == $s->name)>
+                        {{ $s->short_name ?? $s->name }}
+                    </option>
+                @endforeach
+            </select>
 
-        <button class="bg-blue-600 text-white px-4 rounded">
-            Filtruj
-        </button>
+            @if(request('search') || request('category_id') || request('supplier'))
+                <a href="{{ route('magazyn.check') }}" class="bg-gray-500 text-white px-4 py-2 rounded">
+                    Wyczyść
+                </a>
+            @endif
+        </div>
 
-        <button type="button"
-           id="btn-download-xlsx"
-           data-filename="katalog.xlsx"
-           data-selected-ids=""
-           class="px-4 py-2 bg-green-600 text-white rounded">
-            Pobierz do Excel
-        </button>
+        <div class="flex gap-2">
 
-        <button type="button"
-           id="btn-download-word"
-           data-filename="katalog.docx"
-           data-selected-ids=""
-           class="px-4 py-2 bg-blue-600 text-white rounded ml-2">
-            Pobierz do Word
-        </button>
+            <button type="button"
+               id="btn-download-xlsx"
+               data-filename="katalog.xlsx"
+               data-selected-ids=""
+               class="px-4 py-2 bg-green-600 text-white rounded">
+                Pobierz do Excel
+            </button>
 
-        <a href="{{ route('magazyn.check.export', request()->query()) }}"
-           id="csv-export-link"
-           class="px-4 py-2 bg-gray-600 text-white rounded ml-2">
-            Eksportuj CSV
-        </a>
+            <button type="button"
+               id="btn-download-word"
+               data-filename="katalog.docx"
+               data-selected-ids=""
+               class="px-4 py-2 bg-blue-600 text-white rounded">
+                Pobierz do Word
+            </button>
+
+            <a href="{{ route('magazyn.check.export', request()->query()) }}"
+               id="csv-export-link"
+               class="px-4 py-2 bg-gray-600 text-white rounded">
+                Eksportuj CSV
+            </a>
+        </div>
+        
         <input type="hidden" id="selected-ids" name="selected_ids" value="">
+        <input type="hidden" name="sort_by" id="sort-by-input" value="{{ request('sort_by') }}">
+        <input type="hidden" name="sort_dir" id="sort-dir-input" value="{{ request('sort_dir') }}">
     </form>
 
     {{-- BULK ACTION BUTTONS --}}
@@ -279,26 +300,38 @@
     }
     
     (function(){
+        const form = document.querySelector('form[action="{{ route(\'magazyn.check\') }}"]');
+        
         // Auto-submit form na zmianę kategorii
-        const categorySelect = document.querySelector('select[name="category_id"]');
+        const categorySelect = document.getElementById('category-filter');
         if (categorySelect) {
             categorySelect.addEventListener('change', function() {
-                this.form.submit();
+                form.submit();
+            });
+        }
+
+        // Auto-submit form na zmianę dostawcy
+        const supplierSelect = document.getElementById('supplier-filter');
+        if (supplierSelect) {
+            supplierSelect.addEventListener('change', function() {
+                form.submit();
             });
         }
 
         // Auto-submit form na zmianę w wyszukiwaniu (z debounce)
-        const searchInput = document.querySelector('input[name="search"]');
+        const searchInput = document.getElementById('search-input');
         let searchTimeout;
         if (searchInput) {
-            // Ustaw kursor na końcu tekstu
-            searchInput.focus();
-            searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+            // Ustaw kursor na końcu tekstu jeśli jest wartość
+            if (searchInput.value) {
+                searchInput.focus();
+                searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+            }
             
             searchInput.addEventListener('input', function() {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
-                    this.form.submit();
+                    form.submit();
                 }, 300); // czeka 300ms po ostatnim znaku
             });
         }
