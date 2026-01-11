@@ -972,7 +972,11 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .then(res => {
             if (!res.ok) {
-                throw new Error('Błąd HTTP: ' + res.status);
+                return res.json().then(err => {
+                    throw new Error(err.message || 'Błąd HTTP: ' + res.status);
+                }).catch(() => {
+                    throw new Error('Błąd HTTP: ' + res.status);
+                });
             }
             return res.json();
         })
