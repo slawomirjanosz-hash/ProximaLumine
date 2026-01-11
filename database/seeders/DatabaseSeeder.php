@@ -65,6 +65,16 @@ class DatabaseSeeder extends Seeder
                 'updated_at' => now(),
             ]);
         }
+        
+        // Dodaj domyślne kategorie
+        $defaultCategories = ['Automatyka', 'Elektryka', 'Mechanika'];
+        foreach ($defaultCategories as $categoryName) {
+            if (!Category::where('name', $categoryName)->exists()) {
+                Category::create([
+                    'name' => $categoryName,
+                ]);
+            }
+        }
     }
 }
 

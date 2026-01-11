@@ -279,6 +279,7 @@
                                     data-part-currency="{{ $p->currency ?? 'PLN' }}"
                                     data-part-supplier="{{ $p->supplier ?? '' }}"
                                     data-part-category-id="{{ $p->category_id }}"
+                                    data-part-qr-code="{{ $p->qr_code ?? '' }}"
                                     title="Edytuj produkt">
                                     ✏️
                                 </button>
@@ -295,120 +296,6 @@
                                     </button>
                                 </form>
                             </div>
-
-                            <!-- Modal container for edit form -->
-                            <div id="edit-modal-container"></div>
-
-                            <script>
-                            document.addEventListener('DOMContentLoaded', function() {
-                                const categoriesData = @json($categories);
-                                const suppliersData = @json($suppliers);
-                                // Attach event listener to all edit buttons
-                                document.body.addEventListener('click', function(e) {
-                                    if (e.target.classList.contains('edit-part-btn')) {
-                                        const btn = e.target;
-                                        showEditModal(btn);
-                                    }
-                                });
-
-                                function showEditModal(btn) {
-                                    // Get part data from button
-                                    const partId = btn.getAttribute('data-part-id');
-                                    const partName = btn.getAttribute('data-part-name');
-                                    const partDescription = btn.getAttribute('data-part-description') || '';
-                                    const partQuantity = btn.getAttribute('data-part-quantity') || 0;
-                                    const partMinimumStock = btn.getAttribute('data-part-minimum-stock') || 0;
-                                    const partLocation = btn.getAttribute('data-part-location') || '';
-                                    const partPrice = btn.getAttribute('data-part-price') || '';
-                                    const partCurrency = btn.getAttribute('data-part-currency') || 'PLN';
-                                    const partSupplier = btn.getAttribute('data-part-supplier') || '';
-                                    const partCategoryId = btn.getAttribute('data-part-category-id');
-
-                                    // Build options
-                                    const categoriesOptions = categoriesData.map(cat => 
-                                        `<option value="${cat.id}" ${cat.id == partCategoryId ? 'selected' : ''}>${cat.name}</option>`
-                                    ).join('');
-                                    const suppliersOptions = '<option value="">Brak</option>' + suppliersData.map(sup => 
-                                        `<option value="${sup.name}" ${sup.name === partSupplier ? 'selected' : ''}>${sup.name}</option>`
-                                    ).join('');
-
-                                    // Modal HTML
-                                    const modalHtml = `
-                                    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" id="edit-modal-bg">
-                                        <div class="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto mx-4 relative">
-                                            <button class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl font-bold" id="close-edit-modal">&times;</button>
-                                            <h3 class="text-xl font-bold mb-4">Edycja produktu: ${partName}</h3>
-                                            <form action="/magazyn/parts/${partId}/update" method="POST">
-                                                <input type="hidden" name="_token" value="${document.querySelector('meta[name=csrf-token]')?.content || ''}">
-                                                <input type="hidden" name="_method" value="PUT">
-                                                <div class="grid grid-cols-2 gap-4">
-                                                    <div class="col-span-2">
-                                                        <label class="block text-sm font-medium mb-2">Nazwa produktu *</label>
-                                                        <input type="text" name="name" value="${partName}" required class="w-full px-3 py-2 border rounded">
-                                                    </div>
-                                                    <div>
-                                                        <label class="block text-sm font-medium mb-2">Kategoria *</label>
-                                                        <select name="category_id" required class="w-full px-3 py-2 border rounded">
-                                                            ${categoriesOptions}
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label class="block text-sm font-medium mb-2">Ilość *</label>
-                                                        <input type="number" name="quantity" value="${partQuantity}" min="0" required class="w-full px-3 py-2 border rounded">
-                                                    </div>
-                                                    <div>
-                                                        <label class="block text-sm font-medium mb-2">Stan minimalny</label>
-                                                        <input type="number" name="minimum_stock" value="${partMinimumStock}" min="0" class="w-full px-3 py-2 border rounded" placeholder="0">
-                                                    </div>
-                                                    <div>
-                                                        <label class="block text-sm font-medium mb-2">Lokalizacja</label>
-                                                        <input type="text" name="location" value="${partLocation}" maxlength="10" class="w-full px-3 py-2 border rounded" placeholder="np. A1, B2">
-                                                    </div>
-                                                    <div>
-                                                        <label class="block text-sm font-medium mb-2">Cena netto</label>
-                                                        <input type="number" name="net_price" step="0.01" min="0" value="${partPrice}" class="w-full px-3 py-2 border rounded" placeholder="0.00">
-                                                    </div>
-                                                    <div>
-                                                        <label class="block text-sm font-medium mb-2">Waluta *</label>
-                                                        <select name="currency" required class="w-full px-3 py-2 border rounded">
-                                                            <option value="PLN" ${partCurrency === 'PLN' ? 'selected' : ''}>PLN</option>
-                                                            <option value="EUR" ${partCurrency === 'EUR' ? 'selected' : ''}>EUR</option>
-                                                            <option value="$" ${partCurrency === '$' ? 'selected' : ''}>$</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="col-span-2">
-                                                        <label class="block text-sm font-medium mb-2">Dostawca</label>
-                                                        <select name="supplier" class="w-full px-3 py-2 border rounded">
-                                                            ${suppliersOptions}
-                                                        </select>
-                                                    </div>
-                                                    <div class="col-span-2">
-                                                        <label class="block text-sm font-medium mb-2">Opis</label>
-                                                        <textarea name="description" rows="3" class="w-full px-3 py-2 border rounded" placeholder="Opcjonalny opis produktu">${partDescription}</textarea>
-                                                    </div>
-                                                </div>
-                                                <div class="flex gap-2 mt-6">
-                                                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">💾 Zapisz zmiany</button>
-                                                    <button type="button" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500" id="cancel-edit-modal">Anuluj</button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>`;
-                                    document.getElementById('edit-modal-container').innerHTML = modalHtml;
-
-                                    // Close modal logic
-                                    document.getElementById('close-edit-modal').onclick = closeEditModal;
-                                    document.getElementById('cancel-edit-modal').onclick = closeEditModal;
-                                    document.getElementById('edit-modal-bg').onclick = function(e) {
-                                        if (e.target === this) closeEditModal();
-                                    };
-                                }
-                                function closeEditModal() {
-                                    document.getElementById('edit-modal-container').innerHTML = '';
-                                }
-                            });
-                            </script>
-                            </div>
                         </td>
                     @endif
                 </tr>
@@ -417,6 +304,170 @@
     </table>
 
 </div>
+
+<!-- Modal container for edit form (outside table) -->
+<div id="edit-modal-container"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const categoriesData = @json($categories);
+    const suppliersData = @json($suppliers);
+    
+    // Attach event listener to all edit buttons
+    document.body.addEventListener('click', function(e) {
+        if (e.target.classList.contains('edit-part-btn')) {
+            const btn = e.target;
+            showEditModal(btn);
+        }
+    });
+
+    function showEditModal(btn) {
+        // Get part data from button
+        const partId = btn.getAttribute('data-part-id');
+        const partName = btn.getAttribute('data-part-name');
+        const partDescription = btn.getAttribute('data-part-description') || '';
+        const partQuantity = btn.getAttribute('data-part-quantity') || 0;
+        const partMinimumStock = btn.getAttribute('data-part-minimum-stock') || 0;
+        const partLocation = btn.getAttribute('data-part-location') || '';
+        const partPrice = btn.getAttribute('data-part-price') || '';
+        const partCurrency = btn.getAttribute('data-part-currency') || 'PLN';
+        const partSupplier = btn.getAttribute('data-part-supplier') || '';
+        const partCategoryId = btn.getAttribute('data-part-category-id');
+        const partQrCode = btn.getAttribute('data-part-qr-code') || '';
+
+        // Build options
+        const categoriesOptions = categoriesData.map(cat => 
+            `<option value="${cat.id}" ${cat.id == partCategoryId ? 'selected' : ''}>${cat.name}</option>`
+        ).join('');
+        const suppliersOptions = '<option value="">Brak</option>' + suppliersData.map(sup => 
+            `<option value="${sup.name}" ${sup.name === partSupplier ? 'selected' : ''}>${sup.name}</option>`
+        ).join('');
+        
+        // QR Code HTML (if exists)
+        const qrCodeHtml = partQrCode ? `
+            <div class="col-span-2 flex justify-center items-center p-4 bg-gray-50 border rounded">
+                <div class="text-center">
+                    <p class="text-sm font-medium mb-2 text-gray-700">Kod QR produktu:</p>
+                    <div id="qr-display"></div>
+                    <p class="text-xs text-gray-500 mt-2">${partQrCode}</p>
+                </div>
+            </div>
+        ` : '';
+
+        // Modal HTML
+        const modalHtml = `
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" id="edit-modal-bg">
+            <div class="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto mx-4 relative">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="text-xl font-bold">Edycja produktu: ${partName}</h3>
+                    <button class="text-gray-500 hover:text-gray-700 text-3xl font-bold leading-none ml-4" id="close-edit-modal">&times;</button>
+                </div>
+                <form action="/magazyn/parts/${partId}/update" method="POST">
+                    <input type="hidden" name="_token" value="${document.querySelector('meta[name=csrf-token]')?.content || ''}">
+                    <input type="hidden" name="_method" value="PUT">
+                    <div class="grid grid-cols-2 gap-4">
+                        ${qrCodeHtml}
+                        <div class="col-span-2">
+                            <label class="block text-sm font-medium mb-2">Nazwa produktu *</label>
+                            <input type="text" name="name" value="${partName}" required class="w-full px-3 py-2 border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Kategoria *</label>
+                            <select name="category_id" required class="w-full px-3 py-2 border rounded">
+                                ${categoriesOptions}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Ilość *</label>
+                            <input type="number" name="quantity" value="${partQuantity}" min="0" required class="w-full px-3 py-2 border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Stan minimalny</label>
+                            <input type="number" name="minimum_stock" value="${partMinimumStock}" min="0" class="w-full px-3 py-2 border rounded" placeholder="0">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Lokalizacja</label>
+                            <input type="text" name="location" value="${partLocation}" maxlength="10" class="w-full px-3 py-2 border rounded" placeholder="np. A1, B2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Cena netto</label>
+                            <input type="number" name="net_price" step="0.01" min="0" value="${partPrice}" class="w-full px-3 py-2 border rounded" placeholder="0.00">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Waluta *</label>
+                            <select name="currency" required class="w-full px-3 py-2 border rounded">
+                                <option value="PLN" ${partCurrency === 'PLN' ? 'selected' : ''}>PLN</option>
+                                <option value="EUR" ${partCurrency === 'EUR' ? 'selected' : ''}>EUR</option>
+                                <option value="$" ${partCurrency === '$' ? 'selected' : ''}>$</option>
+                            </select>
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm font-medium mb-2">Dostawca</label>
+                            <select name="supplier" class="w-full px-3 py-2 border rounded">
+                                ${suppliersOptions}
+                            </select>
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm font-medium mb-2">Opis</label>
+                            <textarea name="description" rows="3" class="w-full px-3 py-2 border rounded" placeholder="Opcjonalny opis produktu">${partDescription}</textarea>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end gap-2">
+                        <button type="button" id="cancel-edit-btn" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded">Anuluj</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">Zapisz zmiany</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        `;
+
+        // Insert modal
+        const container = document.getElementById('edit-modal-container');
+        if (container) {
+            container.innerHTML = modalHtml;
+
+            // Generate QR code if exists
+            if (partQrCode) {
+                fetch('/parts/generate-qr', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    },
+                    body: JSON.stringify({
+                        name: partName,
+                        location: partLocation
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.qr_image) {
+                        const qrDisplay = document.getElementById('qr-display');
+                        if (qrDisplay) {
+                            qrDisplay.innerHTML = data.qr_image;
+                        }
+                    }
+                })
+                .catch(err => console.error('Błąd generowania QR:', err));
+            }
+
+            // Close modal handlers
+            document.getElementById('close-edit-modal').addEventListener('click', function() {
+                container.innerHTML = '';
+            });
+            document.getElementById('cancel-edit-btn').addEventListener('click', function() {
+                container.innerHTML = '';
+            });
+            document.getElementById('edit-modal-bg').addEventListener('click', function(e) {
+                if (e.target.id === 'edit-modal-bg') {
+                    container.innerHTML = '';
+                }
+            });
+        }
+    }
+});
+</script>
+
 
 <script>
     let currentSortColumn = null;
@@ -813,3 +864,9 @@
             }
         });
     });
+
+<!-- Modal container for edit form (outside table) -->
+<div id="edit-modal-container"></div>
+
+</body>
+</html>

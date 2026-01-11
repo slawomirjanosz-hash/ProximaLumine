@@ -643,6 +643,7 @@ class PartController extends Controller
             'category_id' => 'required|exists:categories,id',
             'net_price'   => 'nullable|numeric|min:0',
             'currency'    => 'nullable|in:PLN,EUR,$',
+            'qr_code'     => 'nullable|string',
         ]);
 
         // znajdź lub utwórz część
@@ -657,10 +658,11 @@ class PartController extends Controller
                 'location'    => $data['location'] ?? null,
                 'net_price'   => $data['net_price'] ?? null,
                 'currency'    => $data['currency'] ?? 'PLN',
+                'qr_code'     => $data['qr_code'] ?? null,
             ]
         );
 
-        // aktualizacja opisu, dostawcy, ceny, waluty, lokalizacji i kategorii (jeśli zmieniony / wpisany)
+        // aktualizacja opisu, dostawcy, ceny, waluty, lokalizacji, kodu QR i kategorii (jeśli zmieniony / wpisany)
         if (array_key_exists('description', $data)) {
             $part->description = $data['description'];
         }
@@ -681,6 +683,9 @@ class PartController extends Controller
         }
         if (array_key_exists('category_id', $data)) {
             $part->category_id = $data['category_id'];
+        }
+        if (array_key_exists('qr_code', $data) && $data['qr_code']) {
+            $part->qr_code = $data['qr_code'];
         }
 
         // zwiększenie stanu
@@ -1635,6 +1640,30 @@ class PartController extends Controller
         return redirect()->route('magazyn.settings')->with('success', 'Konfiguracja zamówień została zapisana.');
     }
 
+    // ZAPISZ USTAWIENIA KODÓW QR
+    public function saveQrSettings(Request $request)
+    {
+        $validated = $request->validate([
+            'element1_type' => 'nullable|string|max:50',
+            'element1_value' => 'nullable|string|max:255',
+            'separator1' => 'nullable|string|max:5',
+            'element2_type' => 'nullable|string|max:50',
+            'element2_value' => 'nullable|string|max:255',
+            'separator2' => 'nullable|string|max:5',
+            'element3_type' => 'nullable|string|max:50',
+            'element3_value' => 'nullable|string|max:255',
+            'separator3' => 'nullable|string|max:5',
+            'element4_type' => 'nullable|string|max:50',
+            'start_number' => 'nullable|integer|min:1',
+        ]);
+
+        // Usuń wszystkie poprzednie ustawienia i stwórz nowe (zawsze tylko 1 rekord)
+        \DB::table('qr_settings')->truncate();
+        \DB::table('qr_settings')->insert($validated);
+
+        return redirect()->route('magazyn.settings')->with('success', 'Konfiguracja kodów QR została zapisana.');
+    }
+
     // UTWÓRZ ZAMÓWIENIE - ZAPISZ DO BAZY DANYCH
     public function createOrder(Request $request)
     {
@@ -2571,6 +2600,167 @@ class PartController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Zamówienie zostało przyjęte i produkty dodane do magazynu'
+        ]);
+    }
+
+    public function generateQrCode(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'location' => 'nullable|string|max:10',
+        ]);
+
+        $qrSettings = \DB::table('qr_settings')->first();
+        
+        if (!$qrSettings) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Brak konfiguracji kodów QR. Skonfiguruj ustawienia w zakładce Ustawienia > Inne > Ustawienia Kodów QR'
+            ], 400);
+        }
+
+        // Buduj kod QR na podstawie ustawień
+        $qrCodeParts = [];
+        $qrDescription = [];
+        
+        // Element 1
+        if ($qrSettings->element1_type !== 'empty') {
+            if ($qrSettings->element1_type === 'product_name') {
+                $qrCodeParts[] = $validated['name'];
+                $qrDescription[] = 'Nazwa produktu';
+            } elseif ($qrSettings->element1_type === 'text') {
+                $qrCodeParts[] = $qrSettings->element1_value;
+                $qrDescription[] = 'Tekst: ' . $qrSettings->element1_value;
+            } elseif ($qrSettings->element1_type === 'date') {
+                $qrCodeParts[] = now()->format('Ymd');
+                $qrDescription[] = 'Data';
+            } elseif ($qrSettings->element1_type === 'time') {
+                $qrCodeParts[] = now()->format('Hi');
+                $qrDescription[] = 'Godzina';
+            }
+        }
+        
+        // Element 2
+        if ($qrSettings->element2_type !== 'empty') {
+            if ($qrSettings->element2_type === 'location') {
+                $qrCodeParts[] = $validated['location'] ?? 'BRAK';
+                $qrDescription[] = 'Lokalizacja';
+            } elseif ($qrSettings->element2_type === 'text') {
+                $qrCodeParts[] = $qrSettings->element2_value;
+                $qrDescription[] = 'Tekst: ' . $qrSettings->element2_value;
+            } elseif ($qrSettings->element2_type === 'date') {
+                $qrCodeParts[] = now()->format('Ymd');
+                $qrDescription[] = 'Data';
+            } elseif ($qrSettings->element2_type === 'time') {
+                $qrCodeParts[] = now()->format('Hi');
+                $qrDescription[] = 'Godzina';
+            }
+        }
+        
+        // Element 3
+        if ($qrSettings->element3_type !== 'empty') {
+            if ($qrSettings->element3_type === 'text') {
+                $qrCodeParts[] = $qrSettings->element3_value;
+                $qrDescription[] = 'Tekst: ' . $qrSettings->element3_value;
+            } elseif ($qrSettings->element3_type === 'date') {
+                $qrCodeParts[] = now()->format('Ymd');
+                $qrDescription[] = 'Data';
+            } elseif ($qrSettings->element3_type === 'time') {
+                $qrCodeParts[] = now()->format('Hi');
+                $qrDescription[] = 'Godzina';
+            }
+        }
+        
+        // Element 4 (liczba inkrementowana lub data)
+        if ($qrSettings->element4_type !== 'empty') {
+            if ($qrSettings->element4_type === 'date') {
+                $qrCodeParts[] = now()->format('Ymd');
+                $qrDescription[] = 'Data';
+            } elseif ($qrSettings->element4_type === 'number') {
+                // Inkrementuj liczbę w bazie
+                $currentNumber = $qrSettings->start_number;
+                $qrCodeParts[] = $currentNumber;
+                $qrDescription[] = 'Numer: ' . $currentNumber;
+                
+                // Zaktualizuj start_number (inkrementuj)
+                \DB::table('qr_settings')->update([
+                    'start_number' => $currentNumber + 1
+                ]);
+            }
+        }
+        
+        // Buduj finalny kod QR z separatorami
+        $separators = [
+            $qrSettings->separator1 ?? '_',
+            $qrSettings->separator2 ?? '_',
+            $qrSettings->separator3 ?? '_'
+        ];
+        
+        $qrCode = '';
+        foreach ($qrCodeParts as $index => $part) {
+            $qrCode .= $part;
+            if ($index < count($qrCodeParts) - 1) {
+                $qrCode .= $separators[$index] ?? '_';
+            }
+        }
+        
+        // Generuj obrazek QR kodu za pomocą biblioteki SimpleSoftwareIO
+        try {
+            // Generuj SVG jako string
+            $qrImageSvg = \QrCode::format('svg')->size(200)->generate($qrCode);
+            // Konwertuj do stringa jeśli to obiekt
+            $qrImageString = is_string($qrImageSvg) ? $qrImageSvg : (string)$qrImageSvg;
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Błąd generowania kodu QR: ' . $e->getMessage()
+            ], 500);
+        }
+        
+        return response()->json([
+            'success' => true,
+            'qr_code' => $qrCode,
+            'qr_image' => $qrImageString, // SVG string
+            'description' => implode(' | ', $qrDescription)
+        ]);
+    }
+
+    /**
+     * Wyszukaj produkt po kodzie QR
+     */
+    public function findByQr(Request $request)
+    {
+        $request->validate([
+            'qr_code' => 'required|string'
+        ]);
+
+        $qrCode = $request->input('qr_code');
+
+        // Szukaj produktu z tym kodem QR
+        $part = Part::where('qr_code', $qrCode)->first();
+
+        if ($part) {
+            return response()->json([
+                'success' => true,
+                'part' => [
+                    'id' => $part->id,
+                    'name' => $part->name,
+                    'description' => $part->description,
+                    'quantity' => $part->quantity,
+                    'minimum_stock' => $part->minimum_stock,
+                    'location' => $part->location,
+                    'net_price' => $part->net_price,
+                    'currency' => $part->currency,
+                    'supplier' => $part->supplier,
+                    'category_id' => $part->category_id,
+                    'qr_code' => $part->qr_code
+                ]
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Nie znaleziono produktu z tym kodem QR'
         ]);
     }
 }

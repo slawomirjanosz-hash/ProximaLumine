@@ -2,6 +2,7 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Magazyn – Dodaj</title>
     <link rel="icon" type="image/png" href="{{ asset('logo_proxima_male.png') }}">
     @vite(['resources/css/app.css'])
@@ -140,14 +141,68 @@
                     </div>
                 </div>
                 {{-- PRZYCISK --}}
-                <button
-                    type="submit"
-                    class="bg-green-500 hover:bg-green-600 text-white rounded px-4 py-2 mt-2"
-                >
-                    ➕ Dodaj
-                </button>
+                <div class="flex gap-2 items-center">
+                    <button
+                        type="submit"
+                        class="bg-green-500 hover:bg-green-600 text-white rounded px-4 py-2 mt-2"
+                    >
+                        ➕ Dodaj
+                    </button>
+                    <button
+                        type="button"
+                        id="generate-qr-btn"
+                        class="bg-blue-500 hover:bg-blue-600 text-white rounded px-4 py-2 mt-2"
+                    >
+                        📱 Generuj QR
+                    </button>
+                    <button
+                        type="button"
+                        id="scan-qr-btn"
+                        style="background: #7e22ce; color: #fff; border: none; font-weight: normal; padding: 0.5rem 1rem; border-radius: 0.375rem; margin-top: 0.5rem; cursor: pointer;"
+                        onmouseover="this.style.background='#6b21a8'"
+                        onmouseout="this.style.background='#7e22ce'"
+                    >
+                        🔍 Odczytaj QR
+                    </button>
+                </div>
+                
+                {{-- KOMUNIKAT SKANOWANIA W FORMULARZU --}}
+                <div id="form-scan-message" class="hidden mt-4 p-3 rounded"></div>
+                
+                {{-- POLE DO SKANOWANIA KODÓW QR W FORMULARZU --}}
+                <div id="form-qr-scanner-section" class="mt-4 p-4 bg-purple-50 border-2 border-purple-400 rounded hidden">
+                    <h4 class="font-bold text-purple-700 mb-3">📷 Zeskanuj kod QR ze skanera USB</h4>
+                    <p class="text-sm text-purple-600 mb-2">Zeskanuj kod QR skanerem (automatyczne wczytanie po Enter)</p>
+                    <input
+                        type="text"
+                        id="form-qr-scanner-input"
+                        placeholder="Zeskanuj kod QR..."
+                        class="border-2 border-purple-400 p-3 rounded w-full focus:border-purple-600 focus:ring-2 focus:ring-purple-300 text-lg mb-2"
+                    >
+                    <button
+                        type="button"
+                        id="form-cancel-scan-btn"
+                        class="bg-gray-400 hover:bg-gray-500 text-white rounded px-4 py-2 text-sm"
+                    >
+                        ✖ Anuluj
+                    </button>
+                </div>
+                
                 <div class="text-xs text-gray-500 mt-2 text-left">
                     Dodaje: {{ Auth::user()->name ?? 'Gość' }}
+                </div>
+                
+                {{-- SEKCJA: KOD QR --}}
+                <div id="qr-code-section" class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded hidden">
+                    <h4 class="font-semibold text-sm mb-2">Wygenerowany kod QR:</h4>
+                    <div class="flex gap-4 items-start">
+                        <div id="qr-code-image" class="bg-white p-2 border rounded"></div>
+                        <div class="flex-1">
+                            <p class="text-sm mb-2"><strong>Kod:</strong> <span id="qr-code-text" class="font-mono text-blue-600"></span></p>
+                            <p class="text-xs text-gray-600"><strong>Zawiera:</strong> <span id="qr-code-description"></span></p>
+                            <input type="hidden" name="qr_code" id="qr-code-hidden">
+                        </div>
+                    </div>
                 </div>
             </form>
 
@@ -200,6 +255,41 @@
                     <button type="button" id="remove-all-selected-btn-inner" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs mr-2">🗑️ Wyczyść listę</button>
                     <button type="button" id="add-all-btn-inner" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs">✅ Dodaj wszystkie</button>
                 </div>
+            </div>
+
+            {{-- PRZYCISK SZUKAJ W BAZIE --}}
+            <div class="mb-4">
+                <button
+                    type="button"
+                    id="catalog-scan-qr-btn"
+                    style="background: #7e22ce; color: #fff; border: none; font-weight: normal; padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer;"
+                    onmouseover="this.style.background='#6b21a8'"
+                    onmouseout="this.style.background='#7e22ce'"
+                >
+                    🔍 Szukaj w bazie
+                </button>
+            </div>
+
+            {{-- KOMUNIKAT SKANOWANIA --}}
+            <div id="catalog-scan-message" class="hidden mt-4 p-3 rounded"></div>
+            
+            {{-- POLE DO SKANOWANIA KODÓW QR W KATALOGU --}}
+            <div id="catalog-qr-scanner-section" class="mt-4 p-4 bg-purple-50 border-2 border-purple-400 rounded hidden">
+                <h4 class="font-bold text-purple-700 mb-3">📷 Zeskanuj kod QR ze skanera USB</h4>
+                <p class="text-sm text-purple-600 mb-2">Zeskanuj kod QR skanerem (automatyczne wczytanie po Enter)</p>
+                <input
+                    type="text"
+                    id="catalog-qr-scanner-input"
+                    placeholder="Zeskanuj kod QR..."
+                    class="border-2 border-purple-400 p-3 rounded w-full focus:border-purple-600 focus:ring-2 focus:ring-purple-300 text-lg mb-2"
+                >
+                <button
+                    type="button"
+                    id="catalog-cancel-scan-btn"
+                    class="bg-gray-400 hover:bg-gray-500 text-white rounded px-4 py-2 text-sm"
+                >
+                    ✖ Anuluj
+                </button>
             </div>
 
             {{-- KATALOG PRODUKTÓW --}}
@@ -329,11 +419,24 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isVisible) {
                 content.classList.add('hidden');
                 arrow.textContent = '▶';
+                localStorage.removeItem('section_' + target);
             } else {
                 content.classList.remove('hidden');
                 arrow.textContent = '▼';
+                localStorage.setItem('section_' + target, 'open');
             }
         });
+    });
+
+    // Przywróć otwarte sekcje po załadowaniu strony
+    document.querySelectorAll('.collapsible-btn').forEach(btn => {
+        const target = btn.getAttribute('data-target');
+        if (localStorage.getItem('section_' + target) === 'open') {
+            const content = document.getElementById(target);
+            const arrow = btn.querySelector('.toggle-arrow');
+            content.classList.remove('hidden');
+            arrow.textContent = '▼';
+        }
     });
 
     const form      = document.getElementById('add-form');
@@ -843,7 +946,402 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    // 📱 GENEROWANIE KODU QR
+    document.getElementById('generate-qr-btn').addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        const productName = document.getElementById('part-name').value;
+        const location = document.querySelector('[name="location"]').value;
+        
+        if (!productName) {
+            alert('Wprowadź nazwę produktu, aby wygenerować kod QR');
+            return;
+        }
+        
+        fetch('{{ route('parts.generateQr') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                name: productName,
+                location: location
+            })
+        })
+        .then(res => {
+            if (!res.ok) {
+                throw new Error('Błąd HTTP: ' + res.status);
+            }
+            return res.json();
+        })
+        .then(data => {
+            console.log('Odpowiedź serwera:', data);
+            
+            if (data.success) {
+                // Wyświetl sekcję QR
+                document.getElementById('qr-code-section').classList.remove('hidden');
+                
+                // Wstaw obraz QR (SVG)
+                document.getElementById('qr-code-image').innerHTML = data.qr_image;
+                
+                // Wstaw tekst kodu
+                document.getElementById('qr-code-text').textContent = data.qr_code;
+                
+                // Wstaw opis
+                document.getElementById('qr-code-description').textContent = data.description;
+                
+                // Zapisz kod QR w hidden input
+                document.getElementById('qr-code-hidden').value = data.qr_code;
+            } else {
+                alert(data.message || 'Błąd podczas generowania kodu QR');
+            }
+        })
+        .catch(err => {
+            console.error('Błąd:', err);
+            alert('Błąd podczas generowania kodu QR: ' + err.message);
+        });
+    });
+
+    // =============================
+    // ODCZYTYWANIE KODU QR (SKANER USB) - FORMULARZ
+    // =============================
+    const scanQrBtn = document.getElementById('scan-qr-btn');
+    const formQrScannerSection = document.getElementById('form-qr-scanner-section');
+    const formQrScannerInput = document.getElementById('form-qr-scanner-input');
+    const formCancelScanBtn = document.getElementById('form-cancel-scan-btn');
+    
+    // =============================
+    // ODCZYTYWANIE KODU QR (SKANER USB) - KATALOG
+    // =============================
+    const catalogScanQrBtn = document.getElementById('catalog-scan-qr-btn');
+    const catalogQrScannerSection = document.getElementById('catalog-qr-scanner-section');
+    const catalogQrScannerInput = document.getElementById('catalog-qr-scanner-input');
+    const catalogCancelScanBtn = document.getElementById('catalog-cancel-scan-btn');
+    
+    // Przycisk skanowania w katalogu
+    if (catalogScanQrBtn) {
+        catalogScanQrBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Pokaż sekcję skanowania w katalogu
+            catalogQrScannerSection.classList.remove('hidden');
+            
+            // Ustaw focus na input
+            catalogQrScannerInput.value = '';
+            catalogQrScannerInput.focus();
+        });
+    }
+    
+    // Przycisk skanowania w formularzu
+    if (scanQrBtn) {
+        scanQrBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Pokaż sekcję skanowania w formularzu
+            formQrScannerSection.classList.remove('hidden');
+            
+            // Ustaw focus na input
+            formQrScannerInput.value = '';
+            formQrScannerInput.focus();
+        });
+    }
+    
+    // Przyciski anulowania
+    if (catalogCancelScanBtn) {
+        catalogCancelScanBtn.addEventListener('click', function() {
+            catalogQrScannerSection.classList.add('hidden');
+            catalogQrScannerInput.value = '';
+        });
+    }
+    
+    if (formCancelScanBtn) {
+        formCancelScanBtn.addEventListener('click', function() {
+            formQrScannerSection.classList.add('hidden');
+            formQrScannerInput.value = '';
+        });
+    }
+    
+    // Obsługa skanowania w katalogu (Enter)
+    if (catalogQrScannerInput) {
+        catalogQrScannerInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.keyCode === 13) {
+                e.preventDefault();
+                console.log('Enter wykryty w katalogu! Wartość:', catalogQrScannerInput.value.trim());
+                searchProductByQr(catalogQrScannerInput.value.trim(), 'catalog');
+            }
+        });
+    }
+    
+    // Obsługa skanowania w formularzu (Enter)
+    if (formQrScannerInput) {
+        console.log('Przypisano listener dla formQrScannerInput');
+        formQrScannerInput.addEventListener('keydown', function(e) {
+            console.log('Keydown w formularzu:', e.key, 'keyCode:', e.keyCode, 'Wartość:', formQrScannerInput.value);
+            if (e.key === 'Enter' || e.keyCode === 13) {
+                e.preventDefault();
+                console.log('Enter wykryty w formularzu! Wywołuję searchProductByQr z:', formQrScannerInput.value.trim());
+                searchProductByQr(formQrScannerInput.value.trim(), 'form');
+            }
+        });
+    } else {
+        console.error('BŁĄD: formQrScannerInput NIE ZNALEZIONY!');
+    }
+    
+    // Funkcja szukająca produkt po kodzie QR
+    function searchProductByQr(qrCode, mode) {
+        console.log('=== Szukam produktu, QR kod:', qrCode, 'Tryb:', mode, '===');
+        
+        if (!qrCode) {
+            alert('⚠️ Pole kodu QR jest puste!');
+            if (mode === 'catalog') {
+                catalogQrScannerInput.focus();
+            } else {
+                formQrScannerInput.focus();
+            }
+            return;
+        }
+        
+        console.log('Wysyłam request do /parts/find-by-qr...');
+        
+        // Wyszukaj produkt po kodzie QR
+        fetch('/parts/find-by-qr', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({ qr_code: qrCode })
+        })
+        .then(res => {
+            console.log('Response status:', res.status);
+            return res.json();
+        })
+        .then(data => {
+            console.log('=== Odpowiedź serwera ===', data);
+            
+            if (data.success && data.part) {
+                if (mode === 'catalog') {
+                    // Tryb katalogu - zaznacz checkbox produktu
+                    console.log('Tryb katalogu - szukam checkboxa dla produktu:', data.part.name);
+                    
+                    // Pobierz checkboxy dynamicznie
+                    const catalogCheckboxes = document.querySelectorAll('.catalog-checkbox');
+                    
+                    let found = false;
+                    catalogCheckboxes.forEach(cb => {
+                        if (cb.dataset.partName === data.part.name) {
+                            cb.checked = true;
+                            // Wywołaj event change aby dodać do listy
+                            const event = new Event('change', { bubbles: true });
+                            cb.dispatchEvent(event);
+                            found = true;
+                        }
+                    });
+                    
+                    if (found) {
+                        // Pokaż komunikat sukcesu
+                        const messageBox = document.getElementById('catalog-scan-message');
+                        if (messageBox) {
+                            messageBox.className = 'mt-4 p-3 rounded bg-green-100 border border-green-400 text-green-700';
+                            messageBox.innerHTML = '✅ <strong>Produkt znaleziony!</strong><br>' +
+                                                   'Nazwa: ' + data.part.name + ' | ' +
+                                                   'Ilość w magazynie: ' + data.part.quantity;
+                            messageBox.classList.remove('hidden');
+                            
+                            // Ukryj komunikat po 5 sekundach
+                            setTimeout(() => {
+                                messageBox.classList.add('hidden');
+                            }, 5000);
+                        }
+                        
+                        // Otwórz sekcję "Produkty do dodania" jeśli jest zwinięta
+                        const selectedProductsContent = document.getElementById('selected-products-inner');
+                        if (selectedProductsContent && selectedProductsContent.classList.contains('hidden')) {
+                            selectedProductsContent.classList.remove('hidden');
+                            const selectedProductsBtn = document.querySelector('[data-target="selected-products-inner"]');
+                            if (selectedProductsBtn) {
+                                const arrow = selectedProductsBtn.querySelector('.toggle-arrow');
+                                if (arrow) arrow.textContent = '▼';
+                            }
+                        }
+                    } else {
+                        // Pokaż komunikat ostrzeżenia
+                        const messageBox = document.getElementById('catalog-scan-message');
+                        if (messageBox) {
+                            messageBox.className = 'mt-4 p-3 rounded bg-yellow-100 border border-yellow-400 text-yellow-700';
+                            messageBox.innerHTML = '⚠️ <strong>Produkt jest w bazie, ale nie jest widoczny w katalogu.</strong><br>Nazwa: ' + data.part.name;
+                            messageBox.classList.remove('hidden');
+                            
+                            setTimeout(() => {
+                                messageBox.classList.add('hidden');
+                            }, 5000);
+                        }
+                    }
+                    
+                    // Ukryj sekcję skanowania
+                    catalogQrScannerSection.classList.add('hidden');
+                    catalogQrScannerInput.value = '';
+                    
+                } else {
+                    // Tryb formularza - wypełnij formularz
+                    console.log('Tryb formularza - wypełniam formularz...');
+                    
+                    fillFormWithPartData(data.part);
+                    
+                    // Pokaż komunikat sukcesu
+                    const messageBox = document.getElementById('form-scan-message');
+                    if (messageBox) {
+                        messageBox.className = 'mt-4 p-3 rounded bg-green-100 border border-green-400 text-green-700';
+                        messageBox.innerHTML = '✅ <strong>Produkt znaleziony w bazie danych!</strong><br>' +
+                                               'Nazwa: ' + data.part.name + ' | ' +
+                                               'Ilość w magazynie: ' + data.part.quantity + ' | ' +
+                                               'Lokalizacja: ' + (data.part.location || 'brak');
+                        messageBox.classList.remove('hidden');
+                        
+                        // Ukryj komunikat po 8 sekundach
+                        setTimeout(() => {
+                            messageBox.classList.add('hidden');
+                        }, 8000);
+                    }
+                    
+                    // Ukryj sekcję skanowania
+                    formQrScannerSection.classList.add('hidden');
+                    formQrScannerInput.value = '';
+                    
+                    // Otwórz sekcję formularza jeśli jest zwinięta
+                    const formContent = document.getElementById('form-content');
+                    if (formContent.classList.contains('hidden')) {
+                        formContent.classList.remove('hidden');
+                        const formBtn = document.querySelector('[data-target="form-content"]');
+                        if (formBtn) {
+                            const arrow = formBtn.querySelector('.toggle-arrow');
+                            if (arrow) arrow.textContent = '▼';
+                        }
+                    }
+                    
+                    // Przewiń do formularza
+                    formContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            } else {
+                // Pokaż komunikat błędu
+                const messageBox = mode === 'catalog' 
+                    ? document.getElementById('catalog-scan-message')
+                    : document.getElementById('form-scan-message');
+                    
+                if (messageBox) {
+                    messageBox.className = 'mt-4 p-3 rounded bg-red-100 border border-red-400 text-red-700';
+                    messageBox.innerHTML = '❌ <strong>Produkt nie znaleziony w bazie danych!</strong><br>Kod QR: ' + qrCode;
+                    messageBox.classList.remove('hidden');
+                    
+                    setTimeout(() => {
+                        messageBox.classList.add('hidden');
+                    }, 5000);
+                }
+                if (mode === 'catalog') {
+                    catalogQrScannerInput.value = '';
+                    catalogQrScannerInput.focus();
+                } else {
+                    formQrScannerInput.value = '';
+                    formQrScannerInput.focus();
+                }
+            }
+        })
+        .catch(err => {
+            console.error('Błąd:', err);
+            const messageBox = mode === 'catalog'
+                ? document.getElementById('catalog-scan-message')
+                : document.getElementById('form-scan-message');
+                
+            if (messageBox) {
+                messageBox.className = 'mt-4 p-3 rounded bg-red-100 border border-red-400 text-red-700';
+                messageBox.innerHTML = '❌ <strong>Błąd podczas wyszukiwania produktu</strong><br>' + err.message;
+                messageBox.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    messageBox.classList.add('hidden');
+                }, 5000);
+            }
+            if (mode === 'catalog') {
+                catalogQrScannerInput.value = '';
+                catalogQrScannerInput.focus();
+            } else {
+                formQrScannerInput.value = '';
+                formQrScannerInput.focus();
+            }
+        });
+    }
+    
+    function fillFormWithPartData(part) {
+        console.log('Wypełniam formularz danymi:', part);
+        
+        // Wypełnij pola formularza
+        const nameInput = document.getElementById('part-name');
+        const descInput = document.getElementById('part-description');
+        const qtyInput = document.querySelector('input[name="quantity"]');
+        const minStockInput = document.querySelector('input[name="minimum_stock"]');
+        const locationInput = document.querySelector('input[name="location"]');
+        const priceInput = document.getElementById('part-net-price');
+        const currencySelect = document.getElementById('part-currency');
+        const supplierSelect = document.getElementById('part-supplier');
+        const categorySelect = document.querySelector('select[name="category_id"]');
+        
+        if (nameInput) nameInput.value = part.name || '';
+        if (descInput) descInput.value = part.description || '';
+        // Nie wypełniaj pola ilość - użytkownik wpisuje ręcznie
+        if (minStockInput) minStockInput.value = part.minimum_stock || 0;
+        if (locationInput) locationInput.value = part.location || '';
+        if (priceInput && part.net_price) priceInput.value = part.net_price;
+        if (currencySelect && part.currency) currencySelect.value = part.currency;
+        if (supplierSelect && part.supplier) supplierSelect.value = part.supplier;
+        if (categorySelect && part.category_id) categorySelect.value = part.category_id;
+        
+        console.log('Formularz wypełniony!');
+    }
 });
 </script>
+
+{{-- MODAL DO SKANOWANIA KODÓW QR --}}
+<div id="qr-scanner-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold">Skanuj kod QR</h3>
+            <button id="close-qr-modal" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
+        </div>
+        <div class="mb-4">
+            <label class="block text-sm font-semibold mb-2">Ustawienia skanera</label>
+            <div class="flex gap-2">
+                <select id="scanner-device-select" class="border p-2 rounded text-sm flex-1">
+                    <option value="">Wybierz skaner...</option>
+                </select>
+                <button id="refresh-scanners-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 rounded px-3 py-1 text-sm">
+                    🔄 Odśwież
+                </button>
+            </div>
+        </div>
+
+        <div class="flex flex-col gap-4">
+            <div class="flex items-center gap-2">
+                <button id="start-scan-btn" class="bg-green-500 hover:bg-green-600 text-white rounded px-4 py-2 text-sm flex-1">
+                    ▶ Rozpocznij skanowanie
+                </button>
+                <button id="stop-scan-btn" class="bg-red-500 hover:bg-red-600 text-white rounded px-4 py-2 text-sm hidden">
+                    ■ Zatrzymaj skanowanie
+                </button>
+            </div>
+            <div id="scanner-output" class="p-4 bg-gray-50 border rounded text-sm font-mono whitespace-pre-wrap" style="height: 100px; overflow-y: auto;">
+                Oczekiwanie na zeskanowanie kodu QR...
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button id="close-scanner-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 rounded px-4 py-2 text-sm w-full">
+                ✖ Zamknij skaner
+            </button>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>

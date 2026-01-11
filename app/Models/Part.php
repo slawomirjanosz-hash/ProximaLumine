@@ -20,6 +20,7 @@ class Part extends Model
         'currency',
         'supplier',
         'last_modified_by',
+        'qr_code',
     ];
 
     public function category()

@@ -1159,6 +1159,263 @@
                     </script>
                 </div>
             </div>
+
+            <!-- Podsekcja: Ustawienia Kodów QR (rozwijalna) -->
+            <div class="border rounded mb-4">
+                <button type="button" class="collapsible-btn w-full flex items-center gap-2 p-4 cursor-pointer hover:bg-gray-50 rounded" data-target="qr-settings-content">
+                    <span class="toggle-arrow text-base">▶</span>
+                    <h4 class="font-semibold text-gray-800">Ustawienia Kodów QR</h4>
+                </button>
+                <div id="qr-settings-content" class="collapsible-content hidden p-4 border-t bg-gray-50">
+                    <p class="text-gray-600 text-sm mb-4 font-semibold">Konfigurator formatu kodu QR:</p>
+                    
+                    @php
+                        $qrSettings = \DB::table('qr_settings')->first();
+                        if (!$qrSettings) {
+                            $qrSettings = (object)[
+                                'element1_type' => 'product_name',
+                                'element1_value' => '',
+                                'separator1' => '_',
+                                'element2_type' => 'location',
+                                'element2_value' => '',
+                                'separator2' => '_',
+                                'element3_type' => 'empty',
+                                'element3_value' => '',
+                                'separator3' => '_',
+                                'element4_type' => 'number',
+                                'start_number' => 1,
+                            ];
+                        }
+                    @endphp
+                    
+                    <form action="{{ route('magazyn.qr-settings.save') }}" method="POST" class="space-y-4" id="qr-settings-form">
+                        @csrf
+                        
+                        {{-- Element 1 --}}
+                        <div class="bg-white p-3 rounded border">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Element 1:</label>
+                            <div class="flex gap-2 items-center">
+                                <select name="element1_type" class="px-2 py-1 border border-gray-300 rounded text-sm w-auto" onchange="toggleQrElementInput('element1', this.value)">
+                                    <option value="empty" {{ ($qrSettings->element1_type ?? '') === 'empty' ? 'selected' : '' }}>-- brak --</option>
+                                    <option value="product_name" {{ ($qrSettings->element1_type ?? '') === 'product_name' ? 'selected' : '' }}>Nazwa produktu</option>
+                                    <option value="text" {{ ($qrSettings->element1_type ?? '') === 'text' ? 'selected' : '' }}>Tekst</option>
+                                    <option value="date" {{ ($qrSettings->element1_type ?? '') === 'date' ? 'selected' : '' }}>Data (YYYYMMDD)</option>
+                                    <option value="time" {{ ($qrSettings->element1_type ?? '') === 'time' ? 'selected' : '' }}>Godzina (HHMM)</option>
+                                </select>
+                                <input 
+                                    type="text" 
+                                    name="element1_value" 
+                                    id="qr_element1_value"
+                                    value="{{ $qrSettings->element1_value ?? '' }}"
+                                    placeholder="Wartość"
+                                    maxlength="20"
+                                    class="px-2 py-1 border border-gray-400 rounded text-sm w-32"
+                                    style="{{ ($qrSettings->element1_type ?? 'product_name') !== 'text' ? 'display:none;' : '' }}"
+                                >
+                                <div class="flex items-center gap-1">
+                                    <label class="text-xs text-gray-600">Separator:</label>
+                                    <select name="separator1" class="px-2 py-1 border border-gray-300 rounded text-sm w-16">
+                                        <option value="_" {{ ($qrSettings->separator1 ?? '_') === '_' ? 'selected' : '' }}>_</option>
+                                        <option value="-" {{ ($qrSettings->separator1 ?? '') === '-' ? 'selected' : '' }}>-</option>
+                                        <option value="," {{ ($qrSettings->separator1 ?? '') === ',' ? 'selected' : '' }}>,</option>
+                                        <option value="." {{ ($qrSettings->separator1 ?? '') === '.' ? 'selected' : '' }}>.</option>
+                                        <option value="/" {{ ($qrSettings->separator1 ?? '') === '/' ? 'selected' : '' }}>/</option>
+                                        <option value="\\" {{ ($qrSettings->separator1 ?? '') === '\\' ? 'selected' : '' }}>\</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {{-- Element 2 --}}
+                        <div class="bg-white p-3 rounded border">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Element 2:</label>
+                            <div class="flex gap-2 items-center">
+                                <select name="element2_type" class="px-2 py-1 border border-gray-300 rounded text-sm w-auto" onchange="toggleQrElementInput('element2', this.value)">
+                                    <option value="empty" {{ ($qrSettings->element2_type ?? '') === 'empty' ? 'selected' : '' }}>-- brak --</option>
+                                    <option value="location" {{ ($qrSettings->element2_type ?? '') === 'location' ? 'selected' : '' }}>Lokalizacja</option>
+                                    <option value="text" {{ ($qrSettings->element2_type ?? '') === 'text' ? 'selected' : '' }}>Tekst</option>
+                                    <option value="date" {{ ($qrSettings->element2_type ?? '') === 'date' ? 'selected' : '' }}>Data (YYYYMMDD)</option>
+                                    <option value="time" {{ ($qrSettings->element2_type ?? '') === 'time' ? 'selected' : '' }}>Godzina (HHMM)</option>
+                                </select>
+                                <input 
+                                    type="text" 
+                                    name="element2_value" 
+                                    id="qr_element2_value"
+                                    value="{{ $qrSettings->element2_value ?? '' }}"
+                                    placeholder="Wartość"
+                                    maxlength="20"
+                                    class="px-2 py-1 border border-gray-400 rounded text-sm w-32"
+                                    style="{{ ($qrSettings->element2_type ?? 'location') !== 'text' ? 'display:none;' : '' }}"
+                                >
+                                <div class="flex items-center gap-1">
+                                    <label class="text-xs text-gray-600">Separator:</label>
+                                    <select name="separator2" class="px-2 py-1 border border-gray-300 rounded text-sm w-16">
+                                        <option value="_" {{ ($qrSettings->separator2 ?? '_') === '_' ? 'selected' : '' }}>_</option>
+                                        <option value="-" {{ ($qrSettings->separator2 ?? '') === '-' ? 'selected' : '' }}>-</option>
+                                        <option value="," {{ ($qrSettings->separator2 ?? '') === ',' ? 'selected' : '' }}>,</option>
+                                        <option value="." {{ ($qrSettings->separator2 ?? '') === '.' ? 'selected' : '' }}>.</option>
+                                        <option value="/" {{ ($qrSettings->separator2 ?? '') === '/' ? 'selected' : '' }}>/</option>
+                                        <option value="\\" {{ ($qrSettings->separator2 ?? '') === '\\' ? 'selected' : '' }}>\</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {{-- Element 3 --}}
+                        <div class="bg-white p-3 rounded border">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Element 3:</label>
+                            <div class="flex gap-2 items-center">
+                                <select name="element3_type" class="px-2 py-1 border border-gray-300 rounded text-sm w-auto" onchange="toggleQrElementInput('element3', this.value)">
+                                    <option value="empty" {{ ($qrSettings->element3_type ?? '') === 'empty' ? 'selected' : '' }}>-- brak --</option>
+                                    <option value="text" {{ ($qrSettings->element3_type ?? '') === 'text' ? 'selected' : '' }}>Tekst</option>
+                                    <option value="date" {{ ($qrSettings->element3_type ?? '') === 'date' ? 'selected' : '' }}>Data (YYYYMMDD)</option>
+                                    <option value="time" {{ ($qrSettings->element3_type ?? '') === 'time' ? 'selected' : '' }}>Godzina (HHMM)</option>
+                                </select>
+                                <input 
+                                    type="text" 
+                                    name="element3_value" 
+                                    id="qr_element3_value"
+                                    value="{{ $qrSettings->element3_value ?? '' }}"
+                                    placeholder="Wartość"
+                                    maxlength="20"
+                                    class="px-2 py-1 border border-gray-400 rounded text-sm w-32"
+                                    style="{{ ($qrSettings->element3_type ?? 'empty') !== 'text' ? 'display:none;' : '' }}"
+                                >
+                                <div class="flex items-center gap-1">
+                                    <label class="text-xs text-gray-600">Separator:</label>
+                                    <select name="separator3" class="px-2 py-1 border border-gray-300 rounded text-sm w-16">
+                                        <option value="_" {{ ($qrSettings->separator3 ?? '_') === '_' ? 'selected' : '' }}>_</option>
+                                        <option value="-" {{ ($qrSettings->separator3 ?? '') === '-' ? 'selected' : '' }}>-</option>
+                                        <option value="," {{ ($qrSettings->separator3 ?? '') === ',' ? 'selected' : '' }}>,</option>
+                                        <option value="." {{ ($qrSettings->separator3 ?? '') === '.' ? 'selected' : '' }}>.</option>
+                                        <option value="/" {{ ($qrSettings->separator3 ?? '') === '/' ? 'selected' : '' }}>/</option>
+                                        <option value="\\" {{ ($qrSettings->separator3 ?? '') === '\\' ? 'selected' : '' }}>\</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {{-- Element 4 --}}
+                        <div class="bg-white p-3 rounded border">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Element 4:</label>
+                            <div class="flex gap-2 items-center">
+                                <select name="element4_type" class="px-2 py-1 border border-gray-300 rounded text-sm w-auto" onchange="toggleQrElement4Input(this.value)">
+                                    <option value="empty" {{ ($qrSettings->element4_type ?? '') === 'empty' ? 'selected' : '' }}>-- brak --</option>
+                                    <option value="date" {{ ($qrSettings->element4_type ?? '') === 'date' ? 'selected' : '' }}>Data (YYYYMMDD)</option>
+                                    <option value="number" {{ ($qrSettings->element4_type ?? '') === 'number' ? 'selected' : '' }}>Liczba (inkrementowana)</option>
+                                </select>
+                                <div id="qr_element4_number_input" class="flex items-center gap-1" style="{{ ($qrSettings->element4_type ?? 'empty') !== 'number' ? 'display:none;' : '' }}">
+                                    <label class="text-xs text-gray-600">Liczba startowa:</label>
+                                    <input 
+                                        type="number" 
+                                        name="start_number" 
+                                        value="{{ $qrSettings->start_number ?? 1 }}"
+                                        min="1"
+                                        class="px-2 py-1 border border-gray-400 rounded text-sm w-24"
+                                    >
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {{-- Wzór kodu QR --}}
+                        <div class="bg-blue-50 p-4 rounded border border-blue-200">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Wzór kodu QR:</label>
+                            <div class="font-mono text-sm text-gray-800" id="qr-pattern">
+                                <span class="text-blue-600" id="pattern-preview">Wybierz elementy powyżej, aby zobaczyć wzór</span>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                            Zapisz ustawienia kodów QR
+                        </button>
+                    </form>
+                    
+                    <script>
+                        function toggleQrElementInput(element, type) {
+                            document.getElementById('qr_' + element + '_value').style.display = type === 'text' ? 'block' : 'none';
+                            updateQrPattern();
+                        }
+                        
+                        function toggleQrElement4Input(type) {
+                            document.getElementById('qr_element4_number_input').style.display = type === 'number' ? 'flex' : 'none';
+                            updateQrPattern();
+                        }
+                        
+                        function updateQrPattern() {
+                            const element1Type = document.querySelector('[name="element1_type"]').value;
+                            const element1Value = document.getElementById('qr_element1_value').value;
+                            const separator1 = document.querySelector('[name="separator1"]').value;
+                            
+                            const element2Type = document.querySelector('[name="element2_type"]').value;
+                            const element2Value = document.getElementById('qr_element2_value').value;
+                            const separator2 = document.querySelector('[name="separator2"]').value;
+                            
+                            const element3Type = document.querySelector('[name="element3_type"]').value;
+                            const element3Value = document.getElementById('qr_element3_value').value;
+                            const separator3 = document.querySelector('[name="separator3"]').value;
+                            
+                            const element4Type = document.querySelector('[name="element4_type"]').value;
+                            const startNumber = document.querySelector('[name="start_number"]').value;
+                            
+                            let pattern = '';
+                            
+                            // Element 1
+                            if (element1Type !== 'empty') {
+                                if (element1Type === 'product_name') pattern += '[NAZWA_PRODUKTU]';
+                                else if (element1Type === 'text') pattern += element1Value || '[TEKST]';
+                                else if (element1Type === 'date') pattern += '[YYYYMMDD]';
+                                else if (element1Type === 'time') pattern += '[HHMM]';
+                                
+                                if (element2Type !== 'empty' || element3Type !== 'empty' || element4Type !== 'empty') {
+                                    pattern += separator1;
+                                }
+                            }
+                            
+                            // Element 2
+                            if (element2Type !== 'empty') {
+                                if (element2Type === 'location') pattern += '[LOKALIZACJA]';
+                                else if (element2Type === 'text') pattern += element2Value || '[TEKST]';
+                                else if (element2Type === 'date') pattern += '[YYYYMMDD]';
+                                else if (element2Type === 'time') pattern += '[HHMM]';
+                                
+                                if (element3Type !== 'empty' || element4Type !== 'empty') {
+                                    pattern += separator2;
+                                }
+                            }
+                            
+                            // Element 3
+                            if (element3Type !== 'empty') {
+                                if (element3Type === 'text') pattern += element3Value || '[TEKST]';
+                                else if (element3Type === 'date') pattern += '[YYYYMMDD]';
+                                else if (element3Type === 'time') pattern += '[HHMM]';
+                                
+                                if (element4Type !== 'empty') {
+                                    pattern += separator3;
+                                }
+                            }
+                            
+                            // Element 4
+                            if (element4Type !== 'empty') {
+                                if (element4Type === 'date') pattern += '[YYYYMMDD]';
+                                else if (element4Type === 'number') pattern += '[' + startNumber + ', ' + (parseInt(startNumber) + 1) + ', ' + (parseInt(startNumber) + 2) + '...]';
+                            }
+                            
+                            document.getElementById('pattern-preview').textContent = pattern || 'Wybierz elementy powyżej, aby zobaczyć wzór';
+                        }
+                        
+                        // Update pattern on page load
+                        document.addEventListener('DOMContentLoaded', function() {
+                            updateQrPattern();
+                            
+                            // Add event listeners to all inputs
+                            document.querySelectorAll('[name^="element"], [name^="separator"], [name="start_number"]').forEach(el => {
+                                el.addEventListener('change', updateQrPattern);
+                                el.addEventListener('input', updateQrPattern);
+                            });
+                        });
+                    </script>
+                </div>
+            </div>
         </div>
     </div>
     @endif
