@@ -18,13 +18,13 @@ class CompanySettingsSeeder extends Seeder
         if (!$existing) {
             // Utwórz domyślne ustawienia firmy
             CompanySetting::create([
-                'name' => '3C Automation sp. z o. o.',
-                'address' => 'Gliwicka 14',
-                'city' => 'Kleszczów',
-                'postal_code' => '44-167',
+                'name' => 'Moja Firma',
+                'address' => 'Słoneczna',
+                'city' => 'Warszawa',
+                'postal_code' => '40-100',
                 'nip' => null,
                 'phone' => null,
-                'email' => 'biuro@3cautomation.eu',
+                'email' => 'test@example.com',
                 'logo' => null, // Logo będzie dodane przez użytkownika w ustawieniach
             ]);
             

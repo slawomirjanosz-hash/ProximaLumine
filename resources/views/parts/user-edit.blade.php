@@ -123,8 +123,31 @@
         <!-- Uprawnienia -->
         <div class="border-b pb-4">
             <h3 class="font-semibold mb-4">Dostęp do zakładek</h3>
-            
             <div class="space-y-3">
+                <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        name="can_view_magazyn" 
+                        class="w-4 h-4"
+                        {{ $user->can_view_magazyn ? 'checked' : '' }}
+                    >
+                    <span class="text-sm">
+                        <strong>📦 Magazyn</strong>
+                        <p class="text-gray-600">Możliwość wejścia do magazynu</p>
+                    </span>
+                </label>
+                <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        name="can_view_offers" 
+                        class="w-4 h-4"
+                        {{ $user->can_view_offers ? 'checked' : '' }}
+                    >
+                    <span class="text-sm">
+                        <strong>💼 Wyceny i Oferty</strong>
+                        <p class="text-gray-600">Możliwość wejścia do sekcji Wyceny i Oferty</p>
+                    </span>
+                </label>
                 <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
                     <input 
                         type="checkbox" 

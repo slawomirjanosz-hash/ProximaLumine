@@ -26,6 +26,8 @@ class User extends Authenticatable
         'password',
         'phone',
         'is_admin',
+        'can_view_magazyn',
+        'can_view_offers',
         'can_view_catalog',
         'can_add',
         'can_remove',
@@ -61,6 +63,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'is_admin' => 'boolean',
+            'can_view_magazyn' => 'boolean',
+            'can_view_offers' => 'boolean',
             'can_view_catalog' => 'boolean',
             'can_add' => 'boolean',
             'can_remove' => 'boolean',

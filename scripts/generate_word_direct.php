@@ -24,9 +24,9 @@ if (file_exists($logoPath)) {
     $headerTable->addCell(1600, ['valign' => 'center']);
 }
 $companyCell = $headerTable->addCell(8000, ['valign' => 'center']);
-$companyCell->addText('3C Automation sp. z o. o.', ['bold' => true, 'size' => 10], ['spaceAfter' => 0]);
-$companyCell->addText('ul. Gliwicka 14, 44-167 Kleszczów', ['size' => 9], ['spaceAfter' => 0]);
-$companyCell->addLink('mailto:biuro@3cautomation.eu', 'biuro@3cautomation.eu', ['size' => 9, 'color' => '4B5563'], ['spaceAfter' => 0]);
+$companyCell->addText('Moja Firma', ['bold' => true, 'size' => 10], ['spaceAfter' => 0]);
+$companyCell->addText('ul. Słoneczna, 40-100 Warszawa', ['size' => 9], ['spaceAfter' => 0]);
+$companyCell->addLink('mailto:test@example.com', 'test@example.com', ['size' => 9, 'color' => '4B5563'], ['spaceAfter' => 0]);
 
 $tableStyle = [
     'borderSize' => 6,

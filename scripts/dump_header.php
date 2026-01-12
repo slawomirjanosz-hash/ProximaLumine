@@ -5,7 +5,7 @@ if ($zip->open($doc) !== true) { echo "open fail\n"; exit(1); }
 $header = $zip->getFromName('word/header1.xml');
 if ($header === false) { echo "no header\n"; exit(0); }
 // print a snippet around company name
-$pos = strpos($header, '3C Automation');
+$pos = strpos($header, 'Moja Firma');
 if ($pos !== false) {
     echo "Found company text. Snippet:\n" . substr($header, max(0, $pos-200), 400) . "\n";
 } else {

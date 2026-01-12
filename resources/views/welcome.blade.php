@@ -25,10 +25,10 @@
                     } else {
                         $logoPath = '/logo.png';
                     }
-                    $companyName = $companySettings && $companySettings->name ? $companySettings->name : '3C Automation';
+                    $companyName = $companySettings && $companySettings->name ? $companySettings->name : 'Moja Firma';
                 } catch (\Exception $e) {
                     $logoPath = '/logo.png';
-                    $companyName = '3C Automation';
+                    $companyName = 'Moja Firma';
                 }
             @endphp
             <!-- LOGO -->
@@ -39,6 +39,9 @@
         <!-- MENU -->
         @auth
         <nav class="flex gap-2 items-center flex-wrap justify-end">
+            @if(Auth::user()->is_admin || Auth::user()->can_settings)
+                <a href="{{ route('magazyn.settings') }}" class="px-3 py-2 text-sm bg-yellow-500 hover:bg-yellow-600 text-white rounded transition whitespace-nowrap font-semibold">Ustawienia</a>
+            @endif
             <div class="border-l border-gray-300 pl-2 flex items-center gap-2">
                 <span class="text-gray-700 text-sm whitespace-nowrap">{{ Auth::user()->name }}</span>
                 <form action="{{ route('logout') }}" method="POST" class="inline">
@@ -71,10 +74,19 @@
     </p>
 
     @auth
-        <a href="{{ route('magazyn.check') }}"
-           class="inline-block px-6 py-3 bg-blue-600 text-white rounded text-lg hover:bg-blue-700">
-            Wejdź do magazynu
-        </a>
+        <div class="flex flex-col gap-4 justify-center items-center">
+            @if(Auth::user()->is_admin || Auth::user()->email === 'proximalumine@gmail.com' || Auth::user()->can_view_magazyn)
+                <a href="{{ route('magazyn.check') }}"
+                   class="inline-block px-6 py-3 bg-blue-600 text-white rounded text-lg hover:bg-blue-700">
+                    Wejdź do magazynu
+                </a>
+            @endif
+            @if(Auth::user()->is_admin || Auth::user()->email === 'proximalumine@gmail.com' || Auth::user()->can_view_offers)
+                <a href="{{ route('offers') }}" class="inline-block px-6 py-3 bg-green-600 text-white rounded text-lg hover:bg-green-700 min-w-[220px]">
+                    Wyceny i Oferty
+                </a>
+            @endif
+        </div>
     @else
         <a href="{{ route('login') }}"
            class="inline-block px-6 py-3 bg-green-600 text-white rounded text-lg hover:bg-green-700">

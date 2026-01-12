@@ -484,11 +484,11 @@ class PartController extends Controller
             // Reduce font sizes and spacing so text does not appear larger than the logo
             
             // Użyj danych z bazy lub domyślnych
-            $companyName = $companySettings && $companySettings->name ? $companySettings->name : '3C Automation sp. z o. o.';
+            $companyName = $companySettings && $companySettings->name ? $companySettings->name : 'Moja Firma';
             $companyAddress = $companySettings && $companySettings->address && $companySettings->city 
                 ? ($companySettings->address . ', ' . ($companySettings->postal_code ? $companySettings->postal_code . ' ' : '') . $companySettings->city)
-                : 'ul. Gliwicka 14, 44-167 Kleszczów';
-            $companyEmail = $companySettings && $companySettings->email ? $companySettings->email : 'biuro@3cautomation.eu';
+                : 'ul. Słoneczna, 40-100 Warszawa';
+            $companyEmail = $companySettings && $companySettings->email ? $companySettings->email : 'test@example.com';
             
             $companyCell->addText($companyName, ['bold' => true, 'size' => 10], ['spaceAfter' => 0]);
             $companyCell->addText($companyAddress, ['size' => 9], ['spaceAfter' => 0]);
@@ -1085,6 +1085,8 @@ class PartController extends Controller
         }
 
         // Zaktualizuj uprawnienia (konwertuj na int dla boolean kolumn)
+        $user->can_view_magazyn = (int) $request->has('can_view_magazyn');
+        $user->can_view_offers = (int) $request->has('can_view_offers');
         $user->can_view_catalog = (int) $request->has('can_view_catalog');
         $user->can_add = (int) $request->has('can_add');
         $user->can_remove = (int) $request->has('can_remove');
@@ -1846,11 +1848,11 @@ class PartController extends Controller
 
         $companyCell = $headerTable->addCell(8000, ['valign' => 'center']);
         
-        $companyName = $companySettings && $companySettings->name ? $companySettings->name : '3C Automation sp. z o. o.';
+        $companyName = $companySettings && $companySettings->name ? $companySettings->name : 'Moja Firma';
         $companyAddress = $companySettings && $companySettings->address && $companySettings->city 
             ? ('Ul. ' . $companySettings->address . ', ' . ($companySettings->postal_code ? $companySettings->postal_code . ' ' : '') . $companySettings->city)
-            : 'ul. Gliwicka 14, 44-167 Kleszczów';
-        $companyEmail = $companySettings && $companySettings->email ? $companySettings->email : 'biuro@3cautomation.eu';
+            : 'ul. Słoneczna, 40-100 Warszawa';
+        $companyEmail = $companySettings && $companySettings->email ? $companySettings->email : 'test@example.com';
         
         $companyCell->addText($companyName, ['bold' => true, 'size' => 10], ['spaceAfter' => 0]);
         $companyCell->addText($companyAddress, ['size' => 9], ['spaceAfter' => 0]);
@@ -1865,7 +1867,7 @@ class PartController extends Controller
         );
         
         // Data z miejscowością w prawym górnym rogu
-        $companyCity = $companySettings && $companySettings->city ? $companySettings->city : 'Kleszczów';
+        $companyCity = $companySettings && $companySettings->city ? $companySettings->city : 'Warszawa';
         $dateText = $companyCity . ', ' . now()->format('d.m.Y');
         $section->addText(
             $dateText,
@@ -2158,12 +2160,12 @@ class PartController extends Controller
         $userPhone = $user ? $user->phone : '';
         
         // Przygotuj dane firmy
-        $companyName = $companySettings && $companySettings->name ? $companySettings->name : '3C Automation sp. z o. o.';
+        $companyName = $companySettings && $companySettings->name ? $companySettings->name : 'Moja Firma';
         $companyAddress = $companySettings && $companySettings->address && $companySettings->city 
             ? ('Ul. ' . $companySettings->address . ', ' . ($companySettings->postal_code ? $companySettings->postal_code . ' ' : '') . $companySettings->city)
-            : 'ul. Gliwicka 14, 44-167 Kleszczów';
-        $companyEmail = $companySettings && $companySettings->email ? $companySettings->email : 'biuro@3cautomation.eu';
-        $companyCity = $companySettings && $companySettings->city ? $companySettings->city : 'Kleszczów';
+            : 'ul. Słoneczna, 40-100 Warszawa';
+        $companyEmail = $companySettings && $companySettings->email ? $companySettings->email : 'test@example.com';
+        $companyCity = $companySettings && $companySettings->city ? $companySettings->city : 'Warszawa';
         $companyLogo = $companySettings && $companySettings->logo ? $companySettings->logo : null;
         
         // Oblicz sumę netto
@@ -2762,5 +2764,263 @@ class PartController extends Controller
             'success' => false,
             'message' => 'Nie znaleziono produktu z tym kodem QR'
         ]);
+    }
+
+    // GENERUJ DOKUMENT WORD DLA OFERTY
+    public function generateOfferWord($offerId)
+    {
+        $offer = \App\Models\Offer::findOrFail($offerId);
+        
+        $offerNumber = $offer->offer_number;
+        $offerTitle = $offer->offer_title;
+        $services = $offer->services ?? [];
+        $works = $offer->works ?? [];
+        $materials = $offer->materials ?? [];
+
+        // Tworzenie dokumentu Word
+        $phpWord = new \PhpOffice\PhpWord\PhpWord();
+        
+        // Dodaj sekcję
+        $section = $phpWord->addSection();
+        
+        // Pobierz dane firmy z bazy danych
+        $companySettings = \App\Models\CompanySetting::first();
+        
+        // Tablica na pliki tymczasowe do usunięcia na końcu
+        $tempFilesToDelete = [];
+        
+        // HEADER - dane Mojej Firmy
+        $header = $section->addHeader();
+        $headerTable = $header->addTable(['cellMargin' => 40]);
+        $headerTable->addRow();
+        
+        // Logo firmy - obsługa base64 data URI
+        if ($companySettings && $companySettings->logo) {
+            try {
+                // Jeśli logo to data URI (base64)
+                if (strpos($companySettings->logo, 'data:image') === 0) {
+                    $imageData = explode(',', $companySettings->logo);
+                    if (count($imageData) === 2) {
+                        $base64Data = $imageData[1];
+                        $imageContent = base64_decode($base64Data);
+                        
+                        $extension = '.png';
+                        if (strpos($companySettings->logo, 'data:image/jpeg') === 0) {
+                            $extension = '.jpg';
+                        } elseif (strpos($companySettings->logo, 'data:image/gif') === 0) {
+                            $extension = '.gif';
+                        }
+                        
+                        $tempLogoPath = tempnam(sys_get_temp_dir(), 'logo_') . $extension;
+                        file_put_contents($tempLogoPath, $imageContent);
+                        $tempFilesToDelete[] = $tempLogoPath;
+                        
+                        $headerTable->addCell(2000, ['valign' => 'center', 'borderRightSize' => 0])->addImage($tempLogoPath, [
+                            'height' => 34,
+                            'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT,
+                            'marginTop' => 6,
+                            'marginRight' => 200,
+                        ]);
+                    } else {
+                        $headerTable->addCell(2000, ['valign' => 'center']);
+                    }
+                } else {
+                    $logoPath = storage_path('app/public/' . $companySettings->logo);
+                    if (file_exists($logoPath)) {
+                        $headerTable->addCell(2000, ['valign' => 'center', 'borderRightSize' => 0])->addImage($logoPath, [
+                            'height' => 34,
+                            'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT,
+                            'marginTop' => 6,
+                            'marginRight' => 200,
+                        ]);
+                    } else {
+                        $headerTable->addCell(2000, ['valign' => 'center']);
+                    }
+                }
+            } catch (\Exception $e) {
+                $headerTable->addCell(2000, ['valign' => 'center']);
+            }
+        } else {
+            $headerTable->addCell(2000, ['valign' => 'center']);
+        }
+
+        $companyCell = $headerTable->addCell(8000, ['valign' => 'center']);
+        
+        $companyName = $companySettings && $companySettings->name ? $companySettings->name : 'Moja Firma';
+        $companyAddress = $companySettings && $companySettings->address && $companySettings->city 
+            ? ('Ul. ' . $companySettings->address . ', ' . ($companySettings->postal_code ? $companySettings->postal_code . ' ' : '') . $companySettings->city)
+            : 'ul. Słoneczna, 40-100 Warszawa';
+        $companyEmail = $companySettings && $companySettings->email ? $companySettings->email : 'test@example.com';
+        
+        $companyCell->addText($companyName, ['bold' => true, 'size' => 10], ['spaceAfter' => 0]);
+        $companyCell->addText($companyAddress, ['size' => 9], ['spaceAfter' => 0]);
+        $companyCell->addLink('mailto:' . $companyEmail, $companyEmail, ['size' => 9, 'color' => '4B5563'], ['spaceAfter' => 0]);
+
+        // FOOTER - Stopka
+        $footer = $section->addFooter();
+        $footer->addText(
+            'Dokumentu nie wolno kopiować ani rozpowszechniać bez zgody ' . $companyName,
+            ['size' => 8, 'italic' => true, 'color' => '666666'],
+            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
+        );
+        
+        // Data w prawym górnym rogu
+        $companyCity = $companySettings && $companySettings->city ? $companySettings->city : 'Warszawa';
+        $dateText = $companyCity . ', ' . $offer->offer_date->format('d.m.Y');
+        $section->addText(
+            $dateText,
+            ['size' => 10],
+            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT, 'spaceAfter' => 0]
+        );
+        
+        $section->addTextBreak(2);
+        
+        // Tytuł oferty wycentrowany
+        $section->addText(
+            'Oferta nr. ' . $offerNumber,
+            ['bold' => true, 'size' => 14],
+            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER, 'spaceAfter' => 100]
+        );
+        
+        if (!empty($offerTitle)) {
+            $section->addText(
+                $offerTitle,
+                ['bold' => true, 'size' => 12],
+                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER, 'spaceAfter' => 200]
+            );
+        }
+        
+        // Tabela z usługami
+        if (!empty($services) && count($services) > 0) {
+            $section->addText('Usługi:', ['bold' => true, 'size' => 11], ['spaceAfter' => 100]);
+            
+            $table = $section->addTable([
+                'borderSize' => 6,
+                'borderColor' => 'CCCCCC',
+                'cellMargin' => 40,
+                'alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::CENTER,
+            ]);
+            
+            $table->addRow();
+            $cellStyleHeader = ['bgColor' => 'E0E0E0', 'valign' => 'center'];
+            $table->addCell(6000, $cellStyleHeader)->addText('Nazwa usługi', ['bold' => true, 'size' => 9]);
+            $table->addCell(2000, $cellStyleHeader)->addText('Cena netto', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            
+            $rowIndex = 0;
+            foreach ($services as $service) {
+                $rowIndex++;
+                $table->addRow();
+                $cellStyle = ($rowIndex % 2 === 0) ? ['bgColor' => 'F5F5F5', 'valign' => 'center'] : ['valign' => 'center'];
+                
+                $table->addCell(6000, $cellStyle)->addText($service['name'] ?? '', ['size' => 9]);
+                $table->addCell(2000, $cellStyle)->addText(number_format($service['price'] ?? 0, 2, ',', ' ') . ' zł', ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            }
+            
+            $section->addTextBreak(1);
+        }
+        
+        // Tabela z pracami
+        if (!empty($works) && count($works) > 0) {
+            $section->addText('Prace:', ['bold' => true, 'size' => 11], ['spaceAfter' => 100]);
+            
+            $table = $section->addTable([
+                'borderSize' => 6,
+                'borderColor' => 'CCCCCC',
+                'cellMargin' => 40,
+                'alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::CENTER,
+            ]);
+            
+            $table->addRow();
+            $cellStyleHeader = ['bgColor' => 'E0E0E0', 'valign' => 'center'];
+            $table->addCell(6000, $cellStyleHeader)->addText('Nazwa pracy', ['bold' => true, 'size' => 9]);
+            $table->addCell(2000, $cellStyleHeader)->addText('Cena netto', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            
+            $rowIndex = 0;
+            foreach ($works as $work) {
+                $rowIndex++;
+                $table->addRow();
+                $cellStyle = ($rowIndex % 2 === 0) ? ['bgColor' => 'F5F5F5', 'valign' => 'center'] : ['valign' => 'center'];
+                
+                $table->addCell(6000, $cellStyle)->addText($work['name'] ?? '', ['size' => 9]);
+                $table->addCell(2000, $cellStyle)->addText(number_format($work['price'] ?? 0, 2, ',', ' ') . ' zł', ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            }
+            
+            $section->addTextBreak(1);
+        }
+        
+        // Tabela z materiałami
+        if (!empty($materials) && count($materials) > 0) {
+            $section->addText('Materiały:', ['bold' => true, 'size' => 11], ['spaceAfter' => 100]);
+            
+            $table = $section->addTable([
+                'borderSize' => 6,
+                'borderColor' => 'CCCCCC',
+                'cellMargin' => 40,
+                'alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::CENTER,
+            ]);
+            
+            $table->addRow();
+            $cellStyleHeader = ['bgColor' => 'E0E0E0', 'valign' => 'center'];
+            $table->addCell(6000, $cellStyleHeader)->addText('Nazwa materiału', ['bold' => true, 'size' => 9]);
+            $table->addCell(2000, $cellStyleHeader)->addText('Cena netto', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            
+            $rowIndex = 0;
+            foreach ($materials as $material) {
+                $rowIndex++;
+                $table->addRow();
+                $cellStyle = ($rowIndex % 2 === 0) ? ['bgColor' => 'F5F5F5', 'valign' => 'center'] : ['valign' => 'center'];
+                
+                $table->addCell(6000, $cellStyle)->addText($material['name'] ?? '', ['size' => 9]);
+                $table->addCell(2000, $cellStyle)->addText(number_format($material['price'] ?? 0, 2, ',', ' ') . ' zł', ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            }
+            
+            $section->addTextBreak(1);
+        }
+        
+        // Suma końcowa
+        $section->addTextBreak(1);
+        $sumTable = $section->addTable([
+            'alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::CENTER,
+        ]);
+        $sumTable->addRow();
+        $sumTable->addCell(6000)->addText('');
+        $sumTable->addCell(2000, ['bgColor' => 'E8E8E8', 'valign' => 'center'])->addText('SUMA: ' . number_format($offer->total_price, 2, ',', ' ') . ' zł', ['bold' => true, 'size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+        
+        // Informacja kontaktowa
+        $section->addTextBreak(3);
+        $section->addText(
+            'W razie pytań prosimy o kontakt:',
+            ['size' => 9, 'italic' => true],
+            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]
+        );
+        
+        $section->addTextBreak(1);
+        $section->addText('Pozdrawiam,', ['size' => 11], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+        if ($companySettings && $companySettings->email) {
+            $section->addText('email: ' . $companySettings->email, ['size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT, 'spaceAfter' => 0]);
+        }
+        if ($companySettings && $companySettings->phone) {
+            $section->addText('nr. tel.: ' . $companySettings->phone, ['size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+        }
+        
+        // Nazwa pliku: numer oferty + opis
+        $fileName = $offerNumber;
+        if (!empty($offerTitle)) {
+            $fileName .= '_' . $offerTitle;
+        }
+        $fileName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $fileName) . '.docx';
+        
+        // Zapisz do tymczasowego pliku
+        $tempFile = tempnam(sys_get_temp_dir(), 'offer_');
+        $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+        $objWriter->save($tempFile);
+        
+        // Usuń pliki tymczasowe logo
+        foreach ($tempFilesToDelete as $tempFilePath) {
+            @unlink($tempFilePath);
+        }
+        
+        // Zwróć plik do pobrania
+        return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
     }
 }

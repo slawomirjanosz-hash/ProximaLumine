@@ -1,8 +1,122 @@
 <?php
+// PODSTRONY WYCEN I OFERT
+Route::middleware('auth')->get('/wyceny/portfolio', function () {
+    $offers = \App\Models\Offer::where('status', 'portfolio')->orderBy('created_at', 'desc')->get();
+    return view('offers-portfolio', compact('offers'));
+})->name('offers.portfolio');
+Route::middleware('auth')->get('/wyceny/nowa', function () {
+    return view('offers-new');
+})->name('offers.new');
+Route::middleware('auth')->post('/wyceny/nowa', function (Illuminate\Http\Request $request) {
+    // Oblicz całkowitą cenę
+    $totalPrice = 0;
+    
+    $services = collect($request->input('services', []))->filter(fn($item) => !empty($item['price']))->toArray();
+    $works = collect($request->input('works', []))->filter(fn($item) => !empty($item['price']))->toArray();
+    $materials = collect($request->input('materials', []))->filter(fn($item) => !empty($item['price']))->toArray();
+    
+    foreach ($services as $item) {
+        $totalPrice += floatval($item['price'] ?? 0);
+    }
+    foreach ($works as $item) {
+        $totalPrice += floatval($item['price'] ?? 0);
+    }
+    foreach ($materials as $item) {
+        $totalPrice += floatval($item['price'] ?? 0);
+    }
+    
+    // Zapisz ofertę
+    \App\Models\Offer::create([
+        'offer_number' => $request->input('offer_number'),
+        'offer_title' => $request->input('offer_title'),
+        'offer_date' => $request->input('offer_date'),
+        'services' => $services,
+        'works' => $works,
+        'materials' => $materials,
+        'total_price' => $totalPrice,
+        'status' => $request->input('destination')
+    ]);
+    
+    $destination = $request->input('destination');
+    $routeName = $destination === 'portfolio' ? 'offers.portfolio' : 'offers.inprogress';
+    
+    return redirect()->route($routeName)->with('success', 'Oferta została zapisana pomyślnie!');
+})->name('offers.store');
+Route::middleware('auth')->get('/wyceny/w-toku', function () {
+    $offers = \App\Models\Offer::where('status', 'inprogress')->orderBy('created_at', 'desc')->get();
+    return view('offers-inprogress', compact('offers'));
+})->name('offers.inprogress');
+Route::middleware('auth')->get('/wyceny/zarchiwizowane', function () {
+    $offers = \App\Models\Offer::where('status', 'archived')->orderBy('created_at', 'desc')->get();
+    return view('offers-archived', compact('offers'));
+})->name('offers.archived');
+
+// Akcje na ofertach
+Route::middleware('auth')->post('/wyceny/{offer}/archive', function (\App\Models\Offer $offer) {
+    $offer->update(['status' => 'archived']);
+    return redirect()->back()->with('success', 'Oferta przeniesiona do archiwum.');
+})->name('offers.archive');
+
+Route::middleware('auth')->post('/wyceny/{offer}/copy', function (\App\Models\Offer $offer) {
+    $newOffer = $offer->replicate();
+    $newOffer->offer_title = $offer->offer_title . '_kopia';
+    $newOffer->offer_date = now();
+    $newOffer->save();
+    
+    return redirect()->back()->with('success', 'Oferta została skopiowana.');
+})->name('offers.copy');
+
+Route::middleware('auth')->get('/wyceny/{offer}/edit', function (\App\Models\Offer $offer) {
+    return view('offers-edit', compact('offer'));
+})->name('offers.edit');
+
+Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Request $request, \App\Models\Offer $offer) {
+    // Oblicz całkowitą cenę
+    $totalPrice = 0;
+    
+    $services = collect($request->input('services', []))->filter(fn($item) => !empty($item['price']))->toArray();
+    $works = collect($request->input('works', []))->filter(fn($item) => !empty($item['price']))->toArray();
+    $materials = collect($request->input('materials', []))->filter(fn($item) => !empty($item['price']))->toArray();
+    
+    foreach ($services as $item) {
+        $totalPrice += floatval($item['price'] ?? 0);
+    }
+    foreach ($works as $item) {
+        $totalPrice += floatval($item['price'] ?? 0);
+    }
+    foreach ($materials as $item) {
+        $totalPrice += floatval($item['price'] ?? 0);
+    }
+    
+    // Zaktualizuj ofertę
+    $offer->update([
+        'offer_number' => $request->input('offer_number'),
+        'offer_title' => $request->input('offer_title'),
+        'offer_date' => $request->input('offer_date'),
+        'services' => $services,
+        'works' => $works,
+        'materials' => $materials,
+        'total_price' => $totalPrice,
+        'status' => $request->input('destination')
+    ]);
+    
+    $destination = $request->input('destination');
+    $routeName = $destination === 'portfolio' ? 'offers.portfolio' : 'offers.inprogress';
+    
+    return redirect()->route($routeName)->with('success', 'Oferta została zaktualizowana pomyślnie!');
+})->name('offers.update');
+
+// WYCENY I OFERTY
+Route::middleware('auth')->get('/wyceny', function () {
+    return view('offers');
+})->name('offers');
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PartController;
 use App\Http\Controllers\AuthController;
+
+// Generowanie dokumentów dla ofert
+Route::middleware('auth')->get('/wyceny/{offer}/generate-word', [PartController::class, 'generateOfferWord'])->name('offers.generateWord');
 
 // TEST ENDPOINT
 Route::get('/test', function () {
