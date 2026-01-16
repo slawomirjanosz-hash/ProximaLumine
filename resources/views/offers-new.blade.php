@@ -55,8 +55,10 @@
                                 <tr class="bg-gray-100">
                                     <th class="p-2 text-left w-16">Nr</th>
                                     <th class="p-2 text-left">Nazwa</th>
+                                    <th class="p-2 text-left w-20">Ilość</th>
                                     <th class="p-2 text-left">Dostawca</th>
                                     <th class="p-2 text-left w-32">Cena (zł)</th>
+                                    <th class="p-2 text-left w-32">Wartość (zł)</th>
                                     <th class="p-2 w-16"></th>
                                 </tr>
                             </thead>
@@ -64,8 +66,10 @@
                                 <tr>
                                     <td class="p-2"><input type="number" class="w-full px-2 py-1 border rounded text-sm" value="1" readonly></td>
                                     <td class="p-2"><input type="text" name="services[0][name]" class="w-full px-2 py-1 border rounded text-sm"></td>
+                                    <td class="p-2"><input type="number" min="1" value="1" name="services[0][quantity]" class="w-full px-2 py-1 border rounded text-sm quantity-input" data-section="services" onchange="calculateRowValue(this)"></td>
                                     <td class="p-2"><input type="text" name="services[0][supplier]" class="w-full px-2 py-1 border rounded text-sm"></td>
-                                    <td class="p-2"><input type="number" step="0.01" name="services[0][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="services" onchange="calculateTotal('services')"></td>
+                                    <td class="p-2"><input type="number" step="0.01" name="services[0][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="services" onchange="calculateRowValue(this)"></td>
+                                    <td class="p-2"><input type="number" step="0.01" name="services[0][value]" class="w-full px-2 py-1 border rounded text-sm bg-gray-100 value-input" data-section="services" readonly></td>
                                     <td class="p-2"></td>
                                 </tr>
                             </tbody>
@@ -90,8 +94,10 @@
                                 <tr class="bg-gray-100">
                                     <th class="p-2 text-left w-16">Nr</th>
                                     <th class="p-2 text-left">Nazwa</th>
+                                    <th class="p-2 text-left w-20">Ilość</th>
                                     <th class="p-2 text-left">Dostawca</th>
                                     <th class="p-2 text-left w-32">Cena (zł)</th>
+                                    <th class="p-2 text-left w-32">Wartość (zł)</th>
                                     <th class="p-2 w-16"></th>
                                 </tr>
                             </thead>
@@ -99,8 +105,10 @@
                                 <tr>
                                     <td class="p-2"><input type="number" class="w-full px-2 py-1 border rounded text-sm" value="1" readonly></td>
                                     <td class="p-2"><input type="text" name="works[0][name]" class="w-full px-2 py-1 border rounded text-sm"></td>
+                                    <td class="p-2"><input type="number" min="1" value="1" name="works[0][quantity]" class="w-full px-2 py-1 border rounded text-sm quantity-input" data-section="works" onchange="calculateRowValue(this)"></td>
                                     <td class="p-2"><input type="text" name="works[0][supplier]" class="w-full px-2 py-1 border rounded text-sm"></td>
-                                    <td class="p-2"><input type="number" step="0.01" name="works[0][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="works" onchange="calculateTotal('works')"></td>
+                                    <td class="p-2"><input type="number" step="0.01" name="works[0][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="works" onchange="calculateRowValue(this)"></td>
+                                    <td class="p-2"><input type="number" step="0.01" name="works[0][value]" class="w-full px-2 py-1 border rounded text-sm bg-gray-100 value-input" data-section="works" readonly></td>
                                     <td class="p-2"></td>
                                 </tr>
                             </tbody>
@@ -125,8 +133,10 @@
                                 <tr class="bg-gray-100">
                                     <th class="p-2 text-left w-16">Nr</th>
                                     <th class="p-2 text-left">Nazwa</th>
+                                    <th class="p-2 text-left w-20">Ilość</th>
                                     <th class="p-2 text-left">Dostawca</th>
                                     <th class="p-2 text-left w-32">Cena (zł)</th>
+                                    <th class="p-2 text-left w-32">Wartość (zł)</th>
                                     <th class="p-2 w-16"></th>
                                 </tr>
                             </thead>
@@ -144,8 +154,10 @@
                                             <div class="part-search-results absolute z-10 w-full bg-white border border-gray-300 rounded mt-1 shadow-lg hidden max-h-60 overflow-y-auto"></div>
                                         </div>
                                     </td>
+                                    <td class="p-2"><input type="number" min="1" value="1" name="materials[0][quantity]" class="w-full px-2 py-1 border rounded text-sm quantity-input" data-section="materials" onchange="calculateRowValue(this)"></td>
                                     <td class="p-2"><input type="text" name="materials[0][supplier]" class="w-full px-2 py-1 border rounded text-sm"></td>
-                                    <td class="p-2"><input type="number" step="0.01" name="materials[0][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="materials" onchange="calculateTotal('materials')"></td>
+                                    <td class="p-2"><input type="number" step="0.01" name="materials[0][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="materials" onchange="calculateRowValue(this)"></td>
+                                    <td class="p-2"><input type="number" step="0.01" name="materials[0][value]" class="w-full px-2 py-1 border rounded text-sm bg-gray-100 value-input" data-section="materials" readonly></td>
                                     <td class="p-2"></td>
                                 </tr>
                             </tbody>
@@ -275,6 +287,22 @@
             }
         }
 
+        function calculateRowValue(input) {
+            const row = input.closest('tr');
+            const quantityInput = row.querySelector('.quantity-input');
+            const priceInput = row.querySelector('.price-input');
+            const valueInput = row.querySelector('.value-input');
+            
+            const quantity = parseFloat(quantityInput.value) || 0;
+            const price = parseFloat(priceInput.value) || 0;
+            const value = quantity * price;
+            
+            valueInput.value = value.toFixed(2);
+            
+            const section = input.dataset.section;
+            calculateTotal(section);
+        }
+
         function addRow(section) {
             const table = document.getElementById(section + '-table');
             const rowCount = rowCounters[section];
@@ -295,16 +323,20 @@
                             <div class="part-search-results absolute z-10 w-full bg-white border border-gray-300 rounded mt-1 shadow-lg hidden max-h-60 overflow-y-auto"></div>
                         </div>
                     </td>
+                    <td class="p-2"><input type="number" min="1" value="1" name="${section}[${rowCount}][quantity]" class="w-full px-2 py-1 border rounded text-sm quantity-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                     <td class="p-2"><input type="text" name="${section}[${rowCount}][supplier]" class="w-full px-2 py-1 border rounded text-sm"></td>
-                    <td class="p-2"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="${section}" onchange="calculateTotal('${section}')"></td>
+                    <td class="p-2"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
+                    <td class="p-2"><input type="number" step="0.01" name="${section}[${rowCount}][value]" class="w-full px-2 py-1 border rounded text-sm bg-gray-100 value-input" data-section="${section}" readonly></td>
                     <td class="p-2"><button type="button" onclick="removeRow(this, '${section}')" class="text-red-600 hover:text-red-800">✕</button></td>
                 `;
             } else {
                 row.innerHTML = `
                     <td class="p-2"><input type="number" class="w-full px-2 py-1 border rounded text-sm" value="${rowCount + 1}" readonly></td>
                     <td class="p-2"><input type="text" name="${section}[${rowCount}][name]" class="w-full px-2 py-1 border rounded text-sm"></td>
+                    <td class="p-2"><input type="number" min="1" value="1" name="${section}[${rowCount}][quantity]" class="w-full px-2 py-1 border rounded text-sm quantity-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                     <td class="p-2"><input type="text" name="${section}[${rowCount}][supplier]" class="w-full px-2 py-1 border rounded text-sm"></td>
-                    <td class="p-2"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="${section}" onchange="calculateTotal('${section}')"></td>
+                    <td class="p-2"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
+                    <td class="p-2"><input type="number" step="0.01" name="${section}[${rowCount}][value]" class="w-full px-2 py-1 border rounded text-sm bg-gray-100 value-input" data-section="${section}" readonly></td>
                     <td class="p-2"><button type="button" onclick="removeRow(this, '${section}')" class="text-red-600 hover:text-red-800">✕</button></td>
                 `;
             }
@@ -332,7 +364,7 @@
         }
 
         function calculateTotal(section) {
-            const inputs = document.querySelectorAll(`#${section}-table .price-input`);
+            const inputs = document.querySelectorAll(`#${section}-table .value-input`);
             let total = 0;
             
             inputs.forEach(input => {
@@ -345,9 +377,9 @@
         }
 
         function calculateGrandTotal() {
-            const servicesInputs = document.querySelectorAll('#services-table .price-input');
-            const worksInputs = document.querySelectorAll('#works-table .price-input');
-            const materialsInputs = document.querySelectorAll('#materials-table .price-input');
+            const servicesInputs = document.querySelectorAll('#services-table .value-input');
+            const worksInputs = document.querySelectorAll('#works-table .value-input');
+            const materialsInputs = document.querySelectorAll('#materials-table .value-input');
             
             let grandTotal = 0;
             
@@ -363,7 +395,7 @@
             
             // Dodaj sumy z niestandardowych sekcji
             customSections.forEach(sectionId => {
-                const inputs = document.querySelectorAll(`#custom-${sectionId}-table .price-input`);
+                const inputs = document.querySelectorAll(`#custom-${sectionId}-table .value-input`);
                 inputs.forEach(input => {
                     grandTotal += parseFloat(input.value) || 0;
                 });
@@ -380,36 +412,37 @@
             if (!sectionName || sectionName.trim() === '') {
                 return;
             }
-            
             customSectionCounter++;
             const sectionId = `custom${customSectionCounter}`;
             customSections.push(customSectionCounter);
             rowCounters[sectionId] = 1;
-            
             const container = document.getElementById('custom-sections-container');
             const sectionDiv = document.createElement('div');
             sectionDiv.className = 'border border-gray-300 rounded';
             sectionDiv.id = `section-${sectionId}`;
-            
             sectionDiv.innerHTML = `
                 <div class="flex items-center justify-between p-4 bg-gray-50">
                     <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('${sectionId}')">
-                        <span class="font-semibold text-lg">${escapeHtml(sectionName.trim())}</span>
-                        <svg id="${sectionId}-icon" class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                        <span class="font-semibold text-lg section-name" id="${sectionId}-name-label">${escapeHtml(sectionName.trim())}</span>
+                    </button>
+                    <button type="button" onclick="editSectionName('${sectionId}', ${customSectionCounter})" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13h3l8-8a2.828 2.828 0 00-4-4l-8 8v3z" /></svg>
                     </button>
                     <button type="button" onclick="removeCustomSection('${sectionId}')" class="ml-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="Usuń sekcję">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                 </div>
                 <div id="${sectionId}-content" class="p-4 hidden">
-                    <input type="hidden" name="custom_sections[${customSectionCounter}][name]" value="${escapeHtml(sectionName.trim())}">
+                    <input type="hidden" id="${sectionId}-name-input" name="custom_sections[${customSectionCounter}][name]" value="${escapeHtml(sectionName.trim())}">
                     <table class="w-full mb-4">
                         <thead>
                             <tr class="bg-gray-100">
                                 <th class="p-2 text-left w-16">Nr</th>
                                 <th class="p-2 text-left">Nazwa</th>
+                                <th class="p-2 text-left w-20">Ilość</th>
                                 <th class="p-2 text-left">Dostawca</th>
                                 <th class="p-2 text-left w-32">Cena (zł)</th>
+                                <th class="p-2 text-left w-32">Wartość (zł)</th>
                                 <th class="p-2 w-16"></th>
                             </tr>
                         </thead>
@@ -417,8 +450,10 @@
                             <tr>
                                 <td class="p-2"><input type="number" class="w-full px-2 py-1 border rounded text-sm" value="1" readonly></td>
                                 <td class="p-2"><input type="text" name="custom_sections[${customSectionCounter}][items][0][name]" class="w-full px-2 py-1 border rounded text-sm"></td>
+                                <td class="p-2"><input type="number" min="1" value="1" name="custom_sections[${customSectionCounter}][items][0][quantity]" class="w-full px-2 py-1 border rounded text-sm quantity-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                                 <td class="p-2"><input type="text" name="custom_sections[${customSectionCounter}][items][0][supplier]" class="w-full px-2 py-1 border rounded text-sm"></td>
-                                <td class="p-2"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="${sectionId}" onchange="calculateTotal('${sectionId}')"></td>
+                                <td class="p-2"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
+                                <td class="p-2"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][value]" class="w-full px-2 py-1 border rounded text-sm bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
                                 <td class="p-2"></td>
                             </tr>
                         </tbody>
@@ -430,11 +465,20 @@
                     </div>
                 </div>
             `;
-            
             container.appendChild(sectionDiv);
-            
             // Automatycznie rozwiń nową sekcję
             toggleSection(sectionId);
+        }
+
+        function editSectionName(sectionId, sectionNumber) {
+            const label = document.getElementById(`${sectionId}-name-label`);
+            const inputId = `${sectionId}-name-input`;
+            const current = label.textContent;
+            const newName = prompt('Edytuj nazwę sekcji:', current);
+            if (newName && newName.trim() !== '') {
+                label.textContent = newName.trim();
+                document.getElementById(inputId).value = newName.trim();
+            }
         }
         
         function removeCustomSection(sectionId) {
@@ -463,8 +507,10 @@
             row.innerHTML = `
                 <td class="p-2"><input type="number" class="w-full px-2 py-1 border rounded text-sm" value="${rowCount + 1}" readonly></td>
                 <td class="p-2"><input type="text" name="custom_sections[${sectionNumber}][items][${rowCount}][name]" class="w-full px-2 py-1 border rounded text-sm"></td>
+                <td class="p-2"><input type="number" min="1" value="1" name="custom_sections[${sectionNumber}][items][${rowCount}][quantity]" class="w-full px-2 py-1 border rounded text-sm quantity-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                 <td class="p-2"><input type="text" name="custom_sections[${sectionNumber}][items][${rowCount}][supplier]" class="w-full px-2 py-1 border rounded text-sm"></td>
-                <td class="p-2"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="${sectionId}" onchange="calculateTotal('${sectionId}')"></td>
+                <td class="p-2"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
+                <td class="p-2"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][value]" class="w-full px-2 py-1 border rounded text-sm bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
                 <td class="p-2"><button type="button" onclick="removeRow(this, '${sectionId}')" class="text-red-600 hover:text-red-800">✕</button></td>
             `;
             
@@ -525,9 +571,10 @@
                                         const row = e.target.closest('tr');
                                         row.querySelector('[name*="[name]"]').value = this.dataset.name;
                                         row.querySelector('[name*="[supplier]"]').value = this.dataset.supplier;
-                                        row.querySelector('[name*="[price]"]').value = this.dataset.price;
+                                        const priceInput = row.querySelector('[name*="[price]"]');
+                                        priceInput.value = this.dataset.price;
                                         resultsDiv.classList.add('hidden');
-                                        calculateTotal('materials');
+                                        calculateRowValue(priceInput);
                                     });
                                 });
                             })
@@ -695,8 +742,10 @@
                             <div class="part-search-results absolute z-10 w-full bg-white border border-gray-300 rounded mt-1 shadow-lg hidden max-h-60 overflow-y-auto"></div>
                         </div>
                     </td>
+                    <td class="p-2"><input type="number" min="1" value="1" name="materials[${rowCount}][quantity]" class="w-full px-2 py-1 border rounded text-sm quantity-input" data-section="materials" onchange="calculateRowValue(this)"></td>
                     <td class="p-2"><input type="text" name="materials[${rowCount}][supplier]" value="${supplier}" class="w-full px-2 py-1 border rounded text-sm"></td>
-                    <td class="p-2"><input type="number" step="0.01" name="materials[${rowCount}][price]" value="${price}" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="materials" onchange="calculateTotal('materials')"></td>
+                    <td class="p-2"><input type="number" step="0.01" name="materials[${rowCount}][price]" value="${price}" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="materials" onchange="calculateRowValue(this)"></td>
+                    <td class="p-2"><input type="number" step="0.01" name="materials[${rowCount}][value]" value="${price}" class="w-full px-2 py-1 border rounded text-sm bg-gray-100 value-input" data-section="materials" readonly></td>
                     <td class="p-2"><button type="button" onclick="removeRow(this, 'materials')" class="text-red-600 hover:text-red-800">✕</button></td>
                 `;
                 

@@ -36,26 +36,42 @@ Route::middleware('auth')->post('/wyceny/nowa', function (Illuminate\Http\Reques
     // Oblicz całkowitą cenę
     $totalPrice = 0;
     
-    $services = collect($request->input('services', []))->filter(fn($item) => !empty($item['price']))->toArray();
-    $works = collect($request->input('works', []))->filter(fn($item) => !empty($item['price']))->toArray();
-    $materials = collect($request->input('materials', []))->filter(fn($item) => !empty($item['price']))->toArray();
+    $services = collect($request->input('services', []))
+        ->filter(fn($item) => !empty($item['price']))
+        ->map(function($item) {
+            $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
+            return $item;
+        })->toArray();
+    $works = collect($request->input('works', []))
+        ->filter(fn($item) => !empty($item['price']))
+        ->map(function($item) {
+            $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
+            return $item;
+        })->toArray();
+    $materials = collect($request->input('materials', []))
+        ->filter(fn($item) => !empty($item['price']))
+        ->map(function($item) {
+            $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
+            return $item;
+        })->toArray();
     $customSections = $request->input('custom_sections', []);
     
     foreach ($services as $item) {
-        $totalPrice += floatval($item['price'] ?? 0);
+        $totalPrice += (floatval($item['price'] ?? 0)) * (intval($item['quantity'] ?? 1));
     }
     foreach ($works as $item) {
-        $totalPrice += floatval($item['price'] ?? 0);
+        $totalPrice += (floatval($item['price'] ?? 0)) * (intval($item['quantity'] ?? 1));
     }
     foreach ($materials as $item) {
-        $totalPrice += floatval($item['price'] ?? 0);
+        $totalPrice += (floatval($item['price'] ?? 0)) * (intval($item['quantity'] ?? 1));
     }
     
     // Dodaj ceny z niestandardowych sekcji
-    foreach ($customSections as $section) {
+    foreach ($customSections as &$section) {
         if (isset($section['items']) && is_array($section['items'])) {
-            foreach ($section['items'] as $item) {
-                $totalPrice += floatval($item['price'] ?? 0);
+            foreach ($section['items'] as &$item) {
+                $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
+                $totalPrice += (floatval($item['price'] ?? 0)) * (intval($item['quantity'] ?? 1));
             }
         }
     }
@@ -128,26 +144,42 @@ Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Requ
     // Oblicz całkowitą cenę
     $totalPrice = 0;
     
-    $services = collect($request->input('services', []))->filter(fn($item) => !empty($item['price']))->toArray();
-    $works = collect($request->input('works', []))->filter(fn($item) => !empty($item['price']))->toArray();
-    $materials = collect($request->input('materials', []))->filter(fn($item) => !empty($item['price']))->toArray();
+    $services = collect($request->input('services', []))
+        ->filter(fn($item) => !empty($item['price']))
+        ->map(function($item) {
+            $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
+            return $item;
+        })->toArray();
+    $works = collect($request->input('works', []))
+        ->filter(fn($item) => !empty($item['price']))
+        ->map(function($item) {
+            $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
+            return $item;
+        })->toArray();
+    $materials = collect($request->input('materials', []))
+        ->filter(fn($item) => !empty($item['price']))
+        ->map(function($item) {
+            $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
+            return $item;
+        })->toArray();
     $customSections = $request->input('custom_sections', []);
     
     foreach ($services as $item) {
-        $totalPrice += floatval($item['price'] ?? 0);
+        $totalPrice += (floatval($item['price'] ?? 0)) * (intval($item['quantity'] ?? 1));
     }
     foreach ($works as $item) {
-        $totalPrice += floatval($item['price'] ?? 0);
+        $totalPrice += (floatval($item['price'] ?? 0)) * (intval($item['quantity'] ?? 1));
     }
     foreach ($materials as $item) {
-        $totalPrice += floatval($item['price'] ?? 0);
+        $totalPrice += (floatval($item['price'] ?? 0)) * (intval($item['quantity'] ?? 1));
     }
     
     // Dodaj ceny z niestandardowych sekcji
-    foreach ($customSections as $section) {
+    foreach ($customSections as &$section) {
         if (isset($section['items']) && is_array($section['items'])) {
-            foreach ($section['items'] as $item) {
-                $totalPrice += floatval($item['price'] ?? 0);
+            foreach ($section['items'] as &$item) {
+                $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
+                $totalPrice += (floatval($item['price'] ?? 0)) * (intval($item['quantity'] ?? 1));
             }
         }
     }
