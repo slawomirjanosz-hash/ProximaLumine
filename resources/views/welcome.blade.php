@@ -33,7 +33,7 @@
             @endphp
             <!-- LOGO -->
             <img src="{{ $logoPath }}" alt="{{ $companyName }}" class="h-10">
-            <span class="text-xl font-bold">Magazyn {{ $companyName }}</span>
+            <span class="text-xl font-bold">{{ $companyName }}</span>
         </div>
 
         <!-- MENU -->
