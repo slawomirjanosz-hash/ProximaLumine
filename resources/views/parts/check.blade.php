@@ -42,14 +42,14 @@
             <select id="category-filter" class="border p-2">
                 <option value="">Wszystkie kategorie</option>
                 @foreach($categories as $c)
-                    <option value="{{ $c->name }}">{{ $c->name }}</option>
+                    <option value="{{ strtolower($c->name) }}">{{ $c->name }}</option>
                 @endforeach
             </select>
 
             <select id="supplier-filter" class="border p-2">
                 <option value="">Wszyscy dostawcy</option>
                 @foreach($suppliers as $s)
-                    <option value="{{ $s->name }}">{{ $s->short_name ?? $s->name }}</option>
+                    <option value="{{ strtolower($s->name) }}">{{ $s->short_name ?? $s->name }}</option>
                 @endforeach
             </select>
 
@@ -168,7 +168,7 @@
                 @endphp
                 <tr data-name="{{ strtolower($p->name) }}"
                     data-description="{{ strtolower($p->description ?? '') }}"
-                    data-supplier="{{ strtolower($p->supplier ?? '') }}"
+                    data-supplier="{{ strtolower($supplierShort ?: ($p->supplier ?? '')) }}"
                     data-category="{{ strtolower($p->category->name ?? '') }}"
                     data-price="{{ $p->net_price ?? 0 }}"
                     data-quantity="{{ $p->quantity }}">
@@ -313,6 +313,97 @@ document.addEventListener('DOMContentLoaded', function() {
     const categoriesData = @json($categories);
     const suppliersData = @json($suppliers);
     
+    // Function to print QR code
+    function printQRCode(productName, qrCode) {
+        const qrDisplay = document.getElementById('qr-display');
+        if (!qrDisplay) {
+            alert('Kod QR nie został jeszcze wygenerowany');
+            return;
+        }
+
+        // Create print window
+        const printWindow = window.open('', '_blank', 'width=600,height=600');
+        if (!printWindow) {
+            alert('Nie można otworzyć okna drukowania. Sprawdź ustawienia blokowania wyskakujących okien.');
+            return;
+        }
+
+        // Get QR SVG content
+        const qrSvgContent = qrDisplay.innerHTML;
+
+        // Create print HTML
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Drukuj kod QR - ${productName}</title>
+                <style>
+                    @media print {
+                        body { margin: 0; }
+                        @page { margin: 1cm; }
+                    }
+                    body {
+                        font-family: Arial, sans-serif;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        min-height: 100vh;
+                        padding: 20px;
+                    }
+                    .qr-container {
+                        text-align: center;
+                        page-break-inside: avoid;
+                    }
+                    .qr-title {
+                        font-size: 18px;
+                        font-weight: bold;
+                        margin-bottom: 15px;
+                        color: #333;
+                    }
+                    .qr-code {
+                        margin: 20px auto;
+                        display: inline-block;
+                    }
+                    .qr-text {
+                        font-size: 14px;
+                        margin-top: 15px;
+                        color: #666;
+                        font-family: monospace;
+                    }
+                    svg {
+                        max-width: 300px;
+                        height: auto;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="qr-container">
+                    <div class="qr-title">${productName}</div>
+                    <div class="qr-code">
+                        ${qrSvgContent}
+                    </div>
+                    <div class="qr-text">${qrCode}</div>
+                </div>
+                <script>
+                    window.onload = function() {
+                        setTimeout(function() {
+                            window.print();
+                            // Uncomment to auto-close after printing
+                            // window.onafterprint = function() { window.close(); };
+                        }, 250);
+                    };
+                <\/script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    }
+
+    // Make printQRCode available globally within this context
+    window.printQRCodeFunction = printQRCode;
+    
     // Attach event listener to all edit buttons
     document.body.addEventListener('click', function(e) {
         if (e.target.classList.contains('edit-part-btn')) {
@@ -350,6 +441,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     <p class="text-sm font-medium mb-2 text-gray-700">Kod QR produktu:</p>
                     <div id="qr-display"></div>
                     <p class="text-xs text-gray-500 mt-2">${partQrCode}</p>
+                    <button type="button" id="print-qr-btn" class="mt-3 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm">
+                        🖨️ Drukuj kod QR
+                    </button>
                 </div>
             </div>
         ` : '';
@@ -449,6 +543,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 })
                 .catch(err => console.error('Błąd generowania QR:', err));
+
+                // Add print QR button handler
+                setTimeout(() => {
+                    const printQrBtn = document.getElementById('print-qr-btn');
+                    if (printQrBtn) {
+                        printQrBtn.addEventListener('click', function() {
+                            window.printQRCodeFunction(partName, partQrCode);
+                        });
+                    }
+                }, 100);
             }
 
             // Close modal handlers
@@ -529,12 +633,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    (function(){
+    // FILTROWANIE I WYSZUKIWANIE - URUCHAMIA SIĘ PO ZAŁADOWANIU DOM
+    document.addEventListener('DOMContentLoaded', function() {
         const table = document.querySelector('table');
         const searchInput = document.getElementById('search-input');
         const categoryFilter = document.getElementById('category-filter');
         const supplierFilter = document.getElementById('supplier-filter');
         const clearFiltersBtn = document.getElementById('clear-filters-btn');
+        
+        if (!table || !searchInput || !categoryFilter || !supplierFilter) {
+            console.error('Nie znaleziono elementów do filtrowania');
+            return;
+        }
         
         // Funkcja zbierająca ID widocznych produktów
         function getVisibleProductIds() {
@@ -549,26 +659,22 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Funkcja zbierająca ID zaznaczonych produktów
         function getCheckedProductIds() {
-            // Zbierz wszystkie zaznaczone checkboxy (niezależnie od widoczności wiersza)
             const checkedCheckboxes = Array.from(document.querySelectorAll('.part-checkbox:checked'));
             return checkedCheckboxes.map(cb => cb.value).filter(id => id);
         }
         
         // Funkcja aktualizująca linki pobierania
         function updateDownloadLinks() {
-            // Priorytet: zaznaczone checkboxy > widoczne produkty
             const checkedIds = getCheckedProductIds();
             const idsToUse = checkedIds.length > 0 ? checkedIds : getVisibleProductIds();
             const idsParam = idsToUse.length > 0 ? idsToUse.join(',') : '';
             
-            // Aktualizuj CSV export link
             const csvLink = document.getElementById('csv-export-link');
             if (csvLink) {
                 const baseUrl = csvLink.href.split('?')[0];
                 csvLink.href = idsParam ? `${baseUrl}?ids=${idsParam}` : baseUrl;
             }
             
-            // Aktualizuj przyciski Excel i Word
             const xlsxBtn = document.getElementById('btn-download-xlsx');
             const wordBtn = document.getElementById('btn-download-word');
             
@@ -576,24 +682,41 @@ document.addEventListener('DOMContentLoaded', function() {
             if (wordBtn) wordBtn.dataset.selectedIds = idsParam;
         }
         
-        // Funkcja filtrowania tabeli
+        // GŁÓWNA FUNKCJA FILTROWANIA
         function filterTable() {
             const searchTerm = searchInput.value.toLowerCase().trim();
-            const categoryValue = categoryFilter.value;
-            const supplierValue = supplierFilter.value;
+            const categoryValue = categoryFilter.value.trim();
+            const supplierValue = supplierFilter.value.trim();
             
             const rows = table.querySelectorAll('tbody tr[data-name]');
             let visibleCount = 0;
             
             rows.forEach(row => {
-                const name = row.getAttribute('data-name') || '';
-                const category = row.getAttribute('data-category') || '';
-                const supplier = row.getAttribute('data-supplier') || '';
+                const name = (row.getAttribute('data-name') || '').toLowerCase();
+                const description = (row.getAttribute('data-description') || '').toLowerCase();
+                const category = (row.getAttribute('data-category') || '').toLowerCase();
+                const supplier = (row.getAttribute('data-supplier') || '').toLowerCase();
                 
-                const matchesSearch = !searchTerm || name.includes(searchTerm);
-                const matchesCategory = !categoryValue || category === categoryValue.toLowerCase();
-                const matchesSupplier = !supplierValue || supplier === supplierValue.toLowerCase();
+                let matchesSearch = true;
+                let matchesCategory = true;
+                let matchesSupplier = true;
                 
+                // Wyszukiwanie tekstowe
+                if (searchTerm) {
+                    matchesSearch = name.includes(searchTerm) || description.includes(searchTerm);
+                }
+                
+                // Filtr kategorii
+                if (categoryValue) {
+                    matchesCategory = category === categoryValue;
+                }
+                
+                // Filtr dostawcy
+                if (supplierValue) {
+                    matchesSupplier = supplier === supplierValue;
+                }
+                
+                // Pokaż lub ukryj wiersz
                 if (matchesSearch && matchesCategory && matchesSupplier) {
                     row.style.display = '';
                     visibleCount++;
@@ -602,41 +725,172 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
             
-            // Aktualizuj linki pobierania po każdym filtrowaniu
             updateDownloadLinks();
         }
         
-        // Event listeners dla filtrów
-        if (searchInput) {
-            let searchTimeout;
-            searchInput.addEventListener('input', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(filterTable, 300);
-            });
-        }
+        // PODPIĘCIE EVENTÓW
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(filterTable, 300);
+        });
         
-        if (categoryFilter) {
-            categoryFilter.addEventListener('change', filterTable);
-        }
+        categoryFilter.addEventListener('change', function() {
+            filterTable();
+        });
         
-        if (supplierFilter) {
-            supplierFilter.addEventListener('change', filterTable);
-        }
+        supplierFilter.addEventListener('change', function() {
+            filterTable();
+        });
         
         if (clearFiltersBtn) {
             clearFiltersBtn.addEventListener('click', function() {
-                if (searchInput) searchInput.value = '';
-                if (categoryFilter) categoryFilter.value = '';
-                if (supplierFilter) supplierFilter.value = '';
+                searchInput.value = '';
+                categoryFilter.value = '';
+                supplierFilter.value = '';
                 filterTable();
             });
         }
         
-        // Inicjalizuj linki pobierania przy załadowaniu strony
         updateDownloadLinks();
+        
+        // BULK ACTIONS - select all, bulk delete, view selected
+        const selectAllCheckbox = document.getElementById('select-all');
+        const partCheckboxes = document.querySelectorAll('.part-checkbox');
+        const bulkActions = document.getElementById('bulk-actions');
+        const viewSelectedBtn = document.getElementById('view-selected-btn');
+        const tableRows = document.querySelectorAll('tbody tr');
 
+        function updateBulkDeleteButton() {
+            const checkedCount = document.querySelectorAll('.part-checkbox:checked').length;
+            
+            if (checkedCount > 0) {
+                bulkActions.classList.remove('hidden');
+            } else {
+                bulkActions.classList.add('hidden');
+            }
+        }
 
-        function showAlert(type, message, timeout = 5000) {
+        // View selected functionality
+        let viewingSelected = false;
+        if (viewSelectedBtn) {
+            viewSelectedBtn.addEventListener('click', function() {
+                viewingSelected = !viewingSelected;
+                
+                if (viewingSelected) {
+                    this.classList.remove('bg-blue-300');
+                    this.classList.add('bg-green-400');
+                    tableRows.forEach(row => {
+                        const checkbox = row.querySelector('.part-checkbox');
+                        if (!checkbox.checked) {
+                            row.style.display = 'none';
+                        }
+                    });
+                } else {
+                    this.classList.remove('bg-green-400');
+                    this.classList.add('bg-blue-300');
+                    tableRows.forEach(row => {
+                        row.style.display = '';
+                    });
+                }
+                
+                updateDownloadLinks();
+            });
+        }
+
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', function() {
+                partCheckboxes.forEach(cb => cb.checked = this.checked);
+                updateBulkDeleteButton();
+                updateSelectedIds();
+                updateDownloadLinks();
+            });
+        }
+
+        partCheckboxes.forEach(cb => {
+            cb.addEventListener('change', function() {
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.checked = [...partCheckboxes].every(c => c.checked);
+                }
+                updateBulkDeleteButton();
+                updateSelectedIds();
+                updateDownloadLinks();
+            });
+        });
+
+        window.confirmBulkDelete = function() {
+            const count = document.querySelectorAll('.part-checkbox:checked').length;
+            return count > 0 && confirm(`Czy na pewno usunąć ${count} zaznaczonych produktów?`);
+        };
+
+        function updateSelectedIds() {
+            const selectedIds = [...document.querySelectorAll('.part-checkbox:checked')]
+                .map(cb => cb.value)
+                .join(',');
+            
+            // Update data attribute for XLSX and Word buttons
+            const xlsxBtn = document.getElementById('btn-download-xlsx');
+            const wordBtn = document.getElementById('btn-download-word');
+            if (xlsxBtn) xlsxBtn.setAttribute('data-selected-ids', selectedIds);
+            if (wordBtn) wordBtn.setAttribute('data-selected-ids', selectedIds);
+            
+            // Update CSV link
+            const csvLink = document.getElementById('csv-export-link');
+            if (csvLink) {
+                const baseUrl = csvLink.href.split('?')[0];
+                if (selectedIds) {
+                    csvLink.href = baseUrl + '?selected_ids=' + selectedIds;
+                } else {
+                    csvLink.href = baseUrl;
+                }
+            }
+        }
+
+        function attachDownloaderWithSelected(buttonId, filename, endpoint) {
+            const btn = document.getElementById(buttonId);
+            if (!btn) return;
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const selectedIds = this.getAttribute('data-selected-ids');
+                const params = new URLSearchParams();
+                if (selectedIds) {
+                    params.append('ids', selectedIds);
+                }
+                const url = `/magazyn/sprawdz/${endpoint}?${params.toString()}`;
+                
+                fetch(url)
+                    .then(response => {
+                        showAlert('info', 'Pobieranie...');
+                        const ct = response.headers.get('content-type');
+                        if (!response.ok) throw new Error('Błąd serwera');
+                        if (ct.indexOf('application') === -1 && ct.indexOf('text') !== -1) {
+                            return response.text().then(text => { throw new Error(text || 'Nieoczekiwana odpowiedź'); });
+                        }
+                        return response.blob();
+                    })
+                    .then(blob => {
+                        const blobUrl = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = blobUrl;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(blobUrl);
+                        showAlert('success', 'Pobrano plik.');
+                    })
+                    .catch(err => {
+                        showAlert('error', 'Błąd pobierania: ' + err.message);
+                    });
+            });
+        }
+
+        attachDownloaderWithSelected('btn-download-xlsx', 'katalog.xlsx', 'eksport-xlsx');
+        attachDownloaderWithSelected('btn-download-word', 'katalog.docx', 'eksport-word');
+    });
+
+    // FUNKCJE GLOBALNE
+    function showAlert(type, message, timeout = 5000) {
             const container = document.getElementById('js-alert-container');
             if (!container) return;
             container.innerHTML = '';
@@ -691,139 +945,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
 
-        // Bulk delete functionality
-        const selectAllCheckbox = document.getElementById('select-all');
-        const partCheckboxes = document.querySelectorAll('.part-checkbox');
-        const bulkActions = document.getElementById('bulk-actions');
-        const viewSelectedBtn = document.getElementById('view-selected-btn');
-        const tableRows = document.querySelectorAll('tbody tr');
-
-        function updateBulkDeleteButton() {
-            const checkedCount = document.querySelectorAll('.part-checkbox:checked').length;
-            
-            if (checkedCount > 0) {
-                bulkActions.classList.remove('hidden');
-            } else {
-                bulkActions.classList.add('hidden');
-            }
-        }
-
-        // View selected functionality
-        let viewingSelected = false;
-        viewSelectedBtn.addEventListener('click', function() {
-            viewingSelected = !viewingSelected;
-            
-            if (viewingSelected) {
-                this.classList.remove('bg-blue-300');
-                this.classList.add('bg-green-400');
-                tableRows.forEach(row => {
-                    const checkbox = row.querySelector('.part-checkbox');
-                    if (!checkbox.checked) {
-                        row.style.display = 'none';
-                    }
-                });
-            } else {
-                this.classList.remove('bg-green-400');
-                this.classList.add('bg-blue-300');
-                tableRows.forEach(row => {
-                    row.style.display = '';
-                });
-            }
-            
-            // Aktualizuj linki pobierania po zmianie widoku
-            updateDownloadLinks();
-        });
-
-        selectAllCheckbox.addEventListener('change', function() {
-            partCheckboxes.forEach(cb => cb.checked = this.checked);
-            updateBulkDeleteButton();
-            updateSelectedIds();
-            updateDownloadLinks();
-        });
-
-        partCheckboxes.forEach(cb => {
-            cb.addEventListener('change', function() {
-                selectAllCheckbox.checked = [...partCheckboxes].every(c => c.checked);
-                updateBulkDeleteButton();
-                updateSelectedIds();
-                updateDownloadLinks();
-            });
-        });
-
-        window.confirmBulkDelete = function() {
-            const count = document.querySelectorAll('.part-checkbox:checked').length;
-            return count > 0 && confirm(`Czy na pewno usunąć ${count} zaznaczonych produktów?`);
-        };
-
-        function updateSelectedIds() {
-            const selectedIds = [...document.querySelectorAll('.part-checkbox:checked')]
-                .map(cb => cb.value)
-                .join(',');
-            
-            // Update hidden input for CSV
-            document.getElementById('selected-ids').value = selectedIds;
-            
-            // Update data attribute for XLSX and Word buttons
-            document.getElementById('btn-download-xlsx').setAttribute('data-selected-ids', selectedIds);
-            document.getElementById('btn-download-word').setAttribute('data-selected-ids', selectedIds);
-            
-            // Update CSV link
-            const csvLink = document.getElementById('csv-export-link');
-            const baseUrl = '{{ route("magazyn.check.export") }}';
-            if (selectedIds) {
-                csvLink.href = baseUrl + '?selected_ids=' + selectedIds;
-            } else {
-                csvLink.href = baseUrl;
-            }
-        }
-
-        function attachDownloaderWithSelected(buttonId, filename, endpoint) {
-            const btn = document.getElementById(buttonId);
-            if (!btn) return;
-            btn.addEventListener('click', function(e) {
-                e.preventDefault();
-                const selectedIds = this.getAttribute('data-selected-ids');
-                const params = new URLSearchParams();
-                if (selectedIds) {
-                    params.append('ids', selectedIds);
-                }
-                const url = `/magazyn/sprawdz/${endpoint}?${params.toString()}`;
-                
-                fetch(url)
-                    .then(response => {
-                        showAlert('info', 'Pobieranie...');
-                        const ct = response.headers.get('content-type');
-                        if (!response.ok) throw new Error('Błąd serwera');
-                        if (ct.indexOf('application') === -1 && ct.indexOf('text') !== -1) {
-                            return response.text().then(text => { throw new Error(text || 'Nieoczekiwana odpowiedź'); });
-                        }
-                        return response.blob();
-                    })
-                    .then(blob => {
-                        const blobUrl = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = blobUrl;
-                        a.download = filename;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        window.URL.revokeObjectURL(blobUrl);
-                        showAlert('success', 'Pobrano plik.');
-                    })
-                    .catch(err => {
-                        showAlert('error', 'Błąd pobierania: ' + err.message);
-                    });
-            });
-        }
-
-        attachDownloaderWithSelected('btn-download-xlsx', 'katalog.xlsx', 'eksport-xlsx');
-        attachDownloaderWithSelected('btn-download-word', 'katalog.docx', 'eksport-word');
-    })();
-
-
-
     // OBSŁUGA LOKALIZACJI - ZAPIS PO UTRACIE FOCUSA
-    document.querySelectorAll('.location-input').forEach(input => {
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.location-input').forEach(input => {
         let originalValue = input.value;
         
         input.addEventListener('focus', function() {
@@ -863,7 +987,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
         });
+        });
     });
+
+</script>
 
 <!-- Modal container for edit form (outside table) -->
 <div id="edit-modal-container"></div>

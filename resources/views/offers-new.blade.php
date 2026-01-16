@@ -11,7 +11,7 @@
         <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
             <div class="flex items-center gap-4">
                 <img src="{{ asset('logo.png') }}" alt="Logo" class="h-10">
-                <span class="text-xl font-bold">Nowa Oferta</span>
+                <span class="text-xl font-bold">{{ config('app.name') }}</span>
             </div>
         </div>
     </header>
@@ -133,14 +133,27 @@
                             <tbody id="materials-table">
                                 <tr>
                                     <td class="p-2"><input type="number" class="w-full px-2 py-1 border rounded text-sm" value="1" readonly></td>
-                                    <td class="p-2"><input type="text" name="materials[0][name]" class="w-full px-2 py-1 border rounded text-sm"></td>
+                                    <td class="p-2">
+                                        <div class="relative">
+                                            <input type="text" 
+                                                name="materials[0][name]" 
+                                                class="w-full px-2 py-1 border rounded text-sm part-search-input" 
+                                                data-index="0"
+                                                placeholder="Nazwa lub wyszukaj w magazynie..."
+                                                autocomplete="off">
+                                            <div class="part-search-results absolute z-10 w-full bg-white border border-gray-300 rounded mt-1 shadow-lg hidden max-h-60 overflow-y-auto"></div>
+                                        </div>
+                                    </td>
                                     <td class="p-2"><input type="text" name="materials[0][supplier]" class="w-full px-2 py-1 border rounded text-sm"></td>
                                     <td class="p-2"><input type="number" step="0.01" name="materials[0][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="materials" onchange="calculateTotal('materials')"></td>
                                     <td class="p-2"></td>
                                 </tr>
                             </tbody>
                         </table>
-                        <button type="button" onclick="addRow('materials')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">+ Dodaj wiersz</button>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="addRow('materials')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">+ Dodaj wiersz</button>
+                            <button type="button" onclick="openPartsCatalog()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">📂 Wybierz z katalogu</button>
+                        </div>
                         <div class="mt-4 text-right">
                             <span class="font-semibold">Suma: </span>
                             <span id="materials-total" class="font-bold text-lg">0.00 zł</span>
@@ -178,6 +191,56 @@
         Powered by ProximaLumine
     </footer>
 
+    <!-- Modal katalogu części -->
+    <div id="parts-catalog-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 class="text-xl font-bold">Katalog części z magazynu</h3>
+                <button type="button" onclick="closePartsCatalog()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            
+            <div class="p-4 border-b">
+                <input type="text" 
+                    id="catalog-search" 
+                    placeholder="Szukaj w katalogu..." 
+                    class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-4">
+                <div id="catalog-loading" class="text-center py-8">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <p class="mt-2 text-gray-600">Wczytywanie katalogu...</p>
+                </div>
+                <div id="catalog-content" class="hidden">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-100 sticky top-0">
+                            <tr>
+                                <th class="p-2 text-left w-10">
+                                    <input type="checkbox" id="select-all-parts" onchange="toggleSelectAll()">
+                                </th>
+                                <th class="p-2 text-left">Nazwa</th>
+                                <th class="p-2 text-left">Opis</th>
+                                <th class="p-2 text-left">Dostawca</th>
+                                <th class="p-2 text-left">Ilość</th>
+                                <th class="p-2 text-left">Cena</th>
+                            </tr>
+                        </thead>
+                        <tbody id="catalog-parts-list">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="p-4 border-t flex justify-between items-center">
+                <span id="selected-count" class="text-gray-600">Wybrano: 0</span>
+                <div class="flex gap-2">
+                    <button type="button" onclick="closePartsCatalog()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Anuluj</button>
+                    <button type="button" onclick="addSelectedParts()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Dodaj wybrane</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let rowCounters = {
             services: 1,
@@ -203,17 +266,42 @@
             const rowCount = rowCounters[section];
             
             const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="p-2"><input type="number" class="w-full px-2 py-1 border rounded text-sm" value="${rowCount + 1}" readonly></td>
-                <td class="p-2"><input type="text" name="${section}[${rowCount}][name]" class="w-full px-2 py-1 border rounded text-sm"></td>
-                <td class="p-2"><input type="text" name="${section}[${rowCount}][supplier]" class="w-full px-2 py-1 border rounded text-sm"></td>
-                <td class="p-2"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="${section}" onchange="calculateTotal('${section}')"></td>
-                <td class="p-2"><button type="button" onclick="removeRow(this, '${section}')" class="text-red-600 hover:text-red-800">✕</button></td>
-            `;
+            
+            if (section === 'materials') {
+                row.innerHTML = `
+                    <td class="p-2"><input type="number" class="w-full px-2 py-1 border rounded text-sm" value="${rowCount + 1}" readonly></td>
+                    <td class="p-2">
+                        <div class="relative">
+                            <input type="text" 
+                                name="${section}[${rowCount}][name]" 
+                                class="w-full px-2 py-1 border rounded text-sm part-search-input" 
+                                data-index="${rowCount}"
+                                placeholder="Nazwa lub wyszukaj w magazynie..."
+                                autocomplete="off">
+                            <div class="part-search-results absolute z-10 w-full bg-white border border-gray-300 rounded mt-1 shadow-lg hidden max-h-60 overflow-y-auto"></div>
+                        </div>
+                    </td>
+                    <td class="p-2"><input type="text" name="${section}[${rowCount}][supplier]" class="w-full px-2 py-1 border rounded text-sm"></td>
+                    <td class="p-2"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="${section}" onchange="calculateTotal('${section}')"></td>
+                    <td class="p-2"><button type="button" onclick="removeRow(this, '${section}')" class="text-red-600 hover:text-red-800">✕</button></td>
+                `;
+            } else {
+                row.innerHTML = `
+                    <td class="p-2"><input type="number" class="w-full px-2 py-1 border rounded text-sm" value="${rowCount + 1}" readonly></td>
+                    <td class="p-2"><input type="text" name="${section}[${rowCount}][name]" class="w-full px-2 py-1 border rounded text-sm"></td>
+                    <td class="p-2"><input type="text" name="${section}[${rowCount}][supplier]" class="w-full px-2 py-1 border rounded text-sm"></td>
+                    <td class="p-2"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="${section}" onchange="calculateTotal('${section}')"></td>
+                    <td class="p-2"><button type="button" onclick="removeRow(this, '${section}')" class="text-red-600 hover:text-red-800">✕</button></td>
+                `;
+            }
             
             table.appendChild(row);
             rowCounters[section]++;
             updateRowNumbers(section);
+            
+            if (section === 'materials') {
+                initPartSearch();
+            }
         }
 
         function removeRow(button, section) {
@@ -260,6 +348,247 @@
             });
             
             document.getElementById('grand-total').textContent = grandTotal.toFixed(2) + ' zł';
+        }
+
+        // Funkcja wyszukiwania części z magazynu
+        let searchTimeout;
+        
+        function initPartSearch() {
+            document.querySelectorAll('.part-search-input').forEach(input => {
+                if (input.dataset.initialized) return;
+                input.dataset.initialized = 'true';
+                
+                input.addEventListener('input', function(e) {
+                    clearTimeout(searchTimeout);
+                    const query = e.target.value;
+                    const resultsDiv = e.target.closest('.relative').querySelector('.part-search-results');
+                    
+                    if (query.length < 2) {
+                        resultsDiv.classList.add('hidden');
+                        return;
+                    }
+                    
+                    searchTimeout = setTimeout(() => {
+                        fetch(`/api/parts/search?q=${encodeURIComponent(query)}`)
+                            .then(response => response.json())
+                            .then(parts => {
+                                if (parts.length === 0) {
+                                    resultsDiv.innerHTML = '<div class="p-2 text-gray-500 text-sm">Nie znaleziono części</div>';
+                                    resultsDiv.classList.remove('hidden');
+                                    return;
+                                }
+                                
+                                resultsDiv.innerHTML = parts.map(part => `
+                                    <div class="p-2 hover:bg-gray-100 cursor-pointer border-b part-search-item" 
+                                         data-name="${part.name}"
+                                         data-supplier="${part.supplier || ''}"
+                                         data-price="${part.net_price || ''}">
+                                        <div class="font-medium text-sm">${part.name}</div>
+                                        <div class="text-xs text-gray-600">
+                                            ${part.description || ''} | 
+                                            Dostępne: ${part.quantity || 0} szt. | 
+                                            Cena: ${part.net_price || '0.00'} zł
+                                        </div>
+                                    </div>
+                                `).join('');
+                                
+                                resultsDiv.classList.remove('hidden');
+                                
+                                // Obsługa kliknięcia na wynik
+                                resultsDiv.querySelectorAll('.part-search-item').forEach(item => {
+                                    item.addEventListener('click', function() {
+                                        const row = e.target.closest('tr');
+                                        row.querySelector('[name*="[name]"]').value = this.dataset.name;
+                                        row.querySelector('[name*="[supplier]"]').value = this.dataset.supplier;
+                                        row.querySelector('[name*="[price]"]').value = this.dataset.price;
+                                        resultsDiv.classList.add('hidden');
+                                        calculateTotal('materials');
+                                    });
+                                });
+                            })
+                            .catch(error => {
+                                console.error('Błąd wyszukiwania:', error);
+                                resultsDiv.classList.add('hidden');
+                            });
+                    }, 300);
+                });
+                
+                // Ukryj wyniki po kliknięciu poza polem
+                document.addEventListener('click', function(event) {
+                    if (!input.contains(event.target)) {
+                        const resultsDiv = input.closest('.relative').querySelector('.part-search-results');
+                        resultsDiv.classList.add('hidden');
+                    }
+                });
+            });
+        }
+        
+        // Inicjalizuj wyszukiwanie dla pierwszego wiersza
+        document.addEventListener('DOMContentLoaded', function() {
+            initPartSearch();
+        });
+
+        // ===========================================
+        // OBSŁUGA KATALOGU CZĘŚCI
+        // ===========================================
+        let allParts = [];
+        let filteredParts = [];
+        
+        async function openPartsCatalog() {
+            const modal = document.getElementById('parts-catalog-modal');
+            modal.classList.remove('hidden');
+            
+            if (allParts.length === 0) {
+                await loadPartsCatalog();
+            }
+        }
+        
+        function closePartsCatalog() {
+            document.getElementById('parts-catalog-modal').classList.add('hidden');
+            document.getElementById('catalog-search').value = '';
+            document.querySelectorAll('.part-checkbox').forEach(cb => cb.checked = false);
+            document.getElementById('select-all-parts').checked = false;
+            updateSelectedCount();
+        }
+        
+        async function loadPartsCatalog() {
+            try {
+                const response = await fetch('/api/parts/catalog');
+                allParts = await response.json();
+                filteredParts = [...allParts];
+                
+                document.getElementById('catalog-loading').classList.add('hidden');
+                document.getElementById('catalog-content').classList.remove('hidden');
+                
+                renderCatalog();
+                setupCatalogSearch();
+            } catch (error) {
+                console.error('Błąd ładowania katalogu:', error);
+                alert('Nie udało się załadować katalogu części');
+            }
+        }
+        
+        function renderCatalog() {
+            const tbody = document.getElementById('catalog-parts-list');
+            
+            if (filteredParts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Nie znaleziono części</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = filteredParts.map(part => `
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="p-2">
+                        <input type="checkbox" 
+                            class="part-checkbox" 
+                            data-id="${part.id}"
+                            data-name="${escapeHtml(part.name)}"
+                            data-supplier="${escapeHtml(part.supplier || '')}"
+                            data-price="${part.net_price || 0}"
+                            onchange="updateSelectedCount()">
+                    </td>
+                    <td class="p-2 font-medium">${escapeHtml(part.name)}</td>
+                    <td class="p-2 text-gray-600">${escapeHtml(part.description || '-')}</td>
+                    <td class="p-2">${escapeHtml(part.supplier || '-')}</td>
+                    <td class="p-2">${part.quantity || 0}</td>
+                    <td class="p-2 font-medium">${parseFloat(part.net_price || 0).toFixed(2)} zł</td>
+                </tr>
+            `).join('');
+        }
+        
+        function setupCatalogSearch() {
+            const searchInput = document.getElementById('catalog-search');
+            let searchTimeout;
+            
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    const query = this.value.toLowerCase();
+                    
+                    if (query === '') {
+                        filteredParts = [...allParts];
+                    } else {
+                        filteredParts = allParts.filter(part => 
+                            part.name.toLowerCase().includes(query) ||
+                            (part.description && part.description.toLowerCase().includes(query)) ||
+                            (part.supplier && part.supplier.toLowerCase().includes(query))
+                        );
+                    }
+                    
+                    renderCatalog();
+                    document.getElementById('select-all-parts').checked = false;
+                    updateSelectedCount();
+                }, 300);
+            });
+        }
+        
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('select-all-parts');
+            const checkboxes = document.querySelectorAll('.part-checkbox');
+            
+            checkboxes.forEach(cb => {
+                cb.checked = selectAll.checked;
+            });
+            
+            updateSelectedCount();
+        }
+        
+        function updateSelectedCount() {
+            const count = document.querySelectorAll('.part-checkbox:checked').length;
+            document.getElementById('selected-count').textContent = `Wybrano: ${count}`;
+        }
+        
+        function addSelectedParts() {
+            const selected = document.querySelectorAll('.part-checkbox:checked');
+            
+            if (selected.length === 0) {
+                alert('Nie wybrano żadnych części');
+                return;
+            }
+            
+            selected.forEach(checkbox => {
+                const name = checkbox.dataset.name;
+                const supplier = checkbox.dataset.supplier;
+                const price = checkbox.dataset.price;
+                
+                // Dodaj nowy wiersz
+                const table = document.getElementById('materials-table');
+                const rowCount = rowCounters.materials;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="p-2"><input type="number" class="w-full px-2 py-1 border rounded text-sm" value="${rowCount + 1}" readonly></td>
+                    <td class="p-2">
+                        <div class="relative">
+                            <input type="text" 
+                                name="materials[${rowCount}][name]" 
+                                class="w-full px-2 py-1 border rounded text-sm part-search-input" 
+                                data-index="${rowCount}"
+                                value="${name}"
+                                placeholder="Nazwa lub wyszukaj w magazynie..."
+                                autocomplete="off">
+                            <div class="part-search-results absolute z-10 w-full bg-white border border-gray-300 rounded mt-1 shadow-lg hidden max-h-60 overflow-y-auto"></div>
+                        </div>
+                    </td>
+                    <td class="p-2"><input type="text" name="materials[${rowCount}][supplier]" value="${supplier}" class="w-full px-2 py-1 border rounded text-sm"></td>
+                    <td class="p-2"><input type="number" step="0.01" name="materials[${rowCount}][price]" value="${price}" class="w-full px-2 py-1 border rounded text-sm price-input" data-section="materials" onchange="calculateTotal('materials')"></td>
+                    <td class="p-2"><button type="button" onclick="removeRow(this, 'materials')" class="text-red-600 hover:text-red-800">✕</button></td>
+                `;
+                
+                table.appendChild(row);
+                rowCounters.materials++;
+            });
+            
+            updateRowNumbers('materials');
+            calculateTotal('materials');
+            initPartSearch();
+            closePartsCatalog();
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
     </script>
 </body>

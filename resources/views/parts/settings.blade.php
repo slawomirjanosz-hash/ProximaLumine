@@ -14,10 +14,14 @@
 
     <!-- Nagłówek z Statystykami -->
     <div class="flex items-center justify-between mb-6">
-        <h2 class="text-2xl font-bold">⚙️ Ustawienia Magazynu</h2>
-        <div class="bg-white rounded shadow p-2 w-96">
+           <h2 class="text-2xl font-bold mb-2">⚙️ Ustawienia Magazynu</h2>
+        <div class="bg-white rounded shadow p-1 w-96 ml-auto" style="word-break:break-word;">
             <div class="flex items-center gap-4">
-                <p class="text-sm font-semibold whitespace-nowrap">Statystyki magazynu:</p>
+                <div>
+                    <p class="text-sm font-semibold whitespace-nowrap">Statystyki magazynu:</p>
+                    @php [$warehouseValue, $eurPln] = \App\Helpers\WarehouseHelper::getWarehouseValuePln(); @endphp
+                    <span class="text-[10px] text-gray-400 block mt-0.5">Kurs Euro = {{ number_format($eurPln, 4, ',', ' ') }} PLN</span>
+                </div>
                 <div class="flex gap-4">
                     <div class="text-center">
                         <p class="text-lg font-bold text-blue-600">{{ \App\Models\Part::count() }}</p>
@@ -30,6 +34,14 @@
                     <div class="text-center">
                         <p class="text-lg font-bold text-purple-600">{{ \App\Models\Part::sum('quantity') }}</p>
                         <p class="text-gray-600 text-xs">Sztuk łącznie</p>
+                    </div>
+                    <div class="text-center">
+                        @php
+                            [$warehouseValue, $eurPln] = \App\Helpers\WarehouseHelper::getWarehouseValuePln();
+                        @endphp
+                        <p class="text-xs font-bold text-amber-600" style="font-size:0.75rem;">{{ number_format($warehouseValue, 2, ',', ' ') }} PLN</p>
+                        <p class="text-gray-600 text-xs">Wartość magazynu</p>
+                        <span class="text-[10px] text-gray-400 block mt-0.5">Kurs Euro = {{ number_format($eurPln, 4, ',', ' ') }} PLN</span>
                     </div>
                 </div>
             </div>

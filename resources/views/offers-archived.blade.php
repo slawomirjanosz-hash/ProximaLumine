@@ -11,7 +11,7 @@
         <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
             <div class="flex items-center gap-4">
                 <img src="{{ asset('logo.png') }}" alt="Logo" class="h-10">
-                <span class="text-xl font-bold">Oferty zarchiwizowane</span>
+                <span class="text-xl font-bold">{{ config('app.name') }}</span>
             </div>
         </div>
     </header>

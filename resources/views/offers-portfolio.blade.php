@@ -51,6 +51,10 @@
                                 <td class="p-4 text-right font-semibold">{{ number_format($offer->total_price, 2, ',', ' ') }} zł</td>
                                 <td class="p-4 text-center">
                                     <div class="flex gap-2 justify-center flex-wrap">
+                                        <form action="{{ route('offers.convertToProject', $offer) }}" method="POST" class="inline">
+                                            @csrf
+                                            <button type="submit" onclick="return confirm('Utworzyć projekt z tej oferty?')" class="px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm font-semibold">⭐ Oferta wygrana</button>
+                                        </form>
                                         <a href="{{ route('offers.generateWord', $offer) }}" class="px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm">📄 Word</a>
                                         <a href="{{ route('offers.edit', $offer) }}" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Edytuj</a>
                                         <form action="{{ route('offers.copy', $offer) }}" method="POST" class="inline">

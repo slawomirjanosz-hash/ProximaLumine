@@ -7,6 +7,31 @@ Route::middleware('auth')->get('/wyceny/portfolio', function () {
 Route::middleware('auth')->get('/wyceny/nowa', function () {
     return view('offers-new');
 })->name('offers.new');
+
+// API endpoint do wyszukiwania części
+Route::middleware('auth')->get('/api/parts/search', function (Illuminate\Http\Request $request) {
+    $query = $request->input('q', '');
+    
+    if (strlen($query) < 2) {
+        return response()->json([]);
+    }
+    
+    $parts = \App\Models\Part::where('name', 'LIKE', "%{$query}%")
+        ->orWhere('description', 'LIKE', "%{$query}%")
+        ->limit(20)
+        ->get(['id', 'name', 'description', 'net_price', 'supplier', 'quantity']);
+    
+    return response()->json($parts);
+})->name('api.parts.search');
+
+// API endpoint do pobierania wszystkich części (katalog)
+Route::middleware('auth')->get('/api/parts/catalog', function () {
+    $parts = \App\Models\Part::with('category')
+        ->orderBy('name')
+        ->get(['id', 'name', 'description', 'net_price', 'supplier', 'quantity', 'category_id']);
+    
+    return response()->json($parts);
+})->name('api.parts.catalog');
 Route::middleware('auth')->post('/wyceny/nowa', function (Illuminate\Http\Request $request) {
     // Oblicz całkowitą cenę
     $totalPrice = 0;
@@ -56,6 +81,24 @@ Route::middleware('auth')->post('/wyceny/{offer}/archive', function (\App\Models
     $offer->update(['status' => 'archived']);
     return redirect()->back()->with('success', 'Oferta przeniesiona do archiwum.');
 })->name('offers.archive');
+
+Route::middleware('auth')->post('/wyceny/{offer}/convert-to-project', function (\App\Models\Offer $offer) {
+    // Zmień "OF" na "PROJ" w numerze oferty
+    $projectNumber = str_replace('OF', 'PROJ', $offer->offer_number);
+    
+    // Utwórz projekt na podstawie oferty
+    $project = \App\Models\Project::create([
+        'project_number' => $projectNumber,
+        'name' => $offer->offer_title,
+        'budget' => $offer->total_price,
+        'responsible_user_id' => auth()->id(),
+        'status' => 'in_progress',
+        'started_at' => now(),
+    ]);
+    
+    return redirect()->route('magazyn.projects.show', $project)
+        ->with('success', 'Projekt został utworzony z oferty! Oferta pozostała w ' . ($offer->status === 'portfolio' ? 'portfolio' : 'ofertach w toku') . '.');
+})->name('offers.convertToProject');
 
 Route::middleware('auth')->post('/wyceny/{offer}/copy', function (\App\Models\Offer $offer) {
     $newOffer = $offer->replicate();
