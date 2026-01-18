@@ -2996,10 +2996,40 @@ class PartController extends Controller
                 if (empty($productName)) {
                     continue;
                 }
+                
+                // Ogranicz długość nazwy do 255 znaków (limit w bazie)
+                if (strlen($productName) > 255) {
+                    $productName = substr($productName, 0, 252) . '...';
+                    \Log::info('Nazwa produktu została skrócona', [
+                        'original_name' => $row[$colIndexes['produkty']] ?? '',
+                        'truncated_name' => $productName
+                    ]);
+                }
 
                 // Pobierz dane z wiersza
                 $description = isset($colIndexes['opis']) ? trim($row[$colIndexes['opis']] ?? '') : '';
+                
+                // Ogranicz długość opisu do 255 znaków (limit w bazie)
+                if (strlen($description) > 255) {
+                    $description = substr($description, 0, 252) . '...';
+                    \Log::info('Opis produktu został skrócony', [
+                        'product' => $productName,
+                        'original_length' => strlen($row[$colIndexes['opis']] ?? ''),
+                        'truncated_length' => strlen($description)
+                    ]);
+                }
+                
                 $supplierName = isset($colIndexes['dost']) ? trim($row[$colIndexes['dost']] ?? '') : '';
+                
+                // Ogranicz długość nazwy dostawcy do 255 znaków (limit w bazie)
+                if (strlen($supplierName) > 255) {
+                    $supplierName = substr($supplierName, 0, 255);
+                    \Log::info('Nazwa dostawcy została skrócona', [
+                        'product' => $productName,
+                        'original_supplier' => $row[$colIndexes['dost']] ?? '',
+                        'truncated_supplier' => $supplierName
+                    ]);
+                }
                 
                 // Normalizuj cenę - obsługa przecinka jako separatora dziesiętnego
                 $priceRaw = isset($colIndexes['cena']) ? trim($row[$colIndexes['cena']] ?? '') : '';
