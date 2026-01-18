@@ -633,18 +633,30 @@ class PartController extends Controller
     // DODAWANIE
     public function add(Request $request)
     {
-        $data = $request->validate([
-            'name'        => 'required|string',
-            'description' => 'nullable|string',
-            'supplier'    => 'nullable|string',
-            'quantity'    => 'required|integer|min:0',
-            'minimum_stock' => 'nullable|integer|min:0',
-            'location'    => 'nullable|string|max:10',
-            'category_id' => 'required|exists:categories,id',
-            'net_price'   => 'nullable|numeric|min:0',
-            'currency'    => 'nullable|in:PLN,EUR,$',
-            'qr_code'     => 'nullable|string',
-        ]);
+        try {
+            $data = $request->validate([
+                'name'        => 'required|string',
+                'description' => 'nullable|string',
+                'supplier'    => 'nullable|string',
+                'quantity'    => 'required|integer|min:0',
+                'minimum_stock' => 'nullable|integer|min:0',
+                'location'    => 'nullable|string|max:10',
+                'category_id' => 'required|exists:categories,id',
+                'net_price'   => 'nullable|numeric|min:0',
+                'currency'    => 'nullable|in:PLN,EUR,$',
+                'qr_code'     => 'nullable|string',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($request->wantsJson() || $request->ajax() || $request->header('Accept') === 'application/json') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Błąd walidacji: ' . implode(', ', array_map(fn($err) => implode(', ', $err), $e->errors()))
+                ], 422);
+            }
+            throw $e;
+        }
+
+        try {
 
         // znajdź lub utwórz część
         $part = Part::firstOrCreate(
@@ -746,6 +758,26 @@ class PartController extends Controller
             }
             if ($request->filled('filter_category_id')) {
                 $queryParams['category_id'] = $request->input('filter_category_id');
+            }
+            return redirect()->route('magazyn.check', $queryParams);
+        }
+        return redirect()->route('magazyn.add');
+        } catch (\Exception $e) {
+            \Log::error('Błąd podczas dodawania produktu: ' . $e->getMessage(), [
+                'name' => $request->input('name'),
+                'category_id' => $request->input('category_id'),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            if ($request->wantsJson() || $request->ajax() || $request->header('Accept') === 'application/json') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Błąd serwera: ' . $e->getMessage()
+                ], 500);
+            }
+            
+            return redirect()->back()->with('error', 'Błąd podczas dodawania produktu: ' . $e->getMessage());
+        }
             }
             return redirect()->route('magazyn.check', $queryParams);
         }

@@ -928,7 +928,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: formData
                 })
                 .then(response => {
-                    if (!response.ok) throw new Error('Błąd podczas dodawania');
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            throw new Error(data.message || 'Błąd podczas dodawania');
+                        }).catch(() => {
+                            throw new Error('Błąd podczas dodawania (kod ' + response.status + ')');
+                        });
+                    }
                     return response.json();
                 })
                 .then(() => {
@@ -937,8 +943,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     row.remove();
                 })
                 .catch(err => {
-                    console.error('Błąd:', err);
-                    alert('Błąd podczas dodawania produktu: ' + (nameInput ? nameInput.value : 'nieznany'));
+                    console.error('Błąd szczegółowy:', err);
+                    const productName = nameInput ? nameInput.value : 'nieznany';
+                    alert('Błąd podczas dodawania produktu: ' + productName + '\n' + err.message);
                 });
             }, delay);
             delay += 300; // 300ms między żądaniami
