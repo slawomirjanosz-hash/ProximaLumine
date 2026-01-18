@@ -647,6 +647,13 @@ class PartController extends Controller
                 'qr_code'     => 'nullable|string',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Błąd walidacji podczas dodawania produktu', [
+                'name' => $request->input('name'),
+                'category_id' => $request->input('category_id'),
+                'supplier' => $request->input('supplier'),
+                'errors' => $e->errors()
+            ]);
+            
             if ($request->wantsJson() || $request->ajax() || $request->header('Accept') === 'application/json') {
                 return response()->json([
                     'success' => false,
@@ -657,111 +664,111 @@ class PartController extends Controller
         }
 
         try {
+            // znajdź lub utwórz część
+            $part = Part::firstOrCreate(
+                ['name' => $data['name']],
+                [
+                    'category_id' => $data['category_id'],
+                    'description' => $data['description'] ?? null,
+                    'supplier'    => $data['supplier'] ?? null,
+                    'quantity'    => 0,
+                    'minimum_stock' => $data['minimum_stock'] ?? 0,
+                    'location'    => $data['location'] ?? null,
+                    'net_price'   => $data['net_price'] ?? null,
+                    'currency'    => $data['currency'] ?? 'PLN',
+                    'qr_code'     => $data['qr_code'] ?? null,
+                ]
+            );
 
-        // znajdź lub utwórz część
-        $part = Part::firstOrCreate(
-            ['name' => $data['name']],
-            [
-                'category_id' => $data['category_id'],
-                'description' => $data['description'] ?? null,
-                'supplier'    => $data['supplier'] ?? null,
-                'quantity'    => 0,
-                'minimum_stock' => $data['minimum_stock'] ?? 0,
-                'location'    => $data['location'] ?? null,
-                'net_price'   => $data['net_price'] ?? null,
-                'currency'    => $data['currency'] ?? 'PLN',
-                'qr_code'     => $data['qr_code'] ?? null,
-            ]
-        );
+            // Sprawdź czy produkt był już w bazie (wasRecentlyCreated = false oznacza że już istniał)
+            $wasExisting = !$part->wasRecentlyCreated;
 
-        // Sprawdź czy produkt był już w bazie (wasRecentlyCreated = false oznacza że już istniał)
-        $wasExisting = !$part->wasRecentlyCreated;
-
-        // aktualizacja opisu, dostawcy, ceny, waluty, lokalizacji, kodu QR i kategorii (jeśli zmieniony / wpisany)
-        if (array_key_exists('description', $data)) {
-            $part->description = $data['description'];
-        }
-        if (array_key_exists('supplier', $data)) {
-            $part->supplier = $data['supplier'];
-        }
-        if (array_key_exists('minimum_stock', $data)) {
-            $part->minimum_stock = $data['minimum_stock'];
-        }
-        if (array_key_exists('location', $data)) {
-            $part->location = $data['location'];
-        }
-        if (array_key_exists('net_price', $data)) {
-            $part->net_price = $data['net_price'];
-        }
-        if (array_key_exists('currency', $data)) {
-            $part->currency = $data['currency'];
-        }
-        if (array_key_exists('category_id', $data)) {
-            $part->category_id = $data['category_id'];
-        }
-        
-        // Aktualizuj kod QR TYLKO jeśli został przekazany ORAZ (produkt jest nowy LUB nie ma jeszcze kodu QR)
-        if (array_key_exists('qr_code', $data) && $data['qr_code']) {
-            // Jeśli produkt już istniał i ma swój kod QR, NIE nadpisuj go
-            if (!$wasExisting || !$part->qr_code) {
-                $part->qr_code = $data['qr_code'];
+            // aktualizacja opisu, dostawcy, ceny, waluty, lokalizacji, kodu QR i kategorii (jeśli zmieniony / wpisany)
+            if (array_key_exists('description', $data)) {
+                $part->description = $data['description'];
             }
-        }
-        
-        // Automatyczne generowanie kodu QR TYLKO dla nowych produktów bez kodu QR
-        if (!$wasExisting && !$part->qr_code) {
-            $qrCode = $this->autoGenerateQrCode($data['name'], $data['location'] ?? null);
-            if ($qrCode) {
-                $part->qr_code = $qrCode;
+            if (array_key_exists('supplier', $data)) {
+                $part->supplier = $data['supplier'];
             }
-        }
+            if (array_key_exists('minimum_stock', $data)) {
+                $part->minimum_stock = $data['minimum_stock'];
+            }
+            if (array_key_exists('location', $data)) {
+                $part->location = $data['location'];
+            }
+            if (array_key_exists('net_price', $data)) {
+                $part->net_price = $data['net_price'];
+            }
+            if (array_key_exists('currency', $data)) {
+                $part->currency = $data['currency'];
+            }
+            if (array_key_exists('category_id', $data)) {
+                $part->category_id = $data['category_id'];
+            }
+            
+            // Aktualizuj kod QR TYLKO jeśli został przekazany ORAZ (produkt jest nowy LUB nie ma jeszcze kodu QR)
+            if (array_key_exists('qr_code', $data) && $data['qr_code']) {
+                // Jeśli produkt już istniał i ma swój kod QR, NIE nadpisuj go
+                if (!$wasExisting || !$part->qr_code) {
+                    $part->qr_code = $data['qr_code'];
+                }
+            }
+            
+            // Automatyczne generowanie kodu QR TYLKO dla nowych produktów bez kodu QR
+            if (!$wasExisting && !$part->qr_code) {
+                $qrCode = $this->autoGenerateQrCode($data['name'], $data['location'] ?? null);
+                if ($qrCode) {
+                    $part->qr_code = $qrCode;
+                }
+            }
 
-        // zwiększenie stanu
-        $part->quantity += (int) $data['quantity'];
-        
-        // przypisanie użytkownika, który dodał/zmodyfikował produkt
-        $part->last_modified_by = auth()->id();
-        
-        $part->save();
+            // zwiększenie stanu
+            $part->quantity += (int) $data['quantity'];
+            
+            // przypisanie użytkownika, który dodał/zmodyfikował produkt
+            $part->last_modified_by = auth()->id();
+            
+            $part->save();
 
-        // Pobierz skróconą nazwę dostawcy dla historii
-        $supplierDisplay = '';
-        if ($part->supplier) {
-            $supplier = \App\Models\Supplier::where('name', $part->supplier)->first();
-            $supplierDisplay = $supplier && $supplier->short_name ? $supplier->short_name : $part->supplier;
-        }
-        
-        // historia sesji (DODAJ)
-        session()->push('adds', [
-            'date'        => now()->format('Y-m-d H:i'),
-            'name'        => $part->name,
-            'description' => $part->description,
-            'supplier'    => $supplierDisplay,
-            'changed'     => (int) $data['quantity'],
-            'after'       => $part->quantity,
-            'category'    => $part->category->name ?? '-',
-        ]);
-
-        // Sprawdź czy to request AJAX
-        if ($request->wantsJson() || $request->ajax() || $request->header('Accept') === 'application/json') {
-            return response()->json([
-                'success' => true, 
-                'message' => 'Produkt dodany',
-                'quantity' => $part->quantity
+            // Pobierz skróconą nazwę dostawcy dla historii
+            $supplierDisplay = '';
+            if ($part->supplier) {
+                $supplier = \App\Models\Supplier::where('name', $part->supplier)->first();
+                $supplierDisplay = $supplier && $supplier->short_name ? $supplier->short_name : $part->supplier;
+            }
+            
+            // historia sesji (DODAJ)
+            session()->push('adds', [
+                'date'        => now()->format('Y-m-d H:i'),
+                'name'        => $part->name,
+                'description' => $part->description,
+                'supplier'    => $supplierDisplay,
+                'changed'     => (int) $data['quantity'],
+                'after'       => $part->quantity,
+                'category'    => $part->category->name ?? '-',
             ]);
-        }
 
-        if ($request->input('redirect_to') === 'check') {
-            $queryParams = [];
-            if ($request->filled('search')) {
-                $queryParams['search'] = $request->input('search');
+            // Sprawdź czy to request AJAX
+            if ($request->wantsJson() || $request->ajax() || $request->header('Accept') === 'application/json') {
+                return response()->json([
+                    'success' => true, 
+                    'message' => 'Produkt dodany',
+                    'quantity' => $part->quantity
+                ]);
             }
-            if ($request->filled('filter_category_id')) {
-                $queryParams['category_id'] = $request->input('filter_category_id');
+
+            if ($request->input('redirect_to') === 'check') {
+                $queryParams = [];
+                if ($request->filled('search')) {
+                    $queryParams['search'] = $request->input('search');
+                }
+                if ($request->filled('filter_category_id')) {
+                    $queryParams['category_id'] = $request->input('filter_category_id');
+                }
+                return redirect()->route('magazyn.check', $queryParams);
             }
-            return redirect()->route('magazyn.check', $queryParams);
-        }
-        return redirect()->route('magazyn.add');
+            return redirect()->route('magazyn.add');
+            
         } catch (\Exception $e) {
             \Log::error('Błąd podczas dodawania produktu: ' . $e->getMessage(), [
                 'name' => $request->input('name'),
@@ -778,10 +785,6 @@ class PartController extends Controller
             
             return redirect()->back()->with('error', 'Błąd podczas dodawania produktu: ' . $e->getMessage());
         }
-            }
-            return redirect()->route('magazyn.check', $queryParams);
-        }
-        return redirect()->route('magazyn.add');
     }
 
     // POBIERANIE
@@ -2965,6 +2968,7 @@ class PartController extends Controller
             $products = [];
             $categories = \App\Models\Category::all();
             $suppliers = \App\Models\Supplier::all();
+            $unknownSuppliers = []; // Lista nieznanych dostawców
 
             foreach ($rows as $row) {
                 // Pomiń puste wiersze
@@ -3020,16 +3024,34 @@ class PartController extends Controller
                     $category = $categories->firstWhere('name', $categoryName);
                     if ($category) {
                         $categoryId = $category->id;
+                    } else {
+                        \Log::warning('Kategoria nie znaleziona w bazie', [
+                            'product' => $productName,
+                            'category_name' => $categoryName,
+                            'available_categories' => $categories->pluck('name')->toArray()
+                        ]);
                     }
                 }
                 
                 // Jeśli nie znaleziono kategorii, użyj pierwszej dostępnej
                 if (!$categoryId && $categories->count() > 0) {
                     $categoryId = $categories->first()->id;
+                    \Log::info('Używam domyślnej kategorii', [
+                        'product' => $productName,
+                        'default_category' => $categories->first()->name
+                    ]);
+                }
+                
+                // Jeśli nadal brak kategorii (pusta baza)
+                if (!$categoryId) {
+                    \Log::error('Brak kategorii w bazie danych', [
+                        'product' => $productName
+                    ]);
+                    continue; // Pomiń ten produkt
                 }
 
                 // Znajdź pełną nazwę dostawcy (może być skrót)
-                $fullSupplierName = $supplierName;
+                $fullSupplierName = null; // Domyślnie null jeśli nie ma w bazie
                 if (!empty($supplierName)) {
                     $supplier = $suppliers->first(function($s) use ($supplierName) {
                         return $s->name === $supplierName || 
@@ -3037,6 +3059,19 @@ class PartController extends Controller
                     });
                     if ($supplier) {
                         $fullSupplierName = $supplier->name;
+                    } else {
+                        // Dodaj do listy nieznanych dostawców
+                        if (!in_array($supplierName, $unknownSuppliers)) {
+                            $unknownSuppliers[] = $supplierName;
+                        }
+                        \Log::warning('Dostawca nie znaleziony w bazie', [
+                            'product' => $productName,
+                            'supplier_name' => $supplierName,
+                            'available_suppliers' => $suppliers->pluck('name')->toArray(),
+                            'available_short_names' => $suppliers->pluck('short_name')->toArray()
+                        ]);
+                        // NIE wpisuj dostawcy jeśli nie ma go w bazie
+                        $fullSupplierName = null;
                     }
                 }
 
@@ -3073,10 +3108,19 @@ class PartController extends Controller
                 ], 400);
             }
 
+            // Przygotuj komunikat z ostrzeżeniem o nieznanych dostawcach
+            $message = 'Zaimportowano ' . count($products) . ' produktów';
+            $warnings = [];
+            
+            if (!empty($unknownSuppliers)) {
+                $warnings[] = 'Następujący dostawcy nie zostali znalezieni w bazie i nie zostaną przypisani do produktów: ' . implode(', ', $unknownSuppliers);
+            }
+
             return response()->json([
                 'success' => true,
                 'products' => $products,
-                'message' => 'Zaimportowano ' . count($products) . ' produktów'
+                'message' => $message,
+                'warnings' => $warnings
             ]);
 
         } catch (\Exception $e) {

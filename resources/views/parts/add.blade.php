@@ -256,7 +256,144 @@
                     <button type="button" id="remove-all-selected-btn-inner" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs mr-2">🗑️ Wyczyść listę</button>
                     <button type="button" id="add-all-btn-inner" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs mr-2">✅ Dodaj wszystkie</button>
                     <span id="add-all-loading-info" class="ml-2 text-xs text-blue-600 font-semibold" style="display:none;">Ładuje produkty...</span>
-                    <button type="button" id="import-excel-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs">📄 Załaduj z Excela</button>
+                    <div class="inline-flex items-center">
+                        <button type="button" id="import-excel-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs">📄 Załaduj z Excela</button>
+                        <button type="button" id="excel-info-btn" class="ml-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold" title="Instrukcja importu">ℹ️</button>
+                    </div>
+                </div>
+            </div>
+
+            {{-- MODAL INSTRUKCJI IMPORTU --}}
+            <div id="excel-info-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" style="display: none;">
+                <div class="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                    <h3 class="text-xl font-bold mb-4">📋 Instrukcja importu produktów z Excel</h3>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-semibold mb-2">Wymagana struktura pliku Excel:</h4>
+                        <p class="text-sm text-gray-600 mb-3">
+                            Plik Excel musi zawierać następujące kolumny (wielkość liter nie ma znaczenia):
+                        </p>
+                        <ul class="list-disc list-inside text-sm text-gray-700 mb-4">
+                            <li><strong>Produkty</strong> - nazwa produktu (wymagane)</li>
+                            <li><strong>Opis</strong> - opis produktu (opcjonalne)</li>
+                            <li><strong>Dost.</strong> - dostawca (opcjonalne, może być skrót)</li>
+                            <li><strong>Cena</strong> - cena netto (opcjonalne, może zawierać przecinek lub kropkę)</li>
+                            <li><strong>Waluta</strong> - PLN, zł, EUR, Euro, $ (opcjonalne)</li>
+                            <li><strong>Kategoria</strong> - nazwa kategorii (opcjonalne)</li>
+                            <li><strong>Ilość</strong> - ilość do dodania (opcjonalne, domyślnie 1, może być 0)</li>
+                            <li><strong>Lok.</strong> - lokalizacja w magazynie (opcjonalne, max 10 znaków)</li>
+                        </ul>
+                    </div>
+
+                    <div class="mb-4">
+                        <h4 class="font-semibold mb-2">Przykładowa struktura:</h4>
+                        <div class="overflow-x-auto">
+                            <table class="w-full border-collapse border border-gray-300 text-xs">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="border border-gray-300 p-2 text-left">Produkty</th>
+                                        <th class="border border-gray-300 p-2 text-left">Opis</th>
+                                        <th class="border border-gray-300 p-2 text-left">Dost.</th>
+                                        <th class="border border-gray-300 p-2 text-right">Cena</th>
+                                        <th class="border border-gray-300 p-2 text-left">Waluta</th>
+                                        <th class="border border-gray-300 p-2 text-left">Kategoria</th>
+                                        <th class="border border-gray-300 p-2 text-center">Ilość</th>
+                                        <th class="border border-gray-300 p-2 text-center">Lok.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="border border-gray-300 p-2">6AV2128-3GB06-0AX1</td>
+                                        <td class="border border-gray-300 p-2">SIMATIC HMI TP1200, UNIFIED COMFORT PANEL, PANORAMICZNY DOTYKOWY</td>
+                                        <td class="border border-gray-300 p-2">Siemens</td>
+                                        <td class="border border-gray-300 p-2 text-right">1 388,56</td>
+                                        <td class="border border-gray-300 p-2">Euro</td>
+                                        <td class="border border-gray-300 p-2">Automatyka</td>
+                                        <td class="border border-gray-300 p-2 text-center">2</td>
+                                        <td class="border border-gray-300 p-2 text-center">I/0</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="border border-gray-300 p-2">6AV2124-0JC01-0AX0</td>
+                                        <td class="border border-gray-300 p-2">SIMATIC TP900 COMFORT PANEL, PANORAMICZNY DOTYKOWY W ŚWIATŁACH</td>
+                                        <td class="border border-gray-300 p-2">Siemens</td>
+                                        <td class="border border-gray-300 p-2 text-right">1 161,83</td>
+                                        <td class="border border-gray-300 p-2">Euro</td>
+                                        <td class="border border-gray-300 p-2">Automatyka</td>
+                                        <td class="border border-gray-300 p-2 text-center">2</td>
+                                        <td class="border border-gray-300 p-2 text-center">M/0</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="border border-gray-300 p-2">6ES7223-1BH32-0XB0</td>
+                                        <td class="border border-gray-300 p-2">SIMATIC S7-1200, CPU 1212C AC/DC/RDY, 14 I/O</td>
+                                        <td class="border border-gray-300 p-2">Siemens</td>
+                                        <td class="border border-gray-300 p-2 text-right">103,06</td>
+                                        <td class="border border-gray-300 p-2">Euro</td>
+                                        <td class="border border-gray-300 p-2">Automatyka</td>
+                                        <td class="border border-gray-300 p-2 text-center">8</td>
+                                        <td class="border border-gray-300 p-2 text-center">M1</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="border border-gray-300 p-2">6ES7217-1AG40-0XB0</td>
+                                        <td class="border border-gray-300 p-2">SIMATIC S7-1200, CPU 1217C DC/DC/DC, INTERFEJS PROFINET (2 X RJ 45), 14</td>
+                                        <td class="border border-gray-300 p-2">Siemens</td>
+                                        <td class="border border-gray-300 p-2 text-right">487,71</td>
+                                        <td class="border border-gray-300 p-2">Euro</td>
+                                        <td class="border border-gray-300 p-2">Automatyka</td>
+                                        <td class="border border-gray-300 p-2 text-center">4</td>
+                                        <td class="border border-gray-300 p-2 text-center">M1</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="border border-gray-300 p-2">6ES7214-1AG40-0XB0</td>
+                                        <td class="border border-gray-300 p-2">SIMATIC S7-1200, CPU 1214C DC/DC/DC, 14 I/O</td>
+                                        <td class="border border-gray-300 p-2">Siemens</td>
+                                        <td class="border border-gray-300 p-2 text-right">224,53</td>
+                                        <td class="border border-gray-300 p-2">Euro</td>
+                                        <td class="border border-gray-300 p-2">Automatyka</td>
+                                        <td class="border border-gray-300 p-2 text-center">0</td>
+                                        <td class="border border-gray-300 p-2 text-center">M1</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="border border-gray-300 p-2">6ES7215-1AG40-0XB0</td>
+                                        <td class="border border-gray-300 p-2">SIMATIC S7-1200, CPU 1215C DC/DC/DC, INTERFEJS PROFINET (2 X RJ 45), 14</td>
+                                        <td class="border border-gray-300 p-2">Siemens</td>
+                                        <td class="border border-gray-300 p-2 text-right">337,84</td>
+                                        <td class="border border-gray-300 p-2">Euro</td>
+                                        <td class="border border-gray-300 p-2">Automatyka</td>
+                                        <td class="border border-gray-300 p-2 text-center">0</td>
+                                        <td class="border border-gray-300 p-2 text-center">M1</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="border border-gray-300 p-2">6ES7212-1AE40-0XB0</td>
+                                        <td class="border border-gray-300 p-2">SIMATIC S7-1200, CPU 1212C DC/DC/DC, 8 DI/6 DO/2 AI, WYXSC</td>
+                                        <td class="border border-gray-300 p-2">Siemens</td>
+                                        <td class="border border-gray-300 p-2 text-right">148,32</td>
+                                        <td class="border border-gray-300 p-2">Euro</td>
+                                        <td class="border border-gray-300 p-2">Automatyka</td>
+                                        <td class="border border-gray-300 p-2 text-center">5</td>
+                                        <td class="border border-gray-300 p-2 text-center">M1</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="mb-4 bg-blue-50 border border-blue-200 rounded p-3">
+                        <h4 class="font-semibold mb-2 text-blue-800">💡 Ważne informacje:</h4>
+                        <ul class="list-disc list-inside text-sm text-blue-700 space-y-1">
+                            <li>Jeśli produkt już istnieje w bazie (ta sama nazwa), zostanie zwiększona tylko ilość</li>
+                            <li>Dla istniejących produktów kod QR nie zostanie zmieniony</li>
+                            <li>Ceny mogą zawierać przecinek lub kropkę jako separator dziesiętny</li>
+                            <li>Waluty są rozpoznawane automatycznie: zł/PLN, Euro/EUR, $/USD</li>
+                            <li>Kod QR zostanie automatycznie wygenerowany dla nowych produktów</li>
+                            <li>Ilość może być 0 (pozwala na dodanie produktu do katalogu bez stanu)</li>
+                        </ul>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button type="button" id="close-info-modal" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
+                            Zamknij
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1485,6 +1622,32 @@ document.addEventListener('DOMContentLoaded', () => {
         excelImportModal.style.display = 'flex';
     });
 
+    // Przycisk informacji o imporcie Excel
+    const excelInfoBtn = document.getElementById('excel-info-btn');
+    const excelInfoModal = document.getElementById('excel-info-modal');
+    const closeInfoModal = document.getElementById('close-info-modal');
+
+    if (excelInfoBtn) {
+        excelInfoBtn.addEventListener('click', () => {
+            excelInfoModal.style.display = 'flex';
+        });
+    }
+
+    if (closeInfoModal) {
+        closeInfoModal.addEventListener('click', () => {
+            excelInfoModal.style.display = 'none';
+        });
+    }
+
+    // Zamknij modal klikając poza nim
+    if (excelInfoModal) {
+        excelInfoModal.addEventListener('click', (e) => {
+            if (e.target === excelInfoModal) {
+                excelInfoModal.style.display = 'none';
+            }
+        });
+    }
+
     closeExcelModal.addEventListener('click', () => {
         excelImportModal.style.display = 'none';
         excelImportForm.reset();
@@ -1544,6 +1707,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         message += `\n\n📦 Wszystkie produkty już istnieją w bazie - zostanie zwiększona tylko ilość`;
                     } else {
                         message += `\n\n🆕 Wszystkie produkty są nowe`;
+                    }
+                    
+                    // Dodaj ostrzeżenie o nieznanych dostawcach
+                    if (data.warnings && data.warnings.length > 0) {
+                        message += `\n\n⚠️ UWAGA:\n${data.warnings.join('\n')}`;
                     }
                     
                     alert(message);
