@@ -773,13 +773,22 @@ class PartController extends Controller
             \Log::error('Błąd podczas dodawania produktu: ' . $e->getMessage(), [
                 'name' => $request->input('name'),
                 'category_id' => $request->input('category_id'),
+                'supplier' => $request->input('supplier'),
+                'quantity' => $request->input('quantity'),
+                'location' => $request->input('location'),
+                'error_class' => get_class($e),
+                'error_code' => $e->getCode(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
                 'trace' => $e->getTraceAsString()
             ]);
             
             if ($request->wantsJson() || $request->ajax() || $request->header('Accept') === 'application/json') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Błąd serwera: ' . $e->getMessage()
+                    'message' => 'Błąd serwera: ' . $e->getMessage(),
+                    'error_type' => get_class($e),
+                    'product_name' => $request->input('name')
                 ], 500);
             }
             
@@ -2969,6 +2978,12 @@ class PartController extends Controller
             $categories = \App\Models\Category::all();
             $suppliers = \App\Models\Supplier::all();
             $unknownSuppliers = []; // Lista nieznanych dostawców
+            $unknownCategories = []; // Lista nieznanych kategorii
+
+            // Zapisz dostępne kategorie do logu (do debugowania Railway)
+            \Log::info('Dostępne kategorie w bazie', [
+                'categories' => $categories->pluck('name')->toArray()
+            ]);
 
             foreach ($rows as $row) {
                 // Pomiń puste wiersze
@@ -3025,6 +3040,10 @@ class PartController extends Controller
                     if ($category) {
                         $categoryId = $category->id;
                     } else {
+                        // Dodaj do listy nieznanych kategorii
+                        if (!in_array($categoryName, $unknownCategories)) {
+                            $unknownCategories[] = $categoryName;
+                        }
                         \Log::warning('Kategoria nie znaleziona w bazie', [
                             'product' => $productName,
                             'category_name' => $categoryName,
@@ -3114,6 +3133,10 @@ class PartController extends Controller
             
             if (!empty($unknownSuppliers)) {
                 $warnings[] = 'Następujący dostawcy nie zostali znalezieni w bazie i nie zostaną przypisani do produktów: ' . implode(', ', $unknownSuppliers);
+            }
+            
+            if (!empty($unknownCategories)) {
+                $warnings[] = 'Następujące kategorie nie zostały znalezione w bazie (produkty użyją domyślnej kategorii): ' . implode(', ', $unknownCategories) . '. Dostępne kategorie: ' . $categories->pluck('name')->implode(', ');
             }
 
             return response()->json([
