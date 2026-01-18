@@ -263,9 +263,12 @@
             <div id="excel-import-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" style="display: none;">
                 <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
                     <h3 class="text-lg font-bold mb-4">📄 Import produktów z Excel</h3>
-                    <p class="text-sm text-gray-600 mb-4">
+                    <p class="text-sm text-gray-600 mb-2">
                         Wybierz plik Excel (.xlsx, .xls) z kolumnami:<br>
                         <strong>produkty, opis, dost., cena, waluta, kategoria, ilość, lok.</strong>
+                    </p>
+                    <p class="text-xs text-gray-500 mb-4">
+                        💡 Kod QR zostanie automatycznie wygenerowany dla każdego importowanego produktu
                     </p>
                     <form id="excel-import-form" enctype="multipart/form-data">
                         @csrf
