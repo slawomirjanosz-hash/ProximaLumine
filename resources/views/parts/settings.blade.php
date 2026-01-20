@@ -820,6 +820,15 @@
                                     @if($user->is_admin)
                                         <span class="text-lg" title="Dostęp do wszystkiego">⭐</span>
                                     @else
+                                        @if($user->can_view_magazyn)
+                                            <span class="text-lg" title="Dostęp do Magazynu">📦</span>
+                                        @endif
+                                        @if($user->can_view_offers)
+                                            <span class="text-lg" title="Dostęp do Wycen i Ofert">💼</span>
+                                        @endif
+                                        @if($user->can_view_recipes)
+                                            <span class="text-lg" title="Dostęp do Receptur">🧪</span>
+                                        @endif
                                         @if($user->can_view_catalog)
                                             <span class="text-lg" title="Dostęp do Katalogu">🔍</span>
                                         @endif
@@ -838,7 +847,7 @@
                                         @if($user->can_delete_orders)
                                             <span class="text-lg" title="Może usuwać zamówienia">🗑️</span>
                                         @endif
-                                        @if(!$user->can_view_catalog && !$user->can_add && !$user->can_remove && !$user->can_orders && !$user->can_settings)
+                                        @if(!$user->can_view_magazyn && !$user->can_view_offers && !$user->can_view_recipes && !$user->can_view_catalog && !$user->can_add && !$user->can_remove && !$user->can_orders && !$user->can_settings)
                                             <span class="text-gray-400 text-xs italic">Brak uprawnień</span>
                                         @endif
                                     @endif

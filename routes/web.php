@@ -210,6 +210,38 @@ Route::middleware('auth')->get('/wyceny', function () {
     return view('offers');
 })->name('offers');
 
+// RECEPTURY - dla użytkowników z uprawnieniem lub superadmina
+Route::middleware('auth')->get('/receptury', function () {
+    // Walidacja uprawnień
+    if (!auth()->user()->can_view_recipes && auth()->user()->email !== 'proximalumine@gmail.com') {
+        abort(403);
+    }
+    return view('receptury');
+})->name('receptury');
+
+// RECEPTURY - trasy
+Route::middleware(['auth'])->prefix('receptury')->group(function () {
+    // Katalog składników
+    Route::get('/skladniki', [App\Http\Controllers\RecipeController::class, 'ingredientsIndex'])->name('recipes.ingredients');
+    Route::post('/skladniki', [App\Http\Controllers\RecipeController::class, 'ingredientStore'])->name('recipes.ingredients.store');
+    Route::put('/skladniki/{ingredient}', [App\Http\Controllers\RecipeController::class, 'ingredientUpdate'])->name('recipes.ingredients.update');
+    Route::delete('/skladniki/{ingredient}', [App\Http\Controllers\RecipeController::class, 'ingredientDestroy'])->name('recipes.ingredients.destroy');
+    
+    // Receptury CRUD
+    Route::get('/lista', [App\Http\Controllers\RecipeController::class, 'index'])->name('recipes.index');
+    Route::get('/nowa', [App\Http\Controllers\RecipeController::class, 'create'])->name('recipes.create');
+    Route::post('/nowa', [App\Http\Controllers\RecipeController::class, 'store'])->name('recipes.store');
+    Route::get('/{recipe}/edytuj', [App\Http\Controllers\RecipeController::class, 'edit'])->name('recipes.edit');
+    Route::put('/{recipe}', [App\Http\Controllers\RecipeController::class, 'update'])->name('recipes.update');
+    Route::delete('/{recipe}', [App\Http\Controllers\RecipeController::class, 'destroy'])->name('recipes.destroy');
+    
+    // Realizacja receptury
+    Route::post('/{recipe}/rozpocznij', [App\Http\Controllers\RecipeController::class, 'startExecution'])->name('recipes.start');
+    Route::get('/realizacja/{execution}', [App\Http\Controllers\RecipeController::class, 'execute'])->name('recipes.execute');
+    Route::post('/realizacja/{execution}/potwierdz-krok', [App\Http\Controllers\RecipeController::class, 'confirmStep'])->name('recipes.confirmStep');
+});
+
+
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PartController;
 use App\Http\Controllers\AuthController;

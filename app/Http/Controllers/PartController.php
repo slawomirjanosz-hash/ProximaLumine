@@ -1154,6 +1154,12 @@ class PartController extends Controller
         // Zaktualizuj uprawnienia (konwertuj na int dla boolean kolumn)
         $user->can_view_magazyn = (int) $request->has('can_view_magazyn');
         $user->can_view_offers = (int) $request->has('can_view_offers');
+        
+        // Tylko superadmin może nadawać uprawnienie do receptur
+        if (auth()->user()->email === 'proximalumine@gmail.com') {
+            $user->can_view_recipes = (int) $request->has('can_view_recipes');
+        }
+        
         $user->can_view_catalog = (int) $request->has('can_view_catalog');
         $user->can_add = (int) $request->has('can_add');
         $user->can_remove = (int) $request->has('can_remove');

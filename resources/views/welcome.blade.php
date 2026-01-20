@@ -87,6 +87,11 @@
                     Wyceny i Oferty
                 </a>
             @endif
+            @if(Auth::user()->email === 'proximalumine@gmail.com' || Auth::user()->can_view_recipes)
+                <a href="{{ route('receptury') }}" class="inline-block px-6 py-3 bg-purple-700 text-white rounded text-lg hover:bg-purple-800 min-w-[220px]">
+                    Receptury
+                </a>
+            @endif
         </div>
     @else
         <a href="{{ route('login') }}"

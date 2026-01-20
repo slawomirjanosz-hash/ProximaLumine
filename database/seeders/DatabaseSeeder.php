@@ -17,15 +17,16 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Tworzenie głównego konta Admin proximalumine (jeśli nie istnieje)
-        if (!User::where('email', 'proximalumine@gmail.com')->exists()) {
-            User::create([
+        // Tworzenie głównego konta Super Admin proximalumine (zawsze)
+        User::updateOrCreate(
+            ['email' => 'proximalumine@gmail.com'],
+            [
                 'name' => 'ProximaLumine',
                 'first_name' => 'Proxima',
                 'last_name' => 'Lumine',
                 'short_name' => 'ProLum',
                 'email' => 'proximalumine@gmail.com',
-                'password' => \Illuminate\Support\Facades\Hash::make('Lumine1!'),
+                'password' => \Illuminate\Support\Facades\Hash::make('Gwiazda1!'),
                 'is_admin' => true,
                 'can_view_catalog' => true,
                 'can_add' => true,
@@ -40,8 +41,10 @@ class DatabaseSeeder extends Seeder
                 'can_settings_other' => true,
                 'can_delete_orders' => true,
                 'show_action_column' => true,
-            ]);
-        }
+                'can_view_magazyn' => true,
+                'can_view_offers' => true,
+            ]
+        );
         
         // Ustawienia firmy i zamówień
         $this->call([

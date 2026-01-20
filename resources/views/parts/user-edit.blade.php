@@ -148,6 +148,20 @@
                         <p class="text-gray-600">Możliwość wejścia do sekcji Wyceny i Oferty</p>
                     </span>
                 </label>
+                @if(auth()->user()->email === 'proximalumine@gmail.com')
+                <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        name="can_view_recipes" 
+                        class="w-4 h-4"
+                        {{ $user->can_view_recipes ? 'checked' : '' }}
+                    >
+                    <span class="text-sm">
+                        <strong>🧪 Receptury</strong>
+                        <p class="text-gray-600">Możliwość wejścia do sekcji Receptury (tylko superadmin może nadawać)</p>
+                    </span>
+                </label>
+                @endif
                 <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
                     <input 
                         type="checkbox" 
