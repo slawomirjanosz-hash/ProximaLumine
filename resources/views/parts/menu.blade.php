@@ -29,45 +29,54 @@
 
         <!-- PRAWA STRONA: MENU -->
         <nav class="flex gap-2 items-center flex-wrap justify-end">
-            <a href="{{ url('/') }}"
-               class="px-3 py-2 text-sm bg-gray-200 rounded whitespace-nowrap">
-                Start
-            </a>
-
-            @if(auth()->check() && auth()->user()->can_view_catalog)
-                <a href="{{ route('magazyn.check') }}"
-                   class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
-                    🔍Katalog
+            @unless(request()->routeIs('crm*') || request()->routeIs('magazyn.settings'))
+                <a href="{{ url('/') }}"
+                   class="px-3 py-2 text-sm bg-gray-200 rounded whitespace-nowrap">
+                    Start
                 </a>
-            @endif
 
-            @if(auth()->check() && auth()->user()->can_remove)
-                <a href="{{ route('magazyn.remove') }}"
-                   class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
-                    ➖Pobierz
-                </a>
-            @endif
+                @if(auth()->check() && (auth()->user()->is_admin || auth()->user()->can_view_recipes) && !request()->routeIs('magazyn*'))
+                    <a href="{{ route('receptury') }}"
+                       class="px-3 py-2 text-sm bg-purple-100 text-black rounded whitespace-nowrap">
+                        🧪Receptury
+                    </a>
+                @endif
 
-            @if(auth()->check() && auth()->user()->can_add)
-                <a href="{{ route('magazyn.add') }}"
-                   class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
-                    ➕Dodaj
-                </a>
-            @endif
+                @if(auth()->check() && auth()->user()->can_view_catalog)
+                    <a href="{{ route('magazyn.check') }}"
+                       class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
+                        🔍Katalog
+                    </a>
+                @endif
 
-            @if(auth()->check() && auth()->user()->can_orders)
-                <a href="{{ route('magazyn.orders') }}"
-                   class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
-                    📦Zamówienia
-                </a>
-            @endif
+                @if(auth()->check() && auth()->user()->can_remove)
+                    <a href="{{ route('magazyn.remove') }}"
+                       class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
+                        ➖Pobierz
+                    </a>
+                @endif
 
-            @if(auth()->check())
-                <a href="{{ route('magazyn.projects') }}"
-                   class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
-                    🗂️Projekty
-                </a>
-            @endif
+                @if(auth()->check() && auth()->user()->can_add)
+                    <a href="{{ route('magazyn.add') }}"
+                       class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
+                        ➕Dodaj
+                    </a>
+                @endif
+
+                @if(auth()->check() && auth()->user()->can_orders)
+                    <a href="{{ route('magazyn.orders') }}"
+                       class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
+                        📦Zamówienia
+                    </a>
+                @endif
+
+                @if(auth()->check())
+                    <a href="{{ route('magazyn.projects') }}"
+                       class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
+                        🗂️Projekty
+                    </a>
+                @endif
+            @endunless
 
             @if(auth()->check() && auth()->user()->can_settings)
                 <a href="{{ route('magazyn.settings') }}"

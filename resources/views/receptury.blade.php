@@ -15,6 +15,12 @@
             <a href="{{ url('/') }}" class="text-2xl font-bold text-blue-600">← System Receptur</a>
         </div>
         <nav class="flex gap-2 items-center">
+            @if(auth()->check() && auth()->user()->can_settings)
+                <a href="{{ route('magazyn.settings') }}"
+                   class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
+                    ⚙️Ustawienia
+                </a>
+            @endif
             <span class="text-gray-700 text-sm">{{ Auth::user()->name }}</span>
             <form action="{{ route('logout') }}" method="POST" class="inline">
                 @csrf

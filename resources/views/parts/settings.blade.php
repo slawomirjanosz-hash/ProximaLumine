@@ -13,7 +13,11 @@
 <div class="max-w-6xl mx-auto px-6 py-6">
 
     <!-- Nagłówek z Statystykami -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 relative">
+        <a href="/" class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 shadow rounded-full text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition">
+            <svg xmlns='http://www.w3.org/2000/svg' class='h-5 w-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 19l-7-7 7-7' /></svg>
+            Powrót
+        </a>
            <h2 class="text-2xl font-bold mb-2">⚙️ Ustawienia Magazynu</h2>
         <div class="bg-white rounded shadow p-1 w-96 ml-auto" style="word-break:break-word;">
             <div class="flex items-center gap-4">
@@ -184,11 +188,11 @@
     <div class="bg-white rounded shadow mb-6">
         <button type="button" class="collapsible-btn w-full flex items-center gap-2 p-6 cursor-pointer hover:bg-gray-50" data-target="suppliers-content">
             <span class="toggle-arrow text-lg">▶</span>
-            <h3 class="text-xl font-semibold">Dostawcy</h3>
+            <h3 class="text-xl font-semibold">Dostawcy i Klienci</h3>
         </button>
         <div id="suppliers-content" class="collapsible-content hidden p-6 border-t">
             <div class="mb-4">
-                <p class="text-gray-600 mb-3">Lista dostawców:</p>
+                <p class="text-gray-600 mb-3">Lista dostawców i klientów:</p>
                 <div class="overflow-x-auto">
                     <table class="w-full border border-collapse text-xs">
                         <thead class="bg-gray-100">
@@ -202,6 +206,7 @@
                                 <th class="border p-2 text-left">Miasto</th>
                                 <th class="border p-2 text-left min-w-[140px]">Telefon</th>
                                 <th class="border p-2 text-left min-w-[200px]">Email</th>
+                                <th class="border p-2 text-center">Typ</th>
                                 <th class="border p-2 text-center">Akcja</th>
                             </tr>
                         </thead>
@@ -232,6 +237,14 @@
                                     <td class="border p-2 min-w-[140px]">{{ $supplier->phone ?? '-' }}</td>
                                     <td class="border p-2 min-w-[200px]">{{ $supplier->email ?? '-' }}</td>
                                     <td class="border p-2 text-center whitespace-nowrap">
+                                        @php
+                                            $types = [];
+                                            if($supplier->is_supplier) $types[] = '🏭 Dostawca';
+                                            if($supplier->is_client) $types[] = '👤 Klient';
+                                        @endphp
+                                        <span class="text-xs">{{ implode(' / ', $types) ?: '-' }}</span>
+                                    </td>
+                                    <td class="border p-2 text-center whitespace-nowrap">
                                         <button type="button" 
                                             class="text-blue-600 hover:text-blue-800 mr-2 edit-supplier-btn"
                                             title="Edytuj dostawcę"
@@ -245,6 +258,8 @@
                                             data-supplier-phone="{{ $supplier->phone ?? '' }}"
                                             data-supplier-email="{{ $supplier->email ?? '' }}"
                                             data-supplier-logo="{{ $supplier->logo ?? '' }}"
+                                            data-supplier-is-supplier="{{ $supplier->is_supplier ? '1' : '0' }}"
+                                            data-supplier-is-client="{{ $supplier->is_client ? '1' : '0' }}"
                                         >✏️</button>
                                         <form action="{{ route('magazyn.supplier.delete', $supplier->id) }}" method="POST" class="inline" onsubmit="return confirm('Czy na pewno usunąć dostawcę {{ $supplier->name }}?');">
                                             @csrf
@@ -255,7 +270,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td class="border p-2 text-center text-gray-400 italic" colspan="10">Brak dostawców</td>
+                                    <td class="border p-2 text-center text-gray-400 italic" colspan="11">Brak dostawców</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -390,6 +405,33 @@
                         >
                         <p class="text-xs text-gray-600 mt-1">Dozwolone formaty: JPG, PNG, GIF, SVG (max 2MB)</p>
                     </div>
+                    <div class="col-span-2 border-t pt-3 mt-2">
+                        <label class="block text-sm font-semibold mb-2">Typ podmiotu:</label>
+                        <div class="flex gap-6">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    name="is_supplier" 
+                                    id="supplier-is-supplier"
+                                    value="1"
+                                    checked
+                                    class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                >
+                                <span class="text-sm font-medium text-gray-700">Dostawca</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    name="is_client" 
+                                    id="supplier-is-client"
+                                    value="1"
+                                    class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                >
+                                <span class="text-sm font-medium text-gray-700">Klient</span>
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-600 mt-1">Podmiot może być zaznaczony jako Dostawca, Klient lub oba jednocześnie</p>
+                    </div>
                     <button 
                         type="submit" 
                         class="col-span-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
@@ -499,6 +541,32 @@
                             class="w-full px-3 py-2 border border-gray-300 rounded"
                         >
                         <p class="text-xs text-gray-600 mt-1">Pozostaw puste, aby zachować aktualne logo</p>
+                    </div>
+                    <div class="col-span-2 border-t pt-3 mt-2">
+                        <label class="block text-sm font-semibold mb-2">Typ podmiotu:</label>
+                        <div class="flex gap-6">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    name="is_supplier" 
+                                    id="edit-supplier-is-supplier"
+                                    value="1"
+                                    class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                >
+                                <span class="text-sm font-medium text-gray-700">Dostawca</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    name="is_client" 
+                                    id="edit-supplier-is-client"
+                                    value="1"
+                                    class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                >
+                                <span class="text-sm font-medium text-gray-700">Klient</span>
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-600 mt-1">Podmiot może być zaznaczony jako Dostawca, Klient lub oba jednocześnie</p>
                     </div>
                     <div class="col-span-2 flex gap-2">
                         <button 
@@ -840,6 +908,9 @@
                                         @endif
                                         @if($user->can_orders)
                                             <span class="text-lg" title="Dostęp do Zamówienia">📦</span>
+                                        @endif
+                                        @if($user->can_crm)
+                                            <span class="text-lg" title="Dostęp do CRM">👥</span>
                                         @endif
                                         @if($user->can_settings)
                                             <span class="text-lg" title="Dostęp do Ustawienia">⚙️</span>
@@ -1638,6 +1709,8 @@
             var supplierPhone = btn.getAttribute('data-supplier-phone');
             var supplierEmail = btn.getAttribute('data-supplier-email');
             var supplierLogo = btn.getAttribute('data-supplier-logo');
+            var supplierIsSupplier = btn.getAttribute('data-supplier-is-supplier');
+            var supplierIsClient = btn.getAttribute('data-supplier-is-client');
 
             // Ustaw action formularza
             editSupplierForm.action = '/magazyn/ustawienia/supplier/' + supplierId;
@@ -1651,6 +1724,10 @@
             document.getElementById('edit-supplier-postal-code').value = supplierPostalCode || '';
             document.getElementById('edit-supplier-phone').value = supplierPhone || '';
             document.getElementById('edit-supplier-email').value = supplierEmail || '';
+            
+            // Ustaw checkboxy dla typu podmiotu
+            document.getElementById('edit-supplier-is-supplier').checked = supplierIsSupplier === '1';
+            document.getElementById('edit-supplier-is-client').checked = supplierIsClient === '1';
 
             // Pokaż aktualne logo
             var currentLogoDiv = document.getElementById('edit-supplier-current-logo');

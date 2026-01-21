@@ -123,7 +123,16 @@
         <!-- Uprawnienia -->
         <div class="border-b pb-4">
             <h3 class="font-semibold mb-4">Dostęp do zakładek</h3>
+            @php
+                $isSuperAdmin = auth()->user()->email === 'proximalumine@gmail.com';
+                $isAdmin = auth()->user()->is_admin;
+                $canEditMagazyn = $isSuperAdmin || ($isAdmin && auth()->user()->can_view_magazyn);
+                $canEditOffers = $isSuperAdmin || ($isAdmin && auth()->user()->can_view_offers);
+                $canEditRecipes = $isSuperAdmin || ($isAdmin && auth()->user()->can_view_recipes);
+                $canEditCrm = $isSuperAdmin || ($isAdmin && auth()->user()->can_crm);
+            @endphp
             <div class="space-y-3">
+                @if($canEditMagazyn)
                 <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
                     <input 
                         type="checkbox" 
@@ -136,6 +145,20 @@
                         <p class="text-gray-600">Możliwość wejścia do magazynu</p>
                     </span>
                 </label>
+                @else
+                    @if($user->can_view_magazyn)
+                    <div class="flex items-center gap-3 p-3 border rounded bg-gray-50">
+                        <input type="checkbox" class="w-4 h-4" checked disabled>
+                        <span class="text-sm text-gray-500">
+                            <strong>📦 Magazyn</strong>
+                            <p class="text-gray-600">Możliwość wejścia do magazynu (tylko do odczytu)</p>
+                        </span>
+                    </div>
+                    <input type="hidden" name="can_view_magazyn" value="1">
+                    @endif
+                @endif
+                
+                @if($canEditOffers)
                 <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
                     <input 
                         type="checkbox" 
@@ -148,7 +171,20 @@
                         <p class="text-gray-600">Możliwość wejścia do sekcji Wyceny i Oferty</p>
                     </span>
                 </label>
-                @if(auth()->user()->email === 'proximalumine@gmail.com')
+                @else
+                    @if($user->can_view_offers)
+                    <div class="flex items-center gap-3 p-3 border rounded bg-gray-50">
+                        <input type="checkbox" class="w-4 h-4" checked disabled>
+                        <span class="text-sm text-gray-500">
+                            <strong>💼 Wyceny i Oferty</strong>
+                            <p class="text-gray-600">Możliwość wejścia do sekcji Wyceny i Oferty (tylko do odczytu)</p>
+                        </span>
+                    </div>
+                    <input type="hidden" name="can_view_offers" value="1">
+                    @endif
+                @endif
+                
+                @if($canEditRecipes)
                 <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
                     <input 
                         type="checkbox" 
@@ -158,9 +194,20 @@
                     >
                     <span class="text-sm">
                         <strong>🧪 Receptury</strong>
-                        <p class="text-gray-600">Możliwość wejścia do sekcji Receptury (tylko superadmin może nadawać)</p>
+                        <p class="text-gray-600">Możliwość wejścia do sekcji Receptury {{ !$isSuperAdmin ? '(admin z tym uprawnieniem może nadawać)' : '' }}</p>
                     </span>
                 </label>
+                @else
+                    @if($user->can_view_recipes)
+                    <div class="flex items-center gap-3 p-3 border rounded bg-gray-50">
+                        <input type="checkbox" class="w-4 h-4" checked disabled>
+                        <span class="text-sm text-gray-500">
+                            <strong>🧪 Receptury</strong>
+                            <p class="text-gray-600">Możliwość wejścia do sekcji Receptury (tylko do odczytu)</p>
+                        </span>
+                    </div>
+                    <input type="hidden" name="can_view_recipes" value="1">
+                    @endif
                 @endif
                 <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
                     <input 
@@ -305,6 +352,32 @@
                         <p class="text-gray-600">Możliwość usuwania zamówień</p>
                     </span>
                 </label>
+
+                @if($canEditCrm)
+                <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        name="can_crm" 
+                        class="w-4 h-4"
+                        {{ $user->can_crm ? 'checked' : '' }}
+                    >
+                    <span class="text-sm">
+                        <strong>👥 CRM</strong>
+                        <p class="text-gray-600">Dostęp do systemu zarządzania relacjami z klientami</p>
+                    </span>
+                </label>
+                @else
+                    @if($user->can_crm)
+                    <div class="flex items-center gap-3 p-3 border rounded bg-gray-50">
+                        <input type="checkbox" class="w-4 h-4" checked disabled>
+                        <span class="text-sm text-gray-500">
+                            <strong>👥 CRM</strong>
+                            <p class="text-gray-600">Dostęp do systemu zarządzania relacjami z klientami (tylko do odczytu)</p>
+                        </span>
+                    </div>
+                    <input type="hidden" name="can_crm" value="1">
+                    @endif
+                @endif
 
                 <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
                     <input 

@@ -308,6 +308,49 @@ Route::middleware('auth')->group(function () {
     Route::put('/magazyn/parts/{part}/update-price', [PartController::class, 'updatePrice'])->name('magazyn.parts.updatePrice')->middleware('permission:view_catalog');
     Route::put('/magazyn/parts/{part}/update', [PartController::class, 'updatePart'])->name('magazyn.parts.update')->middleware('permission:view_catalog');
     Route::put('/magazyn/parts/{part}/update-location', [PartController::class, 'updateLocation'])->name('magazyn.parts.updateLocation')->middleware('permission:view_catalog');
+
+    // CRM Routes (Main Catalog)
+    Route::middleware('auth')->group(function () {
+        Route::get('/crm', [PartController::class, 'crmView'])->name('crm');
+        
+        // Test page for NIP search
+        Route::get('/test-nip', function () {
+            return view('test-nip');
+        })->name('test.nip');
+        
+        // Old interaction routes (deprecated, kept for backwards compatibility)
+        Route::post('/crm/interaction', [PartController::class, 'addCrmInteraction'])->name('crm.addInteraction');
+        Route::put('/crm/interaction/{interaction}', [PartController::class, 'updateCrmInteraction'])->name('crm.updateInteraction');
+        Route::delete('/crm/interaction/{interaction}', [PartController::class, 'deleteCrmInteraction'])->name('crm.deleteInteraction');
+        
+        // Companies
+        Route::get('/crm/company/search-by-nip', [PartController::class, 'searchCompanyByNip'])->name('crm.company.searchByNip');
+        Route::get('/crm/company/{id}/edit', [PartController::class, 'getCompany'])->name('crm.company.edit');
+        Route::post('/crm/company', [PartController::class, 'addCompany'])->name('crm.company.add');
+        Route::put('/crm/company/{id}', [PartController::class, 'updateCompany'])->name('crm.company.update');
+        Route::delete('/crm/company/{id}', [PartController::class, 'deleteCompany'])->name('crm.company.delete');
+        
+        // Deals
+        Route::get('/crm/deal/{id}/edit', [PartController::class, 'getDeal'])->name('crm.deal.edit');
+        Route::post('/crm/deal', [PartController::class, 'addDeal'])->name('crm.deal.add');
+        Route::put('/crm/deal/{id}', [PartController::class, 'updateDeal'])->name('crm.deal.update');
+        Route::delete('/crm/deal/{id}', [PartController::class, 'deleteDeal'])->name('crm.deal.delete');
+        
+        // Tasks
+        Route::get('/crm/task/{id}/edit', [PartController::class, 'getTask'])->name('crm.task.edit');
+        Route::post('/crm/task', [PartController::class, 'addTask'])->name('crm.task.add');
+        Route::put('/crm/task/{id}', [PartController::class, 'updateTask'])->name('crm.task.update');
+        Route::delete('/crm/task/{id}', [PartController::class, 'deleteTask'])->name('crm.task.delete');
+        
+        // Activities
+        Route::get('/crm/activity/{id}/edit', [PartController::class, 'getActivity'])->name('crm.activity.edit');
+        
+        // Activities
+        Route::post('/crm/activity', [PartController::class, 'addActivity'])->name('crm.activity.add');
+        Route::put('/crm/activity/{id}', [PartController::class, 'updateActivity'])->name('crm.activity.update');
+        Route::delete('/crm/activity/{id}', [PartController::class, 'deleteActivity'])->name('crm.activity.delete');
+    });
+    
     Route::post('/magazyn/zamowienia/create', [PartController::class, 'createOrder'])->name('magazyn.order.create')->middleware('permission:orders');
     Route::get('/magazyn/zamowienia/{order}/generate-word', [PartController::class, 'generateOrderWord'])->name('magazyn.order.generateWord')->middleware('permission:orders');
     Route::get('/magazyn/zamowienia/{order}/generate-pdf', [PartController::class, 'generateOrderPdf'])->name('magazyn.order.generatePdf')->middleware('permission:orders');

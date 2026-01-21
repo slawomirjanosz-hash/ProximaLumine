@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>Magazyn</title>
+    <title>ProximaLumine</title>
     <link rel="icon" type="image/png" href="{{ asset('logo_proxima_male.png') }}">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -90,6 +90,11 @@
             @if(Auth::user()->email === 'proximalumine@gmail.com' || Auth::user()->can_view_recipes)
                 <a href="{{ route('receptury') }}" class="inline-block px-6 py-3 bg-purple-700 text-white rounded text-lg hover:bg-purple-800 min-w-[220px]">
                     Receptury
+                </a>
+            @endif
+            @if(Auth::user()->is_admin || Auth::user()->can_crm)
+                <a href="{{ route('crm') }}" class="inline-block px-6 py-3 bg-purple-600 text-white rounded text-lg hover:bg-purple-700 min-w-[220px]">
+                    👥 CRM
                 </a>
             @endif
         </div>

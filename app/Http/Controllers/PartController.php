@@ -23,7 +23,7 @@ class PartController extends Controller
     {
         return view('parts.add', [
             'categories'  => Category::all(),
-            'suppliers'   => \App\Models\Supplier::orderBy('name')->get(),
+            'suppliers'   => \App\Models\Supplier::where('is_supplier', true)->orderBy('name')->get(),
             'sessionAdds' => array_reverse(session('adds', [])),
             'parts' => Part::with(['category', 'lastModifiedBy'])->orderBy('name')->get(),
         ]);
@@ -87,7 +87,7 @@ class PartController extends Controller
         return view('parts.orders', [
             'parts' => Part::with(['category', 'lastModifiedBy'])->orderBy('name')->get(),
             'categories' => Category::all(),
-            'suppliers' => \App\Models\Supplier::orderBy('name')->get(),
+            'suppliers' => \App\Models\Supplier::where('is_supplier', true)->orderBy('name')->get(),
             'orderSettings' => $orderSettings,
             'orderNamePreview' => $orderNamePreview,
             'orders' => \App\Models\Order::with(['user', 'receivedBy'])->orderBy('issued_at', 'desc')->get(),
@@ -1151,13 +1151,32 @@ class PartController extends Controller
             $user->password = Hash::make($request->password);
         }
 
-        // Zaktualizuj uprawnienia (konwertuj na int dla boolean kolumn)
-        $user->can_view_magazyn = (int) $request->has('can_view_magazyn');
-        $user->can_view_offers = (int) $request->has('can_view_offers');
+        // Sprawdzenie uprawnień do nadawania dostępów
+        $isSuperAdmin = auth()->user()->email === 'proximalumine@gmail.com';
+        $isAdmin = auth()->user()->is_admin;
         
-        // Tylko superadmin może nadawać uprawnienie do receptur
-        if (auth()->user()->email === 'proximalumine@gmail.com') {
+        // Superadmin i Admin z odpowiednimi uprawnieniami mogą nadawać uprawnienia
+        $canEditMagazyn = $isSuperAdmin || ($isAdmin && auth()->user()->can_view_magazyn);
+        $canEditOffers = $isSuperAdmin || ($isAdmin && auth()->user()->can_view_offers);
+        $canEditRecipes = $isSuperAdmin || ($isAdmin && auth()->user()->can_view_recipes);
+        $canEditCrm = $isSuperAdmin || ($isAdmin && auth()->user()->can_crm);
+
+        // Zaktualizuj uprawnienia (konwertuj na int dla boolean kolumn)
+        // Tylko jeśli mają uprawnienia do edycji danej sekcji
+        if ($canEditMagazyn) {
+            $user->can_view_magazyn = (int) $request->has('can_view_magazyn');
+        }
+        
+        if ($canEditOffers) {
+            $user->can_view_offers = (int) $request->has('can_view_offers');
+        }
+        
+        if ($canEditRecipes) {
             $user->can_view_recipes = (int) $request->has('can_view_recipes');
+        }
+        
+        if ($canEditCrm) {
+            $user->can_crm = (int) $request->has('can_crm');
         }
         
         $user->can_view_catalog = (int) $request->has('can_view_catalog');
@@ -1242,12 +1261,18 @@ class PartController extends Controller
             'postal_code' => 'nullable|string|max:10',
             'phone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
+            'is_supplier' => 'nullable|boolean',
+            'is_client' => 'nullable|boolean',
         ]);
 
         // Użyj sformatowanego NIP-u
         if ($nipFormatted) {
             $validated['nip'] = $nipFormatted;
         }
+        
+        // Ustaw domyślne wartości dla checkboxów jeśli nie zostały zaznaczone
+        $validated['is_supplier'] = $request->has('is_supplier') ? 1 : 0;
+        $validated['is_client'] = $request->has('is_client') ? 1 : 0;
 
         // Obsługa uploadu loga
         if ($request->hasFile('logo')) {
@@ -1311,6 +1336,8 @@ class PartController extends Controller
             'postal_code' => 'nullable|string|max:10',
             'phone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
+            'is_supplier' => 'nullable|boolean',
+            'is_client' => 'nullable|boolean',
         ]);
 
         // Użyj sformatowanego NIP-u
@@ -1319,6 +1346,10 @@ class PartController extends Controller
         } elseif (empty($request->nip)) {
             $validated['nip'] = null;
         }
+        
+        // Ustaw domyślne wartości dla checkboxów jeśli nie zostały zaznaczone
+        $validated['is_supplier'] = $request->has('is_supplier') ? 1 : 0;
+        $validated['is_client'] = $request->has('is_client') ? 1 : 0;
 
         // Obsługa uploadu loga
         if ($request->hasFile('logo')) {
@@ -3465,5 +3496,506 @@ class PartController extends Controller
         
         // Zwróć plik do pobrania
         return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
+    }
+
+    // ========== CRM ==========
+
+    public function crmView()
+    {
+        $companies = \App\Models\CrmCompany::with('owner')->orderBy('name')->get();
+        $deals = \App\Models\CrmDeal::with(['company', 'owner'])->orderBy('created_at', 'desc')->get();
+        $tasks = \App\Models\CrmTask::with(['assignedTo', 'company', 'deal'])
+            ->where('status', '!=', 'zakonczone')
+            ->orderBy('due_date', 'asc')
+            ->get();
+        $activities = \App\Models\CrmActivity::with(['user', 'company', 'deal'])
+            ->orderBy('activity_date', 'desc')
+            ->limit(50)
+            ->get();
+        
+        // Statystyki
+        $stats = [
+            'total_companies' => \App\Models\CrmCompany::count(),
+            'active_deals' => \App\Models\CrmDeal::whereNotIn('stage', ['wygrana', 'przegrana'])->count(),
+            'total_pipeline_value' => \App\Models\CrmDeal::whereNotIn('stage', ['wygrana', 'przegrana'])->sum('value'),
+            'overdue_tasks' => \App\Models\CrmTask::where('status', '!=', 'zakonczone')
+                ->where('due_date', '<', now())
+                ->count(),
+            'deals_by_stage' => \App\Models\CrmDeal::selectRaw('stage, COUNT(*) as count, SUM(value) as total_value')
+                ->whereNotIn('stage', ['wygrana', 'przegrana'])
+                ->groupBy('stage')
+                ->get(),
+            'recent_won_deals' => \App\Models\CrmDeal::where('stage', 'wygrana')
+                ->whereNotNull('actual_close_date')
+                ->orderBy('actual_close_date', 'desc')
+                ->limit(5)
+                ->get(),
+        ];
+        
+        $users = \App\Models\User::where('can_crm', true)->orWhere('is_admin', true)->get();
+        
+        return view('parts.crm', compact('companies', 'deals', 'tasks', 'activities', 'stats', 'users'));
+    }
+
+    public function addCrmInteraction(Request $request)
+    {
+        $validated = $request->validate([
+            'supplier_id' => 'required|exists:suppliers,id',
+            'type' => 'required|in:call,email,meeting,note,offer_sent,order_received,complaint,other',
+            'subject' => 'nullable|string|max:255',
+            'description' => 'required|string',
+            'interaction_date' => 'required|date',
+            'priority' => 'required|in:low,medium,high',
+            'status' => 'required|in:pending,completed,cancelled',
+        ]);
+
+        $validated['user_id'] = auth()->id();
+
+        \App\Models\CrmInteraction::create($validated);
+
+        return redirect()->route('magazyn.crm')->with('success', 'Interakcja została dodana.');
+    }
+
+    public function updateCrmInteraction(Request $request, \App\Models\CrmInteraction $interaction)
+    {
+        $validated = $request->validate([
+            'supplier_id' => 'required|exists:suppliers,id',
+            'type' => 'required|in:call,email,meeting,note,offer_sent,order_received,complaint,other',
+            'subject' => 'nullable|string|max:255',
+            'description' => 'required|string',
+            'interaction_date' => 'required|date',
+            'priority' => 'required|in:low,medium,high',
+            'status' => 'required|in:pending,completed,cancelled',
+        ]);
+
+        $interaction->update($validated);
+
+        return redirect()->route('magazyn.crm')->with('success', 'Interakcja została zaktualizowana.');
+    }
+
+    public function deleteCrmInteraction(\App\Models\CrmInteraction $interaction)
+    {
+        $interaction->delete();
+        return redirect()->route('magazyn.crm')->with('success', 'Interakcja została usunięta.');
+    }
+
+    // CRM Companies
+    public function searchCompanyByNip(Request $request)
+    {
+        $nip = $request->get('nip');
+        
+        // Normalizacja NIP - usunięcie wszystkich znaków oprócz cyfr
+        $nip = preg_replace('/[^0-9]/', '', $nip);
+        
+        if (!$nip || strlen($nip) !== 10) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nieprawidłowy NIP'
+            ]);
+        }
+
+        // Funkcja formatująca nazwę firmy
+        $formatCompanyName = function($name) {
+            $name = str_replace('SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ', 'SP. Z O. O.', $name);
+            $name = str_replace('SPÓŁKA AKCYJNA', 'S.A.', $name);
+            return $name;
+        };
+
+        // Funkcja formatująca NIP (xxx-xxx-xx-xx)
+        $formatNip = function($nip) {
+            if (strlen($nip) === 10) {
+                return substr($nip, 0, 3) . '-' . substr($nip, 3, 3) . '-' . substr($nip, 6, 2) . '-' . substr($nip, 8, 2);
+            }
+            return $nip;
+        };
+
+        // 1. Najpierw sprawdź w lokalnej bazie CRM
+        $localCompany = \App\Models\CrmCompany::where('nip', 'LIKE', '%' . $nip . '%')->first();
+        
+        if ($localCompany) {
+            return response()->json([
+                'success' => true,
+                'found' => true,
+                'source' => 'local',
+                'data' => [
+                    'name' => $localCompany->name,
+                    'nip' => $localCompany->nip,
+                    'address' => $localCompany->address,
+                    'city' => $localCompany->city,
+                    'postal_code' => $localCompany->postal_code,
+                    'phone' => $localCompany->phone,
+                    'email' => $localCompany->email,
+                ],
+                'message' => 'Dane pobrane z lokalnej bazy CRM'
+            ]);
+        }
+
+        try {
+            // Próba 2: API CEIDG - zwraca telefon i email (dla JDG)
+            $url = "https://dane.biznes.gov.pl/api/ceidg/v2/firmy?nip={$nip}&status=aktywny";
+            
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Accept: application/json',
+                'User-Agent: Mozilla/5.0'
+            ]);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            if ($httpCode === 200 && $response) {
+                $data = json_decode($response, true);
+                
+                if (!empty($data['firmy']) && isset($data['firmy'][0])) {
+                    $company = $data['firmy'][0];
+                    
+                    // Budowanie adresu
+                    $address = trim(
+                        ($company['adres']['ulica'] ?? '') . ' ' . 
+                        ($company['adres']['nrNieruchomosci'] ?? '') . 
+                        (isset($company['adres']['nrLokalu']) ? '/' . $company['adres']['nrLokalu'] : '')
+                    );
+                    
+                    // Pobierz telefon i email
+                    $phone = '';
+                    $email = '';
+                    
+                    if (!empty($company['telefony'])) {
+                        $phone = is_array($company['telefony']) ? $company['telefony'][0] : $company['telefony'];
+                    }
+                    
+                    if (!empty($company['adresy_email'])) {
+                        $email = is_array($company['adresy_email']) ? $company['adresy_email'][0] : $company['adresy_email'];
+                    }
+                    
+                    return response()->json([
+                        'success' => true,
+                        'found' => true,
+                        'source' => 'ceidg',
+                        'data' => [
+                            'name' => $formatCompanyName($company['nazwa'] ?? ''),
+                            'nip' => $formatNip($nip),
+                            'address' => trim($address),
+                            'city' => $company['adres']['miejscowosc'] ?? '',
+                            'postal_code' => $company['adres']['kodPocztowy'] ?? '',
+                            'phone' => $phone,
+                            'email' => $email,
+                        ],
+                        'message' => 'Dane pobrane z CEIDG'
+                    ]);
+                }
+            }
+            
+            // Próba 3: API białej listy VAT (dla wszystkich firm, ale bez telefonu/emaila)
+            $url = "https://wl-api.mf.gov.pl/api/search/nip/{$nip}?date=" . date('Y-m-d');
+            
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            if ($httpCode === 200 && $response) {
+                $data = json_decode($response, true);
+                
+                if (isset($data['result']['subject'])) {
+                    $subject = $data['result']['subject'];
+                    $address = '';
+                    $city = '';
+                    $postalCode = '';
+                    
+                    // Parsowanie adresu - API zwraca go jako string "ULICA NR, KOD MIASTO"
+                    $addressString = $subject['workingAddress'] ?? $subject['residenceAddress'] ?? '';
+                    
+                    if ($addressString) {
+                        // Format: "TARNOGÓRSKA 9, 42-677 SZAŁSZA"
+                        $parts = explode(',', $addressString, 2);
+                        $address = trim($parts[0] ?? ''); // "TARNOGÓRSKA 9"
+                        
+                        if (isset($parts[1])) {
+                            // "42-677 SZAŁSZA"
+                            $cityPart = trim($parts[1]);
+                            if (preg_match('/^(\d{2}-\d{3})\s+(.+)$/', $cityPart, $matches)) {
+                                $postalCode = $matches[1]; // "42-677"
+                                $city = $matches[2];       // "SZAŁSZA"
+                            } else {
+                                $city = $cityPart;
+                            }
+                        }
+                    }
+                    
+                    return response()->json([
+                        'success' => true,
+                        'found' => true,
+                        'source' => 'vat',
+                        'data' => [
+                            'name' => $formatCompanyName($subject['name'] ?? ''),
+                            'nip' => $formatNip($nip),
+                            'address' => $address,
+                            'city' => $city,
+                            'postal_code' => $postalCode,
+                            'phone' => '',
+                            'email' => '',
+                        ],
+                        'message' => 'Dane pobrane z białej listy VAT'
+                    ]);
+                }
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error('Search by NIP error: ' . $e->getMessage());
+        }
+        
+        return response()->json([
+            'success' => false,
+            'found' => false,
+            'message' => 'Nie znaleziono danych dla podanego NIP'
+        ]);
+    }
+
+    public function addCompany(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'nip' => 'nullable|string|max:20',
+            'email' => 'nullable|email',
+            'phone' => 'nullable|string|max:20',
+            'website' => 'nullable|url',
+            'address' => 'nullable|string',
+            'city' => 'nullable|string|max:100',
+            'postal_code' => 'nullable|string|max:10',
+            'country' => 'nullable|string|max:100',
+            'type' => 'required|in:klient,potencjalny,partner,konkurencja',
+            'status' => 'required|in:aktywny,nieaktywny,zawieszony',
+            'notes' => 'nullable|string',
+            'source' => 'nullable|string|max:100',
+            'owner_id' => 'nullable|exists:users,id',
+        ]);
+
+        // Normalizacja NIP przed zapisem
+        if (!empty($validated['nip'])) {
+            $validated['nip'] = preg_replace('/[^0-9]/', '', $validated['nip']);
+        }
+
+        \App\Models\CrmCompany::create($validated);
+        return redirect()->route('crm')->with('success', 'Firma została dodana.');
+    }
+
+    public function getCompany($id)
+    {
+        $company = \App\Models\CrmCompany::findOrFail($id);
+        return response()->json($company);
+    }
+
+    public function updateCompany(Request $request, $id)
+    {
+        $company = \App\Models\CrmCompany::findOrFail($id);
+        
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'nip' => 'nullable|string|max:20',
+            'email' => 'nullable|email',
+            'phone' => 'nullable|string|max:20',
+            'website' => 'nullable|url',
+            'address' => 'nullable|string',
+            'city' => 'nullable|string|max:100',
+            'postal_code' => 'nullable|string|max:10',
+            'country' => 'nullable|string|max:100',
+            'type' => 'required|in:klient,potencjalny,partner,konkurencja',
+            'status' => 'required|in:aktywny,nieaktywny,zawieszony',
+            'notes' => 'nullable|string',
+            'source' => 'nullable|string|max:100',
+            'owner_id' => 'nullable|exists:users,id',
+        ]);
+
+        $company->update($validated);
+        return redirect()->route('crm')->with('success', 'Firma została zaktualizowana.');
+    }
+
+    public function deleteCompany($id)
+    {
+        $company = \App\Models\CrmCompany::findOrFail($id);
+        $company->delete();
+        return redirect()->route('crm')->with('success', 'Firma została usunięta.');
+    }
+
+    // CRM Deals
+    public function addDeal(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'company_id' => 'nullable|exists:crm_companies,id',
+            'value' => 'required|numeric|min:0',
+            'currency' => 'nullable|string|max:10',
+            'stage' => 'required|in:nowy_lead,kontakt,wycena,negocjacje,wygrana,przegrana',
+            'probability' => 'required|integer|min:0|max:100',
+            'expected_close_date' => 'nullable|date',
+            'owner_id' => 'nullable|exists:users,id',
+            'description' => 'nullable|string',
+        ]);
+
+        if (!isset($validated['owner_id'])) {
+            $validated['owner_id'] = auth()->id();
+        }
+
+        \App\Models\CrmDeal::create($validated);
+        return redirect()->route('crm')->with('success', 'Szansa sprzedażowa została dodana.');
+    }
+
+    public function getDeal($id)
+    {
+        $deal = \App\Models\CrmDeal::findOrFail($id);
+        return response()->json($deal);
+    }
+
+    public function updateDeal(Request $request, $id)
+    {
+        $deal = \App\Models\CrmDeal::findOrFail($id);
+        
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'company_id' => 'nullable|exists:crm_companies,id',
+            'value' => 'required|numeric|min:0',
+            'currency' => 'nullable|string|max:10',
+            'stage' => 'required|in:nowy_lead,kontakt,wycena,negocjacje,wygrana,przegrana',
+            'probability' => 'required|integer|min:0|max:100',
+            'expected_close_date' => 'nullable|date',
+            'actual_close_date' => 'nullable|date',
+            'owner_id' => 'nullable|exists:users,id',
+            'description' => 'nullable|string',
+            'lost_reason' => 'nullable|string',
+        ]);
+
+        $deal->update($validated);
+        return redirect()->route('crm')->with('success', 'Szansa sprzedażowa została zaktualizowana.');
+    }
+
+    public function deleteDeal($id)
+    {
+        $deal = \App\Models\CrmDeal::findOrFail($id);
+        $deal->delete();
+        return redirect()->route('crm')->with('success', 'Szansa sprzedażowa została usunięta.');
+    }
+
+    // CRM Tasks
+    public function addTask(Request $request)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'type' => 'required|in:telefon,email,spotkanie,zadanie,follow_up',
+            'priority' => 'required|in:niska,normalna,wysoka,pilna',
+            'status' => 'required|in:do_zrobienia,w_trakcie,zakonczone,anulowane',
+            'due_date' => 'nullable|date',
+            'assigned_to' => 'nullable|exists:users,id',
+            'company_id' => 'nullable|exists:crm_companies,id',
+            'deal_id' => 'nullable|exists:crm_deals,id',
+        ]);
+
+        $validated['created_by'] = auth()->id();
+
+        \App\Models\CrmTask::create($validated);
+        return redirect()->route('crm')->with('success', 'Zadanie zostało dodane.');
+    }
+
+    public function getTask($id)
+    {
+        $task = \App\Models\CrmTask::findOrFail($id);
+        return response()->json($task);
+    }
+
+    public function updateTask(Request $request, $id)
+    {
+        $task = \App\Models\CrmTask::findOrFail($id);
+        
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'type' => 'required|in:telefon,email,spotkanie,zadanie,follow_up',
+            'priority' => 'required|in:niska,normalna,wysoka,pilna',
+            'status' => 'required|in:do_zrobienia,w_trakcie,zakonczone,anulowane',
+            'due_date' => 'nullable|date',
+            'completed_at' => 'nullable|date',
+            'assigned_to' => 'nullable|exists:users,id',
+            'company_id' => 'nullable|exists:crm_companies,id',
+            'deal_id' => 'nullable|exists:crm_deals,id',
+        ]);
+
+        if ($validated['status'] === 'zakonczone' && !$task->completed_at) {
+            $validated['completed_at'] = now();
+        }
+
+        $task->update($validated);
+        return redirect()->route('crm')->with('success', 'Zadanie zostało zaktualizowane.');
+    }
+
+    public function deleteTask($id)
+    {
+        $task = \App\Models\CrmTask::findOrFail($id);
+        $task->delete();
+        return redirect()->route('crm')->with('success', 'Zadanie zostało usunięte.');
+    }
+
+    // CRM Activities
+    public function addActivity(Request $request)
+    {
+        $validated = $request->validate([
+            'type' => 'required|in:telefon,email,spotkanie,notatka,sms,oferta,umowa,faktura,reklamacja',
+            'subject' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'activity_date' => 'required|date',
+            'duration' => 'nullable|integer|min:0',
+            'outcome' => 'nullable|in:pozytywny,neutralny,negatywny,brak_odpowiedzi',
+            'company_id' => 'nullable|exists:crm_companies,id',
+            'deal_id' => 'nullable|exists:crm_deals,id',
+        ]);
+
+        $validated['user_id'] = auth()->id();
+
+        \App\Models\CrmActivity::create($validated);
+        return redirect()->route('crm')->with('success', 'Aktywność została dodana.');
+    }
+
+    public function getActivity($id)
+    {
+        $activity = \App\Models\CrmActivity::findOrFail($id);
+        return response()->json($activity);
+    }
+
+    public function updateActivity(Request $request, $id)
+    {
+        $activity = \App\Models\CrmActivity::findOrFail($id);
+        
+        $validated = $request->validate([
+            'type' => 'required|in:telefon,email,spotkanie,notatka,sms,oferta,umowa,faktura,reklamacja',
+            'subject' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'activity_date' => 'required|date',
+            'duration' => 'nullable|integer|min:0',
+            'outcome' => 'nullable|in:pozytywny,neutralny,negatywny,brak_odpowiedzi',
+            'company_id' => 'nullable|exists:crm_companies,id',
+            'deal_id' => 'nullable|exists:crm_deals,id',
+        ]);
+
+        $activity->update($validated);
+        return redirect()->route('crm')->with('success', 'Aktywność została zaktualizowana.');
+    }
+
+    public function deleteActivity($id)
+    {
+        $activity = \App\Models\CrmActivity::findOrFail($id);
+        $activity->delete();
+        return redirect()->route('crm')->with('success', 'Aktywność została usunięta.');
     }
 }

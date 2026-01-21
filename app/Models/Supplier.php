@@ -16,6 +16,13 @@ class Supplier extends Model
         'postal_code',
         'phone',
         'email',
+        'is_supplier',
+        'is_client',
+    ];
+
+    protected $casts = [
+        'is_supplier' => 'boolean',
+        'is_client' => 'boolean',
     ];
 
     public function parts()

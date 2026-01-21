@@ -30,8 +30,25 @@
                 @endphp
                 <img src="{{ $logoPath }}" alt="{{ $companyName }}" class="h-10">
                 <span class="text-xl font-bold">{{ $companyName }}</span>
-                            <span id="datetime" class="ml-4 px-3000 py-2 text-sm bg-white-200 text-gray-400 rounded whitespace-nowrap"></span>
+                            <span id="datetime" class="ml-4 px-3 py-2 text-sm bg-white-200 text-gray-400 rounded whitespace-nowrap"></span>
             </div>
+            <nav class="flex gap-2 items-center">
+                @if(auth()->check() && auth()->user()->can_settings)
+                    <a href="{{ route('magazyn.settings') }}"
+                       class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
+                        ⚙️Ustawienia
+                    </a>
+                @endif
+                @auth
+                    <span class="text-gray-700 text-sm">{{ Auth::user()->name }}</span>
+                    <form action="{{ route('logout') }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" class="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition whitespace-nowrap">
+                            Wyloguj
+                        </button>
+                    </form>
+                @endauth
+            </nav>
         </div>
     </header>
     <main class="flex-1">

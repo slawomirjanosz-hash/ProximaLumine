@@ -41,6 +41,7 @@ class User extends Authenticatable
         'can_settings_export',
         'can_settings_other',
         'can_delete_orders',
+        'can_crm',
         'show_action_column',
     ];
 
