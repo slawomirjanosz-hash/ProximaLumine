@@ -506,6 +506,13 @@
     </div>
 </div>
 
+<!-- Czerwony krzyżyk pod przyciskami -->
+<div class="flex justify-center mt-2">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+</div>
+
 <!-- MODALS -->
 <div id="modal-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onclick="closeModal()">
     <div class="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
@@ -1040,7 +1047,7 @@ function editTask(id) {
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-span-2"><label class="block mb-1 font-semibold">Opis</label><textarea name="description" rows="3" class="w-full border rounded px-3 py-2">${task.description || ''}</textarea></div>
+                        <div><label class="block mb-1 font-semibold">Opis</label><textarea name="description" rows="3" class="w-full border rounded px-3 py-2">${task.description || ''}</textarea></div>
                     </div>
                     <div class="mt-4 flex gap-2 justify-end">
                         <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Anuluj</button>
@@ -1096,6 +1103,14 @@ function editActivity(id) {
                                 <option value="">Brak</option>
                                 @foreach($companies as $company)
                                     <option value="{{ $company->id }}" ${activity.company_id == {{ $company->id }} ? 'selected' : ''}>{{ $company->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div><label class="block mb-1 font-semibold">Szansa</label>
+                            <select name="deal_id" class="w-full border rounded px-3 py-2">
+                                <option value="">Brak</option>
+                                @foreach($deals as $deal)
+                                    <option value="{{ $deal->id }}" ${activity.deal_id == {{ $deal->id }} ? 'selected' : ''}>{{ $deal->name }}</option>
                                 @endforeach
                             </select>
                         </div>
