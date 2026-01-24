@@ -7,6 +7,7 @@ use App\Models\Part;
 use App\Models\PartRemoval;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Models\CrmCustomerType;
 use Illuminate\Http\Request;
 
 use Maatwebsite\Excel\Facades\Excel;
@@ -102,6 +103,7 @@ class PartController extends Controller
             'suppliers' => \App\Models\Supplier::all(),
             'companySettings' => \App\Models\CompanySetting::first(),
             'orderSettings' => \DB::table('order_settings')->first(),
+            'customerTypes' => \App\Models\CrmCustomerType::all(),
         ]);
     }
 
@@ -3584,13 +3586,17 @@ class PartController extends Controller
                   ->whereNotNull('supplier_id');
         })->orderBy('short_name')->get();
         
-        return view('parts.crm', compact('companies', 'deals', 'tasks', 'activities', 'stats', 'users', 'crmStages', 'availableSuppliers'));
+        // Typy klientów z kolorami
+        $customerTypes = CrmCustomerType::all();
+        
+        return view('parts.crm', compact('companies', 'deals', 'tasks', 'activities', 'stats', 'users', 'crmStages', 'availableSuppliers', 'customerTypes'));
     }
 
     public function crmSettingsView()
     {
         $crmStages = \DB::table('crm_stages')->orderBy('order')->get();
-        return view('parts.crm-settings', compact('crmStages'));
+        $customerTypes = CrmCustomerType::all();
+        return view('parts.crm-settings', compact('crmStages', 'customerTypes'));
     }
 
     public function addCrmInteraction(Request $request)
@@ -4140,9 +4146,14 @@ class PartController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'slug' => 'required|string|max:255|unique:crm_stages',
-            'color' => 'required|string|max:50',
+            'color' => 'nullable|string|max:50',
             'order' => 'required|integer|min:0',
         ]);
+        
+        // Automatycznie przypisz unikalny kolor jeśli nie podano
+        if (!$request->filled('color')) {
+            $validated['color'] = $this->getUniqueColorForStage();
+        }
         
         \DB::table('crm_stages')->insert([
             'name' => $validated['name'],
@@ -4193,5 +4204,29 @@ class PartController extends Controller
         
         \DB::table('crm_stages')->where('id', $id)->delete();
         return redirect()->route('crm.settings')->with('success', 'Etap został usunięty.');
+    }
+    
+    private function getUniqueColorForStage()
+    {
+        // Paleta kolorów do wyboru
+        $colorPalette = [
+            '#2563eb', '#3b82f6', '#10b981', '#14b8a6', '#06b6d4',
+            '#8b5cf6', '#a855f7', '#ec4899', '#f43f5e', '#ef4444',
+            '#f59e0b', '#f97316', '#84cc16', '#22c55e', '#6366f1',
+            '#d946ef', '#f472b6', '#fb923c', '#fbbf24', '#a3e635'
+        ];
+        
+        // Pobierz użyte kolory
+        $usedColors = \DB::table('crm_stages')->pluck('color')->toArray();
+        
+        // Znajdź pierwszy nieużywany kolor
+        foreach ($colorPalette as $color) {
+            if (!in_array($color, $usedColors)) {
+                return $color;
+            }
+        }
+        
+        // Jeśli wszystkie kolory są użyte, wygeneruj losowy
+        return sprintf('#%06X', mt_rand(0, 0xFFFFFF));
     }
 }

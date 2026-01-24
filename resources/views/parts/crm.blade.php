@@ -68,29 +68,18 @@
                     </div>
                 @else
                     @php
-                        $stageNames = [
-                            'nowy_lead' => 'Nowy Lead',
-                            'kontakt' => 'Kontakt',
-                            'wycena' => 'Wycena',
-                            'negocjacje' => 'Negocjacje',
-                        ];
-                        $stageColors = [
-                            'nowy_lead' => 'bg-gray-100 border-gray-300',
-                            'kontakt' => 'bg-blue-50 border-blue-300',
-                            'wycena' => 'bg-yellow-50 border-yellow-300',
-                            'negocjacje' => 'bg-orange-50 border-orange-300',
-                        ];
+                        $stageMap = collect($crmStages)->keyBy('slug');
                     @endphp
                     <div class="space-y-4">
-                        @foreach(['nowy_lead', 'kontakt', 'wycena', 'negocjacje'] as $stageName)
-                            @if($stats['deals_by_stage']->has($stageName))
+                        @foreach($crmStages as $stage)
+                            @if($stats['deals_by_stage']->has($stage->slug))
                                 @php
-                                    $stageDeals = $stats['deals_by_stage'][$stageName];
+                                    $stageDeals = $stats['deals_by_stage'][$stage->slug];
                                 @endphp
-                                <div class="border rounded-lg p-4 {{ $stageColors[$stageName] ?? 'bg-gray-50 border-gray-300' }}">
+                                <div class="border rounded-lg p-4" style="background-color: {{ $stage->color }}20; border-color: {{ $stage->color }};">
                                     <div class="flex items-start gap-4">
                                         <div class="flex-shrink-0 text-center min-w-[120px]">
-                                            <div class="text-sm font-semibold text-gray-700">{{ $stageNames[$stageName] }}</div>
+                                            <div class="text-sm font-semibold text-gray-700">{{ $stage->name }}</div>
                                             <div class="text-3xl font-bold text-gray-800 my-1">{{ $stageDeals->count() }}</div>
                                             <div class="text-xs text-gray-600">{{ number_format($stageDeals->sum('value'), 0, ',', ' ') }} zł</div>
                                         </div>
@@ -170,7 +159,7 @@
                     <button onclick="showTaskModal()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">➕ Dodaj Zadanie</button>
                 </div>
                 
-                <table class="w-full border-collapse">
+                <table class="w-full border-collapse text-xs">
                     <thead class="bg-gray-100">
                         <tr>
                             <th class="border p-2 text-left">Zadanie</th>
@@ -228,7 +217,7 @@
                 <button onclick="showCompanyModal()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">➕ Dodaj Firmę</button>
             </div>
             
-            <table class="w-full border-collapse">
+            <table class="w-full border-collapse text-xs">
                 <thead class="bg-gray-100">
                     <tr>
                         <th class="border p-2 text-left">Nazwa</th>
@@ -251,16 +240,18 @@
                                 <div class="text-sm">{{ $company->email ?? '-' }}</div>
                                 <div class="text-sm">{{ $company->phone ?? '-' }}</div>
                             </td>
-                            <td class="border p-2">
-                                <span class="stage-badge 
-                                    {{ $company->type === 'klient' ? 'bg-green-100 text-green-800' : '' }}
-                                    {{ $company->type === 'potencjalny' ? 'bg-blue-100 text-blue-800' : '' }}
-                                    {{ $company->type === 'partner' ? 'bg-purple-100 text-purple-800' : '' }}
-                                    {{ $company->type === 'konkurencja' ? 'bg-red-100 text-red-800' : '' }}
-                                ">
-                                    {{ ucfirst($company->type) }}
-                                </span>
-                            </td>
+                            @php
+                                $companyType = $customerTypes->firstWhere('slug', $company->type);
+                            @endphp
+                            @if($companyType)
+                                <td class="border p-2 text-center" style="background-color: {{ $companyType->color }}20; border-color: #000;">
+                                    <span class="font-semibold" style="color: #222;">{{ $companyType->name }}</span>
+                                </td>
+                            @else
+                                <td class="border p-2 text-center">
+                                    <span class="stage-badge bg-gray-100 text-gray-800">{{ ucfirst($company->type) }}</span>
+                                </td>
+                            @endif
                             <td class="border p-2">{{ ucfirst($company->status) }}</td>
                             <td class="border p-2">{{ $company->owner->name ?? '-' }}</td>
                             <td class="border p-2">
@@ -298,55 +289,53 @@
                 <button onclick="showDealModal()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">➕ Dodaj Szansę</button>
             </div>
             
-            <table class="w-full border-collapse">
+            <table class="w-full border-collapse text-xs">
                 <thead class="bg-gray-100">
                     <tr>
-                        <th class="border p-2 text-left">Nazwa</th>
-                        <th class="border p-2 text-left">Firma</th>
-                        <th class="border p-2 text-right">Wartość</th>
-                        <th class="border p-2 text-center">Etap</th>
-                        <th class="border p-2 text-center">Szansa %</th>
-                        <th class="border p-2 text-left">Oczekiwane zamknięcie</th>
-                        <th class="border p-2 text-left">Opiekun</th>
-                        <th class="border p-2 text-left">Przypisani</th>
-                        <th class="border p-2">Akcje</th>
+                        <th class="border p-2 text-left min-w-0 max-w-xs truncate">Nazwa</th>
+                        <th class="border p-2 text-left min-w-0 max-w-xs truncate">Firma</th>
+                        <th class="border p-2 text-right whitespace-nowrap w-auto">Wartość</th>
+                        <th class="border p-2 text-center whitespace-nowrap w-auto">Etap</th>
+                        <th class="border p-2 text-center whitespace-nowrap w-auto">Szansa %</th>
+                        <th class="border p-2 text-left whitespace-nowrap w-auto" title="Oczekiwanie zamknięcia">Oczek. Zam</th>
+                        <th class="border p-2 text-left whitespace-nowrap w-auto">Opiekun</th>
+                        <th class="border p-2 text-left whitespace-nowrap w-auto">Przypisani</th>
+                        <th class="border p-2 text-center whitespace-nowrap w-auto">Akcje</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($deals as $deal)
                         <tr class="hover:bg-gray-50">
-                            <td class="border p-2 font-semibold">{{ $deal->name }}</td>
-                            <td class="border p-2">{{ $deal->company->name ?? '-' }}</td>
-                            <td class="border p-2 text-right font-bold">{{ number_format($deal->value, 2, ',', ' ') }} {{ $deal->currency }}</td>
-                            <td class="border p-2 text-center">
-                                @php
-                                    $stageLabels = [
-                                        'nowy_lead' => ['text' => 'Nowy Lead', 'color' => 'bg-gray-100 text-gray-800'],
-                                        'kontakt' => ['text' => 'Kontakt', 'color' => 'bg-blue-100 text-blue-800'],
-                                        'wycena' => ['text' => 'Wycena', 'color' => 'bg-yellow-100 text-yellow-800'],
-                                        'negocjacje' => ['text' => 'Negocjacje', 'color' => 'bg-orange-100 text-orange-800'],
-                                        'wygrana' => ['text' => 'Wygrana', 'color' => 'bg-green-100 text-green-800'],
-                                        'przegrana' => ['text' => 'Przegrana', 'color' => 'bg-red-100 text-red-800'],
-                                    ];
-                                    $stage = $stageLabels[$deal->stage] ?? ['text' => $deal->stage, 'color' => 'bg-gray-100'];
-                                @endphp
-                                <span class="stage-badge {{ $stage['color'] }}">{{ $stage['text'] }}</span>
-                            </td>
-                            <td class="border p-2 text-center">{{ $deal->probability }}%</td>
-                            <td class="border p-2">{{ $deal->expected_close_date ? $deal->expected_close_date->format('d.m.Y') : '-' }}</td>
-                            <td class="border p-2">{{ $deal->owner->name ?? '-' }}</td>
-                            <td class="border p-2">
+                            <td class="border p-2 font-semibold min-w-0 max-w-xs truncate">{{ $deal->name }}</td>
+                            <td class="border p-2 min-w-0 max-w-xs truncate">{{ $deal->company->name ?? '-' }}</td>
+                            <td class="border p-2 text-right font-bold whitespace-nowrap w-auto">{{ number_format($deal->value, 2, ',', ' ') }} {{ $deal->currency }}</td>
+                            @php
+                                $stage = $stageMap[$deal->stage] ?? null;
+                            @endphp
+                            @if($stage)
+                                <td class="border p-2 text-center whitespace-nowrap w-auto" style="background-color: {{ $stage->color }}20; border-color: #000;">
+                                    <span class="stage-badge" style="background: transparent; color: #222; border: none;">{{ $stage->name }}</span>
+                                </td>
+                            @else
+                                <td class="border p-2 text-center whitespace-nowrap w-auto">
+                                    <span class="stage-badge bg-gray-100 text-gray-800">{{ $deal->stage }}</span>
+                                </td>
+                            @endif
+                            <td class="border p-2 text-center whitespace-nowrap w-auto">{{ $deal->probability }}%</td>
+                            <td class="border p-2 whitespace-nowrap w-auto" title="Oczekiwanie zamknięcia">{{ $deal->expected_close_date ? $deal->expected_close_date->format('d.m.Y') : '-' }}</td>
+                            <td class="border p-2 whitespace-nowrap w-auto">{{ $deal->owner->short_name ?? ($deal->owner->name ?? '-') }}</td>
+                            <td class="border p-2 w-auto">
                                 @if($deal->assignedUsers->count() > 0)
-                                    <div class="text-xs">
+                                    <div class="text-xs flex flex-col gap-1">
                                         @foreach($deal->assignedUsers as $user)
-                                            <span class="inline-block bg-blue-100 text-blue-800 px-2 py-0.5 rounded mb-1">{{ $user->name }}</span>
+                                            <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">{{ $user->short_name ?? $user->name }}</span>
                                         @endforeach
                                     </div>
                                 @else
                                     <span class="text-gray-400">-</span>
                                 @endif
                             </td>
-                            <td class="border p-2 text-center">
+                            <td class="border p-2 text-center whitespace-nowrap w-auto">
                                 <button onclick="editDeal({{ $deal->id }})" class="text-blue-600 hover:underline">✏️</button>
                                 <form action="{{ route('crm.deal.delete', $deal->id) }}" method="POST" class="inline" onsubmit="return confirm('Usunąć szansę?')">
                                     @csrf @method('DELETE')

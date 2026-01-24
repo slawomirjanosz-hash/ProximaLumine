@@ -12,8 +12,12 @@ class CrmCompany extends Model
     protected $fillable = [
         'name', 'nip', 'email', 'phone', 'website', 'address', 
         'city', 'postal_code', 'country', 'type', 'status', 
-        'notes', 'owner_id', 'source', 'supplier_id', 'added_by'
+        'notes', 'owner_id', 'source', 'supplier_id', 'added_by', 'customer_type_id'
     ];
+    public function customerType()
+    {
+        return $this->belongsTo(CrmCustomerType::class, 'customer_type_id');
+    }
 
     protected $casts = [
         'created_at' => 'datetime',

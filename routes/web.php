@@ -359,6 +359,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/crm/stage', [PartController::class, 'addCrmStage'])->name('crm.stage.add');
         Route::put('/crm/stage/{id}', [PartController::class, 'updateCrmStage'])->name('crm.stage.update');
         Route::delete('/crm/stage/{id}', [PartController::class, 'deleteCrmStage'])->name('crm.stage.delete');
+        
+        // CRM Customer Types
+        Route::get('/crm/customer-types/{id}', [\App\Http\Controllers\CrmCustomerTypeController::class, 'show'])->name('crm.customer-types.show');
+        Route::post('/crm/customer-types', [\App\Http\Controllers\CrmCustomerTypeController::class, 'store'])->name('crm.customer-types.store');
+        Route::put('/crm/customer-types/{id}', [\App\Http\Controllers\CrmCustomerTypeController::class, 'update'])->name('crm.customer-types.update');
+        Route::delete('/crm/customer-types/{id}', [\App\Http\Controllers\CrmCustomerTypeController::class, 'destroy'])->name('crm.customer-types.destroy');
     });
     
     Route::post('/magazyn/zamowienia/create', [PartController::class, 'createOrder'])->name('magazyn.order.create')->middleware('permission:orders');
