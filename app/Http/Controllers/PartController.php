@@ -1454,15 +1454,38 @@ class PartController extends Controller
                 $data = json_decode($response, true);
                 if (!empty($data['result']['subject'])) {
                     $subject = $data['result']['subject'];
-                    $address = $subject['workingAddress'] ?? ($subject['residenceAddress'] ?? '');
+                    $addressString = $subject['workingAddress'] ?? ($subject['residenceAddress'] ?? '');
+                    
+                    $address = '';
+                    $city = '';
+                    $postalCode = '';
+                    
+                    // Parsowanie adresu - API zwraca go jako string "ULICA NR, KOD MIASTO"
+                    if ($addressString) {
+                        // Format: "TARNOGÓRSKA 9, 42-677 SZAŁSZA"
+                        $parts = explode(',', $addressString, 2);
+                        $address = trim($parts[0] ?? ''); // "TARNOGÓRSKA 9"
+                        
+                        if (isset($parts[1])) {
+                            // "42-677 SZAŁSZA"
+                            $cityPart = trim($parts[1]);
+                            if (preg_match('/^(\d{2}-\d{3})\s+(.+)$/', $cityPart, $matches)) {
+                                $postalCode = $matches[1]; // "42-677"
+                                $city = $matches[2];       // "SZAŁSZA"
+                            } else {
+                                $city = $cityPart;
+                            }
+                        }
+                    }
+                    
                     return response()->json([
                         'success' => true,
                         'data' => [
                             'name' => $formatCompanyName($subject['name'] ?? ''),
                             'nip' => $formatNip($nip),
                             'address' => $address,
-                            'city' => '',
-                            'postal_code' => '',
+                            'city' => $city,
+                            'postal_code' => $postalCode,
                         ],
                         'message' => 'Dane pobrane z MF VAT API'
                     ]);
