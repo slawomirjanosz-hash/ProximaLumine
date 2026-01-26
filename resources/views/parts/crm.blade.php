@@ -83,7 +83,7 @@
                                             <div class="text-3xl font-bold text-gray-800 my-1">{{ $stageDeals->count() }}</div>
                                             <div class="text-xs text-gray-600">{{ number_format($stageDeals->sum('value'), 0, ',', ' ') }} zł</div>
                                         </div>
-                                        <div class="flex-1 flex gap-3 overflow-x-auto justify-center">
+                                        <div class="flex-1 flex flex-wrap gap-3 justify-center">
                                             @foreach($stageDeals as $deal)
                                                 <div onclick="editDeal({{ $deal->id }})" class="flex-shrink-0 bg-white border border-gray-300 rounded p-3 shadow-sm min-w-[200px] max-w-[250px] cursor-pointer hover:shadow-md transition">
                                                     <div class="font-semibold text-sm mb-1 truncate" title="{{ $deal->name }}">{{ $deal->name }}</div>
@@ -999,6 +999,18 @@ function editTask(id) {
     fetch(`/crm/task/${id}/edit`)
         .then(response => response.json())
         .then(task => {
+            // Konwersja daty do formatu datetime-local (YYYY-MM-DDTHH:MM)
+            let formattedDueDate = '';
+            if (task.due_date) {
+                const date = new Date(task.due_date);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                formattedDueDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+            }
+            
             document.getElementById('modal-content').innerHTML = `
                 <h3 class="text-xl font-bold mb-4">Edytuj Zadanie</h3>
                 <form method="POST" action="/crm/task/${id}">
@@ -1030,7 +1042,7 @@ function editTask(id) {
                                 <option value="zakonczone" ${task.status === 'zakonczone' ? 'selected' : ''}>Zakończone</option>
                             </select>
                         </div>
-                        <div><label class="block mb-1 font-semibold">Termin</label><input type="datetime-local" name="due_date" value="${task.due_date || ''}" class="w-full border rounded px-3 py-2"></div>
+                        <div><label class="block mb-1 font-semibold">Termin</label><input type="datetime-local" name="due_date" value="${formattedDueDate}" class="w-full border rounded px-3 py-2"></div>
                         <div><label class="block mb-1 font-semibold">Przypisz do</label>
                             <select name="assigned_to" class="w-full border rounded px-3 py-2">
                                 <option value="">Nie przypisane</option>
@@ -1129,6 +1141,33 @@ function editActivity(id) {
             alert('Błąd podczas ładowania danych aktywności');
         });
 }
+
+// Automatyczne zamykanie kalendarza po wyborze daty
+document.addEventListener('input', function(e) {
+    if (e.target.type === 'date') {
+        // Dla type="date" zamknij od razu po wyborze daty
+        setTimeout(() => e.target.blur(), 100);
+    } else if (e.target.type === 'datetime-local') {
+        // Dla datetime-local sprawdź czy wybrano już datę
+        const value = e.target.value;
+        if (value && value.length >= 10) { // Ma datę (YYYY-MM-DD)
+            // Zamknij kalendarz po wyborze daty (można jeszcze edytować czas)
+            setTimeout(() => {
+                // Symuluj kliknięcie poza kalendarzem ale w pole czasu
+                e.target.blur();
+                // Małe opóźnienie i ponowne focus by móc edytować czas
+                setTimeout(() => e.target.focus(), 50);
+            }, 100);
+        }
+    }
+});
+
+// Dodatkowy listener dla change jako backup
+document.addEventListener('change', function(e) {
+    if (e.target.type === 'date' || e.target.type === 'datetime-local') {
+        setTimeout(() => e.target.blur(), 100);
+    }
+});
 
 </script>
 
