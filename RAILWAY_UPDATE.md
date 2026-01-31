@@ -1,5 +1,33 @@
 # Instrukcje aktualizacji na Railway
 
+## PILNE: Aktualizacja bazy danych - Błąd 500 przy wycenach
+
+### Problem
+Błąd 500 przy tworzeniu/edycji wyceny na Railway - brak nowych kolumn w tabeli `offers`.
+
+### Rozwiązanie (BEZPIECZNE - nie usuwa danych)
+
+**Uruchom migracje na Railway:**
+
+```bash
+# Przez Railway CLI
+railway run php artisan migrate --force
+```
+
+Lub w Railway Dashboard → Deployments → Shell:
+```bash
+php artisan migrate --force
+```
+
+**Migracje, które zostaną uruchomione (BEZPIECZNE):**
+1. `add_custom_sections_to_offers_table` - dodaje kolumnę `custom_sections`
+2. `add_crm_deal_id_to_offers_table` - dodaje kolumnę `crm_deal_id`
+3. `add_customer_info_to_offers_table` - dodaje kolumny danych klienta
+
+**UWAGA:** Te migracje używają `ALTER TABLE ADD COLUMN`, co NIE usuwa istniejących danych.
+
+---
+
 ## Aktualizacja użytkownika admin
 
 Na Railway należy uruchomić skrypt aktualizacji użytkownika admin.
