@@ -213,78 +213,6 @@
         <!-- TAB: LEJEK SPRZEDAŻOWY -->
         <div id="tab-deals" class="tab-content p-6">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-2xl font-bold">🏢 Firmy / Kontakty</h2>
-                <button onclick="showCompanyModal()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">➕ Dodaj Firmę</button>
-            </div>
-            
-            <table class="w-full border-collapse text-xs">
-                <thead class="bg-gray-100">
-                    <tr>
-                        <th class="border p-2 text-left">Nazwa</th>
-                        <th class="border p-2 text-left">NIP</th>
-                        <th class="border p-2 text-left">Kontakt</th>
-                        <th class="border p-2 text-left">Typ</th>
-                        <th class="border p-2 text-left">Status</th>
-                        <th class="border p-2 text-left">Opiekun</th>
-                        <th class="border p-2 text-left">Dodana przez</th>
-                        <th class="border p-2 text-center">W bazie dostawców</th>
-                        <th class="border p-2">Akcje</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($companies as $company)
-                        <tr class="hover:bg-gray-50">
-                            <td class="border p-2 font-semibold">{{ $company->name }}</td>
-                            <td class="border p-2">{{ $company->nip ?? '-' }}</td>
-                            <td class="border p-2">
-                                <div class="text-sm">{{ $company->email ?? '-' }}</div>
-                                <div class="text-sm">{{ $company->phone ?? '-' }}</div>
-                            </td>
-                            @php
-                                $companyType = $customerTypes->firstWhere('slug', $company->type);
-                            @endphp
-                            @if($companyType)
-                                <td class="border p-2 text-center" style="background-color: {{ $companyType->color }}20; border-color: #000;">
-                                    <span class="font-semibold" style="color: #222;">{{ $companyType->name }}</span>
-                                </td>
-                            @else
-                                <td class="border p-2 text-center">
-                                    <span class="stage-badge bg-gray-100 text-gray-800">{{ ucfirst($company->type) }}</span>
-                                </td>
-                            @endif
-                            <td class="border p-2">{{ ucfirst($company->status) }}</td>
-                            <td class="border p-2">{{ $company->owner->name ?? '-' }}</td>
-                            <td class="border p-2">
-                                <span class="text-sm text-gray-600">{{ $company->addedBy->name ?? '-' }}</span>
-                            </td>
-                            <td class="border p-2 text-center">
-                                @if($company->supplier_id)
-                                    <span class="text-green-600 font-bold" title="Firma jest w bazie dostawców/klientów">✓ W bazie</span>
-                                @else
-                                    <form action="{{ route('crm.company.addToSuppliers', $company->id) }}" method="POST" class="inline">
-                                        @csrf
-                                        <button type="submit" class="text-blue-600 hover:underline text-sm" title="Dodaj do bazy dostawców/klientów">➕ Dodaj do bazy</button>
-                                    </form>
-                                @endif
-                            </td>
-                            <td class="border p-2 text-center">
-                                <button onclick="editCompany({{ $company->id }})" class="text-blue-600 hover:underline">✏️</button>
-                                <form action="{{ route('crm.company.delete', $company->id) }}" method="POST" class="inline" onsubmit="return confirm('Usunąć firmę?')">
-                                    @csrf @method('DELETE')
-                                    <button type="submit" class="text-red-600 hover:underline">🗑️</button>
-                                </form>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="9" class="border p-4 text-center text-gray-500">Brak firm w bazie</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        <!-- TAB: FIRMY -->
-        <div id="tab-companies" class="tab-content p-6">
-            <div class="flex justify-between items-center mb-4">
                 <h2 class="text-2xl font-bold">💼 Lejek Sprzedażowy - Szanse</h2>
                 <button onclick="showDealModal()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">➕ Dodaj Szansę</button>
             </div>
@@ -345,6 +273,80 @@
                         </tr>
                     @empty
                         <tr><td colspan="9" class="border p-4 text-center text-gray-500">Brak szans sprzedażowych</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <!-- TAB: FIRMY -->
+        <div id="tab-companies" class="tab-content p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">🏢 Firmy / Kontakty</h2>
+                <button onclick="showCompanyModal()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">➕ Dodaj Firmę</button>
+            </div>
+            
+            <table class="w-full border-collapse text-xs">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="border p-2 text-left">Nazwa</th>
+                        <th class="border p-2 text-left" title="Skrót z Magazyn → Ustawienia → Dostawcy i klienci">Skrót*</th>
+                        <th class="border p-2 text-left">NIP</th>
+                        <th class="border p-2 text-left">Kontakt</th>
+                        <th class="border p-2 text-left">Typ</th>
+                        <th class="border p-2 text-left">Status</th>
+                        <th class="border p-2 text-left">Opiekun</th>
+                        <th class="border p-2 text-left">Dodana przez</th>
+                        <th class="border p-2 text-center">W bazie dostawców</th>
+                        <th class="border p-2">Akcje</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($companies as $company)
+                        <tr class="hover:bg-gray-50">
+                            <td class="border p-2 font-semibold">{{ $company->name }}</td>
+                            <td class="border p-2">{{ $company->supplier->short_name ?? '-' }}</td>
+                            <td class="border p-2">{{ $company->nip ?? '-' }}</td>
+                            <td class="border p-2">
+                                <div class="text-sm">{{ $company->email ?? '-' }}</div>
+                                <div class="text-sm">{{ $company->phone ?? '-' }}</div>
+                            </td>
+                            @php
+                                $companyType = $customerTypes->firstWhere('slug', $company->type);
+                            @endphp
+                            @if($companyType)
+                                <td class="border p-2 text-center" style="background-color: {{ $companyType->color }}20; border-color: #000;">
+                                    <span class="font-semibold" style="color: #222;">{{ $companyType->name }}</span>
+                                </td>
+                            @else
+                                <td class="border p-2 text-center">
+                                    <span class="stage-badge bg-gray-100 text-gray-800">{{ ucfirst($company->type) }}</span>
+                                </td>
+                            @endif
+                            <td class="border p-2">{{ ucfirst($company->status) }}</td>
+                            <td class="border p-2">{{ $company->owner->name ?? '-' }}</td>
+                            <td class="border p-2">
+                                <span class="text-sm text-gray-600">{{ $company->addedBy->name ?? '-' }}</span>
+                            </td>
+                            <td class="border p-2 text-center">
+                                @if($company->supplier_id)
+                                    <span class="text-green-600 font-bold" title="Firma jest w bazie dostawców/klientów">✓ W bazie</span>
+                                @else
+                                    <form action="{{ route('crm.company.addToSuppliers', $company->id) }}" method="POST" class="inline">
+                                        @csrf
+                                        <button type="submit" class="text-blue-600 hover:underline text-sm" title="Dodaj do bazy dostawców/klientów">➕ Dodaj do bazy</button>
+                                    </form>
+                                @endif
+                            </td>
+                            <td class="border p-2 text-center">
+                                <button onclick="editCompany({{ $company->id }})" class="text-blue-600 hover:underline">✏️</button>
+                                <form action="{{ route('crm.company.delete', $company->id) }}" method="POST" class="inline" onsubmit="return confirm('Usunąć firmę?')">
+                                    @csrf @method('DELETE')
+                                    <button type="submit" class="text-red-600 hover:underline">🗑️</button>
+                                </form>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="9" class="border p-4 text-center text-gray-500">Brak firm w bazie</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -938,6 +940,32 @@ function editDeal(id) {
         .then(response => response.json())
         .then(deal => {
             const assignedUserIds = deal.assigned_users ? deal.assigned_users.map(u => u.id) : [];
+            const hasOffers = deal.offers && deal.offers.length > 0;
+            
+            // Generuj listę ofert jeśli istnieją
+            let offersHtml = '';
+            if (hasOffers) {
+                offersHtml = `
+                    <div class="col-span-2 mt-2 mb-2">
+                        <label class="block mb-2 font-semibold text-gray-700">📄 Powiązane oferty</label>
+                        <div class="border rounded bg-gray-50 p-3 space-y-2">
+                            ${deal.offers.map(offer => `
+                                <div class="flex items-center justify-between bg-white p-3 rounded border border-gray-200 hover:border-blue-400 transition">
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-gray-800">${offer.offer_number} - ${offer.offer_title}</div>
+                                        <div class="text-sm text-gray-600">
+                                            Data: ${offer.offer_date} • Wartość: ${parseFloat(offer.total_price).toLocaleString('pl-PL', {minimumFractionDigits: 2, maximumFractionDigits: 2})} zł
+                                        </div>
+                                    </div>
+                                    <a href="/wyceny/${offer.id}/edit" class="ml-3 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                                        ✏️ Edytuj
+                                    </a>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
             
             document.getElementById('modal-content').innerHTML = `
                 <h3 class="text-xl font-bold mb-4">Edytuj Szansę Sprzedażową</h3>
@@ -968,6 +996,7 @@ function editDeal(id) {
                         </div>
                         <div><label class="block mb-1 font-semibold">Przewidywane zamknięcie</label><input type="date" name="expected_close_date" value="${deal.expected_close_date ? deal.expected_close_date.split('T')[0] : ''}" class="w-full border rounded px-3 py-2"></div>
                         <div><label class="block mb-1 font-semibold">Rzeczywiste zamknięcie</label><input type="date" name="actual_close_date" value="${deal.actual_close_date ? deal.actual_close_date.split('T')[0] : ''}" class="w-full border rounded px-3 py-2"></div>
+                        ${offersHtml}
                         <div class="col-span-2">
                             <label class="block mb-1 font-semibold">Przypisani użytkownicy (szansa będzie widoczna dla nich)</label>
                             <div class="border rounded px-3 py-2 max-h-32 overflow-y-auto">
@@ -983,6 +1012,8 @@ function editDeal(id) {
                     </div>
                     <div class="mt-4 flex gap-2 justify-end">
                         <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Anuluj</button>
+                        ${deal.stage === 'wycena' && !hasOffers ? '<button type="button" onclick="createOfferFromDeal(' + id + ')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">📄 Stwórz ofertę</button>' : ''}
+                        ${deal.stage === 'wycena' && hasOffers ? '<button type="button" onclick="createOfferFromDeal(' + id + ')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">📄 Dodaj kolejną ofertę</button>' : ''}
                         <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Zapisz</button>
                     </div>
                 </form>
@@ -1140,6 +1171,11 @@ function editActivity(id) {
             console.error('Error:', error);
             alert('Błąd podczas ładowania danych aktywności');
         });
+}
+
+// Funkcja do tworzenia oferty ze szansy
+function createOfferFromDeal(dealId) {
+    window.location.href = `/wyceny/nowa?deal_id=${dealId}`;
 }
 
 // Automatyczne zamykanie kalendarza po wyborze daty
