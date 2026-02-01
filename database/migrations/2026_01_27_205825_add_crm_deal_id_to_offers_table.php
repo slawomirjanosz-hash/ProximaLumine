@@ -12,8 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('offers', function (Blueprint $table) {
-            $table->unsignedBigInteger('crm_deal_id')->nullable()->after('id');
-            $table->foreign('crm_deal_id')->references('id')->on('crm_deals')->onDelete('set null');
+            if (!Schema::hasColumn('offers', 'crm_deal_id')) {
+                $table->unsignedBigInteger('crm_deal_id')->nullable()->after('id');
+                $table->foreign('crm_deal_id')->references('id')->on('crm_deals')->onDelete('set null');
+            }
         });
     }
 
