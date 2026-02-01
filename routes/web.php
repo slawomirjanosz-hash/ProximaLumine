@@ -1,4 +1,10 @@
 <?php
+
+// Railway diagnostics page (remove this route once everything works)
+Route::get('/railway-diagnostics', function () {
+    return view('railway-diagnostics');
+});
+
 // PODSTRONY WYCEN I OFERT
 Route::middleware('auth')->get('/wyceny/portfolio', function () {
     try {
