@@ -12,13 +12,27 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('offers', function (Blueprint $table) {
-            $table->string('customer_name')->nullable()->after('offer_title');
-            $table->string('customer_nip')->nullable()->after('customer_name');
-            $table->string('customer_address')->nullable()->after('customer_nip');
-            $table->string('customer_city')->nullable()->after('customer_address');
-            $table->string('customer_postal_code')->nullable()->after('customer_city');
-            $table->string('customer_phone')->nullable()->after('customer_postal_code');
-            $table->string('customer_email')->nullable()->after('customer_phone');
+            if (!Schema::hasColumn('offers', 'customer_name')) {
+                $table->string('customer_name')->nullable()->after('offer_title');
+            }
+            if (!Schema::hasColumn('offers', 'customer_nip')) {
+                $table->string('customer_nip')->nullable()->after('customer_name');
+            }
+            if (!Schema::hasColumn('offers', 'customer_address')) {
+                $table->string('customer_address')->nullable()->after('customer_nip');
+            }
+            if (!Schema::hasColumn('offers', 'customer_city')) {
+                $table->string('customer_city')->nullable()->after('customer_address');
+            }
+            if (!Schema::hasColumn('offers', 'customer_postal_code')) {
+                $table->string('customer_postal_code')->nullable()->after('customer_city');
+            }
+            if (!Schema::hasColumn('offers', 'customer_phone')) {
+                $table->string('customer_phone')->nullable()->after('customer_postal_code');
+            }
+            if (!Schema::hasColumn('offers', 'customer_email')) {
+                $table->string('customer_email')->nullable()->after('customer_phone');
+            }
         });
     }
 
