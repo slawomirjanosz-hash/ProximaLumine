@@ -45,10 +45,7 @@
                 <p class="text-gray-600 mb-4">{{ Str::limit($recipe->description, 100) }}</p>
                 
                 <div class="mb-4 text-sm">
-                    <div class="text-gray-500">🔢 Liczba kroków: {{ $recipe->steps_count }}</div>
-                    <div class="text-gray-500">⏱️ Szacowany czas: {{ $recipe->estimated_time ?? 0 }} min</div>
                     <div class="text-gray-500">📦 Ilość sztuk: {{ $recipe->output_quantity }}</div>
-                    
                     @php
                         $totalCost = $recipe->total_cost;
                         $costPerUnit = $recipe->cost_per_unit;
@@ -81,12 +78,6 @@
                     <a href="{{ route('recipes.edit', $recipe) }}" class="flex-1 text-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
                         ✏️ Edytuj
                     </a>
-                    <form action="{{ route('recipes.start', $recipe) }}" method="POST" class="flex-1">
-                        @csrf
-                        <button type="submit" class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-                            ▶️ Rozpocznij
-                        </button>
-                    </form>
                 </div>
                 
                 <form action="{{ route('recipes.destroy', $recipe) }}" method="POST" class="mt-2" onsubmit="return confirm('Czy na pewno usunąć tę recepturę?')">

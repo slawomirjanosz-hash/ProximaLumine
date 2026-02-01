@@ -86,6 +86,30 @@ Route::middleware('auth')->get('/api/parts/catalog', function () {
     
     return response()->json($parts);
 })->name('api.parts.catalog');
+
+// API endpoint do pobierania składników receptury
+Route::middleware('auth')->get('/api/recipes/{recipe}/ingredients', function (\App\Models\Recipe $recipe) {
+    $ingredients = $recipe->steps()
+        ->where('type', 'ingredient')
+        ->with('ingredient')
+        ->get()
+        ->map(function ($step) {
+            return [
+                'id' => $step->ingredient->id ?? null,
+                'name' => $step->ingredient->name ?? 'Brak nazwy',
+                'quantity' => $step->quantity,
+                'unit' => $step->ingredient->unit ?? '',
+                'is_flour' => $step->is_flour,
+            ];
+        })
+        ->filter(function ($item) {
+            return $item['id'] !== null;
+        })
+        ->values();
+    
+    return response()->json($ingredients);
+})->name('api.recipes.ingredients');
+
 Route::middleware('auth')->post('/wyceny/nowa', function (Illuminate\Http\Request $request) {
     // Pobierz numer oferty z formularza
     $offerNumber = $request->input('offer_number');
@@ -351,13 +375,22 @@ Route::middleware(['auth'])->prefix('receptury')->group(function () {
     Route::get('/{recipe}/edytuj', [App\Http\Controllers\RecipeController::class, 'edit'])->name('recipes.edit');
     Route::put('/{recipe}', [App\Http\Controllers\RecipeController::class, 'update'])->name('recipes.update');
     Route::delete('/{recipe}', [App\Http\Controllers\RecipeController::class, 'destroy'])->name('recipes.destroy');
-    
-    // Realizacja receptury
-    Route::post('/{recipe}/rozpocznij', [App\Http\Controllers\RecipeController::class, 'startExecution'])->name('recipes.start');
-    Route::get('/realizacja/{execution}', [App\Http\Controllers\RecipeController::class, 'execute'])->name('recipes.execute');
-    Route::post('/realizacja/{execution}/potwierdz-krok', [App\Http\Controllers\RecipeController::class, 'confirmStep'])->name('recipes.confirmStep');
 });
 
+// Procesy produkcyjne
+Route::middleware('auth')->prefix('procesy')->group(function () {
+    Route::get('/', [App\Http\Controllers\ProcessController::class, 'index'])->name('processes.index');
+    Route::get('/nowy', [App\Http\Controllers\ProcessController::class, 'create'])->name('processes.create');
+    Route::post('/nowy', [App\Http\Controllers\ProcessController::class, 'store'])->name('processes.store');
+    Route::get('/{process}', [App\Http\Controllers\ProcessController::class, 'show'])->name('processes.show');
+    Route::get('/{process}/edytuj', [App\Http\Controllers\ProcessController::class, 'edit'])->name('processes.edit');
+    Route::put('/{process}', [App\Http\Controllers\ProcessController::class, 'update'])->name('processes.update');
+    Route::delete('/{process}', [App\Http\Controllers\ProcessController::class, 'destroy'])->name('processes.destroy');
+});
+
+// Realizacja procesu
+Route::middleware('auth')->post('/processes/{process}/start', [\App\Http\Controllers\ProcessController::class, 'start'])->name('processes.start');
+Route::middleware('auth')->get('/processes/{process}/execute', [\App\Http\Controllers\ProcessExecutionController::class, 'execute'])->name('processes.execute');
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PartController;

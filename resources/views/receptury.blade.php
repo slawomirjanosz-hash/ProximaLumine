@@ -57,11 +57,11 @@
             <p class="text-gray-600">Przeglądaj i zarządzaj recepturami</p>
         </a>
 
-        <!-- Nowa receptura -->
-        <a href="{{ route('recipes.create') }}" class="block p-8 bg-white rounded-lg shadow hover:shadow-lg transition">
-            <div class="text-5xl mb-4">➕</div>
-            <h2 class="text-2xl font-bold mb-2">Nowa Receptura</h2>
-            <p class="text-gray-600">Stwórz nową recepturę</p>
+        <!-- Lista procesów -->
+        <a href="{{ route('processes.index') }}" class="block p-8 bg-white rounded-lg shadow hover:shadow-lg transition">
+            <div class="text-5xl mb-4">⚙️</div>
+            <h2 class="text-2xl font-bold mb-2">Lista Procesów</h2>
+            <p class="text-gray-600">Przeglądaj procesy produkcyjne</p>
         </a>
     </div>
 </main>

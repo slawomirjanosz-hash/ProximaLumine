@@ -14,13 +14,17 @@ class RecipeStep extends Model
         'action_description',
         'duration',
         'ingredient_id',
-        'quantity'
+        'quantity',
+        'percentage',
+        'is_flour'
     ];
 
     protected $casts = [
         'order' => 'integer',
         'duration' => 'integer',
-        'quantity' => 'decimal:2'
+        'quantity' => 'decimal:2',
+        'percentage' => 'decimal:2',
+        'is_flour' => 'boolean'
     ];
 
     public function recipe()
