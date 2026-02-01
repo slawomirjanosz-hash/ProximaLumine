@@ -12,8 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('recipe_steps', function (Blueprint $table) {
-            $table->decimal('percentage', 8, 2)->nullable()->after('quantity');
-            $table->boolean('is_flour')->default(false)->after('percentage');
+            //
         });
     }
 
@@ -23,7 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('recipe_steps', function (Blueprint $table) {
-            $table->dropColumn(['percentage', 'is_flour']);
+            //
         });
     }
 };
