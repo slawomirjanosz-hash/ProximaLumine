@@ -5,6 +5,11 @@ Route::get('/railway-diagnostics', function () {
     return view('railway-diagnostics');
 });
 
+// Test offers page
+Route::get('/test-offers', function () {
+    return view('test-offers');
+});
+
 // PODSTRONY WYCEN I OFERT
 Route::middleware('auth')->get('/wyceny/portfolio', function () {
     try {
