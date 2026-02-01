@@ -19,29 +19,38 @@ Route::middleware('auth')->get('/wyceny/portfolio', function () {
     return view('offers-portfolio', compact('offers'));
 })->name('offers.portfolio');
 Route::middleware('auth')->get('/wyceny/nowa', function (Illuminate\Http\Request $request) {
-    $dealId = $request->input('deal_id');
-    $deal = null;
-    
     try {
-        if ($dealId && class_exists('\App\Models\CrmDeal')) {
-            $deal = \App\Models\CrmDeal::with(['company.supplier'])->find($dealId);
+        $dealId = $request->input('deal_id');
+        $deal = null;
+        
+        try {
+            if ($dealId && class_exists('\App\Models\CrmDeal')) {
+                $deal = \App\Models\CrmDeal::with(['company.supplier'])->find($dealId);
+            }
+        } catch (\Exception $e) {
+            \Log::warning('CRM deal not found: ' . $e->getMessage());
         }
-    } catch (\Exception $e) {
-        // CRM tables might not exist yet
-        \Log::warning('CRM deal not found or tables not migrated: ' . $e->getMessage());
-    }
-    
-    $companies = [];
-    try {
-        if (class_exists('\App\Models\CrmCompany')) {
-            $companies = \App\Models\CrmCompany::with('supplier')->orderBy('name')->get();
+        
+        $companies = [];
+        try {
+            if (class_exists('\App\Models\CrmCompany')) {
+                $companies = \App\Models\CrmCompany::with('supplier')->orderBy('name')->get();
+            }
+        } catch (\Exception $e) {
+            \Log::warning('CRM companies not found: ' . $e->getMessage());
         }
+        
+        return view('offers-new', ['deal' => $deal, 'companies' => $companies]);
     } catch (\Exception $e) {
-        // CRM tables might not exist yet
-        \Log::warning('CRM companies not found or tables not migrated: ' . $e->getMessage());
+        \Log::error('Error in /wyceny/nowa: ' . $e->getMessage() . ' | File: ' . $e->getFile() . ' | Line: ' . $e->getLine());
+        return response()->json([
+            'error' => 'Server Error',
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString()
+        ], 500);
     }
-    
-    return view('offers-new', ['deal' => $deal, 'companies' => $companies]);
 })->name('offers.new');
 
 Route::middleware('auth')->get('/wyceny/ustawienia', function () {
