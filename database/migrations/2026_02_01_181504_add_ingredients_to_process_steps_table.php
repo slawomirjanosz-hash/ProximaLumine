@@ -12,7 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('process_steps', function (Blueprint $table) {
-            $table->json('ingredients_data')->nullable(); // Dane składników: id, nazwa, ilość dodana, jednostka
+            // Sprawdź czy kolumna już istnieje (zabezpieczenie przed duplikatami)
+            if (!Schema::hasColumn('process_steps', 'ingredients_data')) {
+                $table->json('ingredients_data')->nullable(); // Dane składników: id, nazwa, ilość dodana, jednostka
+            }
         });
     }
 
