@@ -1,5 +1,10 @@
 <?php
 
+// Diagnostyka bazy danych
+if (file_exists(base_path('routes/diagnostics.php'))) {
+    require base_path('routes/diagnostics.php');
+}
+
 // Railway diagnostics page (remove this route once everything works)
 Route::get('/railway-diagnostics', function () {
     return view('railway-diagnostics');
