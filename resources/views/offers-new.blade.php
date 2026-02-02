@@ -45,34 +45,37 @@
             
             <h1 class="text-3xl font-bold mb-6 text-center mt-12">Tworzenie nowej oferty</h1>
             
-            @if(isset($deal) && $deal)
-                <div class="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
-                    <div class="flex items-start">
-                        <div class="flex-shrink-0">
-                            <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <div class="ml-3">
-                            <p class="text-sm font-medium text-blue-800">Oferta dla szansy CRM</p>
-                            <p class="mt-1 text-sm text-blue-700">
-                                <strong>{{ $deal->name }}</strong>
-                                @if($deal->company)
-                                    <span class="ml-2">• Firma: {{ $deal->company->name }}</span>
-                                @endif
-                                <span class="ml-2">• Wartość: {{ number_format($deal->value, 2, ',', ' ') }} {{ $deal->currency }}</span>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            @endif
-            
             <form action="#" method="POST" class="space-y-6" onkeydown="return event.key != 'Enter';">
                 @csrf
                 
-                @if(isset($deal) && $deal)
-                    <input type="hidden" name="crm_deal_id" value="{{ $deal->id }}">
-                @endif
+                <!-- Przypisanie do szansy CRM -->
+                <div class="mb-6 p-4 bg-green-50 border border-green-300 rounded">
+                    <h3 class="text-lg font-semibold mb-3 text-green-900">🎯 Przypisanie do szansy CRM (opcjonalnie)</h3>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Wybierz szansę CRM</label>
+                        <select id="crm-deal-select" name="crm_deal_id" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500" onchange="updateDealInfo(this.value)">
+                            <option value="">-- Brak przypisania --</option>
+                            @foreach($deals as $d)
+                                <option value="{{ $d->id }}" 
+                                    data-name="{{ $d->name }}"
+                                    data-company="{{ $d->company ? $d->company->name : '' }}"
+                                    data-value="{{ number_format($d->value, 2, ',', ' ') }}"
+                                    data-currency="{{ $d->currency }}"
+                                    @if(isset($deal) && $deal && $deal->id == $d->id) selected @endif>
+                                    {{ $d->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div id="deal-info" class="mt-3 p-3 bg-blue-50 border-l-4 border-blue-500 rounded @if(!isset($deal) || !$deal) hidden @endif">
+                        <p class="text-sm font-medium text-blue-800">Szczegóły szansy:</p>
+                        <p class="mt-1 text-sm text-blue-700">
+                            <strong id="deal-name">{{ isset($deal) && $deal ? $deal->name : '' }}</strong>
+                            <span id="deal-company" class="ml-2">{{ isset($deal) && $deal && $deal->company ? '• Firma: ' . $deal->company->name : '' }}</span>
+                            <span id="deal-value" class="ml-2">{{ isset($deal) && $deal ? '• Wartość: ' . number_format($deal->value, 2, ',', ' ') . ' ' . $deal->currency : '' }}</span>
+                        </p>
+                    </div>
+                </div>
                 
                 <!-- Podstawowe informacje -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1281,6 +1284,29 @@
                 console.error('Błąd pobierania danych z GUS:', error);
                 alert('Błąd podczas pobierania danych z GUS: ' + error.message);
             }
+        }
+        
+        // Update deal info based on selection
+        function updateDealInfo(dealId) {
+            const dealInfo = document.getElementById('deal-info');
+            const select = document.getElementById('crm-deal-select');
+            
+            if (!dealId) {
+                dealInfo.classList.add('hidden');
+                return;
+            }
+            
+            const selectedOption = select.options[select.selectedIndex];
+            const name = selectedOption.getAttribute('data-name');
+            const company = selectedOption.getAttribute('data-company');
+            const value = selectedOption.getAttribute('data-value');
+            const currency = selectedOption.getAttribute('data-currency');
+            
+            document.getElementById('deal-name').textContent = name;
+            document.getElementById('deal-company').textContent = company ? `• Firma: ${company}` : '';
+            document.getElementById('deal-value').textContent = `• Wartość: ${value} ${currency}`;
+            
+            dealInfo.classList.remove('hidden');
         }
     </script>
 </body>

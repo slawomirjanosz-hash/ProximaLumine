@@ -60,7 +60,26 @@ Route::middleware('auth')->get('/wyceny/nowa', function (Illuminate\Http\Request
             \Log::warning('Suppliers not found: ' . $e->getMessage());
         }
 
-        return view('offers-new', ['deal' => $deal, 'companies' => $companies, 'suppliers' => $suppliers]);
+        // Fetch all active deals for dropdown (only user's deals)
+        $deals = [];
+        try {
+            if (class_exists('\\App\\Models\\CrmDeal')) {
+                $userId = auth()->id();
+                $deals = \App\Models\CrmDeal::with(['company'])
+                    ->whereNotIn('stage', ['wygrana', 'przegrana'])
+                    ->where(function($query) use ($userId) {
+                        $query->where('user_id', $userId)
+                              ->orWhereHas('assignedUsers', function($q) use ($userId) {
+                                  $q->where('user_id', $userId);
+                              });
+                    })
+                    ->orderBy('name')->get();
+            }
+        } catch (\Exception $e) {
+            \Log::warning('CRM deals not found: ' . $e->getMessage());
+        }
+
+        return view('offers-new', ['deal' => $deal, 'companies' => $companies, 'suppliers' => $suppliers, 'deals' => $deals]);
     } catch (\Exception $e) {
         \Log::error('Error in /wyceny/nowa: ' . $e->getMessage() . ' | File: ' . $e->getFile() . ' | Line: ' . $e->getLine());
         return response()->json([
@@ -327,7 +346,26 @@ Route::middleware('auth')->get('/wyceny/{offer}/edit', function (\App\Models\Off
         \Log::warning('Suppliers not found: ' . $e->getMessage());
     }
 
-    return view('offers-edit', compact('offer', 'companies', 'suppliers'));
+    // Fetch all active deals for dropdown (only user's deals)
+    $deals = [];
+    try {
+        if (class_exists('\\App\\Models\\CrmDeal')) {
+            $userId = auth()->id();
+            $deals = \App\Models\CrmDeal::with(['company'])
+                ->whereNotIn('stage', ['wygrana', 'przegrana'])
+                ->where(function($query) use ($userId) {
+                    $query->where('user_id', $userId)
+                          ->orWhereHas('assignedUsers', function($q) use ($userId) {
+                              $q->where('user_id', $userId);
+                          });
+                })
+                ->orderBy('name')->get();
+        }
+    } catch (\Exception $e) {
+        \Log::warning('CRM deals not found: ' . $e->getMessage());
+    }
+
+    return view('offers-edit', compact('offer', 'companies', 'suppliers', 'deals'));
 })->name('offers.edit');
 
 Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Request $request, \App\Models\Offer $offer) {
@@ -335,19 +373,19 @@ Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Requ
     $totalPrice = 0;
     
     $services = collect($request->input('services', []))
-        ->filter(fn($item) => !empty($item['price']))
+        ->filter(fn($item) => !empty($item['name']))
         ->map(function($item) {
             $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
             return $item;
         })->toArray();
     $works = collect($request->input('works', []))
-        ->filter(fn($item) => !empty($item['price']))
+        ->filter(fn($item) => !empty($item['name']))
         ->map(function($item) {
             $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
             return $item;
         })->toArray();
     $materials = collect($request->input('materials', []))
-        ->filter(fn($item) => !empty($item['price']))
+        ->filter(fn($item) => !empty($item['name']))
         ->map(function($item) {
             $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
             return $item;
