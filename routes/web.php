@@ -34,7 +34,7 @@ Route::middleware('auth')->get('/wyceny/nowa', function (Illuminate\Http\Request
         $deal = null;
         
         try {
-            if ($dealId && class_exists('\App\Models\CrmDeal')) {
+            if ($dealId && class_exists('\\App\\Models\\CrmDeal')) {
                 $deal = \App\Models\CrmDeal::with(['company.supplier'])->find($dealId);
             }
         } catch (\Exception $e) {
@@ -43,14 +43,24 @@ Route::middleware('auth')->get('/wyceny/nowa', function (Illuminate\Http\Request
         
         $companies = [];
         try {
-            if (class_exists('\App\Models\CrmCompany')) {
+            if (class_exists('\\App\\Models\\CrmCompany')) {
                 $companies = \App\Models\CrmCompany::with('supplier')->orderBy('name')->get();
             }
         } catch (\Exception $e) {
             \Log::warning('CRM companies not found: ' . $e->getMessage());
         }
-        
-        return view('offers-new', ['deal' => $deal, 'companies' => $companies]);
+
+        // Fetch all suppliers for dropdown
+        $suppliers = [];
+        try {
+            if (class_exists('\\App\\Models\\Supplier')) {
+                $suppliers = \App\Models\Supplier::orderBy('name')->get();
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Suppliers not found: ' . $e->getMessage());
+        }
+
+        return view('offers-new', ['deal' => $deal, 'companies' => $companies, 'suppliers' => $suppliers]);
     } catch (\Exception $e) {
         \Log::error('Error in /wyceny/nowa: ' . $e->getMessage() . ' | File: ' . $e->getFile() . ' | Line: ' . $e->getLine());
         return response()->json([
@@ -91,6 +101,37 @@ Route::middleware('auth')->get('/api/parts/catalog', function () {
     
     return response()->json($parts);
 })->name('api.parts.catalog');
+
+// API endpoint do dodawania produktu do katalogu
+Route::middleware('auth')->post('/api/parts/catalog/add', function (Illuminate\Http\Request $request) {
+    try {
+        $data = $request->validate([
+            'name' => 'nullable|string|max:255',
+            'type' => 'nullable|string|max:255',
+            'quantity' => 'nullable|numeric',
+            'supplier' => 'nullable|string|max:255',
+            'price' => 'nullable|numeric'
+        ]);
+
+        // Znajdź kategorię "Inne" lub utwórz ją
+        $category = \App\Models\Category::firstOrCreate(['name' => 'Inne']);
+
+        // Utwórz nową część
+        $part = \App\Models\Part::create([
+            'name' => $data['name'] ?? 'Bez nazwy',
+            'description' => $data['type'] ?? '',
+            'quantity' => $data['quantity'] ?? 0,
+            'supplier' => $data['supplier'] ?? '',
+            'net_price' => $data['price'] ?? 0,
+            'category_id' => $category->id,
+        ]);
+
+        return response()->json(['success' => true, 'part' => $part], 201);
+    } catch (\Exception $e) {
+        \Log::error('Error adding product to catalog: ' . $e->getMessage());
+        return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+    }
+})->name('api.parts.catalog.add');
 
 // API endpoint do pobierania składników receptury
 Route::middleware('auth')->get('/api/recipes/{recipe}/ingredients', function (\App\Models\Recipe $recipe) {
@@ -258,25 +299,35 @@ Route::middleware('auth')->post('/wyceny/{offer}/copy', function (\App\Models\Of
 
 Route::middleware('auth')->get('/wyceny/{offer}/edit', function (\App\Models\Offer $offer) {
     try {
-        if (class_exists('\App\Models\CrmDeal')) {
+        if (class_exists('\\App\\Models\\CrmDeal')) {
             $offer->load('crmDeal.company');
         }
     } catch (\Exception $e) {
         // CRM tables might not exist yet
         \Log::warning('CRM deal relation not loaded: ' . $e->getMessage());
     }
-    
+
     $companies = [];
     try {
-        if (class_exists('\App\Models\CrmCompany')) {
+        if (class_exists('\\App\\Models\\CrmCompany')) {
             $companies = \App\Models\CrmCompany::orderBy('name')->get();
         }
     } catch (\Exception $e) {
         // CRM tables might not exist yet
         \Log::warning('CRM companies not found: ' . $e->getMessage());
     }
-    
-    return view('offers-edit', compact('offer', 'companies'));
+
+    // Fetch all suppliers for dropdown
+    $suppliers = [];
+    try {
+        if (class_exists('\\App\\Models\\Supplier')) {
+            $suppliers = \App\Models\Supplier::orderBy('name')->get();
+        }
+    } catch (\Exception $e) {
+        \Log::warning('Suppliers not found: ' . $e->getMessage());
+    }
+
+    return view('offers-edit', compact('offer', 'companies', 'suppliers'));
 })->name('offers.edit');
 
 Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Request $request, \App\Models\Offer $offer) {

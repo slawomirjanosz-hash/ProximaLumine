@@ -2,8 +2,10 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Edytuj Ofertę</title>
     <link rel="icon" type="image/png" href="{{ asset('logo_proxima_male.png') }}">
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col">
@@ -170,7 +172,7 @@
                                 <tr class="bg-gray-100">
                                     <th class="p-1 text-left w-10">Nr</th>
                                     <th class="p-1 text-left">Nazwa</th>
-                                    <th class="p-1 text-left w-48">Typ</th>
+                                    <th class="p-1 text-left w-48">Opis</th>
                                     <th class="p-1 text-left w-16">Ilość</th>
                                     <th class="p-1 text-left">Dostawca</th>
                                     <th class="p-1 text-left w-24">Cena (zł)</th>
@@ -185,10 +187,18 @@
                                     <td class="p-1"><input type="text" name="services[{{ $index }}][name]" value="{{ $service['name'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                     <td class="p-1"><input type="text" name="services[{{ $index }}][type]" value="{{ $service['type'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                     <td class="p-1"><input type="number" min="1" value="{{ $service['quantity'] ?? 1 }}" name="services[{{ $index }}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="services" onchange="calculateRowValue(this)"></td>
-                                    <td class="p-1"><input type="text" name="services[{{ $index }}][supplier]" value="{{ $service['supplier'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                                                <td class="p-1">
+                                                                    <select name="services[{{ $index }}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
+                                                                        <option value="">-- brak --</option>
+                                                                        @foreach($suppliers as $supplier)
+                                                                            <option value="{{ $supplier->name }}" @if(($service['supplier'] ?? '') == $supplier->name) selected @endif>{{ $supplier->short_name ?: $supplier->name }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[{{ $index }}][price]" value="{{ $service['price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="services" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[{{ $index }}][value]" value="{{ ($service['quantity'] ?? 1) * ($service['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="services" readonly></td>
-                                    <td class="p-1">@if($index > 0)<button type="button" onclick="removeRow(this, 'services')" class="text-red-600 hover:text-red-800">✕</button>@endif</td>
+                                    <td class="p-1"><div class="flex gap-1 items-center">@if($index > 0)<button type="button" onclick="removeRow(this, 'services')" class="text-red-600 hover:text-red-800 text-xs">✕</button>@endif
+                                    <button type="button" onclick="addProductToCatalog(this, 'services', {{ $index }})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
                                 </tr>
                                 @empty
                                 <tr>
@@ -196,10 +206,17 @@
                                     <td class="p-1"><input type="text" name="services[0][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                     <td class="p-1"><input type="text" name="services[0][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                     <td class="p-1"><input type="number" min="1" value="1" name="services[0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="services" onchange="calculateRowValue(this)"></td>
-                                    <td class="p-1"><input type="text" name="services[0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                                                <td class="p-1">
+                                                                    <select name="services[0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
+                                                                        <option value="">-- brak --</option>
+                                                                        @foreach($suppliers as $supplier)
+                                                                            <option value="{{ $supplier->name }}">{{ $supplier->short_name ?: $supplier->name }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="services" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="services" readonly></td>
-                                    <td class="p-1"></td>
+                                    <td class="p-1"><button type="button" onclick="addProductToCatalog(this, 'services', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -235,7 +252,7 @@
                                 <tr class="bg-gray-100">
                                     <th class="p-1 text-left w-10">Nr</th>
                                     <th class="p-1 text-left">Nazwa</th>
-                                    <th class="p-1 text-left w-48">Typ</th>
+                                    <th class="p-1 text-left w-48">Opis</th>
                                     <th class="p-1 text-left w-16">Ilość</th>
                                     <th class="p-1 text-left">Dostawca</th>
                                     <th class="p-1 text-left w-24">Cena (zł)</th>
@@ -250,10 +267,18 @@
                                     <td class="p-1"><input type="text" name="works[{{ $index }}][name]" value="{{ $work['name'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                     <td class="p-1"><input type="text" name="works[{{ $index }}][type]" value="{{ $work['type'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                     <td class="p-1"><input type="number" min="1" value="{{ $work['quantity'] ?? 1 }}" name="works[{{ $index }}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="works" onchange="calculateRowValue(this)"></td>
-                                    <td class="p-1"><input type="text" name="works[{{ $index }}][supplier]" value="{{ $work['supplier'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                                                <td class="p-1">
+                                                                    <select name="works[{{ $index }}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
+                                                                        <option value="">-- brak --</option>
+                                                                        @foreach($suppliers as $supplier)
+                                                                            <option value="{{ $supplier->name }}" @if(($work['supplier'] ?? '') == $supplier->name) selected @endif>{{ $supplier->short_name ?: $supplier->name }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[{{ $index }}][price]" value="{{ $work['price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="works" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[{{ $index }}][value]" value="{{ ($work['quantity'] ?? 1) * ($work['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="works" readonly></td>
-                                    <td class="p-1">@if($index > 0)<button type="button" onclick="removeRow(this, 'works')" class="text-red-600 hover:text-red-800">✕</button>@endif</td>
+                                    <td class="p-1"><div class="flex gap-1 items-center">@if($index > 0)<button type="button" onclick="removeRow(this, 'works')" class="text-red-600 hover:text-red-800 text-xs">✕</button>@endif
+                                    <button type="button" onclick="addProductToCatalog(this, 'works', {{ $index }})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
                                 </tr>
                                 @empty
                                 <tr>
@@ -261,10 +286,17 @@
                                     <td class="p-1"><input type="text" name="works[0][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                     <td class="p-1"><input type="text" name="works[0][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                     <td class="p-1"><input type="number" min="1" value="1" name="works[0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="works" onchange="calculateRowValue(this)"></td>
-                                    <td class="p-1"><input type="text" name="works[0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                                                <td class="p-1">
+                                                                    <select name="works[0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
+                                                                        <option value="">-- brak --</option>
+                                                                        @foreach($suppliers as $supplier)
+                                                                            <option value="{{ $supplier->name }}">{{ $supplier->short_name ?: $supplier->name }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="works" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="works" readonly></td>
-                                    <td class="p-1"></td>
+                                    <td class="p-1"><button type="button" onclick="addProductToCatalog(this, 'works', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -300,7 +332,7 @@
                                 <tr class="bg-gray-100">
                                     <th class="p-1 text-left w-10">Nr</th>
                                     <th class="p-1 text-left">Nazwa</th>
-                                    <th class="p-1 text-left w-48">Typ</th>
+                                    <th class="p-1 text-left w-48">Opis</th>
                                     <th class="p-1 text-left w-16">Ilość</th>
                                     <th class="p-1 text-left">Dostawca</th>
                                     <th class="p-1 text-left w-24">Cena (zł)</th>
@@ -315,10 +347,18 @@
                                     <td class="p-1"><input type="text" name="materials[{{ $index }}][name]" value="{{ $material['name'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                     <td class="p-1"><input type="text" name="materials[{{ $index }}][type]" value="{{ $material['type'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                     <td class="p-1"><input type="number" min="1" value="{{ $material['quantity'] ?? 1 }}" name="materials[{{ $index }}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="materials" onchange="calculateRowValue(this)"></td>
-                                    <td class="p-1"><input type="text" name="materials[{{ $index }}][supplier]" value="{{ $material['supplier'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                                                <td class="p-1">
+                                                                    <select name="materials[{{ $index }}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
+                                                                        <option value="">-- brak --</option>
+                                                                        @foreach($suppliers as $supplier)
+                                                                            <option value="{{ $supplier->name }}" @if(($material['supplier'] ?? '') == $supplier->name) selected @endif>{{ $supplier->short_name ?: $supplier->name }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[{{ $index }}][price]" value="{{ $material['price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="materials" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[{{ $index }}][value]" value="{{ ($material['quantity'] ?? 1) * ($material['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="materials" readonly></td>
-                                    <td class="p-1">@if($index > 0)<button type="button" onclick="removeRow(this, 'materials')" class="text-red-600 hover:text-red-800">✕</button>@endif</td>
+                                    <td class="p-1"><div class="flex gap-1 items-center">@if($index > 0)<button type="button" onclick="removeRow(this, 'materials')" class="text-red-600 hover:text-red-800 text-xs">✕</button>@endif
+                                    <button type="button" onclick="addProductToCatalog(this, 'materials', {{ $index }})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
                                 </tr>
                                 @empty
                                 <tr>
@@ -326,10 +366,17 @@
                                     <td class="p-1"><input type="text" name="materials[0][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                     <td class="p-1"><input type="text" name="materials[0][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                     <td class="p-1"><input type="number" min="1" value="1" name="materials[0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="materials" onchange="calculateRowValue(this)"></td>
-                                    <td class="p-1"><input type="text" name="materials[0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                                                <td class="p-1">
+                                                                    <select name="materials[0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
+                                                                        <option value="">-- brak --</option>
+                                                                        @foreach($suppliers as $supplier)
+                                                                            <option value="{{ $supplier->name }}">{{ $supplier->short_name ?: $supplier->name }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="materials" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="materials" readonly></td>
-                                    <td class="p-1"></td>
+                                    <td class="p-1"><button type="button" onclick="addProductToCatalog(this, 'materials', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -349,11 +396,14 @@
                 <div id="custom-sections-container">
                     @if(isset($offer->custom_sections) && is_array($offer->custom_sections))
                         @foreach($offer->custom_sections as $sectionIndex => $customSection)
-                            <div class="border border-gray-300 rounded" id="section-custom{{ $sectionIndex + 1 }}">
+                            <div class="border border-gray-300 rounded mb-4" id="section-custom{{ $sectionIndex + 1 }}">
                                 <div class="flex items-center justify-between p-4 bg-gray-50">
                                     <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('custom{{ $sectionIndex + 1 }}')">
-                                        <span class="font-semibold text-lg">{{ $customSection['name'] ?? 'Sekcja ' . ($sectionIndex + 1) }}</span>
+                                        <span class="font-semibold text-lg section-name" id="custom{{ $sectionIndex + 1 }}-name-label">{{ $customSection['name'] ?? 'Sekcja ' . ($sectionIndex + 1) }}</span>
                                         <svg id="custom{{ $sectionIndex + 1 }}-icon" class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                    </button>
+                                    <button type="button" onclick="editSectionName('custom{{ $sectionIndex + 1 }}', {{ $sectionIndex + 1 }})" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
+                                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13h3l8-8a2.828 2.828 0 00-4-4l-8 8v3z" /></svg>
                                     </button>
                                     <button type="button" onclick="removeCustomSection('custom{{ $sectionIndex + 1 }}')" class="ml-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="Usuń sekcję">
                                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -366,7 +416,7 @@
                                             <tr class="bg-gray-100">
                                                 <th class="p-1 text-left w-10">Nr</th>
                                                 <th class="p-1 text-left">Nazwa</th>
-                                                <th class="p-1 text-left w-48">Typ</th>
+                                                <th class="p-1 text-left w-48">Opis</th>
                                                 <th class="p-1 text-left w-16">Ilość</th>
                                                 <th class="p-1 text-left">Dostawca</th>
                                                 <th class="p-1 text-left w-24">Cena (zł)</th>
@@ -381,10 +431,18 @@
                                                     <td class="p-1"><input type="text" name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][name]" value="{{ $item['name'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                                     <td class="p-1"><input type="text" name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][type]" value="{{ $item['type'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                                     <td class="p-1"><input type="number" min="1" value="{{ $item['quantity'] ?? 1 }}" name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="custom{{ $sectionIndex + 1 }}" onchange="calculateRowValue(this)"></td>
-                                                    <td class="p-1"><input type="text" name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][supplier]" value="{{ $item['supplier'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                                                                                        <td class="p-1">
+                                                                                                            <select name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
+                                                                                                                <option value="">-- brak --</option>
+                                                                                                                @foreach($suppliers as $supplier)
+                                                                                                                    <option value="{{ $supplier->name }}" @if(($item['supplier'] ?? '') == $supplier->name) selected @endif>{{ $supplier->name }}</option>
+                                                                                                                @endforeach
+                                                                                                            </select>
+                                                                                                        </td>
                                                     <td class="p-1"><input type="number" step="0.01" name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][price]" value="{{ $item['price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="custom{{ $sectionIndex + 1 }}" onchange="calculateRowValue(this)"></td>
                                                     <td class="p-1"><input type="number" step="0.01" name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][value]" value="{{ ($item['quantity'] ?? 1) * ($item['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="custom{{ $sectionIndex + 1 }}" readonly></td>
-                                                    <td class="p-1">@if($itemIndex > 0)<button type="button" onclick="removeRow(this, 'custom{{ $sectionIndex + 1 }}')" class="text-red-600 hover:text-red-800">✕</button>@endif</td>
+                                                    <td class="p-1"><div class="flex gap-1 items-center">@if($itemIndex > 0)<button type="button" onclick="removeRow(this, 'custom{{ $sectionIndex + 1 }}')" class="text-red-600 hover:text-red-800 text-xs">✕</button>@endif
+                                                    <button type="button" onclick="addProductToCatalog(this, 'custom_sections[{{ $sectionIndex + 1 }}][items]', {{ $itemIndex }})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
                                                 </tr>
                                             @empty
                                                 <tr>
@@ -392,10 +450,17 @@
                                                     <td class="p-1"><input type="text" name="custom_sections[{{ $sectionIndex + 1 }}][items][0][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                                     <td class="p-1"><input type="text" name="custom_sections[{{ $sectionIndex + 1 }}][items][0][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                                     <td class="p-1"><input type="number" min="1" value="1" name="custom_sections[{{ $sectionIndex + 1 }}][items][0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="custom{{ $sectionIndex + 1 }}" onchange="calculateRowValue(this)"></td>
-                                                    <td class="p-1"><input type="text" name="custom_sections[{{ $sectionIndex + 1 }}][items][0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                                                                                        <td class="p-1">
+                                                                                                            <select name="custom_sections[{{ $sectionIndex + 1 }}][items][0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
+                                                                                                                <option value="">-- brak --</option>
+                                                                                                                @foreach($suppliers as $supplier)
+                                                                                                                    <option value="{{ $supplier->name }}">{{ $supplier->name }}</option>
+                                                                                                                @endforeach
+                                                                                                            </select>
+                                                                                                        </td>
                                                     <td class="p-1"><input type="number" step="0.01" name="custom_sections[{{ $sectionIndex + 1 }}][items][0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="custom{{ $sectionIndex + 1 }}" onchange="calculateRowValue(this)"></td>
                                                     <td class="p-1"><input type="number" step="0.01" name="custom_sections[{{ $sectionIndex + 1 }}][items][0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="custom{{ $sectionIndex + 1 }}" readonly></td>
-                                                    <td class="p-1"></td>
+                                                    <td class="p-1"><button type="button" onclick="addProductToCatalog(this, 'custom_sections[{{ $sectionIndex + 1 }}][items]', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></td>
                                                 </tr>
                                             @endforelse
                                         </tbody>
@@ -436,40 +501,6 @@
                     <div id="offer_description_editor" style="min-height: 150px; background: white; border: 1px solid #d1d5db; border-radius: 0.375rem;"></div>
                     <textarea id="offer_description" name="offer_description" style="display: none;">{{ $offer->offer_description ?? '' }}</textarea>
                 </div>
-
-                <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-                <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
-                <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    const quill = new Quill('#offer_description_editor', {
-                        theme: 'snow',
-                        placeholder: 'Dodaj opis oferty...',
-                        modules: {
-                            toolbar: [
-                                [{ 'header': [1, 2, 3, false] }],
-                                ['bold', 'italic', 'underline', 'strike'],
-                                [{ 'color': [] }, { 'background': [] }],
-                                [{ 'font': [] }],
-                                [{ 'align': [] }],
-                                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                                ['link'],
-                                ['clean']
-                            ]
-                        }
-                    });
-                    
-                    // Załaduj istniejący opis
-                    const existingDescription = document.getElementById('offer_description').value;
-                    if (existingDescription) {
-                        quill.root.innerHTML = existingDescription;
-                    }
-                    
-                    // Synchronizuj z hidden textarea
-                    quill.on('text-change', function() {
-                        document.getElementById('offer_description').value = quill.root.innerHTML;
-                    });
-                });
-                </script>
 
                 <!-- Miejsce docelowe oferty -->
                 <div class="border-t pt-6">
@@ -543,6 +574,44 @@
     </footer>
 
     <script>
+        async function addProductToCatalog(button, section, index) {
+            const row = button.closest('tr');
+            let nameInput = row.querySelector(`[name^="${section}[${index}][name]"]`);
+            let typeInput = row.querySelector(`[name^="${section}[${index}][type]"]`);
+            let quantityInput = row.querySelector(`[name^="${section}[${index}][quantity]"]`);
+            let supplierInput = row.querySelector(`[name^="${section}[${index}][supplier]"]`);
+            let priceInput = row.querySelector(`[name^="${section}[${index}][price]"]`);
+            if (!nameInput) nameInput = row.querySelector('input[name*="[name]"]');
+            if (!typeInput) typeInput = row.querySelector('input[name*="[type]"]');
+            if (!quantityInput) quantityInput = row.querySelector('input[name*="[quantity]"]');
+            if (!supplierInput) supplierInput = row.querySelector('select[name*="[supplier]"]');
+            if (!priceInput) priceInput = row.querySelector('input[name*="[price]"]');
+            const data = {
+                name: nameInput ? nameInput.value : '',
+                type: typeInput ? typeInput.value : '',
+                quantity: quantityInput ? quantityInput.value : '',
+                supplier: supplierInput ? supplierInput.value : '',
+                price: priceInput ? priceInput.value : ''
+            };
+            try {
+                const response = await fetch('/api/parts/catalog/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify(data)
+                });
+                if (response.ok) {
+                    alert('Produkt dodany do katalogu!');
+                } else {
+                    alert('Błąd dodawania produktu do katalogu.');
+                }
+            } catch (e) {
+                alert('Błąd sieci podczas dodawania produktu.');
+            }
+        }
+
         let rowCounters = {
             services: {{ count($offer->services ?? []) }},
             works: {{ count($offer->works ?? []) }},
@@ -767,19 +836,21 @@
         function addRow(section) {
             const table = document.getElementById(section + '-table');
             const rowCount = rowCounters[section];
-            
             const row = document.createElement('tr');
+            let supplierOptions = `<option value="">-- brak --</option>`;
+            @foreach($suppliers as $supplier)
+                supplierOptions += `<option value="{{ addslashes($supplier->name) }}">{{ addslashes($supplier->name) }}</option>`;
+            @endforeach
             row.innerHTML = `
                 <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="${rowCount + 1}" readonly></td>
                 <td class="p-1"><input type="text" name="${section}[${rowCount}][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                 <td class="p-1"><input type="text" name="${section}[${rowCount}][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                 <td class="p-1"><input type="number" min="1" value="1" name="${section}[${rowCount}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
-                <td class="p-1"><input type="text" name="${section}[${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                <td class="p-1"><select name="${section}[${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                 <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                 <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
-                <td class="p-1"><button type="button" onclick="removeRow(this, '${section}')" class="text-red-600 hover:text-red-800">✕</button></td>
+                <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, '${section}')" class="text-red-600 hover:text-red-800 text-xs">✕</button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
             `;
-            
             table.appendChild(row);
             rowCounters[section]++;
             updateRowNumbers(section);
@@ -855,10 +926,15 @@
             const sectionDiv = document.createElement('div');
             sectionDiv.className = 'border border-gray-300 rounded';
             sectionDiv.id = `section-${sectionId}`;
+            let supplierOptions = `<option value="">-- brak --</option>`;
+            @foreach($suppliers as $supplier)
+                supplierOptions += `<option value="{{ addslashes($supplier->name) }}">{{ addslashes($supplier->name) }}</option>`;
+            @endforeach
             sectionDiv.innerHTML = `
                 <div class="flex items-center justify-between p-4 bg-gray-50">
                     <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('${sectionId}')">
                         <span class="font-semibold text-lg section-name" id="${sectionId}-name-label">${escapeHtml(sectionName.trim())}</span>
+                        <svg id="${sectionId}-icon" class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                     </button>
                     <button type="button" onclick="editSectionName('${sectionId}', ${customSectionCounter})" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13h3l8-8a2.828 2.828 0 00-4-4l-8 8v3z" /></svg>
@@ -874,7 +950,7 @@
                             <tr class="bg-gray-100">
                                 <th class="p-1 text-left w-10">Nr</th>
                                 <th class="p-1 text-left">Nazwa</th>
-                                <th class="p-1 text-left w-48">Typ</th>
+                                <th class="p-1 text-left w-48">Opis</th>
                                 <th class="p-1 text-left w-16">Ilość</th>
                                 <th class="p-1 text-left">Dostawca</th>
                                 <th class="p-1 text-left w-24">Cena (zł)</th>
@@ -888,10 +964,10 @@
                                 <td class="p-1"><input type="text" name="custom_sections[${customSectionCounter}][items][0][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                 <td class="p-1"><input type="text" name="custom_sections[${customSectionCounter}][items][0][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                 <td class="p-1"><input type="number" min="1" value="1" name="custom_sections[${customSectionCounter}][items][0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
-                                <td class="p-1"><input type="text" name="custom_sections[${customSectionCounter}][items][0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                <td class="p-1"><select name="custom_sections[${customSectionCounter}][items][0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
-                                <td class="p-1"></td>
+                                <td class="p-1"><button type="button" onclick="addProductToCatalog(this, 'custom_sections[${customSectionCounter}][items]', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></td>
                             </tr>
                         </tbody>
                     </table>
@@ -906,6 +982,11 @@
                 </div>
             `;
             container.appendChild(sectionDiv);
+            // Ensure spacing for collapsed custom sections matches static ones
+            const allCustomSections = container.querySelectorAll('.border.border-gray-300.rounded');
+            allCustomSections.forEach(sec => {
+                sec.style.marginBottom = '1rem';
+            });
             // Automatycznie rozwiń nową sekcję
             toggleSection(sectionId);
         }
@@ -967,19 +1048,21 @@
         function addCustomRow(sectionId, sectionNumber) {
             const table = document.getElementById(`${sectionId}-table`);
             const rowCount = rowCounters[sectionId];
-            
+            let supplierOptions = `<option value="">-- brak --</option>`;
+            @foreach($suppliers as $supplier)
+                supplierOptions += `<option value="{{ addslashes($supplier->name) }}">{{ addslashes($supplier->name) }}</option>`;
+            @endforeach
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="${rowCount + 1}" readonly></td>
                 <td class="p-1"><input type="text" name="custom_sections[${sectionNumber}][items][${rowCount}][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                 <td class="p-1"><input type="text" name="custom_sections[${sectionNumber}][items][${rowCount}][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                 <td class="p-1"><input type="number" min="1" value="1" name="custom_sections[${sectionNumber}][items][${rowCount}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
-                <td class="p-1"><input type="text" name="custom_sections[${sectionNumber}][items][${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                <td class="p-1"><select name="custom_sections[${sectionNumber}][items][${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
-                <td class="p-1"><button type="button" onclick="removeRow(this, '${sectionId}')" class="text-red-600 hover:text-red-800">✕</button></td>
+                <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, '${sectionId}')" class="text-red-600 hover:text-red-800 text-xs">✕</button><button type="button" onclick="addProductToCatalog(this, 'custom_sections[${sectionNumber}][items]', ${rowCount})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
             `;
-            
             table.appendChild(row);
             rowCounters[sectionId]++;
             updateRowNumbers(sectionId);
@@ -1061,6 +1144,37 @@
                 alert('Błąd podczas pobierania danych z GUS: ' + error.message);
             }
         }
+    </script>
+
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const quill = new Quill('#offer_description_editor', {
+            theme: 'snow',
+            placeholder: 'Dodaj opis oferty...',
+            modules: {
+                toolbar: [
+                    [{ 'header': [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ 'color': [] }, { 'background': [] }],
+                    [{ 'font': [] }],
+                    [{ 'align': [] }],
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    ['link'],
+                    ['clean']
+                ]
+            }
+        });
+        
+        const existingDescription = document.getElementById('offer_description').value;
+        if (existingDescription) {
+            quill.root.innerHTML = existingDescription;
+        }
+        
+        quill.on('text-change', function() {
+            document.getElementById('offer_description').value = quill.root.innerHTML;
+        });
+    });
     </script>
 </body>
 <script>
