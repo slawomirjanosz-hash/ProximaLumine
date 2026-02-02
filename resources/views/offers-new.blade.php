@@ -280,7 +280,8 @@
                                     </td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="services" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="services" readonly></td>
-                                    <td class="p-1"><button type="button" onclick="addProductToCatalog(this, 'services', 0)" class="px-1 py-0.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs whitespace-nowrap">Dod. do kat.</button></td>
+                                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, 'services')" class="text-red-600 hover:text-red-800 text-xs">✕</button>
+                                    <button type="button" onclick="addProductToCatalog(this, 'services', 0)" class="px-1 py-0.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs whitespace-nowrap">Dod. do kat.</button></div></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -339,7 +340,8 @@
                                     </td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="works" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="works" readonly></td>
-                                    <td class="p-1"><button type="button" onclick="addProductToCatalog(this, 'works', 0)" class="px-1 py-0.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs whitespace-nowrap">Dod. do kat.</button></td>
+                                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, 'works')" class="text-red-600 hover:text-red-800 text-xs">✕</button>
+                                    <button type="button" onclick="addProductToCatalog(this, 'works', 0)" class="px-1 py-0.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs whitespace-nowrap">Dod. do kat.</button></div></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -408,7 +410,8 @@
                                     </td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="materials" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="materials" readonly></td>
-                                    <td class="p-1"><button type="button" onclick="addProductToCatalog(this, 'materials', 0)" class="px-1 py-0.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs whitespace-nowrap">Dod. do kat.</button></td>
+                                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, 'materials')" class="text-red-600 hover:text-red-800 text-xs">✕</button>
+                                    <button type="button" onclick="addProductToCatalog(this, 'materials', 0)" class="px-1 py-0.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs whitespace-nowrap">Dod. do kat.</button></div></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -652,7 +655,7 @@
                         <select name="${section}[${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
                             <option value="">-- brak --</option>
                             @foreach($suppliers as $supplier)
-                                <option value="{{ $supplier->name }}">{{ $supplier->name }}</option>
+                                <option value="{{ $supplier->name }}">{{ $supplier->short_name ?: $supplier->name }}</option>
                             @endforeach
                         </select>
                     </td>
@@ -670,7 +673,7 @@
                         <select name="${section}[${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
                             <option value="">-- brak --</option>
                             @foreach($suppliers as $supplier)
-                                <option value="{{ $supplier->name }}">{{ $supplier->name }}</option>
+                                <option value="{{ $supplier->name }}">{{ $supplier->short_name ?: $supplier->name }}</option>
                             @endforeach
                         </select>
                     </td>

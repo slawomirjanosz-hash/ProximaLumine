@@ -66,6 +66,7 @@
                 @if(auth()->check() && (auth()->user()->email === 'proximalumine@gmail.com' || auth()->user()->can_settings))
                     <a href="{{ route('offers.settings') }}" class="inline-block px-6 py-2 bg-purple-600 text-white rounded text-base hover:bg-purple-700 min-w-[180px]">⚙️ Ustawienia Ofert</a>
                 @endif
+                <a href="{{ route('magazyn.check') }}" class="inline-block px-6 py-2 bg-teal-600 text-white rounded text-base hover:bg-teal-700 min-w-[180px]">📦 Wejdź do magazynu</a>
             </div>
         </div>
     </main>

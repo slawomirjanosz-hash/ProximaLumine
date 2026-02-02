@@ -197,7 +197,7 @@
                                                                 </td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[{{ $index }}][price]" value="{{ $service['price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="services" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[{{ $index }}][value]" value="{{ ($service['quantity'] ?? 1) * ($service['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="services" readonly></td>
-                                    <td class="p-1"><div class="flex gap-1 items-center">@if($index > 0)<button type="button" onclick="removeRow(this, 'services')" class="text-red-600 hover:text-red-800 text-xs">✕</button>@endif
+                                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, 'services')" class="text-red-600 hover:text-red-800 text-xs">✕</button>
                                     <button type="button" onclick="addProductToCatalog(this, 'services', {{ $index }})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
                                 </tr>
                                 @empty
@@ -216,7 +216,8 @@
                                                                 </td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="services" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="services" readonly></td>
-                                    <td class="p-1"><button type="button" onclick="addProductToCatalog(this, 'services', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></td>
+                                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, 'services')" class="text-red-600 hover:text-red-800 text-xs">✕</button>
+                                    <button type="button" onclick="addProductToCatalog(this, 'services', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -277,7 +278,7 @@
                                                                 </td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[{{ $index }}][price]" value="{{ $work['price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="works" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[{{ $index }}][value]" value="{{ ($work['quantity'] ?? 1) * ($work['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="works" readonly></td>
-                                    <td class="p-1"><div class="flex gap-1 items-center">@if($index > 0)<button type="button" onclick="removeRow(this, 'works')" class="text-red-600 hover:text-red-800 text-xs">✕</button>@endif
+                                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, 'works')" class="text-red-600 hover:text-red-800 text-xs">✕</button>
                                     <button type="button" onclick="addProductToCatalog(this, 'works', {{ $index }})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
                                 </tr>
                                 @empty
@@ -296,7 +297,8 @@
                                                                 </td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="works" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="works" readonly></td>
-                                    <td class="p-1"><button type="button" onclick="addProductToCatalog(this, 'works', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></td>
+                                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, 'works')" class="text-red-600 hover:text-red-800 text-xs">✕</button>
+                                    <button type="button" onclick="addProductToCatalog(this, 'works', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -357,7 +359,7 @@
                                                                 </td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[{{ $index }}][price]" value="{{ $material['price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="materials" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[{{ $index }}][value]" value="{{ ($material['quantity'] ?? 1) * ($material['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="materials" readonly></td>
-                                    <td class="p-1"><div class="flex gap-1 items-center">@if($index > 0)<button type="button" onclick="removeRow(this, 'materials')" class="text-red-600 hover:text-red-800 text-xs">✕</button>@endif
+                                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, 'materials')" class="text-red-600 hover:text-red-800 text-xs">✕</button>
                                     <button type="button" onclick="addProductToCatalog(this, 'materials', {{ $index }})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
                                 </tr>
                                 @empty
@@ -376,7 +378,8 @@
                                                                 </td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="materials" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="materials" readonly></td>
-                                    <td class="p-1"><button type="button" onclick="addProductToCatalog(this, 'materials', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></td>
+                                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, 'materials')" class="text-red-600 hover:text-red-800 text-xs">✕</button>
+                                    <button type="button" onclick="addProductToCatalog(this, 'materials', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -839,7 +842,7 @@
             const row = document.createElement('tr');
             let supplierOptions = `<option value="">-- brak --</option>`;
             @foreach($suppliers as $supplier)
-                supplierOptions += `<option value="{{ addslashes($supplier->name) }}">{{ addslashes($supplier->name) }}</option>`;
+                supplierOptions += `<option value="{{ addslashes($supplier->name) }}">{{ addslashes($supplier->short_name ?: $supplier->name) }}</option>`;
             @endforeach
             row.innerHTML = `
                 <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="${rowCount + 1}" readonly></td>

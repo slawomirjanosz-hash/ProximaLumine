@@ -52,26 +52,26 @@
             
             @if($offers->count() > 0)
                 <div class="bg-white rounded shadow overflow-hidden">
-                    <table class="w-full">
+                    <table class="w-full text-sm">
                         <thead class="bg-gray-100">
                             <tr>
-                                <th class="p-4 text-left">Nr oferty</th>
-                                <th class="p-4 text-left">Nazwa</th>
-                                <th class="p-4 text-left">Data</th>
-                                <th class="p-4 text-left">Szansa CRM</th>
-                                <th class="p-4 text-right">Cena końcowa</th>
-                                <th class="p-4 text-center">Akcja</th>
+                                <th class="p-2 text-left text-xs">Nr oferty</th>
+                                <th class="p-2 text-left text-xs">Nazwa</th>
+                                <th class="p-2 text-left text-xs">Data</th>
+                                <th class="p-2 text-left text-xs">Szansa CRM</th>
+                                <th class="p-2 text-right text-xs">Cena końcowa</th>
+                                <th class="p-2 text-center text-xs">Akcja</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach($offers as $offer)
                             <tr class="border-t hover:bg-gray-50">
-                                <td class="p-4">{{ $offer->offer_number }}</td>
-                                <td class="p-4">{{ $offer->offer_title }}</td>
-                                <td class="p-4">{{ $offer->offer_date->format('Y-m-d') }}</td>
-                                <td class="p-4">
+                                <td class="p-2 text-xs">{{ $offer->offer_number }}</td>
+                                <td class="p-2 text-xs">{{ $offer->offer_title }}</td>
+                                <td class="p-2 text-xs whitespace-nowrap">{{ $offer->offer_date->format('Y-m-d') }}</td>
+                                <td class="p-2">
                                     @if($offer->crmDeal)
-                                        <div class="text-sm">
+                                        <div class="text-xs">
                                             <div class="font-semibold text-blue-600">{{ $offer->crmDeal->name }}</div>
                                             @if($offer->crmDeal->company)
                                                 <div class="text-gray-600">{{ $offer->crmDeal->company->name }}</div>
@@ -81,22 +81,22 @@
                                         <span class="text-gray-400">-</span>
                                     @endif
                                 </td>
-                                <td class="p-4 text-right font-semibold">{{ number_format($offer->total_price, 2, ',', ' ') }} zł</td>
-                                <td class="p-4 text-center">
-                                    <div class="flex gap-2 justify-center flex-wrap">
+                                <td class="p-2 text-right font-semibold text-xs">{{ number_format($offer->total_price, 2, ',', ' ') }} zł</td>
+                                <td class="p-2 text-center">
+                                    <div class="flex gap-1 justify-center flex-nowrap">
                                         <form action="{{ route('offers.convertToProject', $offer) }}" method="POST" class="inline">
                                             @csrf
-                                            <button type="submit" onclick="return confirm('Utworzyć projekt z tej oferty?')" class="px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm font-semibold">⭐ Oferta wygrana</button>
+                                            <button type="submit" onclick="return confirm('Utworzyć projekt z tej oferty?')" class="px-2 py-0.5 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-xs font-semibold whitespace-nowrap">⭐ Wygrana</button>
                                         </form>
-                                        <a href="{{ route('offers.generateWord', $offer) }}" class="px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm">📄 Word</a>
-                                        <a href="{{ route('offers.edit', $offer) }}" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Edytuj</a>
+                                        <a href="{{ route('offers.generateWord', $offer) }}" class="px-2 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 text-xs whitespace-nowrap">📄 Word</a>
+                                        <a href="{{ route('offers.edit', $offer) }}" class="px-2 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs whitespace-nowrap">Edytuj</a>
                                         <form action="{{ route('offers.copy', $offer) }}" method="POST" class="inline">
                                             @csrf
-                                            <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm">Kopiuj</button>
+                                            <button type="submit" class="px-2 py-0.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs whitespace-nowrap">Kopiuj</button>
                                         </form>
                                         <form action="{{ route('offers.archive', $offer) }}" method="POST" class="inline">
                                             @csrf
-                                            <button type="submit" onclick="return confirm('Czy na pewno przenieść ofertę do archiwum?')" class="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm">Do archiwum</button>
+                                            <button type="submit" onclick="return confirm('Czy na pewno przenieść ofertę do archiwum?')" class="px-2 py-0.5 bg-gray-600 text-white rounded hover:bg-gray-700 text-xs whitespace-nowrap" title="Do archiwum">Do arch.</button>
                                         </form>
                                     </div>
                                 </td>
