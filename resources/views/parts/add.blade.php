@@ -281,6 +281,7 @@
                             <li><strong>Waluta</strong> - PLN, zł, EUR, Euro, $ (opcjonalne)</li>
                             <li><strong>Kategoria</strong> - nazwa kategorii (opcjonalne)</li>
                             <li><strong>Ilość</strong> - ilość do dodania (opcjonalne, domyślnie 1, może być 0)</li>
+                            <li><strong>Stan minimalny</strong> - minimalny stan magazynowy (opcjonalne, domyślnie 0)</li>
                             <li><strong>Lok.</strong> - lokalizacja w magazynie (opcjonalne, max 10 znaków)</li>
                         </ul>
                     </div>
@@ -298,6 +299,7 @@
                                         <th class="border border-gray-300 p-2 text-left">Waluta</th>
                                         <th class="border border-gray-300 p-2 text-left">Kategoria</th>
                                         <th class="border border-gray-300 p-2 text-center">Ilość</th>
+                                        <th class="border border-gray-300 p-2 text-center">Stan min.</th>
                                         <th class="border border-gray-300 p-2 text-center">Lok.</th>
                                     </tr>
                                 </thead>
@@ -310,6 +312,7 @@
                                         <td class="border border-gray-300 p-2">Euro</td>
                                         <td class="border border-gray-300 p-2">Automatyka</td>
                                         <td class="border border-gray-300 p-2 text-center">2</td>
+                                        <td class="border border-gray-300 p-2 text-center">5</td>
                                         <td class="border border-gray-300 p-2 text-center">I/0</td>
                                     </tr>
                                     <tr>
@@ -320,6 +323,7 @@
                                         <td class="border border-gray-300 p-2">Euro</td>
                                         <td class="border border-gray-300 p-2">Automatyka</td>
                                         <td class="border border-gray-300 p-2 text-center">2</td>
+                                        <td class="border border-gray-300 p-2 text-center">0</td>
                                         <td class="border border-gray-300 p-2 text-center">M/0</td>
                                     </tr>
                                     <tr>
@@ -330,6 +334,7 @@
                                         <td class="border border-gray-300 p-2">Euro</td>
                                         <td class="border border-gray-300 p-2">Automatyka</td>
                                         <td class="border border-gray-300 p-2 text-center">8</td>
+                                        <td class="border border-gray-300 p-2 text-center">2</td>
                                         <td class="border border-gray-300 p-2 text-center">M1</td>
                                     </tr>
                                     <tr>
@@ -340,6 +345,7 @@
                                         <td class="border border-gray-300 p-2">Euro</td>
                                         <td class="border border-gray-300 p-2">Automatyka</td>
                                         <td class="border border-gray-300 p-2 text-center">4</td>
+                                        <td class="border border-gray-300 p-2 text-center">1</td>
                                         <td class="border border-gray-300 p-2 text-center">M1</td>
                                     </tr>
                                     <tr>
@@ -349,6 +355,7 @@
                                         <td class="border border-gray-300 p-2 text-right">224,53</td>
                                         <td class="border border-gray-300 p-2">Euro</td>
                                         <td class="border border-gray-300 p-2">Automatyka</td>
+                                        <td class="border border-gray-300 p-2 text-center">0</td>
                                         <td class="border border-gray-300 p-2 text-center">0</td>
                                         <td class="border border-gray-300 p-2 text-center">M1</td>
                                     </tr>
@@ -360,6 +367,7 @@
                                         <td class="border border-gray-300 p-2">Euro</td>
                                         <td class="border border-gray-300 p-2">Automatyka</td>
                                         <td class="border border-gray-300 p-2 text-center">0</td>
+                                        <td class="border border-gray-300 p-2 text-center">0</td>
                                         <td class="border border-gray-300 p-2 text-center">M1</td>
                                     </tr>
                                     <tr>
@@ -370,6 +378,7 @@
                                         <td class="border border-gray-300 p-2">Euro</td>
                                         <td class="border border-gray-300 p-2">Automatyka</td>
                                         <td class="border border-gray-300 p-2 text-center">5</td>
+                                        <td class="border border-gray-300 p-2 text-center">3</td>
                                         <td class="border border-gray-300 p-2 text-center">M1</td>
                                     </tr>
                                 </tbody>
@@ -403,7 +412,7 @@
                     <h3 class="text-lg font-bold mb-4">📄 Import produktów z Excel</h3>
                     <p class="text-sm text-gray-600 mb-2">
                         Wybierz plik Excel (.xlsx, .xls) z kolumnami:<br>
-                        <strong>produkty, opis, dost., cena, waluta, kategoria, ilość, lok.</strong>
+                        <strong>produkty, opis, dost., cena, waluta, kategoria, ilość, stan minimalny, lok.</strong>
                     </p>
                     <p class="text-xs text-gray-500 mb-4">
                         💡 Kod QR zostanie automatycznie wygenerowany dla każdego importowanego produktu
@@ -1045,6 +1054,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const descriptionInput = row.querySelector('input[name*="[description]"]');
                 const locationInput = row.querySelector('input[name*="[location]"]');
                 const qrCodeInput = row.querySelector('input[name*="[qr_code]"]');
+                const minStockInput = row.querySelector('input[name*="[minimum_stock]"]');
                 
                 if (nameInput) formData.append('name', nameInput.value);
                 if (supplierSelect) formData.append('supplier', supplierSelect.value);
@@ -1055,6 +1065,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (descriptionInput) formData.append('description', descriptionInput.value);
                 if (locationInput) formData.append('location', locationInput.value);
                 if (qrCodeInput) formData.append('qr_code', qrCodeInput.value);
+                if (minStockInput) formData.append('minimum_stock', minStockInput.value);
 
                 fetch('{{ route('parts.add') }}', {
                     method: 'POST',
@@ -1786,6 +1797,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const hiddenFields = [
             `<input type="hidden" name="catalog_products[${rowCount}][description]" value="${escapeHtml(product.description || '')}">`,
             `<input type="hidden" name="catalog_products[${rowCount}][location]" value="${escapeHtml(product.location || '')}">`,
+            `<input type="hidden" name="catalog_products[${rowCount}][minimum_stock]" value="${product.minimum_stock || 0}">`,
             `<input type="hidden" name="catalog_products[${rowCount}][qr_code]" value="${escapeHtml(product.qr_code || '')}">`
         ].join('');
         

@@ -135,7 +135,69 @@ Route::middleware('auth')->post('/api/parts/catalog/add', function (Illuminate\H
         // Znajdź kategorię "Inne" lub utwórz ją
         $category = \App\Models\Category::firstOrCreate(['name' => 'Inne']);
 
-        // Utwórz nową część
+        // Automatyczne generowanie kodu QR/barcode wg ustawień
+        $qrSettings = \DB::table('qr_settings')->first();
+        $qrCode = null;
+        if ($qrSettings) {
+            // Buduj kod QR/barcode (logika jak w PartController@autoGenerateQrCode)
+            $qrCodeParts = [];
+            if ($qrSettings->element1_type !== 'empty') {
+                if ($qrSettings->element1_type === 'product_name') {
+                    $qrCodeParts[] = $data['name'] ?? 'Bez nazwy';
+                } elseif ($qrSettings->element1_type === 'text') {
+                    $qrCodeParts[] = $qrSettings->element1_value;
+                } elseif ($qrSettings->element1_type === 'date') {
+                    $qrCodeParts[] = now()->format('Ymd');
+                } elseif ($qrSettings->element1_type === 'time') {
+                    $qrCodeParts[] = now()->format('Hi');
+                }
+            }
+            if ($qrSettings->element2_type !== 'empty') {
+                if ($qrSettings->element2_type === 'location') {
+                    $qrCodeParts[] = '';
+                } elseif ($qrSettings->element2_type === 'text') {
+                    $qrCodeParts[] = $qrSettings->element2_value;
+                } elseif ($qrSettings->element2_type === 'date') {
+                    $qrCodeParts[] = now()->format('Ymd');
+                } elseif ($qrSettings->element2_type === 'time') {
+                    $qrCodeParts[] = now()->format('Hi');
+                }
+            }
+            if ($qrSettings->element3_type !== 'empty') {
+                if ($qrSettings->element3_type === 'text') {
+                    $qrCodeParts[] = $qrSettings->element3_value;
+                } elseif ($qrSettings->element3_type === 'date') {
+                    $qrCodeParts[] = now()->format('Ymd');
+                } elseif ($qrSettings->element3_type === 'time') {
+                    $qrCodeParts[] = now()->format('Hi');
+                }
+            }
+            if ($qrSettings->element4_type !== 'empty') {
+                if ($qrSettings->element4_type === 'date') {
+                    $qrCodeParts[] = now()->format('Ymd');
+                } elseif ($qrSettings->element4_type === 'number') {
+                    $currentNumber = $qrSettings->start_number;
+                    $qrCodeParts[] = $currentNumber;
+                    \DB::table('qr_settings')->update([
+                        'start_number' => $currentNumber + 1
+                    ]);
+                }
+            }
+            $separators = [
+                $qrSettings->separator1 ?? '_',
+                $qrSettings->separator2 ?? '_',
+                $qrSettings->separator3 ?? '_'
+            ];
+            $qrCode = '';
+            foreach ($qrCodeParts as $index => $part) {
+                $qrCode .= $part;
+                if ($index < count($qrCodeParts) - 1) {
+                    $qrCode .= $separators[$index] ?? '_';
+                }
+            }
+        }
+
+        // Utwórz nową część z kodem
         $part = \App\Models\Part::create([
             'name' => $data['name'] ?? 'Bez nazwy',
             'description' => $data['type'] ?? '',
@@ -143,6 +205,7 @@ Route::middleware('auth')->post('/api/parts/catalog/add', function (Illuminate\H
             'supplier' => $data['supplier'] ?? '',
             'net_price' => $data['price'] ?? 0,
             'category_id' => $category->id,
+            'qr_code' => $qrCode,
         ]);
 
         return response()->json(['success' => true, 'part' => $part], 201);
@@ -545,6 +608,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/magazyn/ustawienia/company', [PartController::class, 'saveCompanySettings'])->name('magazyn.company.save')->middleware('permission:settings');
     Route::post('/magazyn/ustawienia/order-settings', [PartController::class, 'saveOrderSettings'])->name('magazyn.order-settings.save')->middleware('permission:settings');
     Route::post('/magazyn/ustawienia/qr-settings', [PartController::class, 'saveQrSettings'])->name('magazyn.qr-settings.save')->middleware('permission:settings');
+    Route::post('/magazyn/ustawienia/catalog-columns', [PartController::class, 'saveCatalogColumnsSettings'])->name('magazyn.catalog-columns.save')->middleware('permission:settings');
     Route::post('/wyceny/ustawienia', [PartController::class, 'saveOfferSettings'])->name('offers.settings.save')->middleware('permission:settings');
     Route::post('/wyceny/ustawienia/upload-template', [PartController::class, 'uploadOfferTemplate'])->name('offers.settings.upload-template')->middleware('permission:settings');
     Route::delete('/wyceny/ustawienia/delete-template', [PartController::class, 'deleteOfferTemplate'])->name('offers.settings.delete-template')->middleware('permission:settings');

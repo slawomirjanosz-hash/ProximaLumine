@@ -76,6 +76,8 @@ class PartController extends Controller
             'suppliers'  => \App\Models\Supplier::orderBy('name')->get(),
             'sortBy'     => $sortBy,
             'sortDir'    => $sortDir,
+            'catalogSettings' => \DB::table('catalog_columns_settings')->first(),
+            'qrSettings' => \DB::table('qr_settings')->first(),
         ]);
     }
 
@@ -1776,6 +1778,7 @@ class PartController extends Controller
     public function saveQrSettings(Request $request)
     {
         $validated = $request->validate([
+            'code_type' => 'required|string|in:qr,barcode',
             'element1_type' => 'nullable|string|max:50',
             'element1_value' => 'nullable|string|max:255',
             'separator1' => 'nullable|string|max:5',
@@ -1793,7 +1796,32 @@ class PartController extends Controller
         \DB::table('qr_settings')->truncate();
         \DB::table('qr_settings')->insert($validated);
 
-        return redirect()->route('magazyn.settings')->with('success', 'Konfiguracja kodów QR została zapisana.');
+        return redirect()->route('magazyn.settings')->with('success', 'Konfiguracja kodów została zapisana.');
+    }
+
+    // ZAPISZ USTAWIENIA WIDOCZNOŚCI KOLUMN KATALOGU
+    public function saveCatalogColumnsSettings(Request $request)
+    {
+        $validated = [
+            'show_product' => $request->has('show_product'),
+            'show_description' => $request->has('show_description'),
+            'show_supplier' => $request->has('show_supplier'),
+            'show_price' => $request->has('show_price'),
+            'show_category' => $request->has('show_category'),
+            'show_quantity' => $request->has('show_quantity'),
+            'show_minimum' => $request->has('show_minimum'),
+            'show_location' => $request->has('show_location'),
+            'show_user' => $request->has('show_user'),
+            'show_actions' => $request->has('show_actions'),
+            'show_qr_code' => $request->has('show_qr_code'),
+            'show_qr_description' => $request->has('show_qr_description'),
+        ];
+
+        // Usuń wszystkie poprzednie ustawienia i stwórz nowe (zawsze tylko 1 rekord)
+        \DB::table('catalog_columns_settings')->truncate();
+        \DB::table('catalog_columns_settings')->insert($validated);
+
+        return redirect()->route('magazyn.settings')->with('success', 'Ustawienia widoczności kolumn zostały zapisane.');
     }
 
     // ZAPISZ USTAWIENIA OFERT
@@ -3004,23 +3032,32 @@ class PartController extends Controller
             }
         }
         
-        // Generuj obrazek QR kodu za pomocą biblioteki SimpleSoftwareIO
+        // Generuj obrazek w zależności od typu kodu (QR lub Barcode)
+        $codeType = $qrSettings->code_type ?? 'qr';
+        
         try {
-            // Generuj SVG jako string
-            $qrImageSvg = \QrCode::format('svg')->size(200)->generate($qrCode);
-            // Konwertuj do stringa jeśli to obiekt
-            $qrImageString = is_string($qrImageSvg) ? $qrImageSvg : (string)$qrImageSvg;
+            if ($codeType === 'barcode') {
+                // Generuj kod kreskowy (barcode)
+                $generator = new \Picqer\Barcode\BarcodeGeneratorSVG();
+                // CODE 128 obsługuje szeroki zakres znaków
+                $codeImageString = $generator->getBarcode($qrCode, $generator::TYPE_CODE_128, 2, 80);
+            } else {
+                // Generuj kod QR
+                $qrImageSvg = \QrCode::format('svg')->size(200)->generate($qrCode);
+                $codeImageString = is_string($qrImageSvg) ? $qrImageSvg : (string)$qrImageSvg;
+            }
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Błąd generowania kodu QR: ' . $e->getMessage()
+                'message' => 'Błąd generowania kodu: ' . $e->getMessage()
             ], 500);
         }
         
         return response()->json([
             'success' => true,
             'qr_code' => $qrCode,
-            'qr_image' => $qrImageString, // SVG string
+            'qr_image' => $codeImageString, // SVG string (QR lub barcode)
+            'code_type' => $codeType,
             'description' => implode(' | ', $qrDescription)
         ]);
     }
@@ -3183,7 +3220,10 @@ class PartController extends Controller
                 'waluta' => ['waluta', 'currency', 'curr'],
                 'kategoria' => ['kategoria', 'category', 'kat'],
                 'ilosc' => ['ilość', 'ilosc', 'quantity', 'qty', 'sztuk'],
-                'lokalizacja' => ['lok', 'lok.', 'lokalizacja', 'location', 'miejsce']
+                'lokalizacja' => ['lok', 'lok.', 'lokalizacja', 'location', 'miejsce'],
+                'minimum_stock' => [
+                    'stan minimalny', 'stan min', 'min', 'minimum_stock', 'min_stan', 'min. stan', 'min.'
+                ],
             ];
 
             // Znajdź indeksy kolumn
@@ -3293,6 +3333,7 @@ class PartController extends Controller
                 $categoryName = isset($colIndexes['kategoria']) ? trim($row[$colIndexes['kategoria']] ?? '') : '';
                 $quantity = isset($colIndexes['ilosc']) ? intval($row[$colIndexes['ilosc']] ?? 1) : 1;
                 $location = isset($colIndexes['lokalizacja']) ? trim($row[$colIndexes['lokalizacja']] ?? '') : '';
+                $minimumStock = isset($colIndexes['minimum_stock']) ? intval($row[$colIndexes['minimum_stock']] ?? 0) : 0;
 
                 // Znajdź ID kategorii
                 $categoryId = null;
@@ -3376,6 +3417,7 @@ class PartController extends Controller
                     'category_id' => $categoryId,
                     'quantity' => $quantity,
                     'location' => $location ?: null,
+                    'minimum_stock' => $minimumStock,
                     'qr_code' => $qrCode,
                     'is_existing' => $existingPart ? true : false
                 ];

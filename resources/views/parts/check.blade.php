@@ -119,6 +119,26 @@
 
     {{-- TABELA --}}
 
+    @php
+        // Domyślne ustawienia jeśli nie ma w bazie
+        if (!$catalogSettings) {
+            $catalogSettings = (object)[
+                'show_product' => true,
+                'show_description' => true,
+                'show_supplier' => true,
+                'show_price' => true,
+                'show_category' => true,
+                'show_quantity' => true,
+                'show_minimum' => true,
+                'show_location' => true,
+                'show_user' => true,
+                'show_actions' => true,
+                'show_qr_code' => false,
+                'show_qr_description' => false,
+            ];
+        }
+    @endphp
+
     {{-- TABELA --}}
     <table class="w-full border border-collapse text-xs">
         <thead>
@@ -126,32 +146,56 @@
                 <th class="border p-2 text-center text-xs">
                     <input type="checkbox" id="select-all" class="w-4 h-4 cursor-pointer" title="Zaznacz wszystkie">
                 </th>
+                @if($catalogSettings->show_product)
                 <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap min-w-[12rem] max-w-[18rem] sortable" data-column="name">
                     Produkty <span class="sort-icon">▲</span>
                 </th>
+                @endif
+                @if($catalogSettings->show_description)
                 <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap min-w-[10rem] max-w-[20rem] sortable" data-column="description">
                     Opis <span class="sort-icon">▲</span>
                 </th>
+                @endif
+                @if($catalogSettings->show_supplier)
                 <th class="border p-1 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="supplier" style="width: 4rem;">
                     Dost. <span class="sort-icon">▲</span>
                 </th>
+                @endif
+                @if($catalogSettings->show_price)
                 <th class="border p-1 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="price" style="width: 7rem;">
                     Cena <span class="sort-icon">▲</span>
                 </th>
+                @endif
+                @if($catalogSettings->show_category)
                 <th class="border p-1 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="category" style="width: 6rem;">
                     Kat. <span class="sort-icon">▲</span>
                 </th>
+                @endif
+                @if($catalogSettings->show_quantity)
                 <th class="border p-1 text-center cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="quantity" style="width: 3rem;">
                     Stan <span class="sort-icon">▲</span>
                 </th>
+                @endif
+                @if($catalogSettings->show_minimum)
                 <th class="border p-1 text-center text-xs whitespace-nowrap" style="width: 3rem;">
                     Min
                 </th>
+                @endif
+                @if($catalogSettings->show_location)
                 <th class="border p-1 text-center cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="location" style="width: 7rem;">
                     Lok. <span class="sort-icon">▲</span>
                 </th>
+                @endif
+                @if($catalogSettings->show_user)
                 <th class="border p-1 text-center text-xs whitespace-nowrap" style="width: 4ch;">User</th>
-                @if(auth()->user()->show_action_column)
+                @endif
+                @if($catalogSettings->show_qr_code)
+                <th class="border p-1 text-center text-xs whitespace-nowrap" style="width: 8rem;">Kod</th>
+                @endif
+                @if($catalogSettings->show_qr_description)
+                <th class="border p-1 text-center text-xs whitespace-nowrap" style="width: 10rem;">Opis kodu</th>
+                @endif
+                @if(auth()->user()->show_action_column && $catalogSettings->show_actions)
                     <th class="border p-1 text-center text-xs whitespace-nowrap" style="width: 3.5rem;">Akcja</th>
                 @endif
             </tr>
@@ -177,21 +221,28 @@
                         <input type="checkbox" name="part_ids[]" value="{{ $p->id }}" class="part-checkbox w-4 h-4 cursor-pointer" form="bulk-delete-form">
                     </td>
 
+                    @if($catalogSettings->show_product)
                     {{-- CZĘŚĆ --}}
                     <td class="border p-2">
                         {{ $p->name }}
                     </td>
+                    @endif
 
+                    @if($catalogSettings->show_description)
                     {{-- OPIS --}}
                     <td class="border p-2 text-xs text-gray-700">
                         {{ $p->description ?? '-' }}
                     </td>
+                    @endif
 
+                    @if($catalogSettings->show_supplier)
                     {{-- DOSTAWCA --}}
                     <td class="border p-2 text-center text-xs text-gray-700">
                         {{ $supplierShort ?: '-' }}
                     </td>
+                    @endif
 
+                    @if($catalogSettings->show_price)
                     {{-- CENA NETTO --}}
                     <td class="border p-2 text-center">
                         @if($p->net_price)
@@ -200,22 +251,30 @@
                             -
                         @endif
                     </td>
+                    @endif
 
+                    @if($catalogSettings->show_category)
                     {{-- KATEGORIA --}}
                     <td class="border p-2">
                         {{ $p->category->name ?? '-' }}
                     </td>
+                    @endif
 
+                    @if($catalogSettings->show_quantity)
                     {{-- STAN --}}
                     <td class="border p-2 text-center font-bold text-xs {{ $p->quantity <= $p->minimum_stock ? 'bg-red-200' : '' }}">
                         {{ $p->quantity }}
                     </td>
+                    @endif
 
+                    @if($catalogSettings->show_minimum)
                     {{-- STAN MINIMALNY --}}
                     <td class="border p-2 text-center text-xs text-gray-600">
                         {{ $p->minimum_stock }}
                     </td>
+                    @endif
 
+                    @if($catalogSettings->show_location)
                     {{-- LOKALIZACJA --}}
                     <td class="border p-2 text-center text-xs">
                         <input type="text" 
@@ -225,14 +284,58 @@
                                maxlength="10"
                                placeholder="-">
                     </td>
+                    @endif
 
+                    @if($catalogSettings->show_user)
                     {{-- UŻYTKOWNIK --}}
                     <td class="border p-2 text-center text-xs text-gray-600">
                         {{ $p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-' }}
                     </td>
+                    @endif
 
+                    @if($catalogSettings->show_qr_code)
+                    {{-- KOD QR/BARCODE --}}
+                    <td class="border p-2 text-center text-xs">
+                        @if($p->qr_code)
+                            @php
+                                $codeType = $qrSettings->code_type ?? 'qr';
+                                try {
+                                    if ($codeType === 'barcode') {
+                                        $generator = new \Picqer\Barcode\BarcodeGeneratorSVG();
+                                        $codeImage = $generator->getBarcode($p->qr_code, $generator::TYPE_CODE_128, 1.5, 40);
+                                    } else {
+                                        $codeImage = \QrCode::format('svg')->size(80)->generate($p->qr_code);
+                                    }
+                                } catch (\Exception $e) {
+                                    $codeImage = null;
+                                }
+                            @endphp
+                            @if($codeImage)
+                                <div class="inline-block">
+                                    {!! $codeImage !!}
+                                </div>
+                            @else
+                                <span class="font-mono text-gray-600">{{ $p->qr_code }}</span>
+                            @endif
+                        @else
+                            -
+                        @endif
+                    </td>
+                    @endif
+
+                    @if($catalogSettings->show_qr_description)
+                    {{-- OPIS KODU --}}
+                    <td class="border p-2 text-xs text-gray-600">
+                        @if($p->qr_code)
+                            {{ $p->qr_code }}
+                        @else
+                            -
+                        @endif
+                    </td>
+                    @endif
+
+                    @if(auth()->user()->show_action_column && $catalogSettings->show_actions)
                     {{-- AKCJE --}}
-                    @if(auth()->user()->show_action_column)
                         <td class="border p-0.5">
                             <div class="grid grid-cols-2 gap-0.5">
                                 {{-- ➕ --}}

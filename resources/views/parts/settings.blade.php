@@ -1255,19 +1255,18 @@
                 </div>
             </div>
 
-            <!-- Podsekcja: Ustawienia Kodów QR (rozwijalna) -->
+            <!-- Podsekcja: Ustawienia Kodów QR/Kreskowych (rozwijalna) -->
             <div class="border rounded mb-4">
                 <button type="button" class="collapsible-btn w-full flex items-center gap-2 p-4 cursor-pointer hover:bg-gray-50 rounded" data-target="qr-settings-content">
                     <span class="toggle-arrow text-base">▶</span>
-                    <h4 class="font-semibold text-gray-800">Ustawienia Kodów QR</h4>
+                    <h4 class="font-semibold text-gray-800">Ustawienia Kodów QR/Kreskowych</h4>
                 </button>
                 <div id="qr-settings-content" class="collapsible-content hidden p-4 border-t bg-gray-50">
-                    <p class="text-gray-600 text-sm mb-4 font-semibold">Konfigurator formatu kodu QR:</p>
-                    
                     @php
                         $qrSettings = \DB::table('qr_settings')->first();
                         if (!$qrSettings) {
                             $qrSettings = (object)[
+                                'code_type' => 'qr',
                                 'element1_type' => 'product_name',
                                 'element1_value' => '',
                                 'separator1' => '_',
@@ -1285,6 +1284,24 @@
                     
                     <form action="{{ route('magazyn.qr-settings.save') }}" method="POST" class="space-y-4" id="qr-settings-form">
                         @csrf
+                        
+                        {{-- Wybór typu kodu --}}
+                        <div class="bg-blue-50 p-4 rounded border border-blue-200 mb-4">
+                            <label class="block text-sm font-semibold text-gray-700 mb-3">Typ kodu do generowania:</label>
+                            <div class="flex gap-6">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="code_type" value="qr" {{ ($qrSettings->code_type ?? 'qr') === 'qr' ? 'checked' : '' }} class="mr-2">
+                                    <span class="text-sm font-medium">📱 Kod QR</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="code_type" value="barcode" {{ ($qrSettings->code_type ?? 'qr') === 'barcode' ? 'checked' : '' }} class="mr-2">
+                                    <span class="text-sm font-medium">📦 Kod kreskowy (Barcode)</span>
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-600 mt-2">💡 Wybierz jaki rodzaj kodu ma być generowany automatycznie dla produktów</p>
+                        </div>
+                        
+                        <p class="text-gray-600 text-sm mb-4 font-semibold">Konfigurator formatu kodu:</p>
                         
                         {{-- Element 1 --}}
                         <div class="bg-white p-3 rounded border">
@@ -1421,7 +1438,7 @@
                         </div>
                         
                         <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-                            Zapisz ustawienia kodów QR
+                            Zapisz ustawienia
                         </button>
                     </form>
                     
@@ -1509,6 +1526,107 @@
                             });
                         });
                     </script>
+                </div>
+            </div>
+
+            <!-- Podsekcja: Ustawienia widoczności kolumn katalogu (rozwijalna) -->
+            <div class="border rounded mb-4">
+                <button type="button" class="collapsible-btn w-full flex items-center gap-2 p-4 cursor-pointer hover:bg-gray-50 rounded" data-target="catalog-columns-content">
+                    <span class="toggle-arrow text-base">▶</span>
+                    <h4 class="font-semibold text-gray-800">Ustawienia widoczności kolumn w katalogu</h4>
+                </button>
+                <div id="catalog-columns-content" class="collapsible-content hidden p-4 border-t bg-gray-50">
+                    <p class="text-gray-600 text-sm mb-4 font-semibold">Wybierz, które kolumny mają być widoczne w katalogu produktów (Magazyn → Sprawdź):</p>
+                    
+                    @php
+                        $catalogSettings = \DB::table('catalog_columns_settings')->first();
+                        if (!$catalogSettings) {
+                            $catalogSettings = (object)[
+                                'show_product' => true,
+                                'show_description' => true,
+                                'show_supplier' => true,
+                                'show_price' => true,
+                                'show_category' => true,
+                                'show_quantity' => true,
+                                'show_minimum' => true,
+                                'show_location' => true,
+                                'show_user' => true,
+                                'show_actions' => true,
+                                'show_qr_code' => false,
+                                'show_qr_description' => false,
+                            ];
+                        }
+                    @endphp
+                    
+                    <form action="{{ route('magazyn.catalog-columns.save') }}" method="POST" class="space-y-3">
+                        @csrf
+                        
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="show_product" value="1" {{ $catalogSettings->show_product ? 'checked' : '' }} class="w-4 h-4">
+                                <span class="text-sm">Produkt</span>
+                            </label>
+                            
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="show_description" value="1" {{ $catalogSettings->show_description ? 'checked' : '' }} class="w-4 h-4">
+                                <span class="text-sm">Opis</span>
+                            </label>
+                            
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="show_supplier" value="1" {{ $catalogSettings->show_supplier ? 'checked' : '' }} class="w-4 h-4">
+                                <span class="text-sm">Dostawca</span>
+                            </label>
+                            
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="show_price" value="1" {{ $catalogSettings->show_price ? 'checked' : '' }} class="w-4 h-4">
+                                <span class="text-sm">Cena</span>
+                            </label>
+                            
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="show_category" value="1" {{ $catalogSettings->show_category ? 'checked' : '' }} class="w-4 h-4">
+                                <span class="text-sm">Kategoria</span>
+                            </label>
+                            
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="show_quantity" value="1" {{ $catalogSettings->show_quantity ? 'checked' : '' }} class="w-4 h-4">
+                                <span class="text-sm">Stan</span>
+                            </label>
+                            
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="show_minimum" value="1" {{ $catalogSettings->show_minimum ? 'checked' : '' }} class="w-4 h-4">
+                                <span class="text-sm">Min</span>
+                            </label>
+                            
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="show_location" value="1" {{ $catalogSettings->show_location ? 'checked' : '' }} class="w-4 h-4">
+                                <span class="text-sm">Lokalizacja</span>
+                            </label>
+                            
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="show_user" value="1" {{ $catalogSettings->show_user ? 'checked' : '' }} class="w-4 h-4">
+                                <span class="text-sm">User</span>
+                            </label>
+                            
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="show_actions" value="1" {{ $catalogSettings->show_actions ? 'checked' : '' }} class="w-4 h-4">
+                                <span class="text-sm">Akcje</span>
+                            </label>
+                            
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="show_qr_code" value="1" {{ $catalogSettings->show_qr_code ? 'checked' : '' }} class="w-4 h-4">
+                                <span class="text-sm">Kod QR/Barcode</span>
+                            </label>
+                            
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="show_qr_description" value="1" {{ $catalogSettings->show_qr_description ? 'checked' : '' }} class="w-4 h-4">
+                                <span class="text-sm">Opis kodu</span>
+                            </label>
+                        </div>
+                        
+                        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                            Zapisz ustawienia kolumn
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
