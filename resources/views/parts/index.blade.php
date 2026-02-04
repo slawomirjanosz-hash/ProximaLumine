@@ -8,14 +8,46 @@
 </head>
 <body class="bg-gray-100">
 
-<div class="max-w-6xl mx-auto mt-10 bg-white p-6 rounded shadow">
 
-    <div class="flex justify-end mb-4">
-        <span id="datetime" class="ml-4 px-3 py-2 text-sm bg-white-200 text-gray-400 rounded whitespace-nowrap"></span>
+<div class="max-w-6xl mx-auto mt-10 bg-white p-6 rounded shadow">
+    <div class="flex items-center justify-between mb-6 relative">
+        <h1 class="text-3xl font-bold mb-6">Magazyn</h1>
+        <div class="bg-white rounded shadow p-1 w-96 ml-auto" style="word-break:break-word;">
+            <div class="flex items-center gap-4">
+                <div>
+                    <p class="text-sm font-semibold whitespace-nowrap">Statystyki magazynu:</p>
+                    @php [$warehouseValue, $eurPln] = \App\Helpers\WarehouseHelper::getWarehouseValuePln(); @endphp
+                    <span class="text-[10px] text-gray-400 block mt-0.5">Kurs Euro = {{ number_format($eurPln, 4, ',', ' ') }} PLN</span>
+                </div>
+                <div class="flex gap-4">
+                    <div class="text-center">
+                        <p class="text-lg font-bold text-blue-600">{{ \App\Models\Part::count() }}</p>
+                        <p class="text-gray-600 text-xs">Produktów</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-lg font-bold text-green-600">{{ \App\Models\Category::count() }}</p>
+                        <p class="text-gray-600 text-xs">Kategorii</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-lg font-bold text-purple-600">{{ \App\Models\Part::sum('quantity') }}</p>
+                        <p class="text-gray-600 text-xs">Sztuk łącznie</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-xs font-bold text-amber-600" style="font-size:0.75rem;">{{ number_format($warehouseValue, 2, ',', ' ') }} PLN</p>
+                        <p class="text-gray-600 text-xs">Wartość magazynu</p>
+                        <span class="text-[10px] text-gray-400 block mt-0.5">Kurs Euro = {{ number_format($eurPln, 4, ',', ' ') }} PLN</span>
+                    </div>
+                </div>
             </div>
+        </div>
     </div>
 
-    <h1 class="text-3xl font-bold mb-6">Magazyn</h1>
+    <!-- ZAKŁADKI -->
+    <div class="flex gap-4 mb-6">
+        <button onclick="showTab('add')" class="tab-btn">Dodaj część</button>
+        <button onclick="showTab('remove')" class="tab-btn">Pobierz część</button>
+        <button onclick="showTab('check')" class="tab-btn">Sprawdź część</button>
+    </div>
 
     <!-- ZAKŁADKI -->
     <div class="flex gap-4 mb-6">
