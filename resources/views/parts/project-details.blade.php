@@ -79,6 +79,9 @@
         </div>
         
         <div class="mt-4 flex gap-2 justify-end">
+            <a href="{{ route('magazyn.projects.pickup', $project->id) }}" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+                ➖ Pobierz produkty do projektu
+            </a>
             <a href="{{ route('magazyn.editProject', $project->id) }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
                 Edytuj projekt
             </a>

@@ -147,17 +147,17 @@
                     <input type="checkbox" id="select-all" class="w-4 h-4 cursor-pointer" title="Zaznacz wszystkie">
                 </th>
                 @if($catalogSettings->show_product)
-                <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap min-w-[12rem] max-w-[18rem] sortable" data-column="name">
+                <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap min-w-[8rem] max-w-[12rem] sortable" data-column="name">
                     Produkty <span class="sort-icon">▲</span>
                 </th>
                 @endif
                 @if($catalogSettings->show_description)
-                <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap min-w-[10rem] max-w-[20rem] sortable" data-column="description">
+                <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap min-w-[8rem] max-w-[14rem] sortable" data-column="description">
                     Opis <span class="sort-icon">▲</span>
                 </th>
                 @endif
                 @if($catalogSettings->show_supplier)
-                <th class="border p-1 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="supplier" style="width: 4rem;">
+                <th class="border p-1 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="supplier" style="width: 5.5rem;">
                     Dost. <span class="sort-icon">▲</span>
                 </th>
                 @endif
