@@ -1301,6 +1301,23 @@
                             <p class="text-xs text-gray-600 mt-2">💡 Wybierz jaki rodzaj kodu ma być generowany automatycznie dla produktów</p>
                         </div>
                         
+                        {{-- Wybór trybu generowania --}}
+                        <div class="bg-yellow-50 p-4 rounded border border-yellow-200 mb-4">
+                            <label class="block text-sm font-semibold text-gray-700 mb-3">Tryb generowania kodów:</label>
+                            <div class="flex gap-6">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="generation_mode" value="auto" {{ ($qrSettings->generation_mode ?? 'auto') === 'auto' ? 'checked' : '' }} class="mr-2" onchange="toggleGenerationMode()">
+                                    <span class="text-sm font-medium">⚙️ Automatyczne (według konfiguracji)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="generation_mode" value="manual" {{ ($qrSettings->generation_mode ?? 'auto') === 'manual' ? 'checked' : '' }} class="mr-2" onchange="toggleGenerationMode()">
+                                    <span class="text-sm font-medium">✍️ Ręczne (wpisywane podczas dodawania)</span>
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-600 mt-2">💡 Automatyczne: kody generowane przez system. Ręczne: wpisujesz kod sam podczas dodawania produktu</p>
+                        </div>
+                        
+                        <div id="qr-auto-config">
                         <p class="text-gray-600 text-sm mb-4 font-semibold">Konfigurator formatu kodu:</p>
                         
                         {{-- Element 1 --}}
@@ -1436,6 +1453,7 @@
                                 <span class="text-blue-600" id="pattern-preview">Wybierz elementy powyżej, aby zobaczyć wzór</span>
                             </div>
                         </div>
+                        </div>
                         
                         <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
                             Zapisz ustawienia
@@ -1443,6 +1461,21 @@
                     </form>
                     
                     <script>
+                        function toggleGenerationMode() {
+                            const mode = document.querySelector('input[name="generation_mode"]:checked').value;
+                            const configDiv = document.getElementById('qr-auto-config');
+                            if (mode === 'manual') {
+                                configDiv.style.display = 'none';
+                            } else {
+                                configDiv.style.display = 'block';
+                            }
+                        }
+                        
+                        // Initialize on page load
+                        document.addEventListener('DOMContentLoaded', function() {
+                            toggleGenerationMode();
+                        });
+                        
                         function toggleQrElementInput(element, type) {
                             document.getElementById('qr_' + element + '_value').style.display = type === 'text' ? 'block' : 'none';
                             updateQrPattern();

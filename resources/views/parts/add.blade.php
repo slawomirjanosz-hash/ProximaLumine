@@ -148,6 +148,27 @@
                     >
                         ➕ Dodaj
                     </button>
+                    
+                    @php
+                        $qrSettings = \DB::table('qr_settings')->first();
+                        $generationMode = $qrSettings->generation_mode ?? 'auto';
+                    @endphp
+                    
+                    @if($generationMode === 'manual')
+                    {{-- Pole do ręcznego wpisania kodu --}}
+                    <div style="width: 300px;">
+                        <label class="block text-sm font-semibold mb-1">Kod QR/Kreskowy *</label>
+                        <input
+                            type="text"
+                            name="qr_code"
+                            id="manual-qr-input"
+                            placeholder="Wpisz kod ręcznie"
+                            class="border-2 border-orange-400 p-2 rounded w-full"
+                            required
+                        >
+                    </div>
+                    @endif
+                    
                     <button
                         type="button"
                         id="generate-qr-btn"
@@ -155,6 +176,7 @@
                     >
                         📱 Podgląd QR
                     </button>
+                    
                     <button
                         type="button"
                         id="scan-qr-btn"
@@ -164,7 +186,10 @@
                     >
                         🔍 Odczytaj QR
                     </button>
+                    
+                    @if($generationMode === 'auto')
                     <p class="text-xs text-gray-500 mt-2">💡 Kod QR zostanie automatycznie wygenerowany po dodaniu produktu</p>
+                    @endif
                 </div>
                 
                 {{-- KOMUNIKAT SKANOWANIA W FORMULARZU --}}
@@ -1208,10 +1233,22 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const productName = document.getElementById('part-name').value;
         const location = document.querySelector('[name="location"]').value;
+        const manualQrInput = document.getElementById('manual-qr-input');
+        const manualQrCode = manualQrInput ? manualQrInput.value : null;
         
-        if (!productName) {
-            alert('Wprowadź nazwę produktu, aby wygenerować kod QR');
+        if (!productName && !manualQrCode) {
+            alert('Wprowadź nazwę produktu lub kod QR');
             return;
+        }
+        
+        const requestBody = {
+            name: productName || 'Produkt',
+            location: location
+        };
+        
+        // W trybie ręcznym dodaj kod z pola input
+        if (manualQrCode) {
+            requestBody.qr_code = manualQrCode;
         }
         
         fetch('{{ route('parts.generateQr') }}', {
@@ -1220,10 +1257,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
-            body: JSON.stringify({
-                name: productName,
-                location: location
-            })
+            body: JSON.stringify(requestBody)
         })
         .then(res => {
             if (!res.ok) {

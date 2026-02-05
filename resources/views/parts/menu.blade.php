@@ -87,9 +87,15 @@
 
             @auth
                 <div class="border-l border-gray-300 pl-2 flex items-center gap-2">
-                    <div class="text-right">
+                    <div class="text-right flex flex-col items-end">
                         <span class="text-gray-700 text-sm whitespace-nowrap block">{{ Auth::user()->name }}</span>
                         <span class="text-gray-500 text-xs whitespace-nowrap block">{{ Auth::user()->is_admin ? 'Administrator' : 'Użytkownik' }}</span>
+                    </div>
+                    <!-- Okienko z liczbą zalogowanych użytkowników -->
+                    <div style="margin-left:10px;">
+                        <span class="inline-block px-2 py-1 text-xs bg-green-100 text-green-800 rounded shadow" title="Aktualnie zalogowani użytkownicy">
+                            👤 {{ \App\Helpers\UserHelper::getOnlineUsersCount() }} online
+                        </span>
                     </div>
                     <form action="{{ route('logout') }}" method="POST" class="inline">
                         @csrf

@@ -177,9 +177,11 @@ Route::middleware('auth')->post('/api/parts/catalog/add', function (Illuminate\H
                     $qrCodeParts[] = now()->format('Ymd');
                 } elseif ($qrSettings->element4_type === 'number') {
                     $currentNumber = $qrSettings->start_number;
+                    $length = strlen($currentNumber);
                     $qrCodeParts[] = $currentNumber;
+                    $nextNumber = str_pad((int)$currentNumber + 1, $length, '0', STR_PAD_LEFT);
                     \DB::table('qr_settings')->update([
-                        'start_number' => $currentNumber + 1
+                        'start_number' => $nextNumber
                     ]);
                 }
             }

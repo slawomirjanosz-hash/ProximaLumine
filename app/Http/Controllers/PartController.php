@@ -718,8 +718,11 @@ class PartController extends Controller
                 }
             }
             
-            // Automatyczne generowanie kodu QR TYLKO dla nowych produktów bez kodu QR
-            if (!$wasExisting && !$part->qr_code) {
+            // Automatyczne generowanie kodu QR TYLKO dla nowych produktów bez kodu QR (jeśli tryb auto)
+            $qrSettings = \DB::table('qr_settings')->first();
+            $generationMode = $qrSettings->generation_mode ?? 'auto';
+            
+            if (!$wasExisting && !$part->qr_code && $generationMode === 'auto') {
                 $qrCode = $this->autoGenerateQrCode($data['name'], $data['location'] ?? null);
                 if ($qrCode) {
                     $part->qr_code = $qrCode;
@@ -1779,6 +1782,7 @@ class PartController extends Controller
     {
         $validated = $request->validate([
             'code_type' => 'required|string|in:qr,barcode',
+            'generation_mode' => 'required|string|in:auto,manual',
             'element1_type' => 'nullable|string|max:50',
             'element1_value' => 'nullable|string|max:255',
             'separator1' => 'nullable|string|max:5',
@@ -1789,7 +1793,7 @@ class PartController extends Controller
             'element3_value' => 'nullable|string|max:255',
             'separator3' => 'nullable|string|max:5',
             'element4_type' => 'nullable|string|max:50',
-            'start_number' => 'nullable|integer|min:1',
+            'start_number' => 'nullable|string|regex:/^\\d{1,5}$/',
         ]);
 
         // Usuń wszystkie poprzednie ustawienia i stwórz nowe (zawsze tylko 1 rekord)
@@ -2936,6 +2940,7 @@ class PartController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'location' => 'nullable|string|max:10',
+            'qr_code' => 'nullable|string|max:255',
         ]);
 
         $qrSettings = \DB::table('qr_settings')->first();
@@ -2945,6 +2950,39 @@ class PartController extends Controller
                 'success' => false,
                 'message' => 'Brak konfiguracji kodów QR. Skonfiguruj ustawienia w zakładce Ustawienia > Inne > Ustawienia Kodów QR'
             ], 400);
+        }
+        
+        $generationMode = $qrSettings->generation_mode ?? 'auto';
+        
+        // W trybie ręcznym użyj kodu z pola input
+        if ($generationMode === 'manual' && !empty($validated['qr_code'])) {
+            $qrCode = $validated['qr_code'];
+            $qrDescription = ['Kod wpisany ręcznie'];
+            
+            // Generuj obrazek
+            $codeType = $qrSettings->code_type ?? 'qr';
+            
+            try {
+                if ($codeType === 'barcode') {
+                    $generator = new \Picqer\Barcode\BarcodeGeneratorSVG();
+                    $codeImageString = $generator->getBarcode($qrCode, $generator::TYPE_CODE_128, 2, 80);
+                } else {
+                    $qrImageSvg = \QrCode::format('svg')->size(200)->generate($qrCode);
+                    $codeImageString = is_string($qrImageSvg) ? $qrImageSvg : (string)$qrImageSvg;
+                }
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Błąd generowania kodu: ' . $e->getMessage()
+                ], 500);
+            }
+            
+            return response()->json([
+                'success' => true,
+                'qr_code' => $qrCode,
+                'qr_image' => $codeImageString,
+                'description' => implode(', ', $qrDescription)
+            ]);
         }
 
         // Buduj kod QR na podstawie ustawień
@@ -3005,15 +3043,11 @@ class PartController extends Controller
                 $qrCodeParts[] = now()->format('Ymd');
                 $qrDescription[] = 'Data';
             } elseif ($qrSettings->element4_type === 'number') {
-                // Inkrementuj liczbę w bazie
+                // PODGLĄD - nie inkrementuj, tylko pokaż aktualny numer
                 $currentNumber = $qrSettings->start_number;
                 $qrCodeParts[] = $currentNumber;
-                $qrDescription[] = 'Numer: ' . $currentNumber;
-                
-                // Zaktualizuj start_number (inkrementuj)
-                \DB::table('qr_settings')->update([
-                    'start_number' => $currentNumber + 1
-                ]);
+                $qrDescription[] = 'Numer (podgląd): ' . $currentNumber;
+                // NIE inkrementujemy - to tylko podgląd!
             }
         }
         
@@ -3159,11 +3193,14 @@ class PartController extends Controller
             } elseif ($qrSettings->element4_type === 'number') {
                 // Inkrementuj liczbę w bazie
                 $currentNumber = $qrSettings->start_number;
+                // Ustal długość na podstawie wpisanej wartości (np. 001 -> 3 cyfry)
+                $length = strlen($currentNumber);
+                // Jeśli wpisano np. 001, to $length = 3
                 $qrCodeParts[] = $currentNumber;
-                
-                // Zaktualizuj start_number (inkrementuj)
+                // Zaktualizuj start_number (inkrementuj z zachowaniem zer wiodących)
+                $nextNumber = str_pad((int)$currentNumber + 1, $length, '0', STR_PAD_LEFT);
                 \DB::table('qr_settings')->update([
-                    'start_number' => $currentNumber + 1
+                    'start_number' => $nextNumber
                 ]);
             }
         }
@@ -3224,6 +3261,7 @@ class PartController extends Controller
                 'minimum_stock' => [
                     'stan minimalny', 'stan min', 'min', 'minimum_stock', 'min_stan', 'min. stan', 'min.'
                 ],
+                'qr_code' => ['kod', 'qr', 'qr_code', 'qr kod', 'kod qr', 'barcode', 'kod kreskowy'],
             ];
 
             // Znajdź indeksy kolumn
@@ -3334,6 +3372,7 @@ class PartController extends Controller
                 $quantity = isset($colIndexes['ilosc']) ? intval($row[$colIndexes['ilosc']] ?? 1) : 1;
                 $location = isset($colIndexes['lokalizacja']) ? trim($row[$colIndexes['lokalizacja']] ?? '') : '';
                 $minimumStock = isset($colIndexes['minimum_stock']) ? intval($row[$colIndexes['minimum_stock']] ?? 0) : 0;
+                $qrCodeFromExcel = isset($colIndexes['qr_code']) ? trim($row[$colIndexes['qr_code']] ?? '') : '';
 
                 // Znajdź ID kategorii
                 $categoryId = null;
@@ -3399,10 +3438,21 @@ class PartController extends Controller
                 // Sprawdź czy produkt już istnieje w bazie
                 $existingPart = Part::where('name', $productName)->first();
                 
-                // Generuj kod QR TYLKO dla nowych produktów
+                // Pobierz ustawienia QR
+                $qrSettings = \DB::table('qr_settings')->first();
+                $generationMode = $qrSettings->generation_mode ?? 'auto';
+                
+                // Generuj/przypisz kod QR
                 $qrCode = null;
-                if (!$existingPart) {
-                    $qrCode = $this->autoGenerateQrCode($productName, $location);
+                
+                // Jeśli w Excel jest kod, użyj go (ma priorytet)
+                if (!empty($qrCodeFromExcel)) {
+                    $qrCode = $qrCodeFromExcel;
+                } elseif (!$existingPart) {
+                    // Dla nowych produktów: generuj tylko jeśli tryb auto
+                    if ($generationMode === 'auto') {
+                        $qrCode = $this->autoGenerateQrCode($productName, $location);
+                    }
                 } else {
                     // Dla istniejących produktów użyj ich obecnego kodu QR
                     $qrCode = $existingPart->qr_code;
