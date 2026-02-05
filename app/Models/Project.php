@@ -15,6 +15,7 @@ class Project extends Model
         'budget',
         'responsible_user_id',
         'status',
+        'requires_authorization',
         'warranty_period',
         'started_at',
         'finished_at',

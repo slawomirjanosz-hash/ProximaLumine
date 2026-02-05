@@ -696,7 +696,12 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/magazyn/projekty', [PartController::class, 'projectsView'])->name('magazyn.projects')->middleware('auth');
     Route::post('/magazyn/projekty', [PartController::class, 'storeProject'])->name('magazyn.projects.store')->middleware('auth');
+    Route::delete('/magazyn/projekty/bulk-delete', [PartController::class, 'bulkDeleteProjects'])->name('magazyn.projects.bulkDelete')->middleware('auth');
     Route::get('/magazyn/projekty/{project}', [PartController::class, 'showProject'])->name('magazyn.projects.show')->middleware('auth');
+    Route::get('/magazyn/projekty/{project}/pobierz', [PartController::class, 'pickupProducts'])->name('magazyn.projects.pickup')->middleware('auth');
+    Route::post('/magazyn/projekty/{project}/pobierz', [PartController::class, 'storePickupProducts'])->name('magazyn.projects.pickup.store')->middleware('auth');
+    Route::get('/magazyn/projekty/{project}/autoryzuj', [PartController::class, 'authorizeProducts'])->name('magazyn.projects.authorize')->middleware('auth');
+    Route::post('/magazyn/projekty/{project}/autoryzuj', [PartController::class, 'processAuthorization'])->name('magazyn.projects.authorize.process')->middleware('auth');
     Route::get('/magazyn/projekty/{project}/edit', [PartController::class, 'editProject'])->name('magazyn.editProject')->middleware('auth');
     Route::put('/magazyn/projekty/{project}', [PartController::class, 'updateProject'])->name('magazyn.updateProject')->middleware('auth');
     Route::get('/magazyn/projects/{project}/removal-dates', [PartController::class, 'getRemovalDates'])->name('magazyn.projects.removal-dates')->middleware('auth');

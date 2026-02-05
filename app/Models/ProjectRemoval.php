@@ -15,6 +15,7 @@ class ProjectRemoval extends Model
         'user_id',
         'quantity',
         'status',
+        'authorized',
         'returned_at',
         'returned_by_user_id',
     ];

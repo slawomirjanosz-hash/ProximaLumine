@@ -95,6 +95,24 @@
                     <option value="archived" {{ old('status', $project->status) === 'archived' ? 'selected' : '' }}>Archiwalny</option>
                 </select>
             </div>
+
+            <div>
+                <label class="block text-sm font-semibold mb-1">Autoryzacja pobrań</label>
+                <div class="flex items-center gap-2 mt-2">
+                    <input 
+                        type="checkbox" 
+                        name="requires_authorization" 
+                        id="requires_authorization" 
+                        value="1"
+                        {{ old('requires_authorization', $project->requires_authorization) ? 'checked' : '' }}
+                        class="w-4 h-4 cursor-pointer"
+                    >
+                    <label for="requires_authorization" class="text-sm font-medium cursor-pointer">
+                        Pobranie produktów wymaga autoryzacji przez skanowanie
+                    </label>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Jeśli zaznaczone, produkty pobrane do projektu nie zostaną odjęte ze stanu magazynu dopóki nie zostaną zeskanowane</p>
+            </div>
         </div>
 
         <div class="mt-6 flex gap-2">
@@ -108,6 +126,20 @@
     </form>
 
 </div>
+
+<script>
+    // Kontrola checkboxa autoryzacji w zależności od stanu QR
+    document.addEventListener('DOMContentLoaded', function() {
+        const qrEnabled = {{ $qrEnabled ? 'true' : 'false' }};
+        const authCheckbox = document.getElementById('requires_authorization');
+        
+        if (!qrEnabled && authCheckbox) {
+            authCheckbox.disabled = true;
+            authCheckbox.checked = false;
+            authCheckbox.closest('div').classList.add('opacity-50', 'cursor-not-allowed');
+        }
+    });
+</script>
 
 </body>
 </html>

@@ -76,6 +76,16 @@
                     @endif
                 </p>
             </div>
+            <div>
+                <span class="text-sm font-semibold text-gray-600">Autoryzacja pobrań:</span>
+                <p class="text-lg">
+                    @if($project->requires_authorization)
+                        <span class="text-orange-600 font-semibold">✓ Wymagana</span>
+                    @else
+                        <span class="text-gray-600">Nie wymagana</span>
+                    @endif
+                </p>
+            </div>
         </div>
         
         <div class="mt-4 flex gap-2 justify-end">
@@ -94,7 +104,60 @@
     </div>
     
     {{-- TABELA PRODUKTÓW --}}
-    <h3 class="text-lg font-semibold mb-4">Pobrane produkty</h3>
+    <div class="mb-6">
+        @php
+            $unauthorized = $removals->where('authorized', false);
+            $authorized = $removals->where('authorized', true);
+        @endphp
+        
+        @if($project->requires_authorization && $unauthorized->count() > 0)
+        {{-- SEKCJA NIEAUTORYZOWANYCH --}}
+        <div class="bg-red-50 border border-red-200 rounded p-4 mb-4">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-red-800">🔒 Produkty oczekujące na autoryzację ({{ $unauthorized->count() }})</h3>
+                <a href="{{ route('magazyn.projects.authorize', $project->id) }}" class="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 font-semibold">
+                    🔍 Zacznij autoryzację (skanowanie)
+                </a>
+            </div>
+            <table class="w-full border border-collapse text-xs bg-white">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="border p-2">Nazwa produktu</th>
+                        <th class="border p-2 text-center">Kod QR</th>
+                        <th class="border p-2 text-center">Ilość do autoryzacji</th>
+                        <th class="border p-2 text-center">Data dodania</th>
+                        <th class="border p-2 text-center">Dodał</th>
+                        <th class="border p-2 text-center">Status magazynu</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($unauthorized as $removal)
+                        <tr class="bg-yellow-50">
+                            <td class="border p-2">{{ $removal->part->name }}</td>
+                            <td class="border p-2 text-center font-mono text-xs">{{ $removal->part->qr_code ?? '-' }}</td>
+                            <td class="border p-2 text-center font-bold text-red-600">{{ $removal->quantity }}</td>
+                            <td class="border p-2 text-center">{{ $removal->created_at->format('d.m.Y H:i') }}</td>
+                            <td class="border p-2 text-center">{{ $removal->user->short_name ?? $removal->user->name }}</td>
+                            <td class="border p-2 text-center">
+                                <span class="text-orange-600 font-semibold text-xs">⚠️ Nie odjęte ze stanu</span>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @endif
+        
+        {{-- SEKCJA AUTORYZOWANYCH/ZWYKŁYCH --}}
+        <h3 class="text-lg font-semibold mb-4">
+            @if($project->requires_authorization)
+                ✅ Produkty autoryzowane ({{ $authorized->count() }})
+            @else
+                Pobrane produkty
+            @endif
+        </h3>
+    </div>
+    
     <table class="w-full border border-collapse text-xs">
         <thead class="bg-gray-100">
             <tr>
@@ -107,7 +170,7 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($removals as $removal)
+            @forelse($authorized as $removal)
                 <tr class="{{ $removal->status === 'returned' ? 'bg-green-50' : '' }}">
                     <td class="border p-2">{{ $removal->part->name }}</td>
                     <td class="border p-2 text-center">{{ $removal->quantity }}</td>
@@ -141,7 +204,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6" class="border p-4 text-center text-gray-500">Brak pobranych produktów</td>
+                    <td colspan="6" class="border p-4 text-center text-gray-500">Brak {{ $project->requires_authorization ? 'autoryzowanych' : 'pobranych' }} produktów</td>
                 </tr>
             @endforelse
         </tbody>

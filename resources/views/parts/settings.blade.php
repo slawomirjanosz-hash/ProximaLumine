@@ -1301,6 +1301,17 @@
                             <p class="text-xs text-gray-600 mt-2">💡 Wybierz jaki rodzaj kodu ma być generowany automatycznie dla produktów</p>
                         </div>
                         
+                        {{-- Włącz/wyłącz obsługę kodów --}}
+                        <div class="bg-blue-50 p-4 rounded border border-blue-200 mb-4">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" name="qr_enabled" value="1" {{ ($qrSettings->qr_enabled ?? true) ? 'checked' : '' }} class="mr-3 w-5 h-5" onchange="toggleQrSystem()">
+                                <span class="text-sm font-semibold">✅ Włącz obsługę kodów QR/kreskowych</span>
+                            </label>
+                            <p class="text-xs text-gray-600 mt-2">💡 Gdy wyłączone, system nie będzie generował ani wymagał kodów QR/kreskowych dla produktów</p>
+                        </div>
+
+                        <div id="qr-system-config" style="display: {{ ($qrSettings->qr_enabled ?? true) ? 'block' : 'none' }};">
+                        
                         {{-- Wybór trybu generowania --}}
                         <div class="bg-yellow-50 p-4 rounded border border-yellow-200 mb-4">
                             <label class="block text-sm font-semibold text-gray-700 mb-3">Tryb generowania kodów:</label>
@@ -1455,12 +1466,20 @@
                         </div>
                         </div>
                         
+                        </div>{{-- koniec qr-system-config --}}
+                        
                         <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
                             Zapisz ustawienia
                         </button>
                     </form>
                     
                     <script>
+                        function toggleQrSystem() {
+                            const enabled = document.querySelector('input[name="qr_enabled"]').checked;
+                            const systemConfig = document.getElementById('qr-system-config');
+                            systemConfig.style.display = enabled ? 'block' : 'none';
+                        }
+                        
                         function toggleGenerationMode() {
                             const mode = document.querySelector('input[name="generation_mode"]:checked').value;
                             const configDiv = document.getElementById('qr-auto-config');
@@ -1473,6 +1492,7 @@
                         
                         // Initialize on page load
                         document.addEventListener('DOMContentLoaded', function() {
+                            toggleQrSystem();
                             toggleGenerationMode();
                         });
                         

@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('project_removals', function (Blueprint $table) {
-            $table->boolean('authorized')->default(true)->after('status');
+        Schema::table('projects', function (Blueprint $table) {
+            $table->boolean('requires_authorization')->default(false)->after('status');
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('project_removals', function (Blueprint $table) {
-            $table->dropColumn('authorized');
+        Schema::table('projects', function (Blueprint $table) {
+            $table->dropColumn('requires_authorization');
         });
     }
 };

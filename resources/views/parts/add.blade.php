@@ -151,10 +151,11 @@
                     
                     @php
                         $qrSettings = \DB::table('qr_settings')->first();
+                        $qrEnabled = $qrSettings->qr_enabled ?? true;
                         $generationMode = $qrSettings->generation_mode ?? 'auto';
                     @endphp
                     
-                    @if($generationMode === 'manual')
+                    @if($qrEnabled && $generationMode === 'manual')
                     {{-- Pole do ręcznego wpisania kodu --}}
                     <div style="width: 300px;">
                         <label class="block text-sm font-semibold mb-1">Kod QR/Kreskowy *</label>
@@ -169,6 +170,7 @@
                     </div>
                     @endif
                     
+                    @if($qrEnabled)
                     <button
                         type="button"
                         id="generate-qr-btn"
@@ -189,6 +191,7 @@
                     
                     @if($generationMode === 'auto')
                     <p class="text-xs text-gray-500 mt-2">💡 Kod QR zostanie automatycznie wygenerowany po dodaniu produktu</p>
+                    @endif
                     @endif
                 </div>
                 

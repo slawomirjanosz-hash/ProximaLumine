@@ -632,8 +632,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
                     },
                     body: JSON.stringify({
-                        name: partName,
-                        location: partLocation
+                        qr_code: partQrCode
                     })
                 })
                 .then(res => res.json())

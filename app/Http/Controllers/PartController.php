@@ -130,6 +130,7 @@ class PartController extends Controller
             'responsible_user_id' => 'nullable|exists:users,id',
             'warranty_period' => 'nullable|integer|min:0',
             'finished_at' => 'nullable|date',
+            'requires_authorization' => 'nullable|boolean',
         ]);
 
         $project = \App\Models\Project::create([
@@ -141,6 +142,7 @@ class PartController extends Controller
             'started_at' => now(),
             'finished_at' => $request->finished_at,
             'status' => 'in_progress',
+            'requires_authorization' => $request->has('requires_authorization'),
         ]);
 
         return redirect()->route('magazyn.projects')->with('success', 'Projekt "' . $project->name . '" został utworzony.');
@@ -157,6 +159,190 @@ class PartController extends Controller
         return view('parts.project-details', [
             'project' => $project->load('responsibleUser'),
             'removals' => $removals,
+        ]);
+    }
+
+    public function pickupProducts(\App\Models\Project $project)
+    {
+        return view('parts.project-pickup', [
+            'project' => $project,
+            'parts' => Part::with(['category', 'lastModifiedBy'])->orderBy('name')->get(),
+            'suppliers' => Supplier::orderBy('name')->get(),
+        ]);
+    }
+
+    public function storePickupProducts(Request $request, \App\Models\Project $project)
+    {
+        $data = $request->validate([
+            'products' => 'required|array|min:1',
+            'products.*.id' => 'required|exists:parts,id',
+            'products.*.quantity' => 'required|integer|min:1',
+        ]);
+
+        $errors = [];
+        $successCount = 0;
+        $requiresAuth = $project->requires_authorization;
+
+        foreach ($data['products'] as $productData) {
+            $part = Part::find($productData['id']);
+            
+            if (!$part) {
+                $errors[] = "Produkt ID {$productData['id']} nie istnieje";
+                continue;
+            }
+
+            if ($productData['quantity'] > $part->quantity) {
+                $errors[] = "{$part->name}: Za mało w magazynie (dostępne: {$part->quantity})";
+                continue;
+            }
+
+            // Jeśli projekt NIE wymaga autoryzacji - odejmij od razu
+            if (!$requiresAuth) {
+                $part->quantity -= $productData['quantity'];
+                $part->last_modified_by = auth()->id();
+                $part->save();
+
+                // Zapisz w historii pobrań
+                PartRemoval::create([
+                    'user_id' => auth()->id(),
+                    'part_id' => $part->id,
+                    'part_name' => $part->name,
+                    'description' => $part->description,
+                    'quantity' => $productData['quantity'],
+                    'price' => $part->price ?? null,
+                    'currency' => $part->currency ?? 'PLN',
+                    'stock_after' => $part->quantity,
+                ]);
+            }
+
+            // Zapisz w project_removals (z flagą authorized)
+            \App\Models\ProjectRemoval::create([
+                'project_id' => $project->id,
+                'part_id' => $part->id,
+                'user_id' => auth()->id(),
+                'quantity' => $productData['quantity'],
+                'authorized' => !$requiresAuth, // true jeśli nie wymaga autoryzacji
+            ]);
+
+            $successCount++;
+        }
+
+        if ($successCount > 0) {
+            $message = "Pomyślnie pobrano {$successCount} produkt(ów) do projektu";
+            if ($requiresAuth) {
+                $message .= " (wymaga autoryzacji przez skanowanie)";
+            }
+            if (count($errors) > 0) {
+                $message .= ". Błędy: " . implode(', ', $errors);
+            }
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('success', $message);
+        }
+
+        return redirect()->back()->with('error', 'Nie udało się pobrać żadnych produktów: ' . implode(', ', $errors));
+    }
+
+    public function authorizeProducts(\App\Models\Project $project)
+    {
+        if (!$project->requires_authorization) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Ten projekt nie wymaga autoryzacji produktów.');
+        }
+
+        $unauthorizedRemovals = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->where('authorized', false)
+            ->with('part')
+            ->get();
+
+        return view('parts.project-authorize', [
+            'project' => $project,
+            'removals' => $unauthorizedRemovals,
+        ]);
+    }
+
+    public function processAuthorization(Request $request, \App\Models\Project $project)
+    {
+        $data = $request->validate([
+            'qr_code' => 'required|string',
+        ]);
+
+        $qrCode = $data['qr_code'];
+
+        // Znajdź produkt po kodzie QR
+        $part = Part::where('qr_code', $qrCode)->first();
+
+        if (!$part) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nieznany kod QR: ' . $qrCode
+            ], 404);
+        }
+
+        // Znajdź nieautoryzowane pobranie tego produktu w tym projekcie
+        $removal = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->where('part_id', $part->id)
+            ->where('authorized', false)
+            ->where('quantity', '>', 0)
+            ->first();
+
+        if (!$removal) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Produkt "' . $part->name . '" nie wymaga autoryzacji w tym projekcie (lub już autoryzowany)'
+            ], 404);
+        }
+
+        // Odejmij 1 sztukę z nieautoryzowanego
+        $removal->quantity -= 1;
+
+        if ($removal->quantity == 0) {
+            $removal->delete();
+        } else {
+            $removal->save();
+        }
+
+        // Utwórz lub zaktualizuj autoryzowane pobranie
+        $authorizedRemoval = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->where('part_id', $part->id)
+            ->where('authorized', true)
+            ->first();
+
+        if ($authorizedRemoval) {
+            $authorizedRemoval->quantity += 1;
+            $authorizedRemoval->save();
+        } else {
+            \App\Models\ProjectRemoval::create([
+                'project_id' => $project->id,
+                'part_id' => $part->id,
+                'user_id' => auth()->id(),
+                'quantity' => 1,
+                'authorized' => true,
+            ]);
+        }
+
+        // Odejmij ze stanu magazynu
+        $part->quantity -= 1;
+        $part->last_modified_by = auth()->id();
+        $part->save();
+
+        // Zapisz w historii pobrań
+        PartRemoval::create([
+            'user_id' => auth()->id(),
+            'part_id' => $part->id,
+            'part_name' => $part->name,
+            'description' => $part->description,
+            'quantity' => 1,
+            'price' => $part->price ?? null,
+            'currency' => $part->currency ?? 'PLN',
+            'stock_after' => $part->quantity,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Autoryzowano: ' . $part->name,
+            'part_name' => $part->name,
+            'remaining' => $removal->quantity ?? 0,
+            'stock_after' => $part->quantity,
         ]);
     }
 
@@ -203,9 +389,13 @@ class PartController extends Controller
 
     public function editProject(\App\Models\Project $project)
     {
+        $qrSettings = \DB::table('qr_settings')->first();
+        $qrEnabled = $qrSettings->qr_enabled ?? true;
+        
         return view('parts.project-edit', [
             'project' => $project,
             'users' => User::orderBy('name')->get(),
+            'qrEnabled' => $qrEnabled,
         ]);
     }
 
@@ -220,6 +410,7 @@ class PartController extends Controller
             'started_at' => 'nullable|date',
             'finished_at' => 'nullable|date',
             'status' => 'required|in:in_progress,warranty,archived',
+            'requires_authorization' => 'nullable|boolean',
         ]);
 
         $project->update([
@@ -231,9 +422,41 @@ class PartController extends Controller
             'started_at' => $request->started_at,
             'finished_at' => $request->finished_at,
             'status' => $request->status,
+            'requires_authorization' => $request->has('requires_authorization'),
         ]);
 
         return redirect()->route('magazyn.projects.show', $project->id)->with('success', 'Projekt został zaktualizowany.');
+    }
+
+    public function bulkDeleteProjects(Request $request)
+    {
+        // Tylko superadmin może usuwać projekty
+        if (auth()->user()->email !== 'proximalumine@gmail.com') {
+            return redirect()->route('magazyn.projects')->with('error', 'Nie masz uprawnień do usuwania projektów.');
+        }
+
+        $request->validate([
+            'project_ids' => 'required|array|min:1',
+            'project_ids.*' => 'exists:projects,id',
+        ]);
+
+        $projectIds = $request->project_ids;
+        $count = count($projectIds);
+
+        // Pobierz nazwy projektów przed usunięciem (dla komunikatu)
+        $projectNames = \App\Models\Project::whereIn('id', $projectIds)->pluck('name')->toArray();
+
+        // Usuń wszystkie powiązane dane
+        \App\Models\ProjectRemoval::whereIn('project_id', $projectIds)->delete();
+        
+        // Usuń projekty
+        \App\Models\Project::whereIn('id', $projectIds)->delete();
+
+        $message = $count === 1 
+            ? "Projekt \"{$projectNames[0]}\" został trwale usunięty wraz z wszystkimi powiązanymi danymi."
+            : "Usunięto {$count} projektów wraz z wszystkimi powiązanymi danymi.";
+
+        return redirect()->route('magazyn.projects')->with('success', $message);
     }
 
     public function getRemovalDates($projectId, Request $request)
@@ -710,19 +933,17 @@ class PartController extends Controller
                 $part->category_id = $data['category_id'];
             }
             
-            // Aktualizuj kod QR TYLKO jeśli został przekazany ORAZ (produkt jest nowy LUB nie ma jeszcze kodu QR)
-            if (array_key_exists('qr_code', $data) && $data['qr_code']) {
-                // Jeśli produkt już istniał i ma swój kod QR, NIE nadpisuj go
-                if (!$wasExisting || !$part->qr_code) {
-                    $part->qr_code = $data['qr_code'];
-                }
+            // Aktualizuj kod QR - jeśli został przekazany, użyj go (ma priorytet nad automatycznym generowaniem)
+            if (array_key_exists('qr_code', $data) && !empty($data['qr_code'])) {
+                $part->qr_code = $data['qr_code'];
             }
             
             // Automatyczne generowanie kodu QR TYLKO dla nowych produktów bez kodu QR (jeśli tryb auto)
             $qrSettings = \DB::table('qr_settings')->first();
+            $qrEnabled = $qrSettings->qr_enabled ?? true;
             $generationMode = $qrSettings->generation_mode ?? 'auto';
             
-            if (!$wasExisting && !$part->qr_code && $generationMode === 'auto') {
+            if ($qrEnabled && !$wasExisting && !$part->qr_code && $generationMode === 'auto') {
                 $qrCode = $this->autoGenerateQrCode($data['name'], $data['location'] ?? null);
                 if ($qrCode) {
                     $part->qr_code = $qrCode;
@@ -1781,6 +2002,7 @@ class PartController extends Controller
     public function saveQrSettings(Request $request)
     {
         $validated = $request->validate([
+            'qr_enabled' => 'nullable|boolean',
             'code_type' => 'required|string|in:qr,barcode',
             'generation_mode' => 'required|string|in:auto,manual',
             'element1_type' => 'nullable|string|max:50',
@@ -1795,6 +2017,9 @@ class PartController extends Controller
             'element4_type' => 'nullable|string|max:50',
             'start_number' => 'nullable|string|regex:/^\\d{1,5}$/',
         ]);
+
+        // Konwertuj checkbox qr_enabled na boolean
+        $validated['qr_enabled'] = $request->has('qr_enabled');
 
         // Usuń wszystkie poprzednie ustawienia i stwórz nowe (zawsze tylko 1 rekord)
         \DB::table('qr_settings')->truncate();
@@ -2938,7 +3163,7 @@ class PartController extends Controller
     public function generateQrCode(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'nullable|string|max:255',
             'location' => 'nullable|string|max:10',
             'qr_code' => 'nullable|string|max:255',
         ]);
@@ -2952,12 +3177,10 @@ class PartController extends Controller
             ], 400);
         }
         
-        $generationMode = $qrSettings->generation_mode ?? 'auto';
-        
-        // W trybie ręcznym użyj kodu z pola input
-        if ($generationMode === 'manual' && !empty($validated['qr_code'])) {
+        // Jeśli przekazano gotowy kod QR (np. z bazy danych), użyj go bezpośrednio
+        if (!empty($validated['qr_code'])) {
             $qrCode = $validated['qr_code'];
-            $qrDescription = ['Kod wpisany ręcznie'];
+            $qrDescription = ['Zapisany kod QR'];
             
             // Generuj obrazek
             $codeType = $qrSettings->code_type ?? 'qr';
@@ -2984,6 +3207,8 @@ class PartController extends Controller
                 'description' => implode(', ', $qrDescription)
             ]);
         }
+        
+        $generationMode = $qrSettings->generation_mode ?? 'auto';
 
         // Buduj kod QR na podstawie ustawień
         $qrCodeParts = [];
@@ -3440,6 +3665,7 @@ class PartController extends Controller
                 
                 // Pobierz ustawienia QR
                 $qrSettings = \DB::table('qr_settings')->first();
+                $qrEnabled = $qrSettings->qr_enabled ?? true;
                 $generationMode = $qrSettings->generation_mode ?? 'auto';
                 
                 // Generuj/przypisz kod QR
@@ -3448,14 +3674,14 @@ class PartController extends Controller
                 // Jeśli w Excel jest kod, użyj go (ma priorytet)
                 if (!empty($qrCodeFromExcel)) {
                     $qrCode = $qrCodeFromExcel;
-                } elseif (!$existingPart) {
-                    // Dla nowych produktów: generuj tylko jeśli tryb auto
+                } elseif ($qrEnabled && !$existingPart) {
+                    // Dla nowych produktów: generuj tylko jeśli obsługa włączona i tryb auto
                     if ($generationMode === 'auto') {
                         $qrCode = $this->autoGenerateQrCode($productName, $location);
                     }
                 } else {
                     // Dla istniejących produktów użyj ich obecnego kodu QR
-                    $qrCode = $existingPart->qr_code;
+                    $qrCode = $existingPart->qr_code ?? null;
                 }
 
                 $products[] = [

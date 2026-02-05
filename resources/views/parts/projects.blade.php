@@ -88,6 +88,28 @@
                     </div>
                 </div>
                 
+                @php
+                    $qrSettings = \DB::table('qr_settings')->first();
+                    $qrEnabled = $qrSettings->qr_enabled ?? true;
+                @endphp
+                
+                <div class="flex items-center gap-2 p-4 bg-purple-50 border border-purple-200 rounded">
+                    <input 
+                        type="checkbox" 
+                        name="requires_authorization" 
+                        id="requires_authorization"
+                        value="1"
+                        class="w-5 h-5"
+                        {{ !$qrEnabled ? 'disabled' : '' }}
+                    >
+                    <label for="requires_authorization" class="text-sm font-medium {{ !$qrEnabled ? 'text-gray-400' : '' }}">
+                        🔐 Pobranie produktów wymaga autoryzacji (skanowanie kodów QR)
+                    </label>
+                </div>
+                @if(!$qrEnabled)
+                <p class="text-xs text-gray-500 -mt-2">💡 Obsługa kodów QR jest wyłączona w ustawieniach</p>
+                @endif
+                
                 <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
                     Utwórz Projekt
                 </button>
@@ -99,35 +121,56 @@
     <div id="section-in-progress" class="project-section">
         <div class="bg-white rounded shadow border">
             <div class="p-6">
-                <h3 class="text-lg font-semibold mb-4">Projekty w toku</h3>
-                <table class="w-full border border-collapse text-xs">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="border p-2">Nr projektu</th>
-                            <th class="border p-2">Nazwa</th>
-                            <th class="border p-2">Budżet</th>
-                            <th class="border p-2">Osoba odpowiedzialna</th>
-                            <th class="border p-2">Akcje</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($inProgressProjects as $project)
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">Projekty w toku</h3>
+                    @if(auth()->user()->email === 'proximalumine@gmail.com' && $inProgressProjects->count() > 0)
+                        <button type="button" id="delete-in-progress-btn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm hidden">
+                            🗑️ Usuń zaznaczone (0)
+                        </button>
+                    @endif
+                </div>
+                <form id="delete-in-progress-form" method="POST" action="{{ route('magazyn.projects.bulkDelete') }}">
+                    @csrf
+                    @method('DELETE')
+                    <table class="w-full border border-collapse text-xs">
+                        <thead class="bg-gray-100">
                             <tr>
-                                <td class="border p-2">{{ $project->project_number }}</td>
-                                <td class="border p-2">{{ $project->name }}</td>
-                                <td class="border p-2 text-right">{{ $project->budget ? number_format($project->budget, 2) . ' PLN' : '-' }}</td>
-                                <td class="border p-2">{{ $project->responsibleUser->name ?? '-' }}</td>
-                                <td class="border p-2 text-center">
-                                    <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline text-sm">Szczegóły</a>
-                                </td>
+                                @if(auth()->user()->email === 'proximalumine@gmail.com')
+                                    <th class="border p-2 w-10">
+                                        <input type="checkbox" class="select-all-in-progress w-4 h-4 cursor-pointer" title="Zaznacz wszystkie">
+                                    </th>
+                                @endif
+                                <th class="border p-2">Nr projektu</th>
+                                <th class="border p-2">Nazwa</th>
+                                <th class="border p-2">Budżet</th>
+                                <th class="border p-2">Osoba odpowiedzialna</th>
+                                <th class="border p-2">Akcje</th>
                             </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="border p-4 text-center text-gray-500">Brak projektów w toku</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @forelse($inProgressProjects as $project)
+                                <tr>
+                                    @if(auth()->user()->email === 'proximalumine@gmail.com')
+                                        <td class="border p-2 text-center">
+                                            <input type="checkbox" name="project_ids[]" value="{{ $project->id }}" class="project-checkbox-in-progress w-4 h-4 cursor-pointer">
+                                        </td>
+                                    @endif
+                                    <td class="border p-2">{{ $project->project_number }}</td>
+                                    <td class="border p-2">{{ $project->name }}</td>
+                                    <td class="border p-2 text-right">{{ $project->budget ? number_format($project->budget, 2) . ' PLN' : '-' }}</td>
+                                    <td class="border p-2">{{ $project->responsibleUser->name ?? '-' }}</td>
+                                    <td class="border p-2 text-center">
+                                        <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline text-sm">Szczegóły</a>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="{{ auth()->user()->email === 'proximalumine@gmail.com' ? '6' : '5' }}" class="border p-4 text-center text-gray-500">Brak projektów w toku</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </form>
             </div>
         </div>
     </div>
@@ -136,35 +179,56 @@
     <div id="section-warranty" class="project-section hidden">
         <div class="bg-white rounded shadow border">
             <div class="p-6">
-                <h3 class="text-lg font-semibold mb-4">Projekty na gwarancji</h3>
-                <table class="w-full border border-collapse text-xs">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="border p-2">Nr projektu</th>
-                            <th class="border p-2">Nazwa</th>
-                            <th class="border p-2">Budżet</th>
-                            <th class="border p-2">Osoba odpowiedzialna</th>
-                            <th class="border p-2">Akcje</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($warrantyProjects as $project)
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">Projekty na gwarancji</h3>
+                    @if(auth()->user()->email === 'proximalumine@gmail.com' && $warrantyProjects->count() > 0)
+                        <button type="button" id="delete-warranty-btn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm hidden">
+                            🗑️ Usuń zaznaczone (0)
+                        </button>
+                    @endif
+                </div>
+                <form id="delete-warranty-form" method="POST" action="{{ route('magazyn.projects.bulkDelete') }}">
+                    @csrf
+                    @method('DELETE')
+                    <table class="w-full border border-collapse text-xs">
+                        <thead class="bg-gray-100">
                             <tr>
-                                <td class="border p-2">{{ $project->project_number }}</td>
-                                <td class="border p-2">{{ $project->name }}</td>
-                                <td class="border p-2 text-right">{{ $project->budget ? number_format($project->budget, 2) . ' PLN' : '-' }}</td>
-                                <td class="border p-2">{{ $project->responsibleUser->name ?? '-' }}</td>
-                                <td class="border p-2 text-center">
-                                    <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline text-sm">Szczegóły</a>
-                                </td>
+                                @if(auth()->user()->email === 'proximalumine@gmail.com')
+                                    <th class="border p-2 w-10">
+                                        <input type="checkbox" class="select-all-warranty w-4 h-4 cursor-pointer" title="Zaznacz wszystkie">
+                                    </th>
+                                @endif
+                                <th class="border p-2">Nr projektu</th>
+                                <th class="border p-2">Nazwa</th>
+                                <th class="border p-2">Budżet</th>
+                                <th class="border p-2">Osoba odpowiedzialna</th>
+                                <th class="border p-2">Akcje</th>
                             </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="border p-4 text-center text-gray-500">Brak projektów na gwarancji</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @forelse($warrantyProjects as $project)
+                                <tr>
+                                    @if(auth()->user()->email === 'proximalumine@gmail.com')
+                                        <td class="border p-2 text-center">
+                                            <input type="checkbox" name="project_ids[]" value="{{ $project->id }}" class="project-checkbox-warranty w-4 h-4 cursor-pointer">
+                                        </td>
+                                    @endif
+                                    <td class="border p-2">{{ $project->project_number }}</td>
+                                    <td class="border p-2">{{ $project->name }}</td>
+                                    <td class="border p-2 text-right">{{ $project->budget ? number_format($project->budget, 2) . ' PLN' : '-' }}</td>
+                                    <td class="border p-2">{{ $project->responsibleUser->name ?? '-' }}</td>
+                                    <td class="border p-2 text-center">
+                                        <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline text-sm">Szczegóły</a>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="{{ auth()->user()->email === 'proximalumine@gmail.com' ? '6' : '5' }}" class="border p-4 text-center text-gray-500">Brak projektów na gwarancji</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </form>
             </div>
         </div>
     </div>
@@ -173,35 +237,56 @@
     <div id="section-archived" class="project-section hidden">
         <div class="bg-white rounded shadow border">
             <div class="p-6">
-                <h3 class="text-lg font-semibold mb-4">Projekty Archiwalne</h3>
-                <table class="w-full border border-collapse text-xs">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="border p-2">Nr projektu</th>
-                            <th class="border p-2">Nazwa</th>
-                            <th class="border p-2">Budżet</th>
-                            <th class="border p-2">Osoba odpowiedzialna</th>
-                            <th class="border p-2">Akcje</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($archivedProjects as $project)
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">Projekty Archiwalne</h3>
+                    @if(auth()->user()->email === 'proximalumine@gmail.com' && $archivedProjects->count() > 0)
+                        <button type="button" id="delete-archived-btn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm hidden">
+                            🗑️ Usuń zaznaczone (0)
+                        </button>
+                    @endif
+                </div>
+                <form id="delete-archived-form" method="POST" action="{{ route('magazyn.projects.bulkDelete') }}">
+                    @csrf
+                    @method('DELETE')
+                    <table class="w-full border border-collapse text-xs">
+                        <thead class="bg-gray-100">
                             <tr>
-                                <td class="border p-2">{{ $project->project_number }}</td>
-                                <td class="border p-2">{{ $project->name }}</td>
-                                <td class="border p-2 text-right">{{ $project->budget ? number_format($project->budget, 2) . ' PLN' : '-' }}</td>
-                                <td class="border p-2">{{ $project->responsibleUser->name ?? '-' }}</td>
-                                <td class="border p-2 text-center">
-                                    <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline text-sm">Szczegóły</a>
-                                </td>
+                                @if(auth()->user()->email === 'proximalumine@gmail.com')
+                                    <th class="border p-2 w-10">
+                                        <input type="checkbox" class="select-all-archived w-4 h-4 cursor-pointer" title="Zaznacz wszystkie">
+                                    </th>
+                                @endif
+                                <th class="border p-2">Nr projektu</th>
+                                <th class="border p-2">Nazwa</th>
+                                <th class="border p-2">Budżet</th>
+                                <th class="border p-2">Osoba odpowiedzialna</th>
+                                <th class="border p-2">Akcje</th>
                             </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="border p-4 text-center text-gray-500">Brak projektów archiwalnych</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @forelse($archivedProjects as $project)
+                                <tr>
+                                    @if(auth()->user()->email === 'proximalumine@gmail.com')
+                                        <td class="border p-2 text-center">
+                                            <input type="checkbox" name="project_ids[]" value="{{ $project->id }}" class="project-checkbox-archived w-4 h-4 cursor-pointer">
+                                        </td>
+                                    @endif
+                                    <td class="border p-2">{{ $project->project_number }}</td>
+                                    <td class="border p-2">{{ $project->name }}</td>
+                                    <td class="border p-2 text-right">{{ $project->budget ? number_format($project->budget, 2) . ' PLN' : '-' }}</td>
+                                    <td class="border p-2">{{ $project->responsibleUser->name ?? '-' }}</td>
+                                    <td class="border p-2 text-center">
+                                        <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline text-sm">Szczegóły</a>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="{{ auth()->user()->email === 'proximalumine@gmail.com' ? '6' : '5' }}" class="border p-4 text-center text-gray-500">Brak projektów archiwalnych</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </form>
             </div>
         </div>
     </div>
@@ -253,6 +338,60 @@
             this.classList.add('bg-blue-500', 'text-white', 'active-tab');
         });
     });
+
+    // Funkcja do aktualizacji przycisku usuwania
+    function setupDeleteSection(section) {
+        const checkboxes = document.querySelectorAll(`.project-checkbox-${section}`);
+        const selectAll = document.querySelector(`.select-all-${section}`);
+        const deleteBtn = document.getElementById(`delete-${section}-btn`);
+        const form = document.getElementById(`delete-${section}-form`);
+        
+        if (!checkboxes.length || !deleteBtn) return;
+        
+        function updateDeleteButton() {
+            const checkedCount = document.querySelectorAll(`.project-checkbox-${section}:checked`).length;
+            if (checkedCount > 0) {
+                deleteBtn.classList.remove('hidden');
+                deleteBtn.textContent = `🗑️ Usuń zaznaczone (${checkedCount})`;
+            } else {
+                deleteBtn.classList.add('hidden');
+            }
+        }
+        
+        // Zaznacz/odznacz wszystkie
+        if (selectAll) {
+            selectAll.addEventListener('change', function() {
+                checkboxes.forEach(cb => cb.checked = this.checked);
+                updateDeleteButton();
+            });
+        }
+        
+        // Aktualizuj stan przy zmianie pojedynczego checkboxa
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', function() {
+                if (selectAll) {
+                    selectAll.checked = Array.from(checkboxes).every(c => c.checked);
+                }
+                updateDeleteButton();
+            });
+        });
+        
+        // Obsługa przycisku usuwania
+        deleteBtn.addEventListener('click', function() {
+            const checkedCount = document.querySelectorAll(`.project-checkbox-${section}:checked`).length;
+            if (checkedCount === 0) return;
+            
+            const confirmed = confirm(`Czy na pewno chcesz TRWALE usunąć ${checkedCount} projekt(ów)?\n\nTa operacja jest nieodwracalna i usunie również wszystkie powiązane dane (pobrania, autoryzacje, itp.).`);
+            if (confirmed) {
+                form.submit();
+            }
+        });
+    }
+    
+    // Inicjalizacja dla wszystkich sekcji
+    setupDeleteSection('in-progress');
+    setupDeleteSection('warranty');
+    setupDeleteSection('archived');
 </script>
 
 </body>
