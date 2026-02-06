@@ -227,6 +227,45 @@
         </tbody>
     </table>
     
+    {{-- TABELA SUMARYCZNA PRODUKTÓW --}}
+    <div class="mt-8">
+        <h3 class="text-lg font-semibold mb-4">📊 Podsumowanie produktów w projekcie</h3>
+        @php
+            // Grupowanie produktów i sumowanie ilości
+            $summary = $removals->where('status', 'added')->groupBy('part_id')->map(function($group) {
+                return [
+                    'part' => $group->first()->part,
+                    'total_quantity' => $group->sum('quantity')
+                ];
+            })->sortBy(function($item) {
+                return $item['part']->name;
+            });
+        @endphp
+        
+        <table class="w-full border border-collapse text-sm bg-white">
+            <thead class="bg-blue-100">
+                <tr>
+                    <th class="border p-3 text-left">Nazwa produktu</th>
+                    <th class="border p-3 text-left">Opis</th>
+                    <th class="border p-3 text-center">Łączna ilość w projekcie</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($summary as $item)
+                    <tr class="hover:bg-gray-50">
+                        <td class="border p-3">{{ $item['part']->name }}</td>
+                        <td class="border p-3 text-gray-600">{{ $item['part']->description ?? '-' }}</td>
+                        <td class="border p-3 text-center font-bold text-blue-600">{{ $item['total_quantity'] }}</td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="3" class="border p-4 text-center text-gray-500">Brak produktów w projekcie</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+    
 </div>
 
 {{-- MODAL ZAKOŃCZENIA PROJEKTU --}}
