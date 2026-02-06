@@ -78,13 +78,17 @@
             </div>
             <div>
                 <span class="text-sm font-semibold text-gray-600">Autoryzacja pobrań:</span>
-                <p class="text-lg">
-                    @if($project->requires_authorization)
-                        <span class="text-orange-600 font-semibold">✓ Wymagana</span>
-                    @else
-                        <span class="text-gray-600">Nie wymagana</span>
-                    @endif
-                </p>
+                <form method="POST" action="{{ route('magazyn.projects.toggleAuthorization', $project->id) }}">
+                    @csrf
+                    <div class="flex items-center gap-2 mt-2">
+                        <input type="checkbox" name="requires_authorization" id="requires_authorization" value="1" class="w-4 h-4 cursor-pointer" {{ $project->requires_authorization ? 'checked' : '' }}>
+                        <label for="requires_authorization" class="text-sm font-medium cursor-pointer">
+                            Pobranie produktów wymaga autoryzacji przez skanowanie
+                        </label>
+                    </div>
+                    <button type="submit" class="mt-2 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Zapisz zmianę</button>
+                </form>
+                <p class="text-xs text-gray-500 mt-1">Jeśli zaznaczone, produkty pobrane do projektu nie zostaną odjęte ze stanu magazynu dopóki nie zostaną zeskanowane</p>
             </div>
         </div>
         

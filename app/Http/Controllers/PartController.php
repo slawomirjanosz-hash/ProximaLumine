@@ -4845,4 +4845,11 @@ class PartController extends Controller
         // Jeśli wszystkie kolory są użyte, wygeneruj losowy
         return sprintf('#%06X', mt_rand(0, 0xFFFFFF));
     }
+    // ZMIANA AUTORYZACJI POBRAŃ W SZCZEGÓŁACH PROJEKTU
+    public function toggleProjectAuthorization(Request $request, \App\Models\Project $project)
+    {
+        $project->requires_authorization = $request->has('requires_authorization');
+        $project->save();
+        return redirect()->route('magazyn.projects.show', $project->id)->with('success', 'Zmieniono ustawienie autoryzacji pobrań dla projektu.');
+    }
 }

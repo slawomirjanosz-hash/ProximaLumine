@@ -707,4 +707,5 @@ Route::middleware('auth')->group(function () {
     Route::get('/magazyn/projects/{project}/removal-dates', [PartController::class, 'getRemovalDates'])->name('magazyn.projects.removal-dates')->middleware('auth');
     Route::post('/magazyn/projekty/{project}/return/{removal}', [PartController::class, 'returnProduct'])->name('magazyn.returnProduct')->middleware('auth');
     Route::post('/magazyn/projekty/{project}/finish', [PartController::class, 'finishProject'])->name('magazyn.finishProject')->middleware('auth');
+    Route::post('/magazyn/projekty/{project}/toggle-authorization', [PartController::class, 'toggleProjectAuthorization'])->name('magazyn.projects.toggleAuthorization')->middleware('auth');
 });
