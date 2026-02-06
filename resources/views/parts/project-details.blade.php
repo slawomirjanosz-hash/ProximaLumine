@@ -87,6 +87,11 @@
                         </label>
                     </div>
                     <button type="submit" class="mt-2 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Zapisz zmianę</button>
+                                    @if($project->requires_authorization)
+                                        <span class="ml-3 text-orange-600 font-semibold">✓ Wymagana</span>
+                                    @else
+                                        <span class="ml-3 text-gray-600">Nie wymagana</span>
+                                    @endif
                 </form>
                 <p class="text-xs text-gray-500 mt-1">Jeśli zaznaczone, produkty pobrane do projektu nie zostaną odjęte ze stanu magazynu dopóki nie zostaną zeskanowane</p>
             </div>
@@ -132,6 +137,7 @@
                         <th class="border p-2 text-center">Data dodania</th>
                         <th class="border p-2 text-center">Dodał</th>
                         <th class="border p-2 text-center">Status magazynu</th>
+                        <th class="border p-2 text-center">Akcje</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -144,6 +150,13 @@
                             <td class="border p-2 text-center">{{ $removal->user->short_name ?? $removal->user->name }}</td>
                             <td class="border p-2 text-center">
                                 <span class="text-orange-600 font-semibold text-xs">⚠️ Nie odjęte ze stanu</span>
+                            </td>
+                            <td class="border p-2 text-center">
+                                <form method="POST" action="{{ route('magazyn.projects.removalDelete', [$project->id, $removal->id]) }}" onsubmit="return confirm('Czy na pewno chcesz usunąć/wycofać ten produkt z projektu? Operacja nie zmienia stanu magazynu.')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="px-3 py-1 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 text-xs">Usuń / Zwrot</button>
+                                </form>
                             </td>
                         </tr>
                     @endforeach

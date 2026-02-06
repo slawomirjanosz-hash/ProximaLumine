@@ -708,4 +708,5 @@ Route::middleware('auth')->group(function () {
     Route::post('/magazyn/projekty/{project}/return/{removal}', [PartController::class, 'returnProduct'])->name('magazyn.returnProduct')->middleware('auth');
     Route::post('/magazyn/projekty/{project}/finish', [PartController::class, 'finishProject'])->name('magazyn.finishProject')->middleware('auth');
     Route::post('/magazyn/projekty/{project}/toggle-authorization', [PartController::class, 'toggleProjectAuthorization'])->name('magazyn.projects.toggleAuthorization')->middleware('auth');
+    Route::delete('/magazyn/projekty/{project}/removal/{removal}', [PartController::class, 'removalDelete'])->name('magazyn.projects.removalDelete')->middleware('auth');
 });

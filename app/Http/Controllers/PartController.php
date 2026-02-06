@@ -1,3 +1,13 @@
+    // USUWANIE/ZWROT nieautoryzowanego produktu z projektu
+    public function removalDelete(Request $request, \App\Models\Project $project, \App\Models\ProjectRemoval $removal)
+    {
+        // Tylko nieautoryzowane pobrania można usuwać
+        if (!$removal->authorized && $removal->project_id == $project->id) {
+            $removal->delete();
+            return redirect()->route('magazyn.projects.show', $project->id)->with('success', 'Produkt został usunięty/wycofany z projektu.');
+        }
+        return redirect()->route('magazyn.projects.show', $project->id)->with('error', 'Nie można usunąć autoryzowanego pobrania.');
+    }
 <?php
 
 namespace App\Http\Controllers;
