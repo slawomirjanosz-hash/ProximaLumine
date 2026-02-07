@@ -27,18 +27,23 @@ class PartsExport implements FromCollection, WithHeadings, ShouldAutoSize, WithE
         return collect($this->parts->map(function ($p) {
             $description = $p->description ? wordwrap($p->description, 80, "\n", false) : '-';
             return [
-                'Nazwa' => $p->name,
-                'Opis' => $description,
-                'Kategoria' => $p->category->name ?? '-',
-                'Stan' => $p->quantity,
-                'Stan minimalny' => $p->minimum_stock,
+                'produkt' => $p->name,
+                'opis' => $description,
+                'Dost.' => is_object($p->supplier) ? ($p->supplier->name ?? '-') : ($p->supplier ?? '-'),
+                'Cena' => $p->net_price ?? '-',
+                'Waluta' => $p->currency ?? '-',
+                'kategoria' => $p->category->name ?? '-',
+                'ilość' => $p->quantity,
+                'lok.' => $p->location ?? '-',
+                'Min' => $p->minimum_stock,
+                'kod' => $p->qr_code ?? '-',
             ];
         })->toArray());
     }
 
     public function headings(): array
     {
-        return ['Nazwa', 'Opis', 'Kategoria', 'Stan', 'Stan minimalny'];
+        return ['produkt', 'opis', 'Dost.', 'Cena', 'Waluta', 'kategoria', 'ilość', 'lok.', 'Min', 'kod'];
     }
 
     public function registerEvents(): array

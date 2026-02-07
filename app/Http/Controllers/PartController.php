@@ -4863,4 +4863,93 @@ class PartController extends Controller
         }
         return redirect()->route('magazyn.projects.show', $project->id)->with('error', 'Nie można usunąć autoryzowanego pobrania.');
     }
+
+    // ZAPISZ PRODUKTY Z PROJEKTU JAKO LISTĘ
+    public function saveProjectAsList(Request $request, \App\Models\Project $project)
+    {
+        $request->validate([
+            'list_name' => 'required_without:list_id|string|max:255',
+            'list_id' => 'nullable|exists:product_lists,id',
+        ]);
+
+        // Zbierz produkty z projektu (tylko te ze statusem 'added')
+        $removals = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->where('status', 'added')
+            ->get();
+
+        if ($removals->isEmpty()) {
+            return redirect()->route('magazyn.projects.show', $project->id)->with('error', 'Brak produktów do zapisania jako lista.');
+        }
+
+        // Agreguj ilości według part_id
+        $aggregated = $removals->groupBy('part_id')->map(function ($group) {
+            return $group->sum('quantity');
+        });
+
+        // Użyj istniejącej listy lub stwórz nową
+        if ($request->filled('list_id')) {
+            $list = \App\Models\ProductList::findOrFail($request->list_id);
+            // Wyczyść istniejące pozycje przed nadpisaniem
+            $list->items()->delete();
+        } else {
+            $list = \App\Models\ProductList::create([
+                'name' => $request->list_name,
+                'description' => $request->list_description,
+                'created_by' => auth()->id(),
+            ]);
+        }
+
+        // Dodaj produkty do listy
+        foreach ($aggregated as $partId => $quantity) {
+            \App\Models\ProductListItem::create([
+                'product_list_id' => $list->id,
+                'part_id' => $partId,
+                'quantity' => $quantity,
+            ]);
+        }
+
+        return redirect()->route('magazyn.projects.show', $project->id)->with('success', 'Produkty zostały zapisane jako lista "' . $list->name . '".');
+    }
+
+    // POBIERZ LISTĘ PRODUKTÓW DO PROJEKTU
+    public function loadListToProject(Request $request, \App\Models\Project $project)
+    {
+        $request->validate([
+            'list_id' => 'required|exists:product_lists,id',
+        ]);
+
+        $list = \App\Models\ProductList::with('items.part')->findOrFail($request->list_id);
+
+        if ($list->items->isEmpty()) {
+            return redirect()->route('magazyn.projects.show', $project->id)->with('error', 'Lista jest pusta.');
+        }
+
+        $added = 0;
+        foreach ($list->items as $item) {
+            if (!$item->part) continue;
+
+            // Dodaj produkt do projektu
+            \App\Models\ProjectRemoval::create([
+                'project_id' => $project->id,
+                'part_id' => $item->part_id,
+                'quantity' => $item->quantity,
+                'user_id' => auth()->id(),
+                'status' => 'added',
+                'authorized' => !$project->requires_authorization,
+            ]);
+
+            // Jeśli nie wymaga autoryzacji, odejmij ze stanu magazynu
+            if (!$project->requires_authorization) {
+                $item->part->decrement('quantity', $item->quantity);
+            }
+
+            $added++;
+        }
+
+        // Zapisz ID użytej listy w projekcie
+        $project->loaded_list_id = $list->id;
+        $project->save();
+
+        return redirect()->route('magazyn.projects.show', $project->id)->with('success', "Załadowano {$added} produktów z listy \"{$list->name}\".");
+    }
 }

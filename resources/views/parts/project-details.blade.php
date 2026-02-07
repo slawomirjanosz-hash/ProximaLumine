@@ -78,24 +78,76 @@
             </div>
             <div>
                 <span class="text-sm font-semibold text-gray-600">Autoryzacja pobrań:</span>
-                <form method="POST" action="{{ route('magazyn.projects.toggleAuthorization', $project->id) }}">
-                    @csrf
+                @php
+                    $hasUnauthorized = \App\Models\ProjectRemoval::where('project_id', $project->id)->where('authorized', false)->exists();
+                @endphp
+                @if($hasUnauthorized)
+                    {{-- Zablokuj zmianę gdy są nieautoryzowane produkty --}}
                     <div class="flex items-center gap-2 mt-2">
-                        <input type="checkbox" name="requires_authorization" id="requires_authorization" value="1" class="w-4 h-4 cursor-pointer" {{ $project->requires_authorization ? 'checked' : '' }}>
-                        <label for="requires_authorization" class="text-sm font-medium cursor-pointer">
+                        <input type="checkbox" disabled checked class="w-4 h-4 cursor-not-allowed opacity-50">
+                        <label class="text-sm font-medium text-gray-400">
                             Pobranie produktów wymaga autoryzacji przez skanowanie
                         </label>
                     </div>
-                    <button type="submit" class="mt-2 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Zapisz zmianę</button>
-                                    @if($project->requires_authorization)
-                                        <span class="ml-3 text-orange-600 font-semibold">✓ Wymagana</span>
-                                    @else
-                                        <span class="ml-3 text-gray-600">Nie wymagana</span>
-                                    @endif
-                </form>
-                <p class="text-xs text-gray-500 mt-1">Jeśli zaznaczone, produkty pobrane do projektu nie zostaną odjęte ze stanu magazynu dopóki nie zostaną zeskanowane</p>
+                    <p class="text-xs text-red-500 mt-1">⚠️ Nie można wyłączyć autoryzacji - masz produkty oczekujące na autoryzację. Najpierw zautoryzuj lub usuń te produkty.</p>
+                    <span class="text-orange-600 font-semibold">✓ Wymagana</span>
+                @else
+                    <form method="POST" action="{{ route('magazyn.projects.toggleAuthorization', $project->id) }}">
+                        @csrf
+                        <div class="flex items-center gap-2 mt-2">
+                            <input type="checkbox" name="requires_authorization" id="requires_authorization" value="1" class="w-4 h-4 cursor-pointer" {{ $project->requires_authorization ? 'checked' : '' }}>
+                            <label for="requires_authorization" class="text-sm font-medium cursor-pointer">
+                                Pobranie produktów wymaga autoryzacji przez skanowanie
+                            </label>
+                        </div>
+                        <button type="submit" class="mt-2 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Zapisz zmianę</button>
+                        @if($project->requires_authorization)
+                            <span class="ml-3 text-orange-600 font-semibold">✓ Wymagana</span>
+                        @else
+                            <span class="ml-3 text-gray-600">Nie wymagana</span>
+                        @endif
+                    </form>
+                    <p class="text-xs text-gray-500 mt-1">Jeśli zaznaczone, produkty pobrane do projektu nie zostaną odjęte ze stanu magazynu dopóki nie zostaną zeskanowane</p>
+                @endif
             </div>
         </div>
+        
+        {{-- INFORMACJA O UŻYTEJ LIŚCIE --}}
+        @if($project->loaded_list_id && $project->loadedList)
+            @php
+                $loadedList = $project->loadedList->load('items');
+                
+                // Pobierz aktualne produkty w projekcie (agregowane)
+                $projectProducts = \App\Models\ProjectRemoval::where('project_id', $project->id)
+                    ->where('status', 'added')
+                    ->get()
+                    ->groupBy('part_id')
+                    ->map(fn($group) => $group->sum('quantity'));
+                
+                // Pobierz produkty z listy (agregowane)
+                $listProducts = $loadedList->items->groupBy('part_id')
+                    ->map(fn($group) => $group->sum('quantity'));
+                
+                // Porównaj
+                $isListCurrent = $projectProducts->count() === $listProducts->count() 
+                    && $projectProducts->diffAssoc($listProducts)->isEmpty() 
+                    && $listProducts->diffAssoc($projectProducts)->isEmpty();
+            @endphp
+            <div class="mt-4 p-3 rounded border {{ $isListCurrent ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200' }}">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-semibold">📋 Użyta lista:</span>
+                    <span class="text-sm font-bold">{{ $loadedList->name }}</span>
+                    @if($isListCurrent)
+                        <span class="ml-2 px-2 py-0.5 bg-green-200 text-green-800 text-xs rounded-full font-semibold">✓ Lista aktualna</span>
+                    @else
+                        <span class="ml-2 px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs rounded-full font-semibold">⚠ Lista zmodyfikowana</span>
+                    @endif
+                </div>
+                @if(!$isListCurrent)
+                    <p class="text-xs text-yellow-700 mt-1">Produkty w projekcie różnią się od oryginalnej listy (dodano lub usunięto produkty).</p>
+                @endif
+            </div>
+        @endif
         
         <div class="mt-4 flex gap-2 justify-end">
             <a href="{{ route('magazyn.projects.pickup', $project->id) }}" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
@@ -166,13 +218,23 @@
         @endif
         
         {{-- SEKCJA AUTORYZOWANYCH/ZWYKŁYCH --}}
-        <h3 class="text-lg font-semibold mb-4">
-            @if($project->requires_authorization)
-                ✅ Produkty autoryzowane ({{ $authorized->count() }})
-            @else
-                Pobrane produkty
-            @endif
-        </h3>
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">
+                @if($project->requires_authorization)
+                    ✅ Produkty autoryzowane ({{ $authorized->count() }})
+                @else
+                    Pobrane produkty
+                @endif
+            </h3>
+            <div class="flex gap-2">
+                <button id="save-list-btn" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm">
+                    💾 Zapisz jako lista
+                </button>
+                <button id="load-list-btn" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm">
+                    📥 Załaduj listę
+                </button>
+            </div>
+        </div>
     </div>
     
     <table class="w-full border border-collapse text-xs">
@@ -287,6 +349,95 @@
     </div>
 </div>
 
+{{-- MODAL ZAPISZ JAKO LISTA --}}
+<div id="save-list-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full">
+        <h3 class="text-lg font-bold mb-4">💾 Zapisz produkty jako listę</h3>
+        <form action="{{ route('magazyn.projects.saveAsList', $project->id) }}" method="POST">
+            @csrf
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Wybierz istniejącą listę lub utwórz nową:</label>
+                <select name="list_id" id="existing-list-select" class="w-full border rounded p-2 mb-2">
+                    <option value="">-- Nowa lista --</option>
+                    @foreach(\App\Models\ProductList::orderBy('name')->get() as $list)
+                        <option value="{{ $list->id }}">{{ $list->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div id="new-list-fields">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Nazwa nowej listy:</label>
+                    <input type="text" name="list_name" class="w-full border rounded p-2" placeholder="np. Instalacja elektryczna">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Opis (opcjonalnie):</label>
+                    <textarea name="list_description" class="w-full border rounded p-2" rows="2" placeholder="Krótki opis listy..."></textarea>
+                </div>
+            </div>
+            <div class="flex gap-2 justify-end">
+                <button type="button" id="cancel-save-list-btn" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                    Anuluj
+                </button>
+                <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                    Zapisz
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- MODAL ZAŁADUJ LISTĘ --}}
+<div id="load-list-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <h3 class="text-lg font-bold mb-4">📥 Załaduj listę produktów do projektu</h3>
+        <form action="{{ route('magazyn.projects.loadList', $project->id) }}" method="POST">
+            @csrf
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Wybierz listę:</label>
+                <select name="list_id" id="load-list-select" class="w-full border rounded p-2" required>
+                    <option value="">-- Wybierz listę --</option>
+                    @foreach(\App\Models\ProductList::with('items.part')->orderBy('name')->get() as $list)
+                        <option value="{{ $list->id }}" data-items='@json($list->items->map(fn($item) => ["name" => $item->part->name ?? "Usunięty produkt", "quantity" => $item->quantity]))'>{{ $list->name }} ({{ $list->items->count() }} produktów)</option>
+                    @endforeach
+                </select>
+            </div>
+            
+            {{-- PODGLĄD LISTY --}}
+            <div id="list-preview" class="hidden mb-4">
+                <label class="block text-sm font-medium mb-2">Podgląd produktów na liście:</label>
+                <div class="bg-gray-50 border rounded p-3 max-h-60 overflow-y-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="text-left p-2 border-b">Nazwa produktu</th>
+                                <th class="text-center p-2 border-b w-24">Ilość</th>
+                            </tr>
+                        </thead>
+                        <tbody id="list-preview-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <p class="text-sm text-gray-600 mb-4">
+                @if($project->requires_authorization)
+                    ⚠️ Produkty zostaną dodane jako oczekujące na autoryzację.
+                @else
+                    ℹ️ Produkty zostaną pobrane bezpośrednio z magazynu.
+                @endif
+            </p>
+            <div class="flex gap-2 justify-end">
+                <button type="button" id="cancel-load-list-btn" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                    Anuluj
+                </button>
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                    Załaduj
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
     const finishBtn = document.getElementById('finish-project-btn');
     const finishModal = document.getElementById('finish-modal');
@@ -308,6 +459,100 @@
         finishModal.addEventListener('click', function(e) {
             if (e.target === this) {
                 this.classList.add('hidden');
+            }
+        });
+    }
+
+    // Modal zapisz jako lista
+    const saveListBtn = document.getElementById('save-list-btn');
+    const saveListModal = document.getElementById('save-list-modal');
+    const cancelSaveListBtn = document.getElementById('cancel-save-list-btn');
+    const existingListSelect = document.getElementById('existing-list-select');
+    const newListFields = document.getElementById('new-list-fields');
+
+    if (saveListBtn) {
+        saveListBtn.addEventListener('click', function() {
+            saveListModal.classList.remove('hidden');
+        });
+    }
+
+    if (cancelSaveListBtn) {
+        cancelSaveListBtn.addEventListener('click', function() {
+            saveListModal.classList.add('hidden');
+        });
+    }
+
+    if (saveListModal) {
+        saveListModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.add('hidden');
+            }
+        });
+    }
+
+    // Pokaż/ukryj pola nowej listy w zależności od wyboru
+    if (existingListSelect) {
+        existingListSelect.addEventListener('change', function() {
+            if (this.value) {
+                newListFields.classList.add('hidden');
+            } else {
+                newListFields.classList.remove('hidden');
+            }
+        });
+    }
+
+    // Modal załaduj listę
+    const loadListBtn = document.getElementById('load-list-btn');
+    const loadListModal = document.getElementById('load-list-modal');
+    const cancelLoadListBtn = document.getElementById('cancel-load-list-btn');
+
+    if (loadListBtn) {
+        loadListBtn.addEventListener('click', function() {
+            loadListModal.classList.remove('hidden');
+        });
+    }
+
+    if (cancelLoadListBtn) {
+        cancelLoadListBtn.addEventListener('click', function() {
+            loadListModal.classList.add('hidden');
+        });
+    }
+
+    if (loadListModal) {
+        loadListModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.add('hidden');
+            }
+        });
+    }
+
+    // Podgląd listy po wybraniu
+    const loadListSelect = document.getElementById('load-list-select');
+    const listPreview = document.getElementById('list-preview');
+    const listPreviewBody = document.getElementById('list-preview-body');
+
+    if (loadListSelect) {
+        loadListSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const itemsData = selectedOption.getAttribute('data-items');
+            
+            if (itemsData && this.value) {
+                const items = JSON.parse(itemsData);
+                listPreviewBody.innerHTML = '';
+                
+                items.forEach(function(item) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="p-2 border-b">${item.name}</td>
+                        <td class="p-2 border-b text-center font-semibold text-blue-600">${item.quantity}</td>
+                    `;
+                    listPreviewBody.appendChild(row);
+                });
+                
+                listPreview.classList.remove('hidden');
+            } else {
+                listPreview.classList.add('hidden');
+                listPreviewBody.innerHTML = '';
             }
         });
     }

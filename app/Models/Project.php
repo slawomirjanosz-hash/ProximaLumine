@@ -19,6 +19,7 @@ class Project extends Model
         'warranty_period',
         'started_at',
         'finished_at',
+        'loaded_list_id',
     ];
 
     protected $casts = [
@@ -30,6 +31,11 @@ class Project extends Model
     public function responsibleUser()
     {
         return $this->belongsTo(User::class, 'responsible_user_id');
+    }
+
+    public function loadedList()
+    {
+        return $this->belongsTo(ProductList::class, 'loaded_list_id');
     }
 
     public function parts()
