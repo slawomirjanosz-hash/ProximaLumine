@@ -9,7 +9,17 @@
 </head>
 <body class="bg-gray-100">
 
+
 @include('parts.menu')
+
+<div class="max-w-6xl mx-auto mt-6">
+    <a href="/" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 hover:shadow transition-all text-gray-700 font-medium">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+        Powrót
+    </a>
+</div>
 
 {{-- KOMUNIKATY --}}
 @if(session('success'))

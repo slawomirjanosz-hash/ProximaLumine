@@ -8,54 +8,7 @@
 </head>
 <body class="bg-gray-100">
 
-<!-- GÓRNY PASEK -->
-<header class="bg-white shadow">
-    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-            @php
-                try {
-                    $companySettings = \App\Models\CompanySetting::first();
-                    // Logo może być w formacie base64 (data:image/...) lub ścieżka do pliku
-                    if ($companySettings && $companySettings->logo) {
-                        if (str_starts_with($companySettings->logo, 'data:image')) {
-                            $logoPath = $companySettings->logo; // już jest base64
-                        } else {
-                            $logoPath = asset('storage/' . $companySettings->logo); // stary format
-                        }
-                    } else {
-                        $logoPath = '/logo.png';
-                    }
-                    $companyName = $companySettings && $companySettings->name ? $companySettings->name : 'Moja Firma';
-                } catch (\Exception $e) {
-                    $logoPath = '/logo.png';
-                    $companyName = 'Moja Firma';
-                }
-            @endphp
-            <!-- LOGO -->
-            <img src="{{ $logoPath }}" alt="{{ $companyName }}" class="h-10">
-            <span class="text-xl font-bold">{{ $companyName }}</span>
-        </div>
-
-        <!-- MENU -->
-        @auth
-        <nav class="flex gap-2 items-center flex-wrap justify-end">
-            @if(Auth::user()->email === 'proximalumine@gmail.com' || Auth::user()->can_settings)
-                <a href="{{ route('magazyn.settings') }}" class="px-3 py-2 text-sm bg-yellow-500 hover:bg-yellow-600 text-white rounded transition whitespace-nowrap font-semibold">Ustawienia</a>
-            @endif
-            <div class="border-l border-gray-300 pl-2 flex items-center gap-2">
-                <span class="text-gray-700 text-sm whitespace-nowrap">{{ Auth::user()->name }}</span>
-                <form action="{{ route('logout') }}" method="POST" class="inline">
-                    @csrf
-                    <span id="datetime" class="mr-3 px-3 py-2 text-sm bg-gray-200 text-gray-700 rounded whitespace-nowrap"></span>
-                    <button type="submit" class="px-3 py-2 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded transition whitespace-nowrap">
-                        Wyloguj
-                    </button>
-                </form>
-            </div>
-        </nav>
-        @endauth
-    </div>
-</header>
+@include('parts.menu')
 
 <!-- TREŚĆ GŁÓWNA -->
 <main class="max-w-6xl mx-auto mt-20 text-center">
@@ -65,6 +18,15 @@
             {{ session('success') }}
         </div>
     @endif
+
+    @php
+        try {
+            $companySettings = \App\Models\CompanySetting::first();
+            $companyName = $companySettings && $companySettings->name ? $companySettings->name : 'Moja Firma';
+        } catch (\Exception $e) {
+            $companyName = 'Moja Firma';
+        }
+    @endphp
 
     <h1 class="text-4xl font-bold mb-4">
         Magazyn {{ $companyName }}
@@ -78,8 +40,14 @@
         <div class="flex flex-col gap-4 justify-center items-center">
             @if(Auth::user()->email === 'proximalumine@gmail.com' || Auth::user()->can_view_magazyn)
                 <a href="{{ route('magazyn.check') }}"
-                   class="inline-block px-6 py-3 bg-blue-600 text-white rounded text-lg hover:bg-blue-700">
+                   class="inline-block px-6 py-3 bg-blue-600 text-white rounded text-lg hover:bg-blue-700 min-w-[220px]">
                     Wejdź do magazynu
+                </a>
+            @endif
+            @if(Auth::user()->email === 'proximalumine@gmail.com' || Auth::user()->can_view_magazyn)
+                <a href="{{ route('magazyn.projects') }}"
+                   class="inline-block px-6 py-3 bg-indigo-600 text-white rounded text-lg hover:bg-indigo-700 min-w-[220px]">
+                    🗂️ Projekty
                 </a>
             @endif
             @if(Auth::user()->email === 'proximalumine@gmail.com' || Auth::user()->can_view_offers)
@@ -112,16 +80,4 @@
     <span>Powered by ProximaLumine</span>
 </div>
 </body>
-<script>
-function updateDateTime() {
-    const now = new Date();
-    const formatted = now.toLocaleString('pl-PL', {
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit'
-    });
-    document.getElementById('datetime').textContent = formatted;
-}
-setInterval(updateDateTime, 1000);
-updateDateTime();
-</script>
 </html>

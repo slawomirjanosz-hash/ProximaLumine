@@ -19,6 +19,15 @@
 
 @include('parts.menu')
 
+<div class="max-w-6xl mx-auto mt-6">
+    <a href="/" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 hover:shadow transition-all text-gray-700 font-medium">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+        Powrót
+    </a>
+</div>
+
 @if(session('success'))
     <div class="max-w-7xl mx-auto mt-4 bg-green-100 text-green-800 p-3 rounded">{{ session('success') }}</div>
 @endif
@@ -31,13 +40,7 @@
     <!-- NAGŁÓWEK -->
     <div class="bg-white p-6 rounded-lg shadow mb-6">
         <div class="flex items-center justify-between">
-            <div class="flex items-center">
-                <a href="/" class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 shadow rounded-full text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition mr-4">
-                    <svg xmlns='http://www.w3.org/2000/svg' class='h-5 w-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 19l-7-7 7-7' /></svg>
-                    Powrót
-                </a>
-                <h1 class="text-3xl font-bold text-gray-800">👥 CRM - System Zarządzania Relacjami z Klientami</h1>
-            </div>
+            <h1 class="text-3xl font-bold text-gray-800">👥 CRM - System Zarządzania Relacjami z Klientami</h1>
             <a href="{{ route('crm.settings') }}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
                 ⚙️ Ustawienia CRM
             </a>

@@ -8,29 +8,16 @@
 </head>
 <body class="bg-gray-100">
 
-<!-- GÓRNY PASEK -->
-<header class="bg-white shadow">
-    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-            <a href="{{ url('/') }}" class="text-2xl font-bold text-blue-600">← System Receptur</a>
-        </div>
-        <nav class="flex gap-2 items-center">
-            @if(auth()->check() && (auth()->user()->email === 'proximalumine@gmail.com' || auth()->user()->can_settings))
-                <a href="{{ route('magazyn.settings') }}"
-                   class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
-                    ⚙️Ustawienia
-                </a>
-            @endif
-            <span class="text-gray-700 text-sm">{{ Auth::user()->name }}</span>
-            <form action="{{ route('logout') }}" method="POST" class="inline">
-                @csrf
-                <button type="submit" class="px-3 py-2 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded">
-                    Wyloguj
-                </button>
-            </form>
-        </nav>
-    </div>
-</header>
+@include('parts.menu')
+
+<div class="max-w-6xl mx-auto mt-6">
+    <a href="/" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 hover:shadow transition-all text-gray-700 font-medium">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+        Powrót
+    </a>
+</div>
 
 <!-- GŁÓWNA TREŚĆ -->
 <main class="max-w-7xl mx-auto mt-8 px-6">

@@ -29,7 +29,7 @@
 
         <!-- PRAWA STRONA: MENU -->
         <nav class="flex gap-2 items-center flex-wrap justify-end">
-            @unless(request()->routeIs('crm*') || request()->routeIs('magazyn.settings'))
+            @unless(request()->routeIs('crm*') || request()->routeIs('magazyn.settings') || request()->routeIs('magazyn.projects') || request()->routeIs('offers*') || request()->routeIs('receptury') || request()->is('/'))
                 <a href="{{ url('/') }}"
                    class="px-3 py-2 text-sm bg-gray-200 rounded whitespace-nowrap">
                     Start
@@ -67,13 +67,6 @@
                     <a href="{{ route('magazyn.orders') }}"
                        class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
                         📦Zamówienia
-                    </a>
-                @endif
-
-                @if(auth()->check())
-                    <a href="{{ route('magazyn.projects') }}"
-                       class="px-3 py-2 text-sm bg-gray-200 text-black rounded whitespace-nowrap">
-                        🗂️Projekty
                     </a>
                 @endif
             @endunless
