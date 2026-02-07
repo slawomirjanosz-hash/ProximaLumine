@@ -104,6 +104,53 @@ Route::get('/diagnostics/project-check', function () {
     return response()->json($results, 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 })->name('diagnostics.project.check');
 
+// Test szczegółów projektu
+Route::get('/diagnostics/project-details-test/{id}', function ($id) {
+    try {
+        $project = \App\Models\Project::findOrFail($id);
+        
+        $data = [
+            'status' => '✅ Projekt załadowany',
+            'project_id' => $project->id,
+            'project_name' => $project->name,
+            'loaded_list_id' => $project->loaded_list_id,
+        ];
+        
+        // Sprawdź czy loadedList działa
+        try {
+            $loadedList = $project->loadedList;
+            $data['loadedList_test'] = $loadedList ? "✅ Lista: " . $loadedList->name : "ℹ️ Brak załadowanej listy";
+        } catch (\Exception $e) {
+            $data['loadedList_test'] = "❌ BŁĄD: " . $e->getMessage();
+        }
+        
+        // Sprawdź czy removals działa
+        try {
+            $removalsCount = $project->removals()->count();
+            $data['removals_test'] = "✅ Pobrań: $removalsCount";
+        } catch (\Exception $e) {
+            $data['removals_test'] = "❌ BŁĄD: " . $e->getMessage();
+        }
+        
+        // Sprawdź czy ProductList::all() działa
+        try {
+            $listsCount = \App\Models\ProductList::count();
+            $data['product_lists_count'] = "✅ List produktów: $listsCount";
+        } catch (\Exception $e) {
+            $data['product_lists_count'] = "❌ BŁĄD: " . $e->getMessage();
+        }
+        
+        return response()->json($data, 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => '❌ BŁĄD',
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    }
+})->name('diagnostics.project.details.test');
+
 Route::get('/diagnostics/db', function () {
     return view('diagnostics.db');
 });
