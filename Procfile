@@ -1,1 +1,1 @@
-web: php artisan migrate --force && php artisan config:clear && php artisan route:clear && php artisan view:clear && php artisan cache:clear && php artisan serve --host=0.0.0.0 --port=$PORT
+web: echo "=== Railway Deployment ===" && echo "Running migrations..." && php artisan migrate --force && echo "Migrations complete!" && php artisan config:clear && php artisan route:clear && php artisan view:clear && php artisan cache:clear && echo "Starting server..." && php artisan serve --host=0.0.0.0 --port=$PORT
