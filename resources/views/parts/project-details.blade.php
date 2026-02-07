@@ -113,7 +113,7 @@
         </div>
         
         {{-- INFORMACJA O UŻYTEJ LIŚCIE --}}
-        @if($project->loaded_list_id && $project->loadedList)
+        @if($project->loaded_list_id && method_exists($project, 'loadedList') && $project->loadedList)
             @php
                 $loadedList = $project->loadedList->load('items');
                 
@@ -359,9 +359,11 @@
                 <label class="block text-sm font-medium mb-2">Wybierz istniejącą listę lub utwórz nową:</label>
                 <select name="list_id" id="existing-list-select" class="w-full border rounded p-2 mb-2">
                     <option value="">-- Nowa lista --</option>
-                    @foreach(\App\Models\ProductList::orderBy('name')->get() as $list)
-                        <option value="{{ $list->id }}">{{ $list->name }}</option>
-                    @endforeach
+                    @if(class_exists('\App\Models\ProductList'))
+                        @foreach(\App\Models\ProductList::orderBy('name')->get() as $list)
+                            <option value="{{ $list->id }}">{{ $list->name }}</option>
+                        @endforeach
+                    @endif
                 </select>
             </div>
             <div id="new-list-fields">
