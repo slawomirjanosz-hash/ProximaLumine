@@ -171,6 +171,57 @@ Route::get('/diagnostics/render-project-details/{id}', function ($id) {
     }
 })->name('diagnostics.render.project.details');
 
+// Test części widoku project-details krok po kroku
+Route::get('/diagnostics/test-view-parts/{id}', function ($id) {
+    $results = [];
+    
+    try {
+        $project = \App\Models\Project::findOrFail($id);
+        $results['1_project_loaded'] = '✅ OK';
+    } catch (\Exception $e) {
+        return response()->json(['error' => '1_project_loaded', 'msg' => $e->getMessage()], 500, [], JSON_PRETTY_PRINT);
+    }
+    
+    try {
+        $users = \App\Models\User::all();
+        $results['2_users_loaded'] = '✅ OK (' . $users->count() . ' users)';
+    } catch (\Exception $e) {
+        return response()->json(['error' => '2_users_loaded', 'msg' => $e->getMessage()], 500, [], JSON_PRETTY_PRINT);
+    }
+    
+    try {
+        $qrSettings = \DB::table('qr_settings')->first();
+        $results['3_qr_settings'] = '✅ OK';
+    } catch (\Exception $e) {
+        return response()->json(['error' => '3_qr_settings', 'msg' => $e->getMessage()], 500, [], JSON_PRETTY_PRINT);
+    }
+    
+    try {
+        $companySettings = \App\Models\CompanySetting::first();
+        $results['4_company_settings'] = '✅ OK';
+    } catch (\Exception $e) {
+        return response()->json(['error' => '4_company_settings', 'msg' => $e->getMessage()], 500, [], JSON_PRETTY_PRINT);
+    }
+    
+    try {
+        // Test include parts.menu
+        $menuHtml = view('parts.menu')->render();
+        $results['5_menu_include'] = '✅ OK (' . strlen($menuHtml) . ' bytes)';
+    } catch (\Exception $e) {
+        return response()->json(['error' => '5_menu_include', 'msg' => $e->getMessage(), 'line' => $e->getLine()], 500, [], JSON_PRETTY_PRINT);
+    }
+    
+    try {
+        // Test podstawowego HTML bez include
+        $html = '<html><body>Test</body></html>';
+        $results['6_basic_html'] = '✅ OK';
+    } catch (\Exception $e) {
+        return response()->json(['error' => '6_basic_html', 'msg' => $e->getMessage()], 500, [], JSON_PRETTY_PRINT);
+    }
+    
+    return response()->json($results, 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+})->name('diagnostics.test.view.parts');
+
 Route::get('/diagnostics/db', function () {
     return view('diagnostics.db');
 });
