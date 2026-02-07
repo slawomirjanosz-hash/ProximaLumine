@@ -222,6 +222,28 @@ Route::get('/diagnostics/test-view-parts/{id}', function ($id) {
     return response()->json($results, 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 })->name('diagnostics.test.view.parts');
 
+// Próba renderowania z debugiem
+Route::get('/diagnostics/render-with-debug/{id}', function ($id) {
+    // Włącz debug tymczasowo
+    config(['app.debug' => true]);
+    
+    try {
+        $project = \App\Models\Project::findOrFail($id);
+        $users = \App\Models\User::all();
+        
+        return view('parts.project-details', compact('project', 'users'));
+        
+    } catch (\Throwable $e) {
+        // Pokaż pełny błąd z debug info
+        return response()->json([
+            'error' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => array_slice(explode("\n", $e->getTraceAsString()), 0, 15),
+        ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    }
+})->name('diagnostics.render.debug');
+
 Route::get('/diagnostics/db', function () {
     return view('diagnostics.db');
 });
