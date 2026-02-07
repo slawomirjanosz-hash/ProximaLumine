@@ -151,6 +151,26 @@ Route::get('/diagnostics/project-details-test/{id}', function ($id) {
     }
 })->name('diagnostics.project.details.test');
 
+// Test renderowania widoku project-details
+Route::get('/diagnostics/render-project-details/{id}', function ($id) {
+    try {
+        $project = \App\Models\Project::findOrFail($id);
+        $users = \App\Models\User::all();
+        
+        // Próba renderowania widoku
+        return view('parts.project-details', compact('project', 'users'));
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => '❌ BŁĄD podczas renderowania widoku',
+            'error' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => explode("\n", $e->getTraceAsString()),
+        ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    }
+})->name('diagnostics.render.project.details');
+
 Route::get('/diagnostics/db', function () {
     return view('diagnostics.db');
 });
