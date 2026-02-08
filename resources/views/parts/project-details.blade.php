@@ -615,7 +615,6 @@
         <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Half Day">Pół dnia</button>
         <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Day">Dzień</button>
         <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Week">Tydzień</button>
-        <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Half Month">Pół miesiąca</button>
         <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Month">Miesiąc</button>
         <button id="frappe-today" class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 text-sm ml-4">
             📅 Dzisiaj
@@ -806,7 +805,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 header_height: 50,
                 column_width: 30,
                 step: 24,
-                view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Half Month', 'Month'],
+                view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month'],
                 bar_height: 20,
                 bar_corner_radius: 3,
                 arrow_curve: 5,
@@ -853,13 +852,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 }
             };
-            // Obsługa wszystkich trybów
+            // Obsługa wszystkich trybów (bez Half Month)
             if (window.frappeLastViewMode) {
                 ganttConfig.view_mode = window.frappeLastViewMode;
-                if (window.frappeLastViewMode === 'Half Month') {
-                    ganttConfig.step = 24 * 15;
-                    ganttConfig.column_width = 60;
-                } else if (window.frappeLastViewMode === 'Month') {
+                if (window.frappeLastViewMode === 'Month') {
                     ganttConfig.step = 24 * 30;
                     ganttConfig.column_width = 60;
                 } else if (window.frappeLastViewMode === 'Week') {
@@ -915,6 +911,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     frappeTasks[idx] = frappeTasks[idx-1];
                     frappeTasks[idx-1] = temp;
                     saveTasks();
+                    // renderGantt zachowa window.frappeLastViewMode
                     renderGantt();
                 }
             });
@@ -927,6 +924,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     frappeTasks[idx] = frappeTasks[idx+1];
                     frappeTasks[idx+1] = temp;
                     saveTasks();
+                    // renderGantt zachowa window.frappeLastViewMode
                     renderGantt();
                 }
             });
