@@ -718,4 +718,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('/projekty/{project}/removal/{removal}', [PartController::class, 'removalDelete'])->name('magazyn.projects.removalDelete')->middleware('auth');
     Route::post('/projekty/{project}/save-as-list', [PartController::class, 'saveProjectAsList'])->name('magazyn.projects.saveAsList')->middleware('auth');
     Route::post('/projekty/{project}/load-list', [PartController::class, 'loadListToProject'])->name('magazyn.projects.loadList')->middleware('auth');
+    
+    // Gantt Chart Routes
+    Route::get('/projekty/{project}/gantt/tasks', [PartController::class, 'getGanttTasks'])->name('magazyn.projects.gantt.tasks')->middleware('auth');
+    Route::post('/projekty/{project}/gantt/tasks', [PartController::class, 'storeGanttTask'])->name('magazyn.projects.gantt.storeTask')->middleware('auth');
+    Route::put('/projekty/{project}/gantt/tasks/{task}', [PartController::class, 'updateGanttTask'])->name('magazyn.projects.gantt.updateTask')->middleware('auth');
+    Route::delete('/projekty/{project}/gantt/tasks/{task}', [PartController::class, 'deleteGanttTask'])->name('magazyn.projects.gantt.deleteTask')->middleware('auth');
 });

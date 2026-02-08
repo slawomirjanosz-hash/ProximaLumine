@@ -49,4 +49,9 @@ class Project extends Model
     {
         return $this->hasMany(\App\Models\ProjectRemoval::class);
     }
+
+    public function tasks()
+    {
+        return $this->hasMany(ProjectTask::class)->orderBy('sort_order');
+    }
 }

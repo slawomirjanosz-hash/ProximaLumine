@@ -4952,4 +4952,96 @@ class PartController extends Controller
 
         return redirect()->route('magazyn.projects.show', $project->id)->with('success', "Załadowano {$added} produktów z listy \"{$list->name}\".");
     }
+
+    // ========== GANTT CHART METHODS ==========
+    
+    public function getGanttTasks(\App\Models\Project $project)
+    {
+        $tasks = $project->tasks()->orderBy('sort_order')->orderBy('start_date')->get();
+        
+        $ganttTasks = $tasks->map(function($task) {
+            return [
+                'id' => $task->id,
+                'text' => $task->name,
+                'start_date' => $task->start_date->format('Y-m-d H:i'),
+                'duration' => $task->start_date->diffInDays($task->end_date) + 1,
+                'progress' => $task->progress / 100,
+                'parent' => $task->parent_id ?? 0,
+                'color' => $task->color,
+            ];
+        });
+        
+        return response()->json(['data' => $ganttTasks]);
+    }
+
+    public function storeGanttTask(Request $request, \App\Models\Project $project)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'start_date' => 'required|date',
+            'duration' => 'required|integer|min:1',
+            'progress' => 'nullable|integer|min:0|max:100',
+            'description' => 'nullable|string',
+            'color' => 'nullable|string',
+            'parent_id' => 'nullable|integer',
+        ]);
+
+        $endDate = \Carbon\Carbon::parse($validated['start_date'])->addDays($validated['duration'] - 1);
+
+        $task = $project->tasks()->create([
+            'name' => $validated['name'],
+            'start_date' => $validated['start_date'],
+            'end_date' => $endDate,
+            'progress' => $validated['progress'] ?? 0,
+            'description' => $validated['description'] ?? null,
+            'color' => $validated['color'] ?? '#3498db',
+            'sort_order' => $project->tasks()->max('sort_order') + 1,
+            'parent_id' => $validated['parent_id'] ?? null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'task' => [
+                'id' => $task->id,
+                'text' => $task->name,
+                'start_date' => $task->start_date->format('Y-m-d H:i'),
+                'duration' => $task->start_date->diffInDays($task->end_date) + 1,
+                'progress' => $task->progress / 100,
+                'parent' => 0,
+                'color' => $task->color,
+            ]
+        ]);
+    }
+
+    public function updateGanttTask(Request $request, \App\Models\Project $project, $taskId)
+    {
+        $task = $project->tasks()->findOrFail($taskId);
+        
+        $validated = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'start_date' => 'sometimes|date',
+            'duration' => 'sometimes|integer|min:1',
+            'progress' => 'sometimes|integer|min:0|max:100',
+            'description' => 'nullable|string',
+            'color' => 'nullable|string',
+            'parent_id' => 'nullable|integer',
+        ]);
+
+        if (isset($validated['start_date']) && isset($validated['duration'])) {
+            $validated['end_date'] = \Carbon\Carbon::parse($validated['start_date'])->addDays($validated['duration'] - 1);
+            unset($validated['duration']);
+        }
+
+        $task->update($validated);
+
+        return response()->json(['success' => true]);
+    }
+
+    public function deleteGanttTask(\App\Models\Project $project, $taskId)
+    {
+        $task = $project->tasks()->findOrFail($taskId);
+        $task->delete();
+        
+        return response()->json(['success' => true]);
+    }
 }

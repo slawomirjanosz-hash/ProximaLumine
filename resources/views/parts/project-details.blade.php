@@ -163,7 +163,7 @@
             @endif
         </div>
     </div>
-    
+
     {{-- TABELA PRODUKTÓW --}}
     <div class="mb-6">
         @php
@@ -560,3 +560,409 @@
     }
 </script>
 
+{{-- Gantt Frappe (na dole strony) --}}
+<div class="max-w-6xl mx-auto bg-white p-4 rounded shadow mt-8 mb-8">
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-blue-800">📊 Gantt Frappe - Interaktywny harmonogram</h3>
+        <div class="flex gap-2">
+            <button id="frappe-add-task" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm font-semibold">
+                ➕ Dodaj zadanie
+            </button>
+            <button id="frappe-export-excel" class="bg-emerald-600 text-white px-3 py-1 rounded hover:bg-emerald-700 text-sm font-semibold">
+                📊 Eksport Excel
+            </button>
+            <button id="frappe-save-tasks" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm font-semibold">
+                💾 Zapisz zmiany
+            </button>
+            <button id="frappe-clear-all" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm font-semibold">
+                🗑️ Wyczyść wszystko
+            </button>
+        </div>
+    </div>
+    
+    <div class="mb-4 flex gap-2 items-center flex-wrap">
+        <label class="text-sm font-semibold text-gray-700">Widok:</label>
+        <button class="frappe-view-btn bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm" data-mode="Quarter Day">Ćwierć dnia</button>
+        <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Half Day">Pół dnia</button>
+        <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Day">Dzień</button>
+        <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Week">Tydzień</button>
+        <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Month">Miesiąc</button>
+        <button id="frappe-today" class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 text-sm ml-4">
+            📅 Dzisiaj
+        </button>
+    </div>
+    
+    <div class="mb-3 p-2 bg-gray-50 rounded border">
+        <p class="text-xs text-gray-600">
+            <strong>Instrukcja:</strong> 
+            • Kliknij dwukrotnie zadanie, aby je edytować 
+            • Przeciągnij zadanie, aby zmienić daty 
+            • Przeciągnij pasek postępu, aby zmienić procent ukończenia 
+            • Kliknij i przeciągnij z krawędzi zadania, aby utworzyć zależność
+        </p>
+    </div>
+    
+    <div id="frappe-gantt"></div>
+</div>
+
+{{-- Modal dodawania/edycji zadania --}}
+<div id="frappe-task-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+        <h3 id="modal-title" class="text-xl font-bold mb-4 text-gray-800">Dodaj nowe zadanie</h3>
+        <form id="frappe-task-form">
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Nazwa zadania</label>
+                <input type="text" id="task-name-input" class="w-full border rounded px-3 py-2" placeholder="Nazwa zadania" required>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Data rozpoczęcia</label>
+                <input type="date" id="task-start-input" class="w-full border rounded px-3 py-2" required>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Data zakończenia</label>
+                <input type="date" id="task-end-input" class="w-full border rounded px-3 py-2" required>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Postęp (%)</label>
+                <input type="number" id="task-progress-input" class="w-full border rounded px-3 py-2" min="0" max="100" value="0">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Zależność od zadania</label>
+                <select id="task-dependency-input" class="w-full border rounded px-3 py-2">
+                    <option value="">Brak (zadanie główne)</option>
+                </select>
+                <p class="text-xs text-gray-500 mt-1">Wybierz zadanie, po którym to zadanie może się rozpocząć</p>
+            </div>
+            <div class="flex gap-2 justify-end">
+                <button type="button" id="modal-cancel" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
+                    Anuluj
+                </button>
+                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                    Zapisz
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.0/dist/frappe-gantt.css">
+<script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.0/dist/frappe-gantt.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<style>
+    #frappe-gantt { 
+        min-height: 320px; 
+        min-width: 100%; 
+        background-color: white;
+    }
+    .gantt-container {
+        background-color: white !important;
+    }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof Gantt === 'undefined') {
+        console.error('❌ Frappe Gantt nie został załadowany z CDN!');
+        document.getElementById('frappe-gantt').innerHTML = '<div class="text-red-500 p-4">Błąd: Biblioteka Frappe Gantt nie została załadowana.</div>';
+        return;
+    }
+    
+    let frappeGanttInstance = null;
+    let frappeTasks = [];
+    let editingTaskId = null;
+    
+    function parseDate(dateStr) {
+        if (!dateStr) return new Date();
+        if (dateStr instanceof Date) return dateStr;
+        const parts = dateStr.toString().split('-');
+        if (parts.length === 3) {
+            return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        }
+        return new Date(dateStr);
+    }
+    
+    function formatDateForInput(date) {
+        if (!(date instanceof Date)) date = new Date(date);
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+    }
+    
+    function saveTasks() {
+        const tasksToSave = frappeTasks.map(t => ({
+            id: t.id,
+            name: t.name,
+            start: t.start instanceof Date ? t.start.toISOString().split('T')[0] : t.start,
+            end: t.end instanceof Date ? t.end.toISOString().split('T')[0] : t.end,
+            progress: t.progress || 0,
+            dependencies: t.dependencies || ''
+        }));
+        localStorage.setItem('frappeTasks', JSON.stringify(tasksToSave));
+        console.log('💾 Zapisano zadania:', tasksToSave);
+    }
+    
+    function updateDependencySelect() {
+        const select = document.getElementById('task-dependency-input');
+        select.innerHTML = '<option value="">Brak (zadanie główne)</option>';
+        frappeTasks.forEach(task => {
+            if (!editingTaskId || task.id !== editingTaskId) {
+                const option = document.createElement('option');
+                option.value = task.id;
+                option.textContent = task.name;
+                select.appendChild(option);
+            }
+        });
+    }
+    
+    function showTaskModal(taskId = null) {
+        const modal = document.getElementById('frappe-task-modal');
+        const form = document.getElementById('frappe-task-form');
+        const title = document.getElementById('modal-title');
+        
+        editingTaskId = taskId;
+        
+        if (taskId) {
+            const task = frappeTasks.find(t => t.id === taskId);
+            if (task) {
+                title.textContent = 'Edytuj zadanie';
+                document.getElementById('task-name-input').value = task.name;
+                document.getElementById('task-start-input').value = formatDateForInput(task.start);
+                document.getElementById('task-end-input').value = formatDateForInput(task.end);
+                document.getElementById('task-progress-input').value = task.progress || 0;
+            }
+        } else {
+            title.textContent = 'Dodaj nowe zadanie';
+            form.reset();
+            const today = new Date();
+            const nextWeek = new Date(today);
+            nextWeek.setDate(today.getDate() + 7);
+            document.getElementById('task-start-input').value = formatDateForInput(today);
+            document.getElementById('task-end-input').value = formatDateForInput(nextWeek);
+            document.getElementById('task-progress-input').value = 0;
+        }
+        
+        updateDependencySelect();
+        if (taskId) {
+            const task = frappeTasks.find(t => t.id === taskId);
+            if (task && task.dependencies) {
+                document.getElementById('task-dependency-input').value = task.dependencies;
+            }
+        }
+        
+        modal.classList.remove('hidden');
+    }
+    
+    function hideTaskModal() {
+        document.getElementById('frappe-task-modal').classList.add('hidden');
+        editingTaskId = null;
+    }
+    
+    function renderGantt() {
+        if (frappeTasks.length === 0) {
+            document.getElementById('frappe-gantt').innerHTML = '<div class="text-gray-500 p-4 text-center">Brak zadań. Kliknij "➕ Dodaj zadanie", aby rozpocząć.</div>';
+            return;
+        }
+        
+        try {
+            document.getElementById('frappe-gantt').innerHTML = '';
+            frappeGanttInstance = new Gantt("#frappe-gantt", frappeTasks, {
+                header_height: 50,
+                column_width: 30,
+                step: 24,
+                view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month'],
+                bar_height: 20,
+                bar_corner_radius: 3,
+                arrow_curve: 5,
+                padding: 18,
+                view_mode: 'Day',
+                date_format: 'YYYY-MM-DD',
+                language: 'en',
+                custom_popup_html: function(task) {
+                    const start = task._start.toLocaleDateString('pl-PL');
+                    const end = task._end.toLocaleDateString('pl-PL');
+                    const duration = Math.ceil((task._end - task._start) / (1000 * 60 * 60 * 24));
+                    const depText = task.dependencies ? frappeTasks.find(t => t.id === task.dependencies)?.name || 'Nieznane' : 'Brak';
+                    return '<div style="padding: 10px;"><h5 style="margin: 0 0 10px 0; font-weight: bold;">' + task.name + '</h5><p style="margin: 5px 0;"><strong>Start:</strong> ' + start + '</p><p style="margin: 5px 0;"><strong>Koniec:</strong> ' + end + '</p><p style="margin: 5px 0;"><strong>Czas trwania:</strong> ' + duration + ' dni</p><p style="margin: 5px 0;"><strong>Postęp:</strong> ' + task.progress + '%</p><p style="margin: 5px 0;"><strong>Zależność:</strong> ' + depText + '</p><p style="margin: 10px 0 0 0; font-size: 11px; color: #666;">💡 Kliknij dwukrotnie, aby edytować</p></div>';
+                },
+                on_date_change: function(task, start, end) {
+                    const taskIndex = frappeTasks.findIndex(t => t.id === task.id);
+                    if (taskIndex !== -1) {
+                        frappeTasks[taskIndex].start = start;
+                        frappeTasks[taskIndex].end = end;
+                        saveTasks();
+                    }
+                },
+                on_progress_change: function(task, progress) {
+                    const taskIndex = frappeTasks.findIndex(t => t.id === task.id);
+                    if (taskIndex !== -1) {
+                        frappeTasks[taskIndex].progress = progress;
+                        saveTasks();
+                    }
+                },
+                on_view_change: function(mode) {
+                    document.querySelectorAll('.frappe-view-btn').forEach(btn => {
+                        if (btn.dataset.mode === mode) {
+                            btn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                            btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                        } else {
+                            btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                            btn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                        }
+                    });
+                }
+            });
+            console.log('✅ Frappe Gantt zrenderowany!');
+        } catch(error) {
+            console.error('❌ Błąd Frappe Gantt:', error);
+            document.getElementById('frappe-gantt').innerHTML = '<div class="text-red-500 p-4">Błąd: ' + error.message + '</div>';
+        }
+    }
+    
+    try { 
+        const savedTasks = JSON.parse(localStorage.getItem('frappeTasks')||'[]'); 
+        if (savedTasks && savedTasks.length > 0) {
+            frappeTasks = savedTasks.map(t => ({
+                id: t.id,
+                name: t.name,
+                start: parseDate(t.start),
+                end: parseDate(t.end),
+                progress: t.progress || 0,
+                dependencies: t.dependencies || ''
+            }));
+        } else {
+            const today = new Date();
+            const nextWeek = new Date(today);
+            nextWeek.setDate(today.getDate() + 7);
+            const twoWeeks = new Date(today);
+            twoWeeks.setDate(today.getDate() + 14);
+            const threeWeeks = new Date(today);
+            threeWeeks.setDate(today.getDate() + 21);
+            frappeTasks = [
+                {id: 'task_1', name: 'Planowanie projektu', start: today, end: nextWeek, progress: 100, dependencies: ''},
+                {id: 'task_2', name: 'Implementacja funkcji', start: nextWeek, end: twoWeeks, progress: 50, dependencies: 'task_1'},
+                {id: 'task_3', name: 'Testowanie', start: twoWeeks, end: threeWeeks, progress: 0, dependencies: 'task_2'}
+            ];
+            saveTasks();
+        }
+    } catch(e) {
+        console.error('❌ Błąd localStorage:', e);
+        frappeTasks = [];
+    }
+    
+    renderGantt();
+    
+    document.querySelectorAll('.frappe-view-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            if (frappeGanttInstance) frappeGanttInstance.change_view_mode(this.dataset.mode);
+        });
+    });
+    
+    document.getElementById('frappe-today').addEventListener('click', function() {
+        renderGantt();
+    });
+    
+    document.getElementById('frappe-add-task').addEventListener('click', function() {
+        showTaskModal();
+    });
+    
+    document.getElementById('frappe-export-excel').addEventListener('click', function() {
+        if (typeof XLSX === 'undefined') {
+            alert('❌ Biblioteka Excel nie została załadowana. Odśwież stronę.');
+            return;
+        }
+        if (frappeTasks.length === 0) {
+            alert('⚠️ Brak zadań do eksportu!');
+            return;
+        }
+        try {
+            const exportData = frappeTasks.map(task => {
+                const depTask = task.dependencies ? frappeTasks.find(t => t.id === task.dependencies) : null;
+                const startDate = task.start instanceof Date ? task.start : parseDate(task.start);
+                const endDate = task.end instanceof Date ? task.end : parseDate(task.end);
+                const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+                return {
+                    'Nazwa zadania': task.name,
+                    'Data rozpoczęcia': startDate.toLocaleDateString('pl-PL'),
+                    'Data zakończenia': endDate.toLocaleDateString('pl-PL'),
+                    'Czas trwania (dni)': duration,
+                    'Postęp (%)': task.progress || 0,
+                    'Zależność od': depTask ? depTask.name : 'Brak'
+                };
+            });
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            ws['!cols'] = [{ wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 12 }, { wch: 25 }];
+            XLSX.utils.book_append_sheet(wb, ws, 'Harmonogram');
+            const today = new Date();
+            const fileName = 'Gantt_Harmonogram_' + today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0') + '.xlsx';
+            XLSX.writeFile(wb, fileName);
+            alert('✅ Wyeksportowano do: ' + fileName);
+        } catch(error) {
+            alert('❌ Błąd eksportu: ' + error.message);
+        }
+    });
+    
+    document.getElementById('modal-cancel').addEventListener('click', function() {
+        hideTaskModal();
+    });
+    
+    document.getElementById('frappe-task-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const name = document.getElementById('task-name-input').value;
+        const start = parseDate(document.getElementById('task-start-input').value);
+        const end = parseDate(document.getElementById('task-end-input').value);
+        const progress = parseInt(document.getElementById('task-progress-input').value) || 0;
+        const dependency = document.getElementById('task-dependency-input').value;
+        
+        if (editingTaskId) {
+            const taskIndex = frappeTasks.findIndex(t => t.id === editingTaskId);
+            if (taskIndex !== -1) {
+                frappeTasks[taskIndex].name = name;
+                frappeTasks[taskIndex].start = start;
+                frappeTasks[taskIndex].end = end;
+                frappeTasks[taskIndex].progress = progress;
+                frappeTasks[taskIndex].dependencies = dependency;
+            }
+        } else {
+            frappeTasks.push({
+                id: 'task_' + Date.now(),
+                name: name,
+                start: start,
+                end: end,
+                progress: progress,
+                dependencies: dependency
+            });
+        }
+        
+        saveTasks();
+        renderGantt();
+        hideTaskModal();
+    });
+    
+    document.getElementById('frappe-save-tasks').addEventListener('click', function() {
+        saveTasks();
+        alert('✅ Wszystkie zmiany zostały zapisane!');
+    });
+    
+    document.getElementById('frappe-clear-all').addEventListener('click', function() {
+        if (confirm('Czy na pewno chcesz usunąć wszystkie zadania?')) {
+            frappeTasks = [];
+            saveTasks();
+            renderGantt();
+        }
+    });
+    
+    document.addEventListener('dblclick', function(e) {
+        const barWrapper = e.target.closest('.bar-wrapper');
+        if (barWrapper) {
+            const taskId = barWrapper.getAttribute('data-id');
+            showTaskModal(taskId);
+        }
+    });
+});
+</script>
+
+</body>
+</html>
+</div>
