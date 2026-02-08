@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kompleksowa Diagnostyka Projektów</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-gray-800">🔍 Kompleksowa Diagnostyka Projektów</h1>
+        
+        <div class="bg-yellow-100 border border-yellow-400 p-4 rounded mb-6">
+            <p class="font-semibold">⚠️ Ta strona diagnozuje wszystkie projekty i sprawdza:</p>
+            <ul class="list-disc ml-6 mt-2 space-y-1">
+                <li>Istnienie relacji (responsibleUser, removals, parts, users)</li>
+                <li>Integralność danych (NULL values, missing relations)</li>
+                <li>Różnice między projektami działającymi i niedziałającymi</li>
+                <li>Szczegółowe informacje o każdym projekcie</li>
+            </ul>
+        </div>
+
+        <div class="mb-6 flex gap-4">
+            <button onclick="runDiagnostics()" class="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 font-semibold">
+                🔍 Uruchom pełną diagnostykę
+            </button>
+            <button onclick="checkSpecificProject()" class="bg-green-600 text-white px-6 py-3 rounded hover:bg-green-700 font-semibold">
+                🔎 Sprawdź konkretny projekt
+            </button>
+            <button onclick="compareProjects()" class="bg-purple-600 text-white px-6 py-3 rounded hover:bg-purple-700 font-semibold">
+                📊 Porównaj rj z innymi
+            </button>
+            <button onclick="showLogs()" class="bg-orange-600 text-white px-6 py-3 rounded hover:bg-orange-700 font-semibold">
+                📋 Pokaż logi błędów
+            </button>
+        </div>
+
+        <div id="loading" class="hidden bg-blue-100 border border-blue-400 p-4 rounded mb-6">
+            <p class="font-semibold">⏳ Ładowanie diagnostyki...</p>
+        </div>
+
+        <div id="results" class="space-y-6"></div>
+    </div>
+
+    <script>
+        async function runDiagnostics() {
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            loading.classList.remove('hidden');
+            results.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/diagnostics/full-projects');
+                const data = await response.json();
+
+                if (data.error) {
+                    results.innerHTML = `<div class="bg-red-100 border border-red-400 p-4 rounded">
+                        <p class="font-semibold text-red-800">❌ Błąd: ${data.error}</p>
+                        ${data.details ? `<pre class="mt-2 text-xs">${data.details}</pre>` : ''}
+                    </div>`;
+                    return;
+                }
+
+                // Podsumowanie
+                let html = `
+                    <div class="bg-white border rounded-lg p-6 shadow">
+                        <h2 class="text-2xl font-bold mb-4">📊 Podsumowanie</h2>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="bg-green-50 border border-green-200 p-4 rounded">
+                                <p class="text-sm text-gray-600">Projekty OK</p>
+                                <p class="text-3xl font-bold text-green-600">${data.summary.healthy}</p>
+                            </div>
+                            <div class="bg-red-50 border border-red-200 p-4 rounded">
+                                <p class="text-sm text-gray-600">Projekty z problemami</p>
+                                <p class="text-3xl font-bold text-red-600">${data.summary.broken}</p>
+                            </div>
+                            <div class="bg-blue-50 border border-blue-200 p-4 rounded">
+                                <p class="text-sm text-gray-600">Łącznie projektów</p>
+                                <p class="text-3xl font-bold text-blue-600">${data.summary.total}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Projekty z problemami
+                if (data.broken_projects && data.broken_projects.length > 0) {
+                    html += `
+                        <div class="bg-red-50 border border-red-200 rounded-lg p-6 shadow">
+                            <h2 class="text-2xl font-bold mb-4 text-red-800">❌ Projekty z problemami (${data.broken_projects.length})</h2>
+                            <div class="space-y-4">
+                    `;
+
+                    data.broken_projects.forEach(project => {
+                        html += `
+                            <div class="bg-white border border-red-300 rounded p-4">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <h3 class="font-bold text-lg">${project.name}</h3>
+                                        <p class="text-sm text-gray-600">ID: ${project.id} | Nr: ${project.project_number}</p>
+                                    </div>
+                                    <span class="px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-semibold">
+                                        ${project.issues.length} problemów
+                                    </span>
+                                </div>
+                                <div class="mt-3 space-y-2">
+                                    <p class="font-semibold text-sm">Problemy:</p>
+                                    <ul class="list-disc ml-6 space-y-1">
+                                        ${project.issues.map(issue => `<li class="text-sm text-red-700">${issue}</li>`).join('')}
+                                    </ul>
+                                </div>
+                                <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                    <div><span class="font-semibold">Status:</span> ${project.status}</div>
+                                    <div><span class="font-semibold">Osoba odp.:</span> ${project.responsible_user || 'BRAK'}</div>
+                                    <div><span class="font-semibold">Removals:</span> ${project.removals_count}</div>
+                                    <div><span class="font-semibold">Removals z NULL part:</span> ${project.removals_with_null_part}</div>
+                                </div>
+                                ${project.can_load ? 
+                                    `<a href="/magazyn/projects/${project.id}" target="_blank" class="mt-3 inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Otwórz projekt</a>` :
+                                    `<p class="mt-3 text-xs text-red-600">⚠️ Projekt prawdopodobnie nie załaduje się</p>`
+                                }
+                            </div>
+                        `;
+                    });
+
+                    html += `</div></div>`;
+                }
+
+                // Projekty zdrowe
+                if (data.healthy_projects && data.healthy_projects.length > 0) {
+                    html += `
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-6 shadow">
+                            <h2 class="text-2xl font-bold mb-4 text-green-800">✅ Projekty zdrowe (${data.healthy_projects.length})</h2>
+                            <div class="grid grid-cols-2 gap-4">
+                    `;
+
+                    data.healthy_projects.forEach(project => {
+                        html += `
+                            <div class="bg-white border border-green-300 rounded p-3">
+                                <h3 class="font-bold">${project.name}</h3>
+                                <p class="text-xs text-gray-600">ID: ${project.id} | Nr: ${project.project_number}</p>
+                                <div class="mt-2 text-xs">
+                                    <div><span class="font-semibold">Osoba odp.:</span> ${project.responsible_user || '-'}</div>
+                                    <div><span class="font-semibold">Removals:</span> ${project.removals_count}</div>
+                                </div>
+                                <a href="/magazyn/projects/${project.id}" target="_blank" class="mt-2 inline-block px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs">Otwórz</a>
+                            </div>
+                        `;
+                    });
+
+                    html += `</div></div>`;
+                }
+
+                results.innerHTML = html;
+            } catch (error) {
+                results.innerHTML = `<div class="bg-red-100 border border-red-400 p-4 rounded">
+                    <p class="font-semibold text-red-800">❌ Błąd podczas ładowania: ${error.message}</p>
+                </div>`;
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        async function checkSpecificProject() {
+            const projectId = prompt('Podaj ID projektu do sprawdzenia:');
+            if (!projectId) return;
+
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            loading.classList.remove('hidden');
+            results.innerHTML = '';
+
+            try {
+                const response = await fetch(`/api/diagnostics/project/${projectId}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    results.innerHTML = `<div class="bg-red-100 border border-red-400 p-4 rounded">
+                        <p class="font-semibold text-red-800">❌ Błąd: ${data.error}</p>
+                        ${data.details ? `<pre class="mt-2 text-xs">${data.details}</pre>` : ''}
+                    </div>`;
+                    return;
+                }
+
+                let html = `
+                    <div class="bg-white border rounded-lg p-6 shadow">
+                        <h2 class="text-2xl font-bold mb-4">🔍 Szczegóły projektu #${projectId}</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <h3 class="font-bold text-lg">${data.project.name}</h3>
+                                <p class="text-sm text-gray-600">Nr: ${data.project.project_number} | Status: ${data.project.status}</p>
+                            </div>
+
+                            <div class="border-t pt-4">
+                                <h4 class="font-semibold mb-2">Relacje:</h4>
+                                <ul class="space-y-1 text-sm">
+                                    <li>Osoba odpowiedzialna: ${data.project.responsible_user_id ? 
+                                        `✅ ID ${data.project.responsible_user_id} (${data.checks.responsible_user_exists ? 'istnieje' : '❌ NIE ISTNIEJE'})` : 
+                                        '❌ NULL'}</li>
+                                    <li>Removals: ${data.project.removals_count} ${data.checks.all_removals_have_parts ? '✅' : '❌ niektóre bez part'}</li>
+                                    <li>Removals z NULL part: ${data.project.removals_with_null_part}</li>
+                                    <li>Removals z NULL user: ${data.project.removals_with_null_user}</li>
+                                </ul>
+                            </div>
+
+                            ${data.issues && data.issues.length > 0 ? `
+                                <div class="border-t pt-4">
+                                    <h4 class="font-semibold mb-2 text-red-600">Problemy:</h4>
+                                    <ul class="list-disc ml-6 space-y-1">
+                                        ${data.issues.map(issue => `<li class="text-sm text-red-700">${issue}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+
+                            <div class="border-t pt-4">
+                                <h4 class="font-semibold mb-2">Pełne dane (JSON):</h4>
+                                <pre class="bg-gray-100 p-3 rounded text-xs overflow-auto max-h-96">${JSON.stringify(data, null, 2)}</pre>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                results.innerHTML = html;
+            } catch (error) {
+                results.innerHTML = `<div class="bg-red-100 border border-red-400 p-4 rounded">
+                    <p class="font-semibold text-red-800">❌ Błąd: ${error.message}</p>
+                </div>`;
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        async function compareProjects() {
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            loading.classList.remove('hidden');
+            results.innerHTML = '';
+
+            try {
+                // Najpierw znajdź projekt "rj"
+                const allResponse = await fetch('/api/diagnostics/full-projects');
+                const allData = await allResponse.json();
+
+                const rjProject = [...(allData.healthy_projects || []), ...(allData.broken_projects || [])]
+                    .find(p => p.project_number && p.project_number.toLowerCase().includes('rj'));
+
+                if (!rjProject) {
+                    results.innerHTML = `<div class="bg-yellow-100 border border-yellow-400 p-4 rounded">
+                        <p class="font-semibold">⚠️ Nie znaleziono projektu "rj"</p>
+                    </div>`;
+                    return;
+                }
+
+                // Pobierz szczegóły projektu rj
+                const rjResponse = await fetch(`/api/diagnostics/project/${rjProject.id}`);
+                const rjDetails = await rjResponse.json();
+
+                let html = `
+                    <div class="bg-white border rounded-lg p-6 shadow">
+                        <h2 class="text-2xl font-bold mb-4">📊 Porównanie: RJ vs Inne projekty</h2>
+                        
+                        <div class="mb-6">
+                            <h3 class="font-bold text-lg mb-2">Projekt RJ (działający):</h3>
+                            <div class="bg-green-50 border border-green-200 rounded p-4">
+                                <p><span class="font-semibold">Nazwa:</span> ${rjProject.name}</p>
+                                <p><span class="font-semibold">ID:</span> ${rjProject.id}</p>
+                                <p><span class="font-semibold">Nr:</span> ${rjProject.project_number}</p>
+                                <p><span class="font-semibold">Osoba odp.:</span> ${rjProject.responsible_user || 'BRAK'}</p>
+                                <p><span class="font-semibold">Removals:</span> ${rjProject.removals_count}</p>
+                                <p><span class="font-semibold">Removals z NULL part:</span> ${rjProject.removals_with_null_part}</p>
+                                <p><span class="font-semibold">Status:</span> ${rjDetails.checks?.all_removals_have_parts ? '✅ Wszystkie removals mają parts' : '❌'}</p>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <h3 class="font-bold text-lg mb-2">Różnice w projektach z problemami:</h3>
+                            <div class="space-y-3">
+                `;
+
+                if (allData.broken_projects && allData.broken_projects.length > 0) {
+                    for (const project of allData.broken_projects.slice(0, 5)) {
+                        html += `
+                            <div class="bg-red-50 border border-red-200 rounded p-4">
+                                <p class="font-semibold">${project.name} (ID: ${project.id})</p>
+                                <div class="mt-2 text-sm grid grid-cols-2 gap-2">
+                                    <div>
+                                        <p><span class="font-semibold">RJ:</span> Osoba odp: ${rjProject.responsible_user ? '✅' : '❌'}</p>
+                                        <p><span class="font-semibold">Ten:</span> Osoba odp: ${project.responsible_user ? '✅' : '❌'}</p>
+                                    </div>
+                                    <div>
+                                        <p><span class="font-semibold">RJ:</span> NULL parts: ${rjProject.removals_with_null_part}</p>
+                                        <p><span class="font-semibold">Ten:</span> NULL parts: ${project.removals_with_null_part}</p>
+                                    </div>
+                                </div>
+                                <div class="mt-2 text-xs">
+                                    <p class="font-semibold">Problemy:</p>
+                                    <ul class="list-disc ml-6">
+                                        ${project.issues.map(issue => `<li>${issue}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        `;
+                    }
+                } else {
+                    html += `<p class="text-green-600">✅ Brak projektów z problemami!</p>`;
+                }
+
+                html += `
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 border border-blue-200 rounded p-4">
+                            <h3 class="font-bold mb-2">🔍 Wnioski:</h3>
+                            <ul class="list-disc ml-6 space-y-1 text-sm">
+                                <li>Projekt RJ ${rjProject.responsible_user ? 'MA' : 'NIE MA'} przypisanej osoby odpowiedzialnej</li>
+                                <li>Projekt RJ ma ${rjProject.removals_count} removals, z czego ${rjProject.removals_with_null_part} z NULL part</li>
+                                <li>${allData.broken_projects ? allData.broken_projects.length : 0} projektów ma problemy</li>
+                                <li>Główne problemy: ${allData.broken_projects && allData.broken_projects.length > 0 ? 
+                                    allData.broken_projects[0].issues.join(', ') : 'brak'}</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+
+                results.innerHTML = html;
+            } catch (error) {
+                results.innerHTML = `<div class="bg-red-100 border border-red-400 p-4 rounded">
+                    <p class="font-semibold text-red-800">❌ Błąd: ${error.message}</p>
+                </div>`;
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        // Auto-run diagnostics on load
+        window.addEventListener('load', () => {
+            runDiagnostics();
+        });
+
+        async function showLogs() {
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            loading.classList.remove('hidden');
+            results.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/diagnostics/logs?lines=300&filter=PROJEKT');
+                const data = await response.json();
+
+                if (data.error) {
+                    results.innerHTML = `<div class="bg-red-100 border border-red-400 p-4 rounded">
+                        <p class="font-semibold text-red-800">❌ Błąd: ${data.error}</p>
+                    </div>`;
+                    return;
+                }
+
+                let html = `
+                    <div class="bg-white border rounded-lg p-6 shadow">
+                        <h2 class="text-2xl font-bold mb-4">📋 Logi Laravel (ostatnie ${data.lines_requested} linii z filtrem "${data.filter_applied}")</h2>
+                        <div class="mb-4">
+                            <button onclick="showLogs()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm mr-2">
+                                🔄 Odśwież
+                            </button>
+                            <button onclick="downloadLogs()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">
+                                💾 Pobierz pełne logi
+                            </button>
+                        </div>
+                        <pre class="bg-gray-900 text-green-400 p-4 rounded text-xs overflow-auto max-h-96 font-mono whitespace-pre-wrap">${data.logs || 'Brak logów'}</pre>
+                    </div>
+                `;
+
+                results.innerHTML = html;
+            } catch (error) {
+                results.innerHTML = `<div class="bg-red-100 border border-red-400 p-4 rounded">
+                    <p class="font-semibold text-red-800">❌ Błąd: ${error.message}</p>
+                </div>`;
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        async function downloadLogs() {
+            try {
+                const response = await fetch('/api/diagnostics/logs?lines=5000');
+                const data = await response.json();
+                
+                const blob = new Blob([data.logs], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'laravel-logs.txt';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (error) {
+                alert('Błąd podczas pobierania logów: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

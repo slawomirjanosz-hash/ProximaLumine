@@ -151,18 +151,84 @@ class PartController extends Controller
     public function showProject(\App\Models\Project $project)
     {
         try {
+            // DIAGNOSTYKA - Loguj szczegóły projektu
+            \Log::info('=== PROJEKT showProject START ===', [
+                'project_id' => $project->id,
+                'project_name' => $project->name,
+                'project_number' => $project->project_number,
+                'responsible_user_id' => $project->responsible_user_id,
+                'loaded_list_id' => $project->loaded_list_id,
+            ]);
+
             // Pobierz wszystkie pobierania (niezgrupowane) z informacją o statusie
             $removals = \App\Models\ProjectRemoval::where('project_id', $project->id)
                 ->with(['part', 'user', 'returnedBy'])
                 ->orderBy('created_at', 'desc')
                 ->get();
 
+            \Log::info('Removals pobranych', [
+                'count' => $removals->count(),
+                'with_null_part' => $removals->whereNull('part')->count(),
+                'with_null_user' => $removals->whereNull('user')->count(),
+            ]);
+
+            // Sprawdź responsibleUser PRZED przekazaniem do widoku
+            $responsibleUser = null;
+            if ($project->responsible_user_id) {
+                try {
+                    $responsibleUser = \App\Models\User::find($project->responsible_user_id);
+                    if (!$responsibleUser) {
+                        \Log::warning('ResponsibleUser nie istnieje', [
+                            'project_id' => $project->id,
+                            'responsible_user_id' => $project->responsible_user_id,
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Błąd podczas pobierania responsibleUser', [
+                        'error' => $e->getMessage(),
+                        'responsible_user_id' => $project->responsible_user_id,
+                    ]);
+                }
+            }
+
+            // Sprawdź loaded_list
+            $loadedList = null;
+            if ($project->loaded_list_id) {
+                try {
+                    if (class_exists('\App\Models\ProductList') && method_exists($project, 'loadedList')) {
+                        $loadedList = $project->loadedList;
+                        if (!$loadedList) {
+                            \Log::warning('LoadedList nie istnieje', [
+                                'project_id' => $project->id,
+                                'loaded_list_id' => $project->loaded_list_id,
+                            ]);
+                        }
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Błąd podczas pobierania loadedList', [
+                        'error' => $e->getMessage(),
+                        'loaded_list_id' => $project->loaded_list_id,
+                    ]);
+                }
+            }
+
+            \Log::info('=== PROJEKT showProject PRZEKAZANIE DO WIDOKU ===', [
+                'project_id' => $project->id,
+                'responsibleUser_exists' => $responsibleUser !== null,
+                'loadedList_exists' => $loadedList !== null,
+                'removals_count' => $removals->count(),
+            ]);
+
             return view('parts.project-details', [
-                'project' => $project->load('responsibleUser'),
+                'project' => $project,
                 'removals' => $removals,
             ]);
         } catch (\Exception $e) {
-            \Log::error('Error in showProject for project ' . $project->id . ': ' . $e->getMessage(), [
+            \Log::error('=== BŁĄD W showProject ===', [
+                'project_id' => $project->id ?? 'unknown',
+                'error_message' => $e->getMessage(),
+                'error_line' => $e->getLine(),
+                'error_file' => $e->getFile(),
                 'trace' => $e->getTraceAsString()
             ]);
             

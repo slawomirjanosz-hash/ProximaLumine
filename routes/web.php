@@ -56,6 +56,200 @@ Route::post('/api/diagnostics/projects/fix-all', function () {
     }
 });
 
+// API dla pełnej diagnostyki projektów
+Route::get('/api/diagnostics/full-projects', function () {
+    try {
+        $projects = \App\Models\Project::with(['responsibleUser'])
+            ->withCount([
+                'removals',
+                'removals as removals_with_null_part' => function($query) {
+                    $query->whereNull('part_id')
+                        ->orWhereNotIn('part_id', function($subQuery) {
+                            $subQuery->select('id')->from('parts');
+                        });
+                },
+                'removals as removals_with_null_user' => function($query) {
+                    $query->whereNull('user_id')
+                        ->orWhereNotIn('user_id', function($subQuery) {
+                            $subQuery->select('id')->from('users');
+                        });
+                }
+            ])
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        $healthy = [];
+        $broken = [];
+        
+        foreach ($projects as $project) {
+            $issues = [];
+            
+            // Sprawdź responsible_user
+            if ($project->responsible_user_id && !$project->responsibleUser) {
+                $issues[] = "Brak użytkownika o ID {$project->responsible_user_id} (responsible_user)";
+            }
+            
+            // Sprawdź removals z NULL part
+            if ($project->removals_with_null_part > 0) {
+                $issues[] = "Ma {$project->removals_with_null_part} removals z usuniętymi produktami";
+            }
+            
+            // Sprawdź removals z NULL user
+            if ($project->removals_with_null_user > 0) {
+                $issues[] = "Ma {$project->removals_with_null_user} removals z usuniętymi użytkownikami";
+            }
+            
+            $projectData = [
+                'id' => $project->id,
+                'name' => $project->name,
+                'project_number' => $project->project_number,
+                'status' => $project->status,
+                'responsible_user' => $project->responsibleUser ? $project->responsibleUser->name : null,
+                'responsible_user_id' => $project->responsible_user_id,
+                'removals_count' => $project->removals_count,
+                'removals_with_null_part' => $project->removals_with_null_part,
+                'removals_with_null_user' => $project->removals_with_null_user,
+                'issues' => $issues,
+                'can_load' => count($issues) === 0
+            ];
+            
+            if (count($issues) > 0) {
+                $broken[] = $projectData;
+            } else {
+                $healthy[] = $projectData;
+            }
+        }
+        
+        return response()->json([
+            'summary' => [
+                'total' => count($projects),
+                'healthy' => count($healthy),
+                'broken' => count($broken)
+            ],
+            'healthy_projects' => $healthy,
+            'broken_projects' => $broken
+        ]);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage(),
+            'details' => $e->getTraceAsString()
+        ], 500);
+    }
+});
+
+// API dla szczegółów konkretnego projektu
+Route::get('/api/diagnostics/project/{project}', function (\App\Models\Project $project) {
+    try {
+        $project->load(['responsibleUser', 'removals.part', 'removals.user', 'removals.returnedBy']);
+        
+        $issues = [];
+        $checks = [
+            'responsible_user_exists' => true,
+            'all_removals_have_parts' => true,
+            'all_removals_have_users' => true
+        ];
+        
+        // Sprawdź responsible_user
+        if ($project->responsible_user_id && !$project->responsibleUser) {
+            $issues[] = "Brak użytkownika o ID {$project->responsible_user_id}";
+            $checks['responsible_user_exists'] = false;
+        }
+        
+        // Sprawdź każdy removal
+        $removalsWithNullPart = 0;
+        $removalsWithNullUser = 0;
+        
+        foreach ($project->removals as $removal) {
+            if (!$removal->part) {
+                $removalsWithNullPart++;
+                $checks['all_removals_have_parts'] = false;
+            }
+            if (!$removal->user) {
+                $removalsWithNullUser++;
+                $checks['all_removals_have_users'] = false;
+            }
+        }
+        
+        if ($removalsWithNullPart > 0) {
+            $issues[] = "Ma {$removalsWithNullPart} removals bez produktów";
+        }
+        
+        if ($removalsWithNullUser > 0) {
+            $issues[] = "Ma {$removalsWithNullUser} removals bez użytkowników";
+        }
+        
+        return response()->json([
+            'project' => [
+                'id' => $project->id,
+                'name' => $project->name,
+                'project_number' => $project->project_number,
+                'status' => $project->status,
+                'responsible_user_id' => $project->responsible_user_id,
+                'responsible_user_name' => $project->responsibleUser ? $project->responsibleUser->name : null,
+                'removals_count' => $project->removals->count(),
+                'removals_with_null_part' => $removalsWithNullPart,
+                'removals_with_null_user' => $removalsWithNullUser,
+                'requires_authorization' => $project->requires_authorization,
+                'loaded_list_id' => $project->loaded_list_id
+            ],
+            'checks' => $checks,
+            'issues' => $issues,
+            'can_load' => count($issues) === 0
+        ]);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage(),
+            'details' => $e->getTraceAsString()
+        ], 500);
+    }
+});
+
+// API dla odczytywania logów Laravel
+Route::get('/api/diagnostics/logs', function (Request $request) {
+    try {
+        $logPath = storage_path('logs/laravel.log');
+        
+        if (!file_exists($logPath)) {
+            return response()->json(['error' => 'Log file not found'], 404);
+        }
+        
+        $lines = (int) ($request->get('lines', 200));
+        $filter = $request->get('filter', '');
+        
+        // Odczytaj ostatnie X linii
+        $command = "tail -n {$lines} " . escapeshellarg($logPath);
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            // Windows - użyj PowerShell
+            $command = "powershell -Command \"Get-Content -Path '{$logPath}' -Tail {$lines}\"";
+        }
+        
+        $output = shell_exec($command);
+        
+        if ($filter) {
+            $outputLines = explode("\n", $output);
+            $outputLines = array_filter($outputLines, function($line) use ($filter) {
+                return stripos($line, $filter) !== false;
+            });
+            $output = implode("\n", $outputLines);
+        }
+        
+        return response()->json([
+            'logs' => $output,
+            'lines_requested' => $lines,
+            'filter_applied' => $filter,
+            'log_path' => $logPath
+        ]);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage(),
+            'details' => $e->getTraceAsString()
+        ], 500);
+    }
+});
+
 // Diagnostyka projektów
 Route::get('/diagnostics/projects', function () {
     return view('diagnostics.project-debug');
