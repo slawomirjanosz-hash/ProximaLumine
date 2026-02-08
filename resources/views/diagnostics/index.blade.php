@@ -1,5 +1,12 @@
-@extends('layouts.app')
-@section('content')
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnostyka systemu - ProximaLumine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
 <div class="max-w-3xl mx-auto mt-10 p-6 bg-white rounded shadow">
     <h1 class="text-2xl font-bold mb-6">Diagnostyka systemu</h1>
     
@@ -29,5 +36,6 @@ function fetchDiagnostics() {
 fetchDiagnostics();
 document.getElementById('refresh-btn').onclick = fetchDiagnostics;
 </script>
-@endsection
+</body>
+</html>
 
