@@ -65,7 +65,13 @@
             </div>
             <div>
                 <span class="text-sm font-semibold text-gray-600">Osoba odpowiedzialna:</span>
-                <p class="text-lg">{{ $project->responsibleUser->name ?? '-' }}</p>
+                <p class="text-lg">
+                    @if(isset($project->responsibleUser) && $project->responsibleUser)
+                        {{ $project->responsibleUser->name ?? ($project->responsibleUser->short_name ?? '-') }}
+                    @else
+                        -
+                    @endif
+                </p>
             </div>
             <div>
                 <span class="text-sm font-semibold text-gray-600">Status:</span>
@@ -199,7 +205,13 @@
                             <td class="border p-2 text-center font-mono text-xs">{{ $removal->part ? ($removal->part->qr_code ?? '-') : '-' }}</td>
                             <td class="border p-2 text-center font-bold text-red-600">{{ $removal->quantity }}</td>
                             <td class="border p-2 text-center">{{ $removal->created_at->format('d.m.Y H:i') }}</td>
-                            <td class="border p-2 text-center">{{ $removal->user->short_name ?? $removal->user->name }}</td>
+                            <td class="border p-2 text-center">
+                                @if(isset($removal->user) && $removal->user)
+                                    {{ $removal->user->short_name ?? $removal->user->name }}
+                                @else
+                                    -
+                                @endif
+                            </td>
                             <td class="border p-2 text-center">
                                 <span class="text-orange-600 font-semibold text-xs">⚠️ Nie odjęte ze stanu</span>
                             </td>
@@ -256,7 +268,13 @@
                     <td class="border p-2 text-center">
                         {{ $removal->created_at->format('d.m.Y H:i') }}
                     </td>
-                    <td class="border p-2 text-center">{{ $removal->user->short_name ?? $removal->user->name }}</td>
+                    <td class="border p-2 text-center">
+                        @if(isset($removal->user) && $removal->user)
+                            {{ $removal->user->short_name ?? $removal->user->name }}
+                        @else
+                            -
+                        @endif
+                    </td>
                     <td class="border p-2 text-center">
                         @if($removal->status === 'added')
                             <span class="text-blue-600 font-semibold">Dodany</span>
@@ -265,7 +283,14 @@
                             <br>
                             <span class="text-xs text-gray-500">{{ $removal->returned_at->format('d.m.Y H:i') }}</span>
                             <br>
-                            <span class="text-xs text-gray-500">przez {{ $removal->returnedBy->short_name ?? $removal->returnedBy->name }}</span>
+                            <span class="text-xs text-gray-500">
+                                przez
+                                @if(isset($removal->returnedBy) && $removal->returnedBy)
+                                    {{ $removal->returnedBy->short_name ?? $removal->returnedBy->name }}
+                                @else
+                                    -
+                                @endif
+                            </span>
                         @endif
                     </td>
                     <td class="border p-2 text-center">
@@ -319,8 +344,8 @@
             <tbody>
                 @forelse($summary as $item)
                     <tr class="hover:bg-gray-50">
-                        <td class="border p-3">{{ $item['part']->name }}</td>
-                        <td class="border p-3 text-gray-600">{{ $item['part']->description ?? '-' }}</td>
+                        <td class="border p-3">{{ isset($item['part']) && $item['part'] ? $item['part']->name : '-' }}</td>
+                        <td class="border p-3 text-gray-600">{{ isset($item['part']) && $item['part'] ? ($item['part']->description ?? '-') : '-' }}</td>
                         <td class="border p-3 text-center font-bold text-blue-600">{{ $item['total_quantity'] }}</td>
                     </tr>
                 @empty
