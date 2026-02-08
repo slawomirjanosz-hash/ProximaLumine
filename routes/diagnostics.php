@@ -266,6 +266,32 @@ Route::get('/diagnostics/check-removals-columns', function () {
     }
 })->name('diagnostics.check.removals.columns');
 
+// Napraw brakującą kolumnę authorized
+Route::get('/diagnostics/fix-authorized-column', function () {
+    try {
+        if (!Schema::hasColumn('project_removals', 'authorized')) {
+            Schema::table('project_removals', function (Blueprint $table) {
+                $table->boolean('authorized')->default(true)->after('status');
+            });
+            
+            return response()->json([
+                'status' => '✅ Kolumna authorized została dodana',
+                'columns_after' => Schema::getColumnListing('project_removals'),
+            ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        } else {
+            return response()->json([
+                'status' => 'ℹ️ Kolumna authorized już istnieje',
+                'columns' => Schema::getColumnListing('project_removals'),
+            ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        }
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage(),
+            'trace' => array_slice(explode("\n", $e->getTraceAsString()), 0, 10),
+        ], 500, [], JSON_PRETTY_PRINT);
+    }
+})->name('diagnostics.fix.authorized.column');
+
 Route::get('/diagnostics/db', function () {
     return view('diagnostics.db');
 });
