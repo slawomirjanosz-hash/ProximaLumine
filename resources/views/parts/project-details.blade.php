@@ -615,6 +615,7 @@
         <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Half Day">Pół dnia</button>
         <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Day">Dzień</button>
         <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Week">Tydzień</button>
+        <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Half Month">Pół miesiąca</button>
         <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Month">Miesiąc</button>
         <button id="frappe-today" class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 text-sm ml-4">
             📅 Dzisiaj
@@ -800,11 +801,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         try {
             document.getElementById('frappe-gantt').innerHTML = '';
-            frappeGanttInstance = new Gantt("#frappe-gantt", frappeTasks, {
+            // Ustal parametry dla trybu "Half Month"
+            let ganttConfig = {
                 header_height: 50,
                 column_width: 30,
                 step: 24,
-                view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month'],
+                view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Half Month', 'Month'],
                 bar_height: 20,
                 bar_corner_radius: 3,
                 arrow_curve: 5,
@@ -813,11 +815,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 date_format: 'YYYY-MM-DD',
                 language: 'en',
                 custom_popup_html: function(task) {
-                    const start = task._start.toLocaleDateString('pl-PL');
-                    const end = task._end.toLocaleDateString('pl-PL');
-                    const duration = Math.ceil((task._end - task._start) / (1000 * 60 * 60 * 24));
+                    // Naprawa błędu undefined
+                    let startDate = task._start || task.start;
+                    let endDate = task._end || task.end;
+                    let start = startDate ? new Date(startDate).toLocaleDateString('pl-PL') : 'Brak';
+                    let end = endDate ? new Date(endDate).toLocaleDateString('pl-PL') : 'Brak';
+                    let duration = (startDate && endDate) ? Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) : '-';
                     const depText = task.dependencies ? frappeTasks.find(t => t.id === task.dependencies)?.name || 'Nieznane' : 'Brak';
-                    return '<div style="padding: 10px;"><h5 style="margin: 0 0 10px 0; font-weight: bold;">' + task.name + '</h5><p style="margin: 5px 0;"><strong>Start:</strong> ' + start + '</p><p style="margin: 5px 0;"><strong>Koniec:</strong> ' + end + '</p><p style="margin: 5px 0;"><strong>Czas trwania:</strong> ' + duration + ' dni</p><p style="margin: 5px 0;"><strong>Postęp:</strong> ' + task.progress + '%</p><p style="margin: 5px 0;"><strong>Zależność:</strong> ' + depText + '</p><p style="margin: 10px 0 0 0; font-size: 11px; color: #666;">💡 Kliknij dwukrotnie, aby edytować</p></div>';
+                    return '<div style="padding: 10px;"><h5 style="margin: 0 0 10px 0; font-weight: bold;">' + (task.name || 'Brak') + '</h5><p style="margin: 5px 0;"><strong>Start:</strong> ' + start + '</p><p style="margin: 5px 0;"><strong>Koniec:</strong> ' + end + '</p><p style="margin: 5px 0;"><strong>Czas trwania:</strong> ' + duration + ' dni</p><p style="margin: 5px 0;"><strong>Postęp:</strong> ' + (task.progress ?? '-') + '%</p><p style="margin: 5px 0;"><strong>Zależność:</strong> ' + depText + '</p><p style="margin: 10px 0 0 0; font-size: 11px; color: #666;">💡 Kliknij dwukrotnie, aby edytować</p></div>';
                 },
                 on_date_change: function(task, start, end) {
                     const taskIndex = frappeTasks.findIndex(t => t.id === task.id);
@@ -847,7 +852,31 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     });
                 }
-            });
+            };
+            // Obsługa wszystkich trybów
+            if (window.frappeLastViewMode) {
+                ganttConfig.view_mode = window.frappeLastViewMode;
+                if (window.frappeLastViewMode === 'Half Month') {
+                    ganttConfig.step = 24 * 15;
+                    ganttConfig.column_width = 60;
+                } else if (window.frappeLastViewMode === 'Month') {
+                    ganttConfig.step = 24 * 30;
+                    ganttConfig.column_width = 60;
+                } else if (window.frappeLastViewMode === 'Week') {
+                    ganttConfig.step = 24 * 7;
+                    ganttConfig.column_width = 40;
+                } else if (window.frappeLastViewMode === 'Day') {
+                    ganttConfig.step = 24;
+                    ganttConfig.column_width = 30;
+                } else if (window.frappeLastViewMode === 'Half Day') {
+                    ganttConfig.step = 12;
+                    ganttConfig.column_width = 18;
+                } else if (window.frappeLastViewMode === 'Quarter Day') {
+                    ganttConfig.step = 6;
+                    ganttConfig.column_width = 12;
+                }
+            }
+            frappeGanttInstance = new Gantt("#frappe-gantt", frappeTasks, ganttConfig);
             renderTaskList();
             console.log('✅ Frappe Gantt zrenderowany!');
         } catch(error) {
@@ -859,15 +888,10 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderTaskList() {
         const container = document.getElementById('frappe-task-list');
         if (!frappeTasks.length) { container.innerHTML = ''; return; }
-        // Sortuj po dacie zakończenia
-        const sorted = [...frappeTasks].sort((a, b) => {
-            const aEnd = a.end instanceof Date ? a.end : parseDate(a.end);
-            const bEnd = b.end instanceof Date ? b.end : parseDate(b.end);
-            return aEnd - bEnd;
-        });
-        let html = '<h4 class="text-lg font-bold mb-2">Lista zadań wg dat zakończenia</h4>';
+        // Wyświetl wg kolejności Gantt (frappeTasks)
+        let html = '<h4 class="text-lg font-bold mb-2">Lista zadań (kolejność jak w Gantt)</h4>';
         html += '<ul class="divide-y divide-gray-200">';
-        sorted.forEach((task, idx) => {
+        frappeTasks.forEach((task, idx) => {
             const end = task.end instanceof Date ? task.end : parseDate(task.end);
             html += `<li class="flex items-center justify-between py-2">
                 <div>
@@ -882,19 +906,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         html += '</ul>';
         container.innerHTML = html;
-        // Dodaj obsługę przesuwania
+        // Dodaj obsługę przesuwania (wg indeksu w frappeTasks)
         container.querySelectorAll('.move-task-up').forEach(btn => {
             btn.addEventListener('click', function() {
                 const idx = parseInt(this.dataset.idx);
                 if (idx > 0) {
-                    // Zamień miejscami w sorted
-                    const taskId = sorted[idx].id;
-                    const prevId = sorted[idx-1].id;
-                    const origIdx = frappeTasks.findIndex(t => t.id === taskId);
-                    const prevOrigIdx = frappeTasks.findIndex(t => t.id === prevId);
-                    const temp = frappeTasks[origIdx];
-                    frappeTasks[origIdx] = frappeTasks[prevOrigIdx];
-                    frappeTasks[prevOrigIdx] = temp;
+                    const temp = frappeTasks[idx];
+                    frappeTasks[idx] = frappeTasks[idx-1];
+                    frappeTasks[idx-1] = temp;
                     saveTasks();
                     renderGantt();
                 }
@@ -903,14 +922,10 @@ document.addEventListener('DOMContentLoaded', function() {
         container.querySelectorAll('.move-task-down').forEach(btn => {
             btn.addEventListener('click', function() {
                 const idx = parseInt(this.dataset.idx);
-                if (idx < sorted.length - 1) {
-                    const taskId = sorted[idx].id;
-                    const nextId = sorted[idx+1].id;
-                    const origIdx = frappeTasks.findIndex(t => t.id === taskId);
-                    const nextOrigIdx = frappeTasks.findIndex(t => t.id === nextId);
-                    const temp = frappeTasks[origIdx];
-                    frappeTasks[origIdx] = frappeTasks[nextOrigIdx];
-                    frappeTasks[nextOrigIdx] = temp;
+                if (idx < frappeTasks.length - 1) {
+                    const temp = frappeTasks[idx];
+                    frappeTasks[idx] = frappeTasks[idx+1];
+                    frappeTasks[idx+1] = temp;
                     saveTasks();
                     renderGantt();
                 }
@@ -953,7 +968,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.querySelectorAll('.frappe-view-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-            if (frappeGanttInstance) frappeGanttInstance.change_view_mode(this.dataset.mode);
+            window.frappeLastViewMode = this.dataset.mode;
+            renderGantt();
         });
     });
     
