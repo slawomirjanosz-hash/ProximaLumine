@@ -12,6 +12,45 @@ Route::get('/diagnostics', function () {
     return view('diagnostics.index');
 })->middleware('auth')->name('diagnostics.index');
 
+// Diagnostyka projektów
+Route::get('/diagnostics/projects', function () {
+    return view('diagnostics.project-debug');
+})->middleware('auth')->name('diagnostics.projects');
+
+Route::get('/diagnostics/projects/{project}', function (\App\Models\Project $project) {
+    return view('diagnostics.project-details', ['project' => $project]);
+})->middleware('auth')->name('diagnostics.project.details');
+
+Route::post('/diagnostics/projects/{project}/fix', function (\App\Models\Project $project) {
+    try {
+        // Usuń wszystkie removals z NULL part
+        $deleted = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->whereNotIn('part_id', function($query) {
+                $query->select('id')->from('parts');
+            })
+            ->delete();
+        
+        return redirect()->route('diagnostics.project.details', $project->id)
+            ->with('success', "Usunięto {$deleted} problematycznych rekordów.");
+    } catch (\Exception $e) {
+        return redirect()->back()->with('error', 'Błąd: ' . $e->getMessage());
+    }
+})->middleware('auth')->name('diagnostics.project.fix');
+
+Route::get('/diagnostics/projects/fix-all', function () {
+    try {
+        // Usuń wszystkie removals z NULL part we wszystkich projektach
+        $deleted = \App\Models\ProjectRemoval::whereNotIn('part_id', function($query) {
+            $query->select('id')->from('parts');
+        })->delete();
+        
+        return redirect()->route('diagnostics.projects')
+            ->with('success', "Naprawiono! Usunięto {$deleted} problematycznych rekordów ze wszystkich projektów.");
+    } catch (\Exception $e) {
+        return redirect()->back()->with('error', 'Błąd: ' . $e->getMessage());
+    }
+})->middleware('auth')->name('diagnostics.project.fix-all');
+
 // Railway diagnostics page (remove this route once everything works)
 Route::get('/railway-diagnostics', function () {
     return view('railway-diagnostics');
