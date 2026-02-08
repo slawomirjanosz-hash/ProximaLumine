@@ -195,8 +195,8 @@
                 <tbody>
                     @foreach($unauthorized as $removal)
                         <tr class="bg-yellow-50">
-                            <td class="border p-2">{{ $removal->part->name }}</td>
-                            <td class="border p-2 text-center font-mono text-xs">{{ $removal->part->qr_code ?? '-' }}</td>
+                            <td class="border p-2">{{ $removal->part ? $removal->part->name : '⚠️ Produkt usunięty' }}</td>
+                            <td class="border p-2 text-center font-mono text-xs">{{ $removal->part ? ($removal->part->qr_code ?? '-') : '-' }}</td>
                             <td class="border p-2 text-center font-bold text-red-600">{{ $removal->quantity }}</td>
                             <td class="border p-2 text-center">{{ $removal->created_at->format('d.m.Y H:i') }}</td>
                             <td class="border p-2 text-center">{{ $removal->user->short_name ?? $removal->user->name }}</td>
@@ -251,7 +251,7 @@
         <tbody>
             @forelse($authorized as $removal)
                 <tr class="{{ $removal->status === 'returned' ? 'bg-green-50' : '' }}">
-                    <td class="border p-2">{{ $removal->part->name }}</td>
+                    <td class="border p-2">{{ $removal->part ? $removal->part->name : '⚠️ Produkt usunięty' }}</td>
                     <td class="border p-2 text-center">{{ $removal->quantity }}</td>
                     <td class="border p-2 text-center">
                         {{ $removal->created_at->format('d.m.Y H:i') }}
@@ -295,11 +295,15 @@
         @php
             // Grupowanie produktów i sumowanie ilości
             $summary = $removals->where('status', 'added')->groupBy('part_id')->map(function($group) {
+                $firstRemoval = $group->first();
+                if (!$firstRemoval->part) {
+                    return null; // Pomiń jeśli produkt został usunięty
+                }
                 return [
-                    'part' => $group->first()->part,
+                    'part' => $firstRemoval->part,
                     'total_quantity' => $group->sum('quantity')
                 ];
-            })->sortBy(function($item) {
+            })->filter()->sortBy(function($item) {
                 return $item['part']->name;
             });
         @endphp

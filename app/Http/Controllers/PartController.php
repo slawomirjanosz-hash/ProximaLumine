@@ -150,16 +150,25 @@ class PartController extends Controller
 
     public function showProject(\App\Models\Project $project)
     {
-        // Pobierz wszystkie pobierania (niezgrupowane) z informacją o statusie
-        $removals = \App\Models\ProjectRemoval::where('project_id', $project->id)
-            ->with(['part', 'user', 'returnedBy'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        try {
+            // Pobierz wszystkie pobierania (niezgrupowane) z informacją o statusie
+            $removals = \App\Models\ProjectRemoval::where('project_id', $project->id)
+                ->with(['part', 'user', 'returnedBy'])
+                ->orderBy('created_at', 'desc')
+                ->get();
 
-        return view('parts.project-details', [
-            'project' => $project->load('responsibleUser'),
-            'removals' => $removals,
-        ]);
+            return view('parts.project-details', [
+                'project' => $project->load('responsibleUser'),
+                'removals' => $removals,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error in showProject for project ' . $project->id . ': ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->route('magazyn.projects')
+                ->with('error', 'Błąd podczas ładowania szczegółów projektu: ' . $e->getMessage());
+        }
     }
 
     public function pickupProducts(\App\Models\Project $project)
