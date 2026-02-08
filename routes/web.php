@@ -5,6 +5,13 @@ if (file_exists(base_path('routes/diagnostics.php'))) {
     require base_path('routes/diagnostics.php');
 }
 
+// Diagnostyka systemu
+require_once __DIR__.'/diagnostics.php';
+
+Route::get('/diagnostics', function () {
+    return view('diagnostics.index');
+})->middleware('auth')->name('diagnostics.index');
+
 // Railway diagnostics page (remove this route once everything works)
 Route::get('/railway-diagnostics', function () {
     return view('railway-diagnostics');

@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
 
 // NOWA ROUTE: Diagnostyka projektu - sprawdza tabele i kolumny
 Route::get('/diagnostics/project-check', function () {
