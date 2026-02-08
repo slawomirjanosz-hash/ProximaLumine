@@ -244,6 +244,28 @@ Route::get('/diagnostics/render-with-debug/{id}', function ($id) {
     }
 })->name('diagnostics.render.debug');
 
+// Sprawdź kolumny w project_removals
+Route::get('/diagnostics/check-removals-columns', function () {
+    try {
+        $columns = Schema::getColumnListing('project_removals');
+        
+        return response()->json([
+            'table_exists' => Schema::hasTable('project_removals'),
+            'columns' => $columns,
+            'has_authorized' => in_array('authorized', $columns),
+            'migration_in_db' => \DB::table('migrations')
+                ->where('migration', '2026_02_05_224725_add_authorized_to_removals_table')
+                ->exists(),
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ], 500, [], JSON_PRETTY_PRINT);
+    }
+})->name('diagnostics.check.removals.columns');
+
 Route::get('/diagnostics/db', function () {
     return view('diagnostics.db');
 });
