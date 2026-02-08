@@ -632,6 +632,10 @@
     </div>
     
     <div id="frappe-gantt"></div>
+
+    <div id="frappe-task-list" class="mt-8">
+        <!-- Lista zadań pojawi się tutaj -->
+    </div>
 </div>
 
 {{-- Modal dodawania/edycji zadania --}}
@@ -668,6 +672,9 @@
                 </button>
                 <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
                     Zapisz
+                </button>
+                <button type="button" id="modal-delete-task" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700" style="display:none">
+                    Usuń zadanie
                 </button>
             </div>
         </form>
@@ -747,9 +754,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const modal = document.getElementById('frappe-task-modal');
         const form = document.getElementById('frappe-task-form');
         const title = document.getElementById('modal-title');
-        
+        const deleteBtn = document.getElementById('modal-delete-task');
         editingTaskId = taskId;
-        
         if (taskId) {
             const task = frappeTasks.find(t => t.id === taskId);
             if (task) {
@@ -758,6 +764,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('task-start-input').value = formatDateForInput(task.start);
                 document.getElementById('task-end-input').value = formatDateForInput(task.end);
                 document.getElementById('task-progress-input').value = task.progress || 0;
+                deleteBtn.style.display = 'inline-block';
             }
         } else {
             title.textContent = 'Dodaj nowe zadanie';
@@ -768,8 +775,8 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('task-start-input').value = formatDateForInput(today);
             document.getElementById('task-end-input').value = formatDateForInput(nextWeek);
             document.getElementById('task-progress-input').value = 0;
+            deleteBtn.style.display = 'none';
         }
-        
         updateDependencySelect();
         if (taskId) {
             const task = frappeTasks.find(t => t.id === taskId);
@@ -777,7 +784,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('task-dependency-input').value = task.dependencies;
             }
         }
-        
         modal.classList.remove('hidden');
     }
     
@@ -789,9 +795,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderGantt() {
         if (frappeTasks.length === 0) {
             document.getElementById('frappe-gantt').innerHTML = '<div class="text-gray-500 p-4 text-center">Brak zadań. Kliknij "➕ Dodaj zadanie", aby rozpocząć.</div>';
+            document.getElementById('frappe-task-list').innerHTML = '';
             return;
         }
-        
         try {
             document.getElementById('frappe-gantt').innerHTML = '';
             frappeGanttInstance = new Gantt("#frappe-gantt", frappeTasks, {
@@ -819,6 +825,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         frappeTasks[taskIndex].start = start;
                         frappeTasks[taskIndex].end = end;
                         saveTasks();
+                        renderTaskList();
                     }
                 },
                 on_progress_change: function(task, progress) {
@@ -826,6 +833,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (taskIndex !== -1) {
                         frappeTasks[taskIndex].progress = progress;
                         saveTasks();
+                        renderTaskList();
                     }
                 },
                 on_view_change: function(mode) {
@@ -840,11 +848,74 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 }
             });
+            renderTaskList();
             console.log('✅ Frappe Gantt zrenderowany!');
         } catch(error) {
             console.error('❌ Błąd Frappe Gantt:', error);
             document.getElementById('frappe-gantt').innerHTML = '<div class="text-red-500 p-4">Błąd: ' + error.message + '</div>';
         }
+    }
+
+    function renderTaskList() {
+        const container = document.getElementById('frappe-task-list');
+        if (!frappeTasks.length) { container.innerHTML = ''; return; }
+        // Sortuj po dacie zakończenia
+        const sorted = [...frappeTasks].sort((a, b) => {
+            const aEnd = a.end instanceof Date ? a.end : parseDate(a.end);
+            const bEnd = b.end instanceof Date ? b.end : parseDate(b.end);
+            return aEnd - bEnd;
+        });
+        let html = '<h4 class="text-lg font-bold mb-2">Lista zadań wg dat zakończenia</h4>';
+        html += '<ul class="divide-y divide-gray-200">';
+        sorted.forEach((task, idx) => {
+            const end = task.end instanceof Date ? task.end : parseDate(task.end);
+            html += `<li class="flex items-center justify-between py-2">
+                <div>
+                    <span class="font-semibold">${task.name}</span>
+                    <span class="ml-2 text-xs text-gray-500">(koniec: ${formatDateForInput(end)})</span>
+                </div>
+                <div class="flex gap-1">
+                    <button class="move-task-up px-2 py-1 bg-gray-200 rounded text-xs" data-idx="${idx}">⬆️</button>
+                    <button class="move-task-down px-2 py-1 bg-gray-200 rounded text-xs" data-idx="${idx}">⬇️</button>
+                </div>
+            </li>`;
+        });
+        html += '</ul>';
+        container.innerHTML = html;
+        // Dodaj obsługę przesuwania
+        container.querySelectorAll('.move-task-up').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const idx = parseInt(this.dataset.idx);
+                if (idx > 0) {
+                    // Zamień miejscami w sorted
+                    const taskId = sorted[idx].id;
+                    const prevId = sorted[idx-1].id;
+                    const origIdx = frappeTasks.findIndex(t => t.id === taskId);
+                    const prevOrigIdx = frappeTasks.findIndex(t => t.id === prevId);
+                    const temp = frappeTasks[origIdx];
+                    frappeTasks[origIdx] = frappeTasks[prevOrigIdx];
+                    frappeTasks[prevOrigIdx] = temp;
+                    saveTasks();
+                    renderGantt();
+                }
+            });
+        });
+        container.querySelectorAll('.move-task-down').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const idx = parseInt(this.dataset.idx);
+                if (idx < sorted.length - 1) {
+                    const taskId = sorted[idx].id;
+                    const nextId = sorted[idx+1].id;
+                    const origIdx = frappeTasks.findIndex(t => t.id === taskId);
+                    const nextOrigIdx = frappeTasks.findIndex(t => t.id === nextId);
+                    const temp = frappeTasks[origIdx];
+                    frappeTasks[origIdx] = frappeTasks[nextOrigIdx];
+                    frappeTasks[nextOrigIdx] = temp;
+                    saveTasks();
+                    renderGantt();
+                }
+            });
+        });
     }
     
     try { 
@@ -933,6 +1004,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.getElementById('modal-cancel').addEventListener('click', function() {
         hideTaskModal();
+    });
+    document.getElementById('modal-delete-task').addEventListener('click', function() {
+        if (editingTaskId && confirm('Czy na pewno chcesz usunąć to zadanie?')) {
+            frappeTasks = frappeTasks.filter(t => t.id !== editingTaskId);
+            // Usuń zależności do tego zadania
+            frappeTasks.forEach(t => {
+                if (t.dependencies === editingTaskId) t.dependencies = '';
+            });
+            saveTasks();
+            renderGantt();
+            hideTaskModal();
+        }
     });
     
     document.getElementById('frappe-task-form').addEventListener('submit', function(e) {
