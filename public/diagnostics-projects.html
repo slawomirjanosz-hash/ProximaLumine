@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnostyka projektów - ProximaLumine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+
+<div class="max-w-7xl mx-auto">
+    <h1 class="text-3xl font-bold mb-6">🔍 Diagnostyka projektów</h1>
+
+    <div id="loading" class="text-center py-10">
+        <p class="text-xl">⏳ Ładowanie danych...</p>
+    </div>
+
+    <div id="content" class="hidden">
+        <div id="summary" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-bold mb-3">✅ Projekty bez problemów</h3>
+                <p id="ok-count" class="text-3xl font-bold text-green-600">0</p>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-bold mb-3">⚠️ Projekty z problemami</h3>
+                <p id="error-count" class="text-3xl font-bold text-red-600">0</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-bold mb-4">📊 Przegląd wszystkich projektów</h2>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse border text-sm" id="projects-table">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="border p-2">ID</th>
+                            <th class="border p-2">Numer</th>
+                            <th class="border p-2">Nazwa</th>
+                            <th class="border p-2">Pobrań</th>
+                            <th class="border p-2">Pobrań z NULL part</th>
+                            <th class="border p-2">Status</th>
+                            <th class="border p-2">Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody id="projects-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+            <h3 class="font-bold mb-2">ℹ️ Co oznaczają problemy?</h3>
+            <p class="text-sm">Projekty z "Pobrań z NULL part > 0" mają w historii produkty, które zostały usunięte z katalogu. 
+               To powoduje błąd 500 przy próbie wyświetlenia szczegółów projektu.</p>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h3 class="text-lg font-bold mb-3">🛠️ Narzędzia naprawcze</h3>
+            <button onclick="fixAllProjects()" 
+                    class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                🔧 Napraw wszystkie projekty
+            </button>
+            <p class="text-xs text-gray-600 mt-2">
+                Usuwa wszystkie rekordy project_removals, które wskazują na nieistniejące produkty
+            </p>
+        </div>
+    </div>
+
+    <div id="error" class="hidden bg-red-50 border-l-4 border-red-500 p-4">
+        <h3 class="font-bold text-red-800">❌ Błąd ładowania danych</h3>
+        <p id="error-message" class="text-sm text-red-700"></p>
+    </div>
+
+    <div class="mt-6">
+        <a href="/diagnostics" class="text-blue-600 hover:underline">
+            ← Powrót do diagnostyki głównej
+        </a>
+    </div>
+</div>
+
+<script>
+async function loadProjects() {
+    try {
+        const response = await fetch('/api/diagnostics/projects');
+        if (!response.ok) throw new Error('Błąd HTTP: ' + response.status);
+        
+        const data = await response.json();
+        
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('content').classList.remove('hidden');
+        
+        renderProjects(data);
+    } catch (error) {
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('error').classList.remove('hidden');
+        document.getElementById('error-message').textContent = error.message;
+    }
+}
+
+function renderProjects(projects) {
+    const tbody = document.getElementById('projects-tbody');
+    let okCount = 0;
+    let errorCount = 0;
+    
+    projects.forEach(project => {
+        const nullCount = project.null_removals_count || 0;
+        const hasError = nullCount > 0;
+        
+        if (hasError) errorCount++;
+        else okCount++;
+        
+        const row = document.createElement('tr');
+        row.className = hasError ? 'bg-red-50' : '';
+        row.innerHTML = `
+            <td class="border p-2 text-center">${project.id}</td>
+            <td class="border p-2 font-mono">${project.project_number || '-'}</td>
+            <td class="border p-2">
+                <strong>${project.name}</strong>
+                ${hasError ? '<span class="ml-2 text-red-600 text-xs">⚠️ PROBLEM!</span>' : ''}
+            </td>
+            <td class="border p-2 text-center">${project.removals_count || 0}</td>
+            <td class="border p-2 text-center ${hasError ? 'bg-red-200 font-bold text-red-800' : 'text-green-600'}">
+                ${nullCount}
+            </td>
+            <td class="border p-2">${project.status || '-'}</td>
+            <td class="border p-2">
+                ${hasError ? `<button onclick="fixProject(${project.id})" class="text-red-600 hover:underline text-xs">🔧 Napraw</button>` : '✅'}
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    document.getElementById('ok-count').textContent = okCount;
+    document.getElementById('error-count').textContent = errorCount;
+}
+
+async function fixProject(projectId) {
+    if (!confirm('Czy na pewno chcesz naprawić ten projekt? Usuniemy problematyczne rekordy.')) return;
+    
+    try {
+        const response = await fetch(`/api/diagnostics/projects/${projectId}/fix`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            }
+        });
+        
+        const result = await response.json();
+        alert(result.message);
+        location.reload();
+    } catch (error) {
+        alert('Błąd: ' + error.message);
+    }
+}
+
+async function fixAllProjects() {
+    if (!confirm('Czy na pewno chcesz naprawić wszystkie projekty? Usuniemy wszystkie problematyczne rekordy.')) return;
+    
+    try {
+        const response = await fetch('/api/diagnostics/projects/fix-all', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            }
+        });
+        
+        const result = await response.json();
+        alert(result.message);
+        location.reload();
+    } catch (error) {
+        alert('Błąd: ' + error.message);
+    }
+}
+
+loadProjects();
+</script>
+
+</body>
+</html>

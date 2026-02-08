@@ -12,6 +12,50 @@ Route::get('/diagnostics', function () {
     return view('diagnostics.index');
 })->middleware('auth')->name('diagnostics.index');
 
+// API dla diagnostyki projektów (JSON)
+Route::get('/api/diagnostics/projects', function () {
+    try {
+        $projects = \App\Models\Project::withCount([
+            'removals',
+            'removals as null_removals_count' => function($query) {
+                $query->whereNotIn('part_id', function($subQuery) {
+                    $subQuery->select('id')->from('parts');
+                });
+            }
+        ])->orderBy('created_at', 'desc')->get();
+        
+        return response()->json($projects);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+});
+
+Route::post('/api/diagnostics/projects/{project}/fix', function (\App\Models\Project $project) {
+    try {
+        $deleted = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->whereNotIn('part_id', function($query) {
+                $query->select('id')->from('parts');
+            })
+            ->delete();
+        
+        return response()->json(['success' => true, 'message' => "Usunięto {$deleted} problematycznych rekordów."]);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+});
+
+Route::post('/api/diagnostics/projects/fix-all', function () {
+    try {
+        $deleted = \App\Models\ProjectRemoval::whereNotIn('part_id', function($query) {
+            $query->select('id')->from('parts');
+        })->delete();
+        
+        return response()->json(['success' => true, 'message' => "Naprawiono! Usunięto {$deleted} problematycznych rekordów."]);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+});
+
 // Diagnostyka projektów
 Route::get('/diagnostics/projects', function () {
     return view('diagnostics.project-debug');

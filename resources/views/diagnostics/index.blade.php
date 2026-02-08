@@ -14,8 +14,8 @@
         <h2 class="font-bold mb-2">🔍 Dostępne narzędzia diagnostyczne:</h2>
         <ul class="space-y-2">
             <li>
-                <a href="{{ route('diagnostics.projects') }}" class="text-blue-600 hover:underline font-semibold">
-                    🔧 Diagnostyka projektów (błędy 500)
+                <a href="/diagnostics-projects.html" class="text-blue-600 hover:underline font-semibold text-lg">
+                    🔧 Diagnostyka projektów (błędy 500) →
                 </a>
                 <p class="text-xs text-gray-600">Sprawdź, które projekty mają problemy z usuniętymi produktami</p>
             </li>
@@ -31,6 +31,9 @@ function fetchDiagnostics() {
         .then(r => r.json())
         .then(data => {
             document.getElementById('diagnostics-output').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        })
+        .catch(err => {
+            document.getElementById('diagnostics-output').innerHTML = '<p class="text-red-600">Błąd: ' + err.message + '</p>';
         });
 }
 fetchDiagnostics();
