@@ -250,6 +250,211 @@ Route::get('/api/diagnostics/logs', function (Request $request) {
     }
 });
 
+// API dla struktury bazy danych
+Route::get('/api/diagnostics/database', function () {
+    try {
+        $connection = \DB::connection();
+        $tables = \DB::select('SHOW TABLES');
+        
+        $tablesInfo = [];
+        foreach ($tables as $table) {
+            $tableName = array_values((array)$table)[0];
+            
+            // Pobierz kolumny
+            $columns = \DB::select("SHOW COLUMNS FROM `{$tableName}`");
+            $columnsInfo = array_map(function($col) {
+                return [
+                    'name' => $col->Field,
+                    'type' => $col->Type,
+                    'nullable' => $col->Null === 'YES',
+                    'key' => $col->Key,
+                    'default' => $col->Default
+                ];
+            }, $columns);
+            
+            // Pobierz liczbę rekordów
+            $rowCount = \DB::table($tableName)->count();
+            
+            $tablesInfo[] = [
+                'name' => $tableName,
+                'columns' => $columnsInfo,
+                'row_count' => $rowCount
+            ];
+        }
+        
+        return response()->json([
+            'connection' => [
+                'host' => config('database.connections.mysql.host'),
+                'database' => config('database.connections.mysql.database'),
+                'driver' => config('database.connections.mysql.driver')
+            ],
+            'tables' => $tablesInfo
+        ]);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage(),
+            'details' => $e->getTraceAsString()
+        ], 500);
+    }
+});
+
+// API dla migracji
+Route::get('/api/diagnostics/migrations', function () {
+    try {
+        $migrations = \DB::table('migrations')
+            ->orderBy('batch')
+            ->orderBy('migration')
+            ->get();
+        
+        return response()->json([
+            'migrations' => $migrations,
+            'total' => $migrations->count(),
+            'batches' => $migrations->pluck('batch')->unique()->count()
+        ]);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage(),
+            'details' => $e->getTraceAsString()
+        ], 500);
+    }
+});
+
+// API dla integralności danych
+Route::get('/api/diagnostics/integrity', function () {
+    try {
+        $issues = [];
+        $checksPerformed = 0;
+        
+        // Sprawdź project_removals z NULL part_id lub nieistniejącymi parts
+        $checksPerformed++;
+        $invalidRemovals = \DB::select("
+            SELECT pr.id, pr.project_id, pr.part_id, p.name as project_name
+            FROM project_removals pr
+            LEFT JOIN parts pt ON pr.part_id = pt.id
+            LEFT JOIN projects p ON pr.project_id = p.id
+            WHERE pr.part_id IS NULL OR pt.id IS NULL
+            LIMIT 10
+        ");
+        
+        if (count($invalidRemovals) > 0) {
+            $totalCount = \DB::table('project_removals')
+                ->whereNull('part_id')
+                ->orWhereNotIn('part_id', function($query) {
+                    $query->select('id')->from('parts');
+                })
+                ->count();
+            
+            $issues[] = [
+                'table' => 'project_removals',
+                'description' => 'Removals z usuniętymi produktami (NULL lub nieistniejące part_id)',
+                'count' => $totalCount,
+                'examples' => array_slice($invalidRemovals, 0, 5),
+                'fix_sql' => "DELETE FROM project_removals WHERE part_id IS NULL OR part_id NOT IN (SELECT id FROM parts);"
+            ];
+        }
+        
+        // Sprawdź project_removals z NULL user_id
+        $checksPerformed++;
+        $invalidUsers = \DB::select("
+            SELECT pr.id, pr.project_id, pr.user_id, p.name as project_name
+            FROM project_removals pr
+            LEFT JOIN users u ON pr.user_id = u.id
+            LEFT JOIN projects p ON pr.project_id = p.id
+            WHERE pr.user_id IS NULL OR u.id IS NULL
+            LIMIT 10
+        ");
+        
+        if (count($invalidUsers) > 0) {
+            $totalCount = \DB::table('project_removals')
+                ->whereNull('user_id')
+                ->orWhereNotIn('user_id', function($query) {
+                    $query->select('id')->from('users');
+                })
+                ->count();
+            
+            $issues[] = [
+                'table' => 'project_removals',
+                'description' => 'Removals z usuniętymi użytkownikami (NULL lub nieistniejące user_id)',
+                'count' => $totalCount,
+                'examples' => array_slice($invalidUsers, 0, 5),
+                'fix_sql' => "-- UWAGA: To wymaga przypisania do domyślnego użytkownika\n-- UPDATE project_removals SET user_id = 1 WHERE user_id IS NULL OR user_id NOT IN (SELECT id FROM users);"
+            ];
+        }
+        
+        // Sprawdź projekty z NULL responsible_user_id lub nieistniejącymi users
+        $checksPerformed++;
+        $invalidProjects = \DB::select("
+            SELECT p.id, p.name, p.project_number, p.responsible_user_id
+            FROM projects p
+            LEFT JOIN users u ON p.responsible_user_id = u.id
+            WHERE p.responsible_user_id IS NOT NULL AND u.id IS NULL
+            LIMIT 10
+        ");
+        
+        if (count($invalidProjects) > 0) {
+            $totalCount = \DB::table('projects')
+                ->whereNotNull('responsible_user_id')
+                ->whereNotIn('responsible_user_id', function($query) {
+                    $query->select('id')->from('users');
+                })
+                ->count();
+            
+            $issues[] = [
+                'table' => 'projects',
+                'description' => 'Projekty z nieistniejącymi użytkownikami odpowiedzialnymi',
+                'count' => $totalCount,
+                'examples' => array_slice($invalidProjects, 0, 5),
+                'fix_sql' => "UPDATE projects SET responsible_user_id = NULL WHERE responsible_user_id NOT IN (SELECT id FROM users);"
+            ];
+        }
+        
+        // Sprawdź projects z loaded_list_id
+        if (\Schema::hasTable('product_lists')) {
+            $checksPerformed++;
+            $invalidLists = \DB::select("
+                SELECT p.id, p.name, p.loaded_list_id
+                FROM projects p
+                LEFT JOIN product_lists pl ON p.loaded_list_id = pl.id
+                WHERE p.loaded_list_id IS NOT NULL AND pl.id IS NULL
+                LIMIT 10
+            ");
+            
+            if (count($invalidLists) > 0) {
+                $totalCount = \DB::table('projects')
+                    ->whereNotNull('loaded_list_id')
+                    ->whereNotIn('loaded_list_id', function($query) {
+                        $query->select('id')->from('product_lists');
+                    })
+                    ->count();
+                
+                $issues[] = [
+                    'table' => 'projects',
+                    'description' => 'Projekty z nieistniejącymi listami produktów',
+                    'count' => $totalCount,
+                    'examples' => array_slice($invalidLists, 0, 5),
+                    'fix_sql' => "UPDATE projects SET loaded_list_id = NULL WHERE loaded_list_id NOT IN (SELECT id FROM product_lists);"
+                ];
+            }
+        }
+        
+        return response()->json([
+            'summary' => [
+                'checks_performed' => $checksPerformed,
+                'total_issues' => count($issues)
+            ],
+            'issues' => $issues
+        ]);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage(),
+            'details' => $e->getTraceAsString()
+        ], 500);
+    }
+});
+
 // Diagnostyka projektów
 Route::get('/diagnostics/projects', function () {
     return view('diagnostics.project-debug');

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Porównanie Baz Danych Railway</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-gray-800">🔍 Diagnostyka Bazy Danych</h1>
+        
+        <div class="bg-yellow-100 border border-yellow-400 p-4 rounded mb-6">
+            <p class="font-semibold">⚠️ Ta strona sprawdza strukturę bazy danych i integralność danych:</p>
+            <ul class="list-disc ml-6 mt-2 space-y-1">
+                <li>Lista wszystkich tabel i kolumn</li>
+                <li>Wersje migracji (które zostały uruchomione)</li>
+                <li>Brakujące migracje lub tabele</li>
+                <li>Integralność foreign keys</li>
+                <li>Problematyczne dane (NULL relations)</li>
+            </ul>
+        </div>
+
+        <div class="mb-6 flex gap-4">
+            <button onclick="checkDatabase()" class="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 font-semibold">
+                🔍 Sprawdź tę bazę danych
+            </button>
+            <button onclick="checkMigrations()" class="bg-green-600 text-white px-6 py-3 rounded hover:bg-green-700 font-semibold">
+                📊 Sprawdź migracje
+            </button>
+            <button onclick="checkIntegrity()" class="bg-purple-600 text-white px-6 py-3 rounded hover:bg-purple-700 font-semibold">
+                ⚠️ Sprawdź integralność danych
+            </button>
+            <button onclick="compareDatabases()" class="bg-orange-600 text-white px-6 py-3 rounded hover:bg-orange-700 font-semibold">
+                📋 Porównaj z RJ
+            </button>
+        </div>
+
+        <div id="loading" class="hidden bg-blue-100 border border-blue-400 p-4 rounded mb-6">
+            <p class="font-semibold">⏳ Ładowanie...</p>
+        </div>
+
+        <div id="results" class="space-y-6"></div>
+    </div>
+
+    <script>
+        const DATABASES = {
+            'rj': 'https://rj-magazyn.up.railway.app',
+            'prinz': 'https://prinz.up.railway.app',
+            '3c': 'https://3c.up.railway.app',
+            'medicom': 'https://medicom.up.railway.app'
+        };
+
+        async function checkDatabase() {
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            loading.classList.remove('hidden');
+            results.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/diagnostics/database');
+                const data = await response.json();
+
+                if (data.error) {
+                    results.innerHTML = `<div class="bg-red-100 border border-red-400 p-4 rounded">
+                        <p class="font-semibold text-red-800">❌ Błąd: ${data.error}</p>
+                        ${data.details ? `<pre class="mt-2 text-xs">${data.details}</pre>` : ''}
+                    </div>`;
+                    return;
+                }
+
+                let html = `
+                    <div class="bg-white border rounded-lg p-6 shadow">
+                        <h2 class="text-2xl font-bold mb-4">📊 Struktura Bazy Danych</h2>
+                        <div class="mb-4">
+                            <p><span class="font-semibold">Host:</span> ${data.connection.host || 'localhost'}</p>
+                            <p><span class="font-semibold">Database:</span> ${data.connection.database}</p>
+                            <p><span class="font-semibold">Liczba tabel:</span> ${data.tables ? data.tables.length : 0}</p>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h3 class="font-bold text-lg mb-2">Tabele:</h3>
+                            <div class="space-y-2">
+                `;
+
+                if (data.tables) {
+                    data.tables.forEach(table => {
+                        html += `
+                            <div class="bg-gray-50 border rounded p-3">
+                                <div class="font-semibold">${table.name}</div>
+                                <div class="text-xs text-gray-600 mt-1">
+                                    Kolumny: ${table.columns ? table.columns.length : 0}
+                                    ${table.row_count !== undefined ? ` | Rekordów: ${table.row_count}` : ''}
+                                </div>
+                                ${table.columns ? `
+                                    <details class="mt-2">
+                                        <summary class="cursor-pointer text-sm text-blue-600 hover:underline">Pokaż kolumny</summary>
+                                        <div class="mt-2 ml-4 text-xs space-y-1">
+                                            ${table.columns.map(col => `
+                                                <div>
+                                                    <span class="font-mono">${col.name}</span>
+                                                    <span class="text-gray-500">(${col.type}${col.nullable ? ', nullable' : ''})</span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </details>
+                                ` : ''}
+                            </div>
+                        `;
+                    });
+                }
+
+                html += `
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                results.innerHTML = html;
+            } catch (error) {
+                results.innerHTML = `<div class="bg-red-100 border border-red-400 p-4 rounded">
+                    <p class="font-semibold text-red-800">❌ Błąd: ${error.message}</p>
+                </div>`;
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        async function checkMigrations() {
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            loading.classList.remove('hidden');
+            results.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/diagnostics/migrations');
+                const data = await response.json();
+
+                if (data.error) {
+                    results.innerHTML = `<div class="bg-red-100 border border-red-400 p-4 rounded">
+                        <p class="font-semibold text-red-800">❌ Błąd: ${data.error}</p>
+                    </div>`;
+                    return;
+                }
+
+                let html = `
+                    <div class="bg-white border rounded-lg p-6 shadow">
+                        <h2 class="text-2xl font-bold mb-4">📊 Migracje w Bazie Danych</h2>
+                        <p class="mb-4">Łącznie wykonanych migracji: <span class="font-bold">${data.migrations ? data.migrations.length : 0}</span></p>
+                        
+                        <div class="space-y-2">
+                `;
+
+                if (data.migrations) {
+                    data.migrations.forEach((migration, index) => {
+                        html += `
+                            <div class="bg-gray-50 border rounded p-2 text-sm">
+                                <span class="font-mono text-xs">${index + 1}. ${migration.migration}</span>
+                                <span class="text-gray-500 ml-2">(batch: ${migration.batch})</span>
+                            </div>
+                        `;
+                    });
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
+
+                results.innerHTML = html;
+            } catch (error) {
+                results.innerHTML = `<div class="bg-red-100 border border-red-400 p-4 rounded">
+                    <p class="font-semibold text-red-800">❌ Błąd: ${error.message}</p>
+                </div>`;
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        async function checkIntegrity() {
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            loading.classList.remove('hidden');
+            results.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/diagnostics/integrity');
+                const data = await response.json();
+
+                if (data.error) {
+                    results.innerHTML = `<div class="bg-red-100 border border-red-400 p-4 rounded">
+                        <p class="font-semibold text-red-800">❌ Błąd: ${data.error}</p>
+                    </div>`;
+                    return;
+                }
+
+                let html = `
+                    <div class="bg-white border rounded-lg p-6 shadow">
+                        <h2 class="text-2xl font-bold mb-4">⚠️ Integralność Danych</h2>
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="bg-${data.summary.total_issues > 0 ? 'red' : 'green'}-50 border border-${data.summary.total_issues > 0 ? 'red' : 'green'}-200 p-4 rounded">
+                                <p class="text-sm text-gray-600">Łącznie problemów</p>
+                                <p class="text-3xl font-bold text-${data.summary.total_issues > 0 ? 'red' : 'green'}-600">${data.summary.total_issues}</p>
+                            </div>
+                            <div class="bg-blue-50 border border-blue-200 p-4 rounded">
+                                <p class="text-sm text-gray-600">Sprawdzonych relacji</p>
+                                <p class="text-3xl font-bold text-blue-600">${data.summary.checks_performed}</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                `;
+
+                if (data.issues && data.issues.length > 0) {
+                    html += `<h3 class="font-bold text-lg text-red-800">Znalezione problemy:</h3>`;
+                    data.issues.forEach(issue => {
+                        html += `
+                            <div class="bg-red-50 border border-red-200 rounded p-4">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <h4 class="font-semibold">${issue.table}</h4>
+                                        <p class="text-sm text-red-700">${issue.description}</p>
+                                    </div>
+                                    <span class="px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-semibold">
+                                        ${issue.count} problemów
+                                    </span>
+                                </div>
+                                ${issue.examples ? `
+                                    <details class="mt-2">
+                                        <summary class="cursor-pointer text-sm text-blue-600 hover:underline">Pokaż przykłady</summary>
+                                        <pre class="mt-2 bg-white p-2 rounded text-xs overflow-auto">${JSON.stringify(issue.examples, null, 2)}</pre>
+                                    </details>
+                                ` : ''}
+                                ${issue.fix_sql ? `
+                                    <div class="mt-2">
+                                        <p class="text-xs font-semibold">SQL do naprawy:</p>
+                                        <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs mt-1">${issue.fix_sql}</pre>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += `<div class="bg-green-50 border border-green-200 rounded p-4">
+                        <p class="text-green-800 font-semibold">✅ Nie znaleziono problemów z integralnością danych!</p>
+                    </div>`;
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
+
+                results.innerHTML = html;
+            } catch (error) {
+                results.innerHTML = `<div class="bg-red-100 border border-red-400 p-4 rounded">
+                    <p class="font-semibold text-red-800">❌ Błąd: ${error.message}</p>
+                </div>`;
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        async function compareDatabases() {
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            loading.classList.remove('hidden');
+            results.innerHTML = '';
+
+            try {
+                // Pobierz info o tej bazie
+                const localResponse = await fetch('/api/diagnostics/database');
+                const localData = await localResponse.json();
+
+                let html = `
+                    <div class="bg-white border rounded-lg p-6 shadow">
+                        <h2 class="text-2xl font-bold mb-4">📋 Porównanie z RJ (działającą bazą)</h2>
+                        
+                        <div class="mb-6 bg-blue-50 border border-blue-200 rounded p-4">
+                            <h3 class="font-semibold mb-2">Ta baza:</h3>
+                            <p><span class="font-semibold">Database:</span> ${localData.connection?.database || 'unknown'}</p>
+                            <p><span class="font-semibold">Tabel:</span> ${localData.tables?.length || 0}</p>
+                        </div>
+
+                        <div class="bg-yellow-100 border border-yellow-400 p-4 rounded">
+                            <p class="font-semibold">💡 Aby porównać z RJ:</p>
+                            <ol class="list-decimal ml-6 mt-2 space-y-1">
+                                <li>Otwórz tę stronę na RJ: <a href="https://rj-magazyn.up.railway.app/database-compare.html" target="_blank" class="text-blue-600 hover:underline">rj-magazyn.up.railway.app/database-compare.html</a></li>
+                                <li>Kliknij "🔍 Sprawdź tę bazę danych" i zapisz wynik</li>
+                                <li>Porównaj listę tabel i kolumn z tą bazą</li>
+                                <li>Sprawdź czy wszystkie migracje zostały uruchomione w obu bazach</li>
+                            </ol>
+                        </div>
+
+                        <div class="mt-6">
+                            <h3 class="font-bold text-lg mb-2">Szybkie sprawdzenie:</h3>
+                            <button onclick="quickCompare()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+                                ⚡ Automatyczne porównanie
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                results.innerHTML = html;
+            } catch (error) {
+                results.innerHTML = `<div class="bg-red-100 border border-red-400 p-4 rounded">
+                    <p class="font-semibold text-red-800">❌ Błąd: ${error.message}</p>
+                </div>`;
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        async function quickCompare() {
+            alert('Automatyczne porównanie wymaga dodatkowej konfiguracji. Użyj metody manualnej powyżej.');
+        }
+
+        // Auto-run database check on load
+        window.addEventListener('load', () => {
+            checkDatabase();
+        });
+    </script>
+</body>
+</html>
