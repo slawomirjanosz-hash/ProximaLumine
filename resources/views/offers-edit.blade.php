@@ -159,7 +159,7 @@
                 <div class="border border-gray-300 rounded">
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('services')">
-                            <span class="font-semibold text-lg section-name" id="services-name-label">Usługi</span>
+                            <span class="font-semibold text-lg section-name" id="services-name-label">{{ $servicesName }}</span>
                             <svg id="services-icon" class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </button>
                         <button type="button" onclick="editSectionName('services')" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
@@ -169,6 +169,7 @@
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                     </div>
+                        <input type="hidden" id="services-name-input" name="services_name" value="{{ $servicesName }}">
                     <div id="services-content" class="p-4 hidden">
                         <table class="w-full mb-4 text-xs">
                             <thead>
@@ -240,7 +241,7 @@
                 <div class="border border-gray-300 rounded">
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('works')">
-                            <span class="font-semibold text-lg section-name" id="works-name-label">Prace własne</span>
+                            <span class="font-semibold text-lg section-name" id="works-name-label">{{ $worksName }}</span>
                             <svg id="works-icon" class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </button>
                         <button type="button" onclick="editSectionName('works')" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
@@ -250,6 +251,7 @@
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                     </div>
+                        <input type="hidden" id="works-name-input" name="works_name" value="{{ $worksName }}">
                     <div id="works-content" class="p-4 hidden">
                         <table class="w-full mb-4 text-xs">
                             <thead>
@@ -321,7 +323,7 @@
                 <div class="border border-gray-300 rounded">
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('materials')">
-                            <span class="font-semibold text-lg section-name" id="materials-name-label">Materiały</span>
+                            <span class="font-semibold text-lg section-name" id="materials-name-label">{{ $materialsName }}</span>
                             <svg id="materials-icon" class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </button>
                         <button type="button" onclick="editSectionName('materials')" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
@@ -331,6 +333,7 @@
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                     </div>
+                        <input type="hidden" id="materials-name-input" name="materials_name" value="{{ $materialsName }}">
                     <div id="materials-content" class="p-4 hidden">
                         <table class="w-full mb-4 text-xs">
                             <thead>
@@ -401,7 +404,15 @@
                 <!-- Dynamiczne sekcje niestandardowe -->
                 <div id="custom-sections-container">
                     @if(isset($offer->custom_sections) && is_array($offer->custom_sections))
-                        @foreach($offer->custom_sections as $sectionIndex => $customSection)
+                        @php
+                            $customSectionsList = [];
+                            foreach($offer->custom_sections as $key => $value) {
+                                if(is_array($value)) {
+                                    $customSectionsList[] = $value;
+                                }
+                            }
+                        @endphp
+                        @foreach($customSectionsList as $sectionIndex => $customSection)
                             <div class="border border-gray-300 rounded mb-4" id="section-custom{{ $sectionIndex + 1 }}">
                                 <div class="flex items-center justify-between p-4 bg-gray-50">
                                     <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('custom{{ $sectionIndex + 1 }}')">
@@ -634,7 +645,15 @@
         
         // Inicjalizuj istniejące sekcje niestandardowe
         @if(isset($offer->custom_sections) && is_array($offer->custom_sections))
-            @foreach($offer->custom_sections as $sectionIndex => $customSection)
+            @php
+                $customSectionsList = [];
+                foreach($offer->custom_sections as $key => $value) {
+                    if(is_array($value)) {
+                        $customSectionsList[] = $value;
+                    }
+                }
+            @endphp
+            @foreach($customSectionsList as $sectionIndex => $customSection)
                 customSections.push({{ $sectionIndex + 1 }});
                 rowCounters['custom{{ $sectionIndex + 1 }}'] = {{ count($customSection['items'] ?? []) }};
             @endforeach

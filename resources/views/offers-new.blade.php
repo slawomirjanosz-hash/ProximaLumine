@@ -93,39 +93,14 @@
                                 // Table doesn't exist yet
                             }
                             
-                            $previewNumber = 'OFF_' . date('Ymd') . '_0001';
+                            // Use preview number from controller if available
+                            if (!isset($previewNumber)) {
+                                $previewNumber = 'OFF_' . date('Ymd') . '_0001';
+                            }
                             $element4Customer = '';
                             $element4Enabled = false;
                             
                             if ($offerSettings) {
-                                $parts = [];
-                                if (($offerSettings->element1_type ?? 'empty') !== 'empty') {
-                                    if ($offerSettings->element1_type === 'text') $parts[] = $offerSettings->element1_value ?? 'TEXT';
-                                    elseif ($offerSettings->element1_type === 'date') $parts[] = date('Ymd');
-                                    elseif ($offerSettings->element1_type === 'time') $parts[] = date('Hi');
-                                }
-                                if (($offerSettings->element2_type ?? 'empty') !== 'empty') {
-                                    if (!empty($parts)) $parts[] = $offerSettings->separator1 ?? '_';
-                                    if ($offerSettings->element2_type === 'text') $parts[] = $offerSettings->element2_value ?? 'TEXT';
-                                    elseif ($offerSettings->element2_type === 'date') $parts[] = date('Ymd');
-                                    elseif ($offerSettings->element2_type === 'time') $parts[] = date('Hi');
-                                }
-                                if (($offerSettings->element3_type ?? 'empty') !== 'empty') {
-                                    if (!empty($parts)) $parts[] = $offerSettings->separator2 ?? '_';
-                                    if ($offerSettings->element3_type === 'text') $parts[] = $offerSettings->element3_value ?? 'TEXT';
-                                    elseif ($offerSettings->element3_type === 'date') $parts[] = date('Ymd');
-                                    elseif ($offerSettings->element3_type === 'time') $parts[] = date('Hi');
-                                    elseif ($offerSettings->element3_type === 'number') $parts[] = str_pad($offerSettings->start_number ?? 1, 4, '0', STR_PAD_LEFT);
-                                }
-                                // Element 4 będzie osobnym polem, nie dodajemy go tutaj
-                                if (($offerSettings->element4_type ?? 'empty') !== 'empty' && $offerSettings->element4_type !== 'customer') {
-                                    if (!empty($parts)) $parts[] = $offerSettings->separator3 ?? '_';
-                                    if ($offerSettings->element4_type === 'text') $parts[] = $offerSettings->element4_value ?? 'TEXT';
-                                    elseif ($offerSettings->element4_type === 'date') $parts[] = date('Ymd');
-                                    elseif ($offerSettings->element4_type === 'time') $parts[] = date('Hi');
-                                    elseif ($offerSettings->element4_type === 'number') $parts[] = str_pad($offerSettings->start_number ?? 1, 4, '0', STR_PAD_LEFT);
-                                }
-                                
                                 // Przygotuj element 4 (klient) osobno
                                 $element4Customer = '';
                                 $element4Enabled = false;
@@ -136,11 +111,8 @@
                                     } elseif (isset($deal) && $deal && $deal->company && $deal->company->name) {
                                         // Fallback: użyj pierwszych 5 znaków nazwy jako skrótu
                                         $element4Customer = strtoupper(substr($deal->company->name, 0, 5));
-                                    } else {
-                                        $element4Customer = 'KLIENT';
                                     }
                                 }
-                                $previewNumber = implode('', $parts);
                             }
                         @endphp
                         <input type="text" name="offer_number_base" id="offer_number_base" value="{{ $previewNumber }}" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" oninput="updateFinalOfferNumber()" required>
@@ -253,6 +225,7 @@
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                     </div>
+                        <input type="hidden" id="services-name-input" name="services_name" value="Usługi">
                     <div id="services-content" class="p-4 hidden">
                         <table class="w-full mb-4 text-xs">
                             <thead>
@@ -313,6 +286,7 @@
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                     </div>
+                        <input type="hidden" id="works-name-input" name="works_name" value="Prace własne">
                     <div id="works-content" class="p-4 hidden">
                         <table class="w-full mb-4 text-xs">
                             <thead>
@@ -373,6 +347,7 @@
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                     </div>
+                        <input type="hidden" id="materials-name-input" name="materials_name" value="Materiały">
                     <div id="materials-content" class="p-4 hidden">
                         <table class="w-full mb-4 text-xs">
                             <thead>

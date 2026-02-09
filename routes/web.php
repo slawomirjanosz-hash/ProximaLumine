@@ -568,7 +568,10 @@ Route::middleware('auth')->get('/wyceny/nowa', function (Illuminate\Http\Request
             \Log::warning('CRM deals not found: ' . $e->getMessage());
         }
 
-        return view('offers-new', ['deal' => $deal, 'companies' => $companies, 'suppliers' => $suppliers, 'deals' => $deals]);
+        // Generate preview number using controller method
+        $previewNumber = app(\App\Http\Controllers\PartController::class)->generateOfferNumber(null, true);
+
+        return view('offers-new', ['deal' => $deal, 'companies' => $companies, 'suppliers' => $suppliers, 'deals' => $deals, 'previewNumber' => $previewNumber]);
     } catch (\Exception $e) {
         \Log::error('Error in /wyceny/nowa: ' . $e->getMessage() . ' | File: ' . $e->getFile() . ' | Line: ' . $e->getLine());
         return response()->json([
@@ -745,19 +748,19 @@ Route::middleware('auth')->post('/wyceny/nowa', function (Illuminate\Http\Reques
     $totalPrice = 0;
     
     $services = collect($request->input('services', []))
-        ->filter(fn($item) => !empty($item['price']))
+        ->filter(fn($item) => !empty($item['name']))
         ->map(function($item) {
             $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
             return $item;
         })->toArray();
     $works = collect($request->input('works', []))
-        ->filter(fn($item) => !empty($item['price']))
+        ->filter(fn($item) => !empty($item['name']))
         ->map(function($item) {
             $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
             return $item;
         })->toArray();
     $materials = collect($request->input('materials', []))
-        ->filter(fn($item) => !empty($item['price']))
+        ->filter(fn($item) => !empty($item['name']))
         ->map(function($item) {
             $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
             return $item;
@@ -793,7 +796,11 @@ Route::middleware('auth')->post('/wyceny/nowa', function (Illuminate\Http\Reques
         'services' => $services,
         'works' => $works,
         'materials' => $materials,
-        'custom_sections' => $customSections,
+        'custom_sections' => array_merge($customSections, [
+            'services_name' => $request->input('services_name', 'Usługi'),
+            'works_name' => $request->input('works_name', 'Prace własne'),
+            'materials_name' => $request->input('materials_name', 'Materiały'),
+        ]),
         'total_price' => $totalPrice,
         'status' => $request->input('destination'),
         'crm_deal_id' => $request->input('crm_deal_id'),
@@ -805,6 +812,25 @@ Route::middleware('auth')->post('/wyceny/nowa', function (Illuminate\Http\Reques
         'customer_phone' => $request->input('customer_phone'),
         'customer_email' => $request->input('customer_email')
     ]);
+    
+    // Inkrementuj numer oferty w ustawieniach
+    try {
+        $offerSettings = \DB::table('offer_settings')->first();
+        if ($offerSettings) {
+            $hasNumberElement = ($offerSettings->element1_type ?? '') === 'number' 
+                || ($offerSettings->element2_type ?? '') === 'number'
+                || ($offerSettings->element3_type ?? '') === 'number'
+                || ($offerSettings->element4_type ?? '') === 'number';
+                
+            if ($hasNumberElement) {
+                \DB::table('offer_settings')->update([
+                    'start_number' => ($offerSettings->start_number ?? 1) + 1
+                ]);
+            }
+        }
+    } catch (\Exception $e) {
+        \Log::warning('Could not increment offer number: ' . $e->getMessage());
+    }
     
     $destination = $request->input('destination');
     $routeName = $destination === 'portfolio' ? 'offers.portfolio' : 'offers.inprogress';
@@ -919,7 +945,12 @@ Route::middleware('auth')->get('/wyceny/{offer}/edit', function (\App\Models\Off
         \Log::warning('CRM deals not found: ' . $e->getMessage());
     }
 
-    return view('offers-edit', compact('offer', 'companies', 'suppliers', 'deals'));
+    $customSections = $offer->custom_sections ?? [];
+    $servicesName = $customSections['services_name'] ?? 'Usługi';
+    $worksName = $customSections['works_name'] ?? 'Prace własne';
+    $materialsName = $customSections['materials_name'] ?? 'Materiały';
+
+    return view('offers-edit', compact('offer', 'companies', 'suppliers', 'deals', 'servicesName', 'worksName', 'materialsName'));
 })->name('offers.edit');
 
 Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Request $request, \App\Models\Offer $offer) {
@@ -975,7 +1006,11 @@ Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Requ
         'services' => $services,
         'works' => $works,
         'materials' => $materials,
-        'custom_sections' => $customSections,
+        'custom_sections' => array_merge($customSections, [
+            'services_name' => $request->input('services_name', 'Usługi'),
+            'works_name' => $request->input('works_name', 'Prace własne'),
+            'materials_name' => $request->input('materials_name', 'Materiały'),
+        ]),
         'total_price' => $totalPrice,
         'status' => $request->input('destination'),
         'crm_deal_id' => $request->input('crm_deal_id'),

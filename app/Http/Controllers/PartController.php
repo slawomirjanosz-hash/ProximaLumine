@@ -2213,7 +2213,7 @@ class PartController extends Controller
     }
 
     // GENERUJ NUMER OFERTY NA PODSTAWIE USTAWIEŃ
-    public function generateOfferNumber($customerShortName = null)
+    public function generateOfferNumber($customerShortName = null, $previewOnly = false)
     {
         $offerSettings = \DB::table('offer_settings')->first();
         
@@ -2261,16 +2261,18 @@ class PartController extends Controller
         
         $offerNumber = implode('', $parts);
         
-        // Inkrementuj numer jeśli jakiś element to 'number'
-        $hasNumberElement = ($offerSettings->element1_type ?? '') === 'number' 
-            || ($offerSettings->element2_type ?? '') === 'number'
-            || ($offerSettings->element3_type ?? '') === 'number'
-            || ($offerSettings->element4_type ?? '') === 'number';
-            
-        if ($hasNumberElement) {
-            \DB::table('offer_settings')->update([
-                'start_number' => ($offerSettings->start_number ?? 1) + 1
-            ]);
+        // Inkrementuj numer jeśli jakiś element to 'number' i nie jest to tylko podgląd
+        if (!$previewOnly) {
+            $hasNumberElement = ($offerSettings->element1_type ?? '') === 'number' 
+                || ($offerSettings->element2_type ?? '') === 'number'
+                || ($offerSettings->element3_type ?? '') === 'number'
+                || ($offerSettings->element4_type ?? '') === 'number';
+                
+            if ($hasNumberElement) {
+                \DB::table('offer_settings')->update([
+                    'start_number' => ($offerSettings->start_number ?? 1) + 1
+                ]);
+            }
         }
         
         return $offerNumber;
@@ -2290,7 +2292,7 @@ class PartController extends Controller
                 $number = $settings->start_number ?? 1;
                 return str_pad($number, 4, '0', STR_PAD_LEFT);
             case 'customer':
-                return $customerShortName ?? 'KLIENT';
+                return $customerShortName ?? '';
             default:
                 return '';
         }
