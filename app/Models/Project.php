@@ -1,7 +1,3 @@
-    public function ganttTasks()
-    {
-        return $this->hasMany(\App\Models\GanttTask::class, 'project_id');
-    }
 <?php
 
 namespace App\Models;
@@ -57,5 +53,10 @@ class Project extends Model
     public function tasks()
     {
         return $this->hasMany(ProjectTask::class)->orderBy('sort_order');
+    }
+
+    public function ganttTasks()
+    {
+        return $this->hasMany(\App\Models\GanttTask::class, 'project_id');
     }
 }

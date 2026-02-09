@@ -1036,6 +1036,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Załaduj zadania z bazy przy starcie
     loadTasksFromDB().then(() => {
         renderGantt();
+    });
     
     document.querySelectorAll('.frappe-view-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -1162,14 +1163,17 @@ document.addEventListener('DOMContentLoaded', function() {
         alert('✅ Kolejność zadań została zapisana!');
     });
     
-    document.getElementById('frappe-clear-all').addEventListener('click', function() {
-        if (confirm('Czy na pewno chcesz usunąć wszystkie zadania?')) {
-            Promise.all(frappeTasks.map(t => deleteTaskFromDB(t.id))).then(() => {
-                frappeTasks = [];
-                renderGantt();
-            });
-        }
-    });
+    const clearAllBtn = document.getElementById('frappe-clear-all');
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', function() {
+            if (confirm('Czy na pewno chcesz usunąć wszystkie zadania?')) {
+                Promise.all(frappeTasks.map(t => deleteTaskFromDB(t.id))).then(() => {
+                    frappeTasks = [];
+                    renderGantt();
+                });
+            }
+        });
+    }
     
     document.addEventListener('dblclick', function(e) {
         const barWrapper = e.target.closest('.bar-wrapper');
