@@ -1,3 +1,7 @@
+    public function ganttTasks()
+    {
+        return $this->hasMany(\App\Models\GanttTask::class, 'project_id');
+    }
 <?php
 
 namespace App\Models;

@@ -1207,3 +1207,12 @@ Route::middleware('auth')->group(function () {
     Route::put('/projekty/{project}/gantt/tasks/{task}', [PartController::class, 'updateGanttTask'])->name('magazyn.projects.gantt.updateTask')->middleware('auth');
     Route::delete('/projekty/{project}/gantt/tasks/{task}', [PartController::class, 'deleteGanttTask'])->name('magazyn.projects.gantt.deleteTask')->middleware('auth');
 });
+
+// Gantt Frappe API
+Route::middleware(['auth'])->prefix('api/gantt')->group(function () {
+    Route::get('/{project}', [\App\Http\Controllers\GanttTaskController::class, 'index']);
+    Route::post('/{project}', [\App\Http\Controllers\GanttTaskController::class, 'store']);
+    Route::put('/{project}/{id}', [\App\Http\Controllers\GanttTaskController::class, 'update']);
+    Route::delete('/{project}/{id}', [\App\Http\Controllers\GanttTaskController::class, 'destroy']);
+    Route::post('/{project}/reorder', [\App\Http\Controllers\GanttTaskController::class, 'reorder']);
+});

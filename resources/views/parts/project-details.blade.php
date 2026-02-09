@@ -603,9 +603,11 @@
             <button id="frappe-save-tasks" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm font-semibold">
                 💾 Zapisz zmiany
             </button>
+            @if(auth()->user() && auth()->user()->is_admin)
             <button id="frappe-clear-all" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm font-semibold">
                 🗑️ Wyczyść wszystko
             </button>
+            @endif
         </div>
     </div>
     
@@ -702,6 +704,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
     
+    const PROJECT_ID = {{ $project->id }};
+    const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
     let frappeGanttInstance = null;
     let frappeTasks = [];
     let editingTaskId = null;
@@ -725,16 +729,30 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function saveTasks() {
-        const tasksToSave = frappeTasks.map(t => ({
+        // Zapisz zadania do bazy danych przez API
+        const tasksToSave = frappeTasks.map((t, index) => ({
             id: t.id,
             name: t.name,
             start: t.start instanceof Date ? t.start.toISOString().split('T')[0] : t.start,
             end: t.end instanceof Date ? t.end.toISOString().split('T')[0] : t.end,
             progress: t.progress || 0,
-            dependencies: t.dependencies || ''
+            dependencies: t.dependencies || '',
+            order: index
         }));
-        localStorage.setItem('frappeTasks', JSON.stringify(tasksToSave));
-        console.log('💾 Zapisano zadania:', tasksToSave);
+        
+        fetch(`/api/gantt/${PROJECT_ID}/reorder`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN
+            },
+            body: JSON.stringify({ order: tasksToSave.map(t => t.id) })
+        }).then(response => {
+            if (!response.ok) throw new Error('Błąd zapisu kolejności');
+            console.log('💾 Zapisano kolejność zadań');
+        }).catch(error => {
+            console.error('❌ Błąd zapisu:', error);
+        });
     }
     
     function updateDependencySelect() {
@@ -810,7 +828,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 bar_corner_radius: 3,
                 arrow_curve: 5,
                 padding: 18,
-                view_mode: 'Day',
+                view_mode: 'Month',
                 date_format: 'YYYY-MM-DD',
                 language: 'en',
                 custom_popup_html: function(task) {
@@ -828,7 +846,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (taskIndex !== -1) {
                         frappeTasks[taskIndex].start = start;
                         frappeTasks[taskIndex].end = end;
-                        saveTasks();
+                        // Zapisz zmianę do API
+                        updateTaskInDB(task.id, { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] });
                         renderTaskList();
                     }
                 },
@@ -836,7 +855,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     const taskIndex = frappeTasks.findIndex(t => t.id === task.id);
                     if (taskIndex !== -1) {
                         frappeTasks[taskIndex].progress = progress;
-                        saveTasks();
+                        // Zapisz zmianę do API
+                        updateTaskInDB(task.id, { progress: progress });
                         renderTaskList();
                     }
                 },
@@ -931,38 +951,91 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    try { 
-        const savedTasks = JSON.parse(localStorage.getItem('frappeTasks')||'[]'); 
-        if (savedTasks && savedTasks.length > 0) {
-            frappeTasks = savedTasks.map(t => ({
-                id: t.id,
+    // Funkcje pomocnicze dla API
+    function loadTasksFromDB() {
+        return fetch(`/api/gantt/${PROJECT_ID}`, {
+            headers: { 'X-CSRF-TOKEN': CSRF_TOKEN }
+        })
+        .then(response => response.json())
+        .then(tasks => {
+            frappeTasks = tasks.map(t => ({
+                id: t.id.toString(),
                 name: t.name,
                 start: parseDate(t.start),
                 end: parseDate(t.end),
                 progress: t.progress || 0,
                 dependencies: t.dependencies || ''
             }));
-        } else {
-            const today = new Date();
-            const nextWeek = new Date(today);
-            nextWeek.setDate(today.getDate() + 7);
-            const twoWeeks = new Date(today);
-            twoWeeks.setDate(today.getDate() + 14);
-            const threeWeeks = new Date(today);
-            threeWeeks.setDate(today.getDate() + 21);
-            frappeTasks = [
-                {id: 'task_1', name: 'Planowanie projektu', start: today, end: nextWeek, progress: 100, dependencies: ''},
-                {id: 'task_2', name: 'Implementacja funkcji', start: nextWeek, end: twoWeeks, progress: 50, dependencies: 'task_1'},
-                {id: 'task_3', name: 'Testowanie', start: twoWeeks, end: threeWeeks, progress: 0, dependencies: 'task_2'}
-            ];
-            saveTasks();
-        }
-    } catch(e) {
-        console.error('❌ Błąd localStorage:', e);
-        frappeTasks = [];
+            console.log('✅ Załadowano zadania z bazy:', frappeTasks);
+        })
+        .catch(error => {
+            console.error('❌ Błąd ładowania zadań:', error);
+            frappeTasks = [];
+        });
     }
     
-    renderGantt();
+    function updateTaskInDB(taskId, data) {
+        return fetch(`/api/gantt/${PROJECT_ID}/${taskId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Błąd aktualizacji');
+            console.log('✅ Zaktualizowano zadanie:', taskId);
+        })
+        .catch(error => {
+            console.error('❌ Błąd aktualizacji zadania:', error);
+        });
+    }
+    
+    function deleteTaskFromDB(taskId) {
+        return fetch(`/api/gantt/${PROJECT_ID}/${taskId}`, {
+            method: 'DELETE',
+            headers: { 'X-CSRF-TOKEN': CSRF_TOKEN }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Błąd usuwania');
+            console.log('✅ Usunięto zadanie:', taskId);
+        })
+        .catch(error => {
+            console.error('❌ Błąd usuwania zadania:', error);
+        });
+    }
+    
+    function createTaskInDB(task) {
+        return fetch(`/api/gantt/${PROJECT_ID}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN
+            },
+            body: JSON.stringify({
+                name: task.name,
+                start: task.start instanceof Date ? task.start.toISOString().split('T')[0] : task.start,
+                end: task.end instanceof Date ? task.end.toISOString().split('T')[0] : task.end,
+                progress: task.progress || 0,
+                dependencies: task.dependencies || '',
+                order: frappeTasks.length
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('✅ Utworzono zadanie:', data);
+            return data;
+        })
+        .catch(error => {
+            console.error('❌ Błąd tworzenia zadania:', error);
+            throw error;
+        });
+    }
+    
+    // Załaduj zadania z bazy przy starcie
+    loadTasksFromDB().then(() => {
+        renderGantt();
     
     document.querySelectorAll('.frappe-view-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -1021,14 +1094,15 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.getElementById('modal-delete-task').addEventListener('click', function() {
         if (editingTaskId && confirm('Czy na pewno chcesz usunąć to zadanie?')) {
-            frappeTasks = frappeTasks.filter(t => t.id !== editingTaskId);
-            // Usuń zależności do tego zadania
-            frappeTasks.forEach(t => {
-                if (t.dependencies === editingTaskId) t.dependencies = '';
+            deleteTaskFromDB(editingTaskId).then(() => {
+                frappeTasks = frappeTasks.filter(t => t.id != editingTaskId);
+                // Usuń zależności do tego zadania
+                frappeTasks.forEach(t => {
+                    if (t.dependencies == editingTaskId) t.dependencies = '';
+                });
+                renderGantt();
+                hideTaskModal();
             });
-            saveTasks();
-            renderGantt();
-            hideTaskModal();
         }
     });
     
@@ -1042,40 +1116,58 @@ document.addEventListener('DOMContentLoaded', function() {
         const dependency = document.getElementById('task-dependency-input').value;
         
         if (editingTaskId) {
-            const taskIndex = frappeTasks.findIndex(t => t.id === editingTaskId);
+            const taskIndex = frappeTasks.findIndex(t => t.id == editingTaskId);
             if (taskIndex !== -1) {
                 frappeTasks[taskIndex].name = name;
                 frappeTasks[taskIndex].start = start;
                 frappeTasks[taskIndex].end = end;
                 frappeTasks[taskIndex].progress = progress;
                 frappeTasks[taskIndex].dependencies = dependency;
+                updateTaskInDB(editingTaskId, {
+                    name: name,
+                    start: start.toISOString().split('T')[0],
+                    end: end.toISOString().split('T')[0],
+                    progress: progress,
+                    dependencies: dependency
+                }).then(() => {
+                    renderGantt();
+                    hideTaskModal();
+                });
             }
         } else {
-            frappeTasks.push({
-                id: 'task_' + Date.now(),
+            const newTask = {
                 name: name,
                 start: start,
                 end: end,
                 progress: progress,
                 dependencies: dependency
+            };
+            createTaskInDB(newTask).then(data => {
+                frappeTasks.push({
+                    id: data.id.toString(),
+                    name: data.name,
+                    start: parseDate(data.start),
+                    end: parseDate(data.end),
+                    progress: data.progress,
+                    dependencies: data.dependencies || ''
+                });
+                renderGantt();
+                hideTaskModal();
             });
         }
-        
-        saveTasks();
-        renderGantt();
-        hideTaskModal();
     });
     
     document.getElementById('frappe-save-tasks').addEventListener('click', function() {
         saveTasks();
-        alert('✅ Wszystkie zmiany zostały zapisane!');
+        alert('✅ Kolejność zadań została zapisana!');
     });
     
     document.getElementById('frappe-clear-all').addEventListener('click', function() {
         if (confirm('Czy na pewno chcesz usunąć wszystkie zadania?')) {
-            frappeTasks = [];
-            saveTasks();
-            renderGantt();
+            Promise.all(frappeTasks.map(t => deleteTaskFromDB(t.id))).then(() => {
+                frappeTasks = [];
+                renderGantt();
+            });
         }
     });
     
