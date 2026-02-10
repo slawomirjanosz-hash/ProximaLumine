@@ -138,6 +138,7 @@
                 'show_price' => true,
                 'show_category' => true,
                 'show_quantity' => true,
+                'show_unit' => true,
                 'show_minimum' => true,
                 'show_location' => true,
                 'show_user' => true,
@@ -183,6 +184,11 @@
                 @if($catalogSettings->show_quantity)
                 <th class="border p-1 text-center cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="quantity" style="width: 3rem;">
                     Stan <span class="sort-icon">▲</span>
+                </th>
+                @endif
+                @if($catalogSettings->show_unit)
+                <th class="border p-1 text-center cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="unit" style="width: 4rem;">
+                    Jedn. <span class="sort-icon">▲</span>
                 </th>
                 @endif
                 @if($catalogSettings->show_minimum)
@@ -273,6 +279,13 @@
                     {{-- STAN --}}
                     <td class="border p-2 text-center font-bold text-xs {{ $p->quantity <= $p->minimum_stock ? 'bg-red-200' : '' }}">
                         {{ $p->quantity }}
+                    </td>
+                    @endif
+
+                    @if($catalogSettings->show_unit)
+                    {{-- JEDNOSTKA --}}
+                    <td class="border p-2 text-center text-xs text-gray-700">
+                        {{ $p->unit ?? '-' }}
                     </td>
                     @endif
 
@@ -385,6 +398,7 @@
                                     data-part-name="{{ $p->name }}"
                                     data-part-description="{{ $p->description ?? '' }}"
                                     data-part-quantity="{{ $p->quantity }}"
+                                    data-part-unit="{{ $p->unit ?? '' }}"
                                     data-part-minimum-stock="{{ $p->minimum_stock ?? 0 }}"
                                     data-part-location="{{ $p->location ?? '' }}"
                                     data-part-price="{{ $p->net_price ?? '' }}"
@@ -530,6 +544,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const partName = btn.getAttribute('data-part-name');
         const partDescription = btn.getAttribute('data-part-description') || '';
         const partQuantity = btn.getAttribute('data-part-quantity') || 0;
+        const partUnit = btn.getAttribute('data-part-unit') || '';
         const partMinimumStock = btn.getAttribute('data-part-minimum-stock') || 0;
         const partLocation = btn.getAttribute('data-part-location') || '';
         const partPrice = btn.getAttribute('data-part-price') || '';
@@ -586,6 +601,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div>
                             <label class="block text-sm font-medium mb-2">Ilość *</label>
                             <input type="number" name="quantity" value="${partQuantity}" min="0" required class="w-full px-3 py-2 border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Jednostka</label>
+                            <input type="text" name="unit" value="${partUnit}" maxlength="20" class="w-full px-3 py-2 border rounded" placeholder="szt., opak., mb, l">
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-2">Stan minimalny</label>

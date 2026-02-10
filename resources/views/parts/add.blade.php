@@ -46,7 +46,7 @@
                         class="border p-2 rounded w-full"
                     >
                 </div>
-                {{-- ILOŚĆ, STAN MIN., LOKALIZACJA --}}
+                {{-- ILOŚĆ, STAN MIN., JEDNOSTKA, LOKALIZACJA --}}
                 <div class="flex gap-2">
                     <div class="flex-1">
                         <label class="block text-sm font-semibold mb-1">Ilość *</label>
@@ -58,6 +58,17 @@
                             class="border p-2 rounded w-full"
                             required
                             placeholder="Ilość"
+                        >
+                    </div>
+                    <div style="width: 120px;">
+                        <label class="block text-sm font-semibold mb-1">Jednostka</label>
+                        <input
+                            name="unit"
+                            type="text"
+                            maxlength="20"
+                            class="border p-2 rounded w-full"
+                            placeholder="szt., opak., mb, l"
+                            title="Jednostka miary (szt., opak., mb, l, itp.)"
                         >
                     </div>
                     <div class="flex-1">
@@ -308,9 +319,11 @@
                             <li><strong>Cena</strong> - cena netto (opcjonalne, może zawierać przecinek lub kropkę)</li>
                             <li><strong>Waluta</strong> - PLN, zł, EUR, Euro, $ (opcjonalne)</li>
                             <li><strong>Kategoria</strong> - nazwa kategorii (opcjonalne)</li>
-                            <li><strong>Ilość</strong> - ilość do dodania (opcjonalne, domyślnie 1, może być 0)</li>
-                            <li><strong>Stan minimalny</strong> - minimalny stan magazynowy (opcjonalne, domyślnie 0)</li>
+                            <li><strong>Ilość</strong> / <strong>Stan</strong> - ilość/stan magazynowy (opcjonalne, domyślnie 1, może być 0)</li>
+                            <li><strong>Jednostka</strong> / <strong>Jedn.</strong> - jednostka miary: szt., opak., mb, l (opcjonalne)</li>
                             <li><strong>Lok.</strong> - lokalizacja w magazynie (opcjonalne, max 10 znaków)</li>
+                            <li><strong>Stan minimalny</strong> / <strong>Stan min.</strong> / <strong>Min</strong> - minimalny stan magazynowy (opcjonalne, domyślnie 0)</li>
+                            <li><strong>User</strong> / <strong>Użytkownik</strong> - skrócona nazwa użytkownika (opcjonalne)</li>
                         </ul>
                     </div>
 
@@ -322,61 +335,45 @@
                                     <tr>
                                         <th class="border border-gray-300 p-2 text-left">Produkty</th>
                                         <th class="border border-gray-300 p-2 text-left">Opis</th>
-                                        <th class="border border-gray-300 p-2 text-left">Dost.</th>
-                                        <th class="border border-gray-300 p-2 text-right">Cena</th>
-                                        <th class="border border-gray-300 p-2 text-left">Waluta</th>
                                         <th class="border border-gray-300 p-2 text-left">Kategoria</th>
-                                        <th class="border border-gray-300 p-2 text-center">Ilość</th>
-                                        <th class="border border-gray-300 p-2 text-center">Stan min.</th>
+                                        <th class="border border-gray-300 p-2 text-center">Stan</th>
+                                        <th class="border border-gray-300 p-2 text-center">Jednostka</th>
                                         <th class="border border-gray-300 p-2 text-center">Lok.</th>
+                                        <th class="border border-gray-300 p-2 text-center">Stan min.</th>
+                                        <th class="border border-gray-300 p-2 text-left">User</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
                                         <td class="border border-gray-300 p-2">6AV2128-3GB06-0AX1</td>
-                                        <td class="border border-gray-300 p-2">SIMATIC HMI TP1200, UNIFIED COMFORT PANEL, PANORAMICZNY DOTYKOWY</td>
-                                        <td class="border border-gray-300 p-2">Siemens</td>
-                                        <td class="border border-gray-300 p-2 text-right">1 388,56</td>
-                                        <td class="border border-gray-300 p-2">Euro</td>
+                                        <td class="border border-gray-300 p-2">SIMATIC HMI TP1200</td>
                                         <td class="border border-gray-300 p-2">Automatyka</td>
                                         <td class="border border-gray-300 p-2 text-center">2</td>
-                                        <td class="border border-gray-300 p-2 text-center">5</td>
+                                        <td class="border border-gray-300 p-2 text-center">szt.</td>
                                         <td class="border border-gray-300 p-2 text-center">I/0</td>
+                                        <td class="border border-gray-300 p-2 text-center">5</td>
+                                        <td class="border border-gray-300 p-2">JanKow</td>
                                     </tr>
                                     <tr>
-                                        <td class="border border-gray-300 p-2">6AV2124-0JC01-0AX0</td>
-                                        <td class="border border-gray-300 p-2">SIMATIC TP900 COMFORT PANEL, PANORAMICZNY DOTYKOWY W ŚWIATŁACH</td>
-                                        <td class="border border-gray-300 p-2">Siemens</td>
-                                        <td class="border border-gray-300 p-2 text-right">1 161,83</td>
-                                        <td class="border border-gray-300 p-2">Euro</td>
-                                        <td class="border border-gray-300 p-2">Automatyka</td>
-                                        <td class="border border-gray-300 p-2 text-center">2</td>
-                                        <td class="border border-gray-300 p-2 text-center">0</td>
+                                        <td class="border border-gray-300 p-2">Kabel LIYY 5x0.5mm2</td>
+                                        <td class="border border-gray-300 p-2">Kabel sterowniczy ekranowany</td>
+                                        <td class="border border-gray-300 p-2">Kable</td>
+                                        <td class="border border-gray-300 p-2 text-center">150</td>
+                                        <td class="border border-gray-300 p-2 text-center">mb</td>
                                         <td class="border border-gray-300 p-2 text-center">M/0</td>
+                                        <td class="border border-gray-300 p-2 text-center">20</td>
+                                        <td class="border border-gray-300 p-2">-</td>
                                     </tr>
                                     <tr>
-                                        <td class="border border-gray-300 p-2">6ES7223-1BH32-0XB0</td>
-                                        <td class="border border-gray-300 p-2">SIMATIC S7-1200, CPU 1212C AC/DC/RDY, 14 I/O</td>
-                                        <td class="border border-gray-300 p-2">Siemens</td>
-                                        <td class="border border-gray-300 p-2 text-right">103,06</td>
-                                        <td class="border border-gray-300 p-2">Euro</td>
-                                        <td class="border border-gray-300 p-2">Automatyka</td>
-                                        <td class="border border-gray-300 p-2 text-center">8</td>
+                                        <td class="border border-gray-300 p-2">Taśma izolacyjna 3M</td>
+                                        <td class="border border-gray-300 p-2">Taśma izolacyjna czarna</td>
+                                        <td class="border border-gray-300 p-2">Materiały</td>
+                                        <td class="border border-gray-300 p-2 text-center">5</td>
+                                        <td class="border border-gray-300 p-2 text-center">opak.</td>
+                                        <td class="border border-gray-300 p-2 text-center">M1</td>
                                         <td class="border border-gray-300 p-2 text-center">2</td>
-                                        <td class="border border-gray-300 p-2 text-center">M1</td>
+                                        <td class="border border-gray-300 p-2">-</td>
                                     </tr>
-                                    <tr>
-                                        <td class="border border-gray-300 p-2">6ES7217-1AG40-0XB0</td>
-                                        <td class="border border-gray-300 p-2">SIMATIC S7-1200, CPU 1217C DC/DC/DC, INTERFEJS PROFINET (2 X RJ 45), 14</td>
-                                        <td class="border border-gray-300 p-2">Siemens</td>
-                                        <td class="border border-gray-300 p-2 text-right">487,71</td>
-                                        <td class="border border-gray-300 p-2">Euro</td>
-                                        <td class="border border-gray-300 p-2">Automatyka</td>
-                                        <td class="border border-gray-300 p-2 text-center">4</td>
-                                        <td class="border border-gray-300 p-2 text-center">1</td>
-                                        <td class="border border-gray-300 p-2 text-center">M1</td>
-                                    </tr>
-                                    <tr>
                                         <td class="border border-gray-300 p-2">6ES7214-1AG40-0XB0</td>
                                         <td class="border border-gray-300 p-2">SIMATIC S7-1200, CPU 1214C DC/DC/DC, 14 I/O</td>
                                         <td class="border border-gray-300 p-2">Siemens</td>
@@ -385,29 +382,14 @@
                                         <td class="border border-gray-300 p-2">Automatyka</td>
                                         <td class="border border-gray-300 p-2 text-center">0</td>
                                         <td class="border border-gray-300 p-2 text-center">0</td>
-                                        <td class="border border-gray-300 p-2 text-center">M1</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="border border-gray-300 p-2">6ES7215-1AG40-0XB0</td>
-                                        <td class="border border-gray-300 p-2">SIMATIC S7-1200, CPU 1215C DC/DC/DC, INTERFEJS PROFINET (2 X RJ 45), 14</td>
-                                        <td class="border border-gray-300 p-2">Siemens</td>
-                                        <td class="border border-gray-300 p-2 text-right">337,84</td>
-                                        <td class="border border-gray-300 p-2">Euro</td>
-                                        <td class="border border-gray-300 p-2">Automatyka</td>
-                                        <td class="border border-gray-300 p-2 text-center">0</td>
-                                        <td class="border border-gray-300 p-2 text-center">0</td>
-                                        <td class="border border-gray-300 p-2 text-center">M1</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="border border-gray-300 p-2">6ES7212-1AE40-0XB0</td>
-                                        <td class="border border-gray-300 p-2">SIMATIC S7-1200, CPU 1212C DC/DC/DC, 8 DI/6 DO/2 AI, WYXSC</td>
-                                        <td class="border border-gray-300 p-2">Siemens</td>
-                                        <td class="border border-gray-300 p-2 text-right">148,32</td>
-                                        <td class="border border-gray-300 p-2">Euro</td>
-                                        <td class="border border-gray-300 p-2">Automatyka</td>
+                                        <td class="border border-gray-300 p-2">Taśma izolacyjna 3M</td>
+                                        <td class="border border-gray-300 p-2">Taśma izolacyjna czarna</td>
+                                        <td class="border border-gray-300 p-2">Materiały</td>
                                         <td class="border border-gray-300 p-2 text-center">5</td>
-                                        <td class="border border-gray-300 p-2 text-center">3</td>
+                                        <td class="border border-gray-300 p-2 text-center">opak.</td>
                                         <td class="border border-gray-300 p-2 text-center">M1</td>
+                                        <td class="border border-gray-300 p-2 text-center">2</td>
+                                        <td class="border border-gray-300 p-2">-</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -417,8 +399,11 @@
                     <div class="mb-4 bg-blue-50 border border-blue-200 rounded p-3">
                         <h4 class="font-semibold mb-2 text-blue-800">💡 Ważne informacje:</h4>
                         <ul class="list-disc list-inside text-sm text-blue-700 space-y-1">
+                            <li>Tylko kolumna <strong>Produkty</strong> jest wymagana - reszta jest opcjonalna</li>
+                            <li>Jeśli kolumny nie ma w pliku, system użyje wartości domyślnej (np. ilość=1, stan min=0)</li>
                             <li>Jeśli produkt już istnieje w bazie (ta sama nazwa), zostanie zwiększona tylko ilość</li>
                             <li>Dla istniejących produktów kod QR nie zostanie zmieniony</li>
+                            <li>Dostawca i użytkownik muszą istnieć w bazie (można użyć skrótów)</li>
                             <li>Ceny mogą zawierać przecinek lub kropkę jako separator dziesiętny</li>
                             <li>Waluty są rozpoznawane automatycznie: zł/PLN, Euro/EUR, $/USD</li>
                             <li>Kod QR zostanie automatycznie wygenerowany dla nowych produktów</li>
@@ -535,7 +520,12 @@
                                        data-part-cat="{{ $p->category_id }}"
                                        data-part-cat-name="{{ $p->category->name ?? '' }}"
                                        data-part-price="{{ $p->net_price ?? '' }}"
-                                       data-part-currency="{{ $p->currency ?? 'PLN' }}">
+                                       data-part-currency="{{ $p->currency ?? 'PLN' }}"
+                                       data-part-unit="{{ $p->unit ?? '' }}"
+                                       data-part-location="{{ $p->location ?? '' }}"
+                                       data-part-minimum-stock="{{ $p->minimum_stock ?? 0 }}"
+                                       data-part-qr-code="{{ $p->qr_code ?? '' }}"
+                                       data-part-last-modified-by="{{ $p->last_modified_by ?? '' }}">
                             </td>
                             <td class="border p-2">{{ $p->name }}</td>
                             <td class="border p-2 text-xs text-gray-700">{{ $p->description ?? '-' }}</td>
@@ -857,6 +847,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     formData.append('net_price', productPrice);
                 }
                 formData.append('currency', productCurrency);
+                
+                // Dodaj dodatkowe pola jeśli są dostępne w selectedProducts
+                if (selectedProducts[productName]) {
+                    if (selectedProducts[productName].unit) formData.append('unit', selectedProducts[productName].unit);
+                    if (selectedProducts[productName].location) formData.append('location', selectedProducts[productName].location);
+                    if (selectedProducts[productName].minimum_stock !== undefined) formData.append('minimum_stock', selectedProducts[productName].minimum_stock);
+                    if (selectedProducts[productName].qr_code) formData.append('qr_code', selectedProducts[productName].qr_code);
+                    if (selectedProducts[productName].last_modified_by) formData.append('last_modified_by', selectedProducts[productName].last_modified_by);
+                }
 
                 console.log('Wysyłam żądanie dodania:', {name: productName, qty, cat: productCategoryId, supplier: productSupplier, price: productPrice, currency: productCurrency});
 
@@ -953,6 +952,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const productCatName = checkbox.dataset.partCatName || '';
             const productPrice = checkbox.dataset.partPrice || '';
             const productCurrency = checkbox.dataset.partCurrency || 'PLN';
+            const productUnit = checkbox.dataset.partUnit || '';
+            const productLocation = checkbox.dataset.partLocation || '';
+            const productMinimumStock = parseInt(checkbox.dataset.partMinimumStock) || 0;
+            const productQrCode = checkbox.dataset.partQrCode || '';
+            const productLastModifiedBy = checkbox.dataset.partLastModifiedBy || '';
             
             if (checkbox.checked) {
                 selectedProducts[productName] = {
@@ -964,7 +968,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     categoryId: productCat,
                     categoryName: productCatName,
                     netPrice: productPrice,
-                    currency: productCurrency
+                    currency: productCurrency,
+                    unit: productUnit,
+                    location: productLocation,
+                    minimum_stock: productMinimumStock,
+                    qr_code: productQrCode,
+                    last_modified_by: productLastModifiedBy
                 };
             } else {
                 delete selectedProducts[productName];
@@ -1044,6 +1053,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     formData.append('net_price', data.netPrice);
                 }
                 formData.append('currency', data.currency || 'PLN');
+                
+                // Dodaj dodatkowe pola jeśli są dostępne
+                if (data.unit) formData.append('unit', data.unit);
+                if (data.location) formData.append('location', data.location);
+                if (data.minimum_stock !== undefined) formData.append('minimum_stock', data.minimum_stock);
+                if (data.qr_code) formData.append('qr_code', data.qr_code);
+                if (data.last_modified_by) formData.append('last_modified_by', data.last_modified_by);
 
                 fetch('{{ route('parts.add') }}', {
                     method: 'POST',
@@ -1080,9 +1096,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const categorySelect = row.querySelector('select[name*="[category_id]"]');
                 const quantityInput = row.querySelector('input[name*="[quantity]"]');
                 const descriptionInput = row.querySelector('input[name*="[description]"]');
+                const unitInput = row.querySelector('input[name*="[unit]"]');
                 const locationInput = row.querySelector('input[name*="[location]"]');
                 const qrCodeInput = row.querySelector('input[name*="[qr_code]"]');
                 const minStockInput = row.querySelector('input[name*="[minimum_stock]"]');
+                const lastModifiedByInput = row.querySelector('input[name*="[last_modified_by]"]');
                 
                 if (nameInput) formData.append('name', nameInput.value);
                 if (supplierSelect) formData.append('supplier', supplierSelect.value);
@@ -1091,9 +1109,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (categorySelect) formData.append('category_id', categorySelect.value);
                 if (quantityInput) formData.append('quantity', quantityInput.value);
                 if (descriptionInput) formData.append('description', descriptionInput.value);
+                if (unitInput) formData.append('unit', unitInput.value);
                 if (locationInput) formData.append('location', locationInput.value);
                 if (qrCodeInput) formData.append('qr_code', qrCodeInput.value);
                 if (minStockInput) formData.append('minimum_stock', minStockInput.value);
+                if (lastModifiedByInput) formData.append('last_modified_by', lastModifiedByInput.value);
 
                 fetch('{{ route('parts.add') }}', {
                     method: 'POST',
@@ -1833,8 +1853,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Dodaj ukryte pola dla innych danych
         const hiddenFields = [
             `<input type="hidden" name="catalog_products[${rowCount}][description]" value="${escapeHtml(product.description || '')}">`,
+            `<input type="hidden" name="catalog_products[${rowCount}][unit]" value="${escapeHtml(product.unit || '')}">`,
             `<input type="hidden" name="catalog_products[${rowCount}][location]" value="${escapeHtml(product.location || '')}">`,
             `<input type="hidden" name="catalog_products[${rowCount}][minimum_stock]" value="${product.minimum_stock || 0}">`,
+            `<input type="hidden" name="catalog_products[${rowCount}][last_modified_by]" value="${product.last_modified_by || ''}">`,
             `<input type="hidden" name="catalog_products[${rowCount}][qr_code]" value="${escapeHtml(product.qr_code || '')}">`
         ].join('');
         

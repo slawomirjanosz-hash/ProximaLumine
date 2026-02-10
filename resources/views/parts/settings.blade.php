@@ -1601,12 +1601,14 @@
                                 'show_price' => true,
                                 'show_category' => true,
                                 'show_quantity' => true,
+                                'show_unit' => true,
                                 'show_minimum' => true,
                                 'show_location' => true,
                                 'show_user' => true,
                                 'show_actions' => true,
                                 'show_qr_code' => false,
                                 'show_qr_description' => false,
+                                'export_all_products' => true,
                             ];
                         }
                     @endphp
@@ -1646,6 +1648,11 @@
                             </label>
                             
                             <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="show_unit" value="1" {{ $catalogSettings->show_unit ? 'checked' : '' }} class="w-4 h-4">
+                                <span class="text-sm">Jednostka</span>
+                            </label>
+                            
+                            <label class="flex items-center space-x-2 cursor-pointer">
                                 <input type="checkbox" name="show_minimum" value="1" {{ $catalogSettings->show_minimum ? 'checked' : '' }} class="w-4 h-4">
                                 <span class="text-sm">Min</span>
                             </label>
@@ -1673,6 +1680,16 @@
                             <label class="flex items-center space-x-2 cursor-pointer">
                                 <input type="checkbox" name="show_qr_description" value="1" {{ $catalogSettings->show_qr_description ? 'checked' : '' }} class="w-4 h-4">
                                 <span class="text-sm">Opis kodu</span>
+                            </label>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <div class="space-y-2">
+                            <p class="text-sm font-semibold text-gray-700 mb-2">Ustawienia eksportu:</p>
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="export_all_products" value="1" {{ $catalogSettings->export_all_products ?? true ? 'checked' : '' }} class="w-4 h-4">
+                                <span class="text-sm">Eksportuj <strong>wszystkie</strong> produkty (jeśli niezaznaczone, eksport uwzględnia filtry wyszukiwania)</span>
                             </label>
                         </div>
                         

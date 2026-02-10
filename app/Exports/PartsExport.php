@@ -34,8 +34,10 @@ class PartsExport implements FromCollection, WithHeadings, ShouldAutoSize, WithE
                 'Waluta' => $p->currency ?? '-',
                 'kategoria' => $p->category->name ?? '-',
                 'ilość' => $p->quantity,
+                'jednostka' => $p->unit ?? '-',
                 'lok.' => $p->location ?? '-',
                 'Min' => $p->minimum_stock,
+                'user' => $p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-',
                 'kod' => $p->qr_code ?? '-',
             ];
         })->toArray());
@@ -43,7 +45,7 @@ class PartsExport implements FromCollection, WithHeadings, ShouldAutoSize, WithE
 
     public function headings(): array
     {
-        return ['produkt', 'opis', 'Dost.', 'Cena', 'Waluta', 'kategoria', 'ilość', 'lok.', 'Min', 'kod'];
+        return ['produkt', 'opis', 'Dost.', 'Cena', 'Waluta', 'kategoria', 'ilość', 'jednostka', 'lok.', 'Min', 'user', 'kod'];
     }
 
     public function registerEvents(): array

@@ -608,25 +608,31 @@ class PartController extends Controller
     // EKSPORT DO EXCELA (CSV)
     public function export(Request $request)
     {
-        $query = Part::with('category')->orderBy('name');
+        // Pobierz ustawienia katalogu
+        $catalogSettings = \DB::table('catalog_columns_settings')->first();
+        $exportAll = $catalogSettings && isset($catalogSettings->export_all_products) 
+            ? $catalogSettings->export_all_products 
+            : true;
 
-        // Jeśli są zaznaczone IDs (z checkboxów lub filtrów), filtruj tylko te
+        $query = Part::with(['category', 'lastModifiedBy'])->orderBy('name');
+
+        // Jeśli są zaznaczone IDs (z checkboxów), filtruj tylko te
         if ($request->filled('selected_ids')) {
             $ids = array_filter(explode(',', $request->selected_ids));
             $query->whereIn('id', $ids);
         } elseif ($request->filled('ids')) {
             $ids = array_filter(explode(',', $request->ids));
             $query->whereIn('id', $ids);
-        } else {
-            // W przeciwnym razie stosuj filtry
+        } elseif (!$exportAll) {
+            // Jeśli ustawienie export_all_products jest wyłączone, stosuj filtry
             if ($request->filled('search')) {
                 $query->where('name', 'like', '%' . $request->search . '%');
             }
-
             if ($request->filled('category_id')) {
                 $query->where('category_id', $request->category_id);
             }
         }
+        // Jeśli export_all_products jest włączone i nie ma zaznaczonych ID, pobierz wszystko
 
         $parts = $query->get();
 
@@ -641,7 +647,7 @@ class PartController extends Controller
             fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
             // Tell Excel to use semicolon as separator
             fwrite($output, "sep=;\r\n");
-            fputcsv($output, ['Nazwa', 'Opis', 'Kategoria', 'Stan'], ';');
+            fputcsv($output, ['Nazwa', 'Opis', 'Kategoria', 'Stan', 'Jednostka', 'Stan min.', 'Lokalizacja', 'Użytkownik'], ';');
 
             foreach ($parts as $p) {
                 // Ensure description is a single line: replace newlines with spaces and collapse multiple spaces
@@ -652,6 +658,10 @@ class PartController extends Controller
                     $description,
                     $p->category->name ?? '-',
                     $p->quantity,
+                    $p->unit ?? '-',
+                    $p->minimum_stock ?? 0,
+                    $p->location ?? '-',
+                    $p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-',
                 ], ';');
             }
 
@@ -670,25 +680,31 @@ class PartController extends Controller
                 ->with('error', 'Brak pakietu "maatwebsite/excel". Zainstaluj go: composer require maatwebsite/excel');
         }
 
-        $query = Part::with('category')->orderBy('name');
+        // Pobierz ustawienia katalogu
+        $catalogSettings = \DB::table('catalog_columns_settings')->first();
+        $exportAll = $catalogSettings && isset($catalogSettings->export_all_products) 
+            ? $catalogSettings->export_all_products 
+            : true;
 
-        // Jeśli są zaznaczone IDs (z checkboxów lub filtrów), filtruj tylko te
+        $query = Part::with(['category', 'lastModifiedBy'])->orderBy('name');
+
+        // Jeśli są zaznaczone IDs (z checkboxów), filtruj tylko te
         if ($request->filled('selected_ids')) {
             $ids = array_filter(explode(',', $request->selected_ids));
             $query->whereIn('id', $ids);
         } elseif ($request->filled('ids')) {
             $ids = array_filter(explode(',', $request->ids));
             $query->whereIn('id', $ids);
-        } else {
-            // W przeciwnym razie stosuj filtry
+        } elseif (!$exportAll) {
+            // Jeśli ustawienie export_all_products jest wyłączone, stosuj filtry
             if ($request->filled('search')) {
                 $query->where('name', 'like', '%' . $request->search . '%');
             }
-
             if ($request->filled('category_id')) {
                 $query->where('category_id', $request->category_id);
             }
         }
+        // Jeśli export_all_products jest włączone i nie ma zaznaczonych ID, pobierz wszystko
 
         $parts = $query->get();
 
@@ -708,25 +724,31 @@ class PartController extends Controller
                 ->with('error', 'Brak pakietu "phpoffice/phpword". Zainstaluj go: composer require phpoffice/phpword');
         }
 
-        $query = Part::with('category')->orderBy('name');
+        // Pobierz ustawienia katalogu
+        $catalogSettings = \DB::table('catalog_columns_settings')->first();
+        $exportAll = $catalogSettings && isset($catalogSettings->export_all_products) 
+            ? $catalogSettings->export_all_products 
+            : true;
 
-        // Jeśli są zaznaczone IDs (z checkboxów lub filtrów), filtruj tylko te
+        $query = Part::with(['category', 'lastModifiedBy'])->orderBy('name');
+
+        // Jeśli są zaznaczone IDs (z checkboxów), filtruj tylko te
         if ($request->filled('selected_ids')) {
             $ids = array_filter(explode(',', $request->selected_ids));
             $query->whereIn('id', $ids);
         } elseif ($request->filled('ids')) {
             $ids = array_filter(explode(',', $request->ids));
             $query->whereIn('id', $ids);
-        } else {
-            // W przeciwnym razie stosuj filtry
+        } elseif (!$exportAll) {
+            // Jeśli ustawienie export_all_products jest wyłączone, stosuj filtry
             if ($request->filled('search')) {
                 $query->where('name', 'like', '%' . $request->search . '%');
             }
-
             if ($request->filled('category_id')) {
                 $query->where('category_id', $request->category_id);
             }
         }
+        // Jeśli export_all_products jest włączone i nie ma zaznaczonych ID, pobierz wszystko
 
         $parts = $query->get();
 
@@ -813,13 +835,19 @@ class PartController extends Controller
             // Include header text length ("Kategoria" = 9 chars, "Stan" = 4 chars) so headers don't wrap
             $maxCategoryLen = max(9, collect($parts)->map(function ($p) { return mb_strlen($p->category->name ?? '-', 'UTF-8'); })->max() ?: 1);
             $maxStanLen = max(4, collect($parts)->map(function ($p) { return mb_strlen((string)($p->quantity ?? ''), 'UTF-8'); })->max() ?: 1);
+            $maxUnitLen = max(5, collect($parts)->map(function ($p) { return mb_strlen($p->unit ?? '-', 'UTF-8'); })->max() ?: 1);
             $maxStanMinLen = max(9, collect($parts)->map(function ($p) { return mb_strlen((string)($p->minimum_stock ?? ''), 'UTF-8'); })->max() ?: 1);
+            $maxLocationLen = max(4, collect($parts)->map(function ($p) { return mb_strlen($p->location ?? '-', 'UTF-8'); })->max() ?: 1);
+            $maxUserLen = max(4, collect($parts)->map(function ($p) { return mb_strlen($p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-', 'UTF-8'); })->max() ?: 1);
 
             // Approximate width per character in Word (dxa); use higher multiplier for bold headers with padding
             $charWidth = 220; // increased for bold text + centered alignment + padding
             $categoryWidth = max(900, $maxCategoryLen * $charWidth);
             $stanWidth = max(1100, $maxStanLen * $charWidth); // increased minimum to ensure "Stan" header fits
+            $unitWidth = max(1000, $maxUnitLen * $charWidth);
             $stanMinWidth = max(1300, $maxStanMinLen * $charWidth); // "Stan min." = 9 chars
+            $locationWidth = max(1000, $maxLocationLen * $charWidth);
+            $userWidth = max(1000, $maxUserLen * $charWidth);
 
             // header row (modern gray with white text)
             $table->addRow();
@@ -827,11 +855,14 @@ class PartController extends Controller
             $headerFont = ['bold' => true, 'color' => 'FFFFFF'];
 
             // Use calculated widths for Kategoria and Stan; keep Opis as-is
-            $table->addCell(4500, $cellStyleHeader)->addText('Nazwa', $headerFont);
-            $table->addCell(8500, $cellStyleHeader)->addText('Opis', $headerFont);
+            $table->addCell(3500, $cellStyleHeader)->addText('Nazwa', $headerFont);
+            $table->addCell(6000, $cellStyleHeader)->addText('Opis', $headerFont);
             $table->addCell($categoryWidth, $cellStyleHeader)->addText('Kategoria', $headerFont, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $table->addCell($stanWidth, $cellStyleHeader)->addText('Stan', $headerFont, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $table->addCell($unitWidth, $cellStyleHeader)->addText('Jedn.', $headerFont, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $table->addCell($stanMinWidth, $cellStyleHeader)->addText('Stan min.', $headerFont, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $table->addCell($locationWidth, $cellStyleHeader)->addText('Lok.', $headerFont, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $table->addCell($userWidth, $cellStyleHeader)->addText('User', $headerFont, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
 
             $rowIndex = 0;
             foreach ($parts as $p) {
@@ -840,11 +871,14 @@ class PartController extends Controller
                 // alternating subtle gray rows
                 $cellStyle = ($rowIndex % 2 === 0) ? ['bgColor' => 'F3F4F6'] : [];
 
-                $table->addCell(4500, $cellStyle)->addText($p->name);
-                $table->addCell(8500, $cellStyle)->addText($p->description ?? '-');
+                $table->addCell(3500, $cellStyle)->addText($p->name);
+                $table->addCell(6000, $cellStyle)->addText($p->description ?? '-');
                 $table->addCell($categoryWidth, $cellStyle)->addText($p->category->name ?? '-', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
                 $table->addCell($stanWidth, $cellStyle)->addText((string)$p->quantity, null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $table->addCell($unitWidth, $cellStyle)->addText($p->unit ?? '-', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
                 $table->addCell($stanMinWidth, $cellStyle)->addText((string)$p->minimum_stock, null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $table->addCell($locationWidth, $cellStyle)->addText($p->location ?? '-', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $table->addCell($userWidth, $cellStyle)->addText($p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             }
 
             $temp = tempnam(sys_get_temp_dir(), 'word');
@@ -941,12 +975,14 @@ class PartController extends Controller
                 'description' => 'nullable|string',
                 'supplier'    => 'nullable|string',
                 'quantity'    => 'required|integer|min:0',
+                'unit'        => 'nullable|string|max:20',
                 'minimum_stock' => 'nullable|integer|min:0',
                 'location'    => 'nullable|string|max:10',
                 'category_id' => 'required|exists:categories,id',
                 'net_price'   => 'nullable|numeric|min:0',
                 'currency'    => 'nullable|in:PLN,EUR,$',
                 'qr_code'     => 'nullable|string',
+                'last_modified_by' => 'nullable|exists:users,id',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Log::error('Błąd walidacji podczas dodawania produktu', [
@@ -974,6 +1010,7 @@ class PartController extends Controller
                     'description' => $data['description'] ?? null,
                     'supplier'    => $data['supplier'] ?? null,
                     'quantity'    => 0,
+                    'unit'        => $data['unit'] ?? null,
                     'minimum_stock' => $data['minimum_stock'] ?? 0,
                     'location'    => $data['location'] ?? null,
                     'net_price'   => $data['net_price'] ?? null,
@@ -994,6 +1031,9 @@ class PartController extends Controller
             }
             if (array_key_exists('minimum_stock', $data)) {
                 $part->minimum_stock = $data['minimum_stock'];
+            }
+            if (array_key_exists('unit', $data)) {
+                $part->unit = $data['unit'];
             }
             if (array_key_exists('location', $data)) {
                 $part->location = $data['location'];
@@ -1029,7 +1069,9 @@ class PartController extends Controller
             $part->quantity += (int) $data['quantity'];
             
             // przypisanie użytkownika, który dodał/zmodyfikował produkt
-            $part->last_modified_by = auth()->id();
+            // Jeśli last_modified_by jest przekazany (np. z importu Excel), użyj go
+            // W przeciwnym razie użyj aktualnie zalogowanego użytkownika
+            $part->last_modified_by = $data['last_modified_by'] ?? auth()->id();
             
             $part->save();
 
@@ -1288,6 +1330,7 @@ class PartController extends Controller
             'category_id' => 'required|exists:categories,id',
             'description' => 'nullable|string',
             'quantity' => 'required|integer|min:0',
+            'unit' => 'nullable|string|max:20',
             'minimum_stock' => 'nullable|integer|min:0',
             'location' => 'nullable|string|max:10',
             'net_price' => 'nullable|numeric|min:0',
@@ -1300,6 +1343,7 @@ class PartController extends Controller
             'category_id' => $request->category_id,
             'description' => $request->description,
             'quantity' => $request->quantity,
+            'unit' => $request->unit,
             'minimum_stock' => $request->minimum_stock ?? 0,
             'location' => $request->location,
             'net_price' => $request->net_price,
@@ -2113,12 +2157,14 @@ class PartController extends Controller
             'show_price' => $request->has('show_price'),
             'show_category' => $request->has('show_category'),
             'show_quantity' => $request->has('show_quantity'),
+            'show_unit' => $request->has('show_unit'),
             'show_minimum' => $request->has('show_minimum'),
             'show_location' => $request->has('show_location'),
             'show_user' => $request->has('show_user'),
             'show_actions' => $request->has('show_actions'),
             'show_qr_code' => $request->has('show_qr_code'),
             'show_qr_description' => $request->has('show_qr_description'),
+            'export_all_products' => $request->has('export_all_products'),
         ];
 
         // Usuń wszystkie poprzednie ustawienia i stwórz nowe (zawsze tylko 1 rekord)
@@ -3545,37 +3591,53 @@ class PartController extends Controller
             // Zakładamy że pierwszy wiersz to nagłówki
             $headers = array_shift($rows);
             
-            // Normalizuj nagłówki (lowercase, bez białych znaków)
-            $headers = array_map(function($h) {
-                return strtolower(trim($h));
-            }, $headers);
+            // Funkcja do normalizacji nagłówków (lowercase, bez białych znaków, kropek, polskich znaków)
+            $normalizeHeader = function($header) {
+                $header = strtolower(trim($header));
+                $header = str_replace(['.', ',', ';', ':', ' '], '', $header);
+                $header = str_replace(['ą','ć','ę','ł','ń','ó','ś','ź','ż'],
+                    ['a','c','e','l','n','o','s','z','z'], $header);
+                return $header;
+            };
 
-            // Mapowanie kolumn (elastyczne nazwy)
+            // Normalizuj nagłówki
+            $normalizedHeaders = array_map($normalizeHeader, $headers);
+            \Log::info('Nagłówki z pliku Excel', ['headers' => $normalizedHeaders]);
+
+            // Mapowanie kolumn (elastyczne nazwy, normalizowane)
             $columnMap = [
                 'produkty' => ['produkty', 'produkt', 'nazwa', 'name'],
                 'opis' => ['opis', 'description', 'desc'],
-                'dost' => ['dost', 'dost.', 'dostawca', 'supplier'],
-                'cena' => ['cena', 'price', 'net_price', 'cena netto'],
+                'dost' => ['dost', 'dostawca', 'supplier'],
+                'cena' => ['cena', 'price', 'net_price', 'cenanetto'],
                 'waluta' => ['waluta', 'currency', 'curr'],
                 'kategoria' => ['kategoria', 'category', 'kat'],
-                'ilosc' => ['ilość', 'ilosc', 'quantity', 'qty', 'sztuk'],
-                'lokalizacja' => ['lok', 'lok.', 'lokalizacja', 'location', 'miejsce'],
+                'ilosc' => ['ilosc', 'ilosc', 'quantity', 'qty', 'sztuk', 'stan'],
+                'jednostka' => ['jednostka', 'jedn', 'unit'],
+                'lokalizacja' => ['lok', 'lokalizacja', 'location', 'miejsce'],
                 'minimum_stock' => [
-                    'stan minimalny', 'stan min', 'min', 'minimum_stock', 'min_stan', 'min. stan', 'min.'
+                    'stanminimalny', 'stanmin', 'min', 'minimumstock', 'minstan', 'minstan', 'min', 'stanmin'
                 ],
-                'qr_code' => ['kod', 'qr', 'qr_code', 'qr kod', 'kod qr', 'barcode', 'kod kreskowy'],
+                'user' => ['user', 'uzytkownik', 'modifiedby', 'lastmodifiedby'],
+                'qr_code' => ['kod', 'qr', 'qrcode', 'qrkod', 'kodqr', 'barcode', 'kodkreskowy'],
             ];
+
+            // Normalizuj możliwe nazwy
+            foreach ($columnMap as $key => $names) {
+                $columnMap[$key] = array_map($normalizeHeader, $names);
+            }
 
             // Znajdź indeksy kolumn
             $colIndexes = [];
             foreach ($columnMap as $key => $possibleNames) {
-                foreach ($headers as $index => $header) {
+                foreach ($normalizedHeaders as $index => $header) {
                     if (in_array($header, $possibleNames)) {
                         $colIndexes[$key] = $index;
                         break;
                     }
                 }
             }
+            \Log::info('Znalezione kolumny', ['colIndexes' => $colIndexes]);
 
             // Sprawdź czy znaleziono kolumnę z nazwą produktu
             if (!isset($colIndexes['produkty'])) {
@@ -3672,8 +3734,10 @@ class PartController extends Controller
                 
                 $categoryName = isset($colIndexes['kategoria']) ? trim($row[$colIndexes['kategoria']] ?? '') : '';
                 $quantity = isset($colIndexes['ilosc']) ? intval($row[$colIndexes['ilosc']] ?? 1) : 1;
+                $unit = isset($colIndexes['jednostka']) ? trim($row[$colIndexes['jednostka']] ?? '') : '';
                 $location = isset($colIndexes['lokalizacja']) ? trim($row[$colIndexes['lokalizacja']] ?? '') : '';
                 $minimumStock = isset($colIndexes['minimum_stock']) ? intval($row[$colIndexes['minimum_stock']] ?? 0) : 0;
+                $userName = isset($colIndexes['user']) ? trim($row[$colIndexes['user']] ?? '') : '';
                 $qrCodeFromExcel = isset($colIndexes['qr_code']) ? trim($row[$colIndexes['qr_code']] ?? '') : '';
 
                 // Znajdź ID kategorii
@@ -3737,6 +3801,25 @@ class PartController extends Controller
                     }
                 }
 
+                // Znajdź użytkownika na podstawie short_name
+                $userId = null;
+                if (!empty($userName)) {
+                    $user = \App\Models\User::where('short_name', $userName)->first();
+                    if ($user) {
+                        $userId = $user->id;
+                    } else {
+                        \Log::warning('Użytkownik nie znaleziony w bazie', [
+                            'product' => $productName,
+                            'user_name' => $userName
+                        ]);
+                    }
+                }
+                
+                // Jeśli nie znaleziono użytkownika w Excel, użyj obecnego zalogowanego użytkownika
+                if (!$userId) {
+                    $userId = auth()->id();
+                }
+
                 // Sprawdź czy produkt już istnieje w bazie
                 $existingPart = Part::where('name', $productName)->first();
                 
@@ -3769,8 +3852,10 @@ class PartController extends Controller
                     'currency' => $currency,
                     'category_id' => $categoryId,
                     'quantity' => $quantity,
+                    'unit' => $unit ?: null,
                     'location' => $location ?: null,
                     'minimum_stock' => $minimumStock,
+                    'last_modified_by' => $userId,
                     'qr_code' => $qrCode,
                     'is_existing' => $existingPart ? true : false
                 ];
