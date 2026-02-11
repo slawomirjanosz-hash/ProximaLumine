@@ -707,6 +707,10 @@
                 <input type="date" id="task-start-input" class="w-full border rounded px-3 py-2" required>
             </div>
             <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Ilość dni (łącznie z weekendami)</label>
+                <input type="number" id="task-duration-input" class="w-full border rounded px-3 py-2" min="1" value="1">
+            </div>
+            <div class="mb-4">
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Data zakończenia</label>
                 <input type="date" id="task-end-input" class="w-full border rounded px-3 py-2" required>
             </div>
@@ -841,6 +845,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('task-name-input').value = task.name;
                 document.getElementById('task-start-input').value = formatDateForInput(task.start);
                 document.getElementById('task-end-input').value = formatDateForInput(task.end);
+                const duration = Math.ceil((task.end - task.start) / (1000 * 60 * 60 * 24)) + 1;
+                document.getElementById('task-duration-input').value = duration;
                 document.getElementById('task-progress-input').value = task.progress || 0;
                 deleteBtn.style.display = 'inline-block';
             }
@@ -848,10 +854,9 @@ document.addEventListener('DOMContentLoaded', function() {
             title.textContent = 'Dodaj nowe zadanie';
             form.reset();
             const today = new Date();
-            const nextWeek = new Date(today);
-            nextWeek.setDate(today.getDate() + 7);
             document.getElementById('task-start-input').value = formatDateForInput(today);
-            document.getElementById('task-end-input').value = formatDateForInput(nextWeek);
+            document.getElementById('task-end-input').value = formatDateForInput(today);
+            document.getElementById('task-duration-input').value = 1;
             document.getElementById('task-progress-input').value = 0;
             deleteBtn.style.display = 'none';
         }
@@ -863,6 +868,62 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         modal.classList.remove('hidden');
+        
+        // Dodaj event listenery dla pól daty i dni
+        setupDateDurationListeners();
+    }
+    
+    function setupDateDurationListeners() {
+        const startInput = document.getElementById('task-start-input');
+        const endInput = document.getElementById('task-end-input');
+        const durationInput = document.getElementById('task-duration-input');
+        
+        // Usuń stare listenery (jeśli były)
+        const newStartInput = startInput.cloneNode(true);
+        const newEndInput = endInput.cloneNode(true);
+        const newDurationInput = durationInput.cloneNode(true);
+        startInput.parentNode.replaceChild(newStartInput, startInput);
+        endInput.parentNode.replaceChild(newEndInput, endInput);
+        durationInput.parentNode.replaceChild(newDurationInput, durationInput);
+        
+        // Zmiana daty rozpoczęcia → data końcowa nie może być wcześniej
+        newStartInput.addEventListener('change', function() {
+            const start = parseDate(this.value);
+            const end = parseDate(newEndInput.value);
+            
+            // Jeśli data końcowa jest wcześniejsza niż początkowa, ustaw ją na początkową
+            if (end < start) {
+                newEndInput.value = this.value;
+            }
+            
+            // Przelicz ilość dni
+            const duration = Math.ceil((parseDate(newEndInput.value) - start) / (1000 * 60 * 60 * 24)) + 1;
+            newDurationInput.value = Math.max(1, duration);
+        });
+        
+        // Zmiana ilości dni → przelicz datę końcową
+        newDurationInput.addEventListener('input', function() {
+            const start = parseDate(newStartInput.value);
+            const duration = parseInt(this.value) || 1;
+            const end = new Date(start);
+            end.setDate(end.getDate() + duration - 1);
+            newEndInput.value = formatDateForInput(end);
+        });
+        
+        // Zmiana daty końcowej → przelicz ilość dni
+        newEndInput.addEventListener('change', function() {
+            const start = parseDate(newStartInput.value);
+            const end = parseDate(this.value);
+            
+            // Data końcowa nie może być wcześniej niż początkowa
+            if (end < start) {
+                this.value = newStartInput.value;
+                newDurationInput.value = 1;
+            } else {
+                const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+                newDurationInput.value = Math.max(1, duration);
+            }
+        });
     }
     
     function hideTaskModal() {
@@ -1124,10 +1185,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         try {
             const exportData = frappeTasks.map(task => {
-                const depTask = task.dependencies ? frappeTasks.find(t => t.id === task.dependencies) : null;
+                // Naprawiona logika wyszukiwania zadania zależności
+                const depTask = task.dependencies ? frappeTasks.find(t => t.id.toString() === task.dependencies.toString()) : null;
                 const startDate = task.start instanceof Date ? task.start : parseDate(task.start);
                 const endDate = task.end instanceof Date ? task.end : parseDate(task.end);
-                const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+                const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
                 return {
                     'Nazwa zadania': task.name,
                     'Data rozpoczęcia': startDate.toLocaleDateString('pl-PL'),
