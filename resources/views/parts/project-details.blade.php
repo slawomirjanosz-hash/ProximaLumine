@@ -1179,11 +1179,39 @@ document.addEventListener('DOMContentLoaded', function() {
         if (editingTaskId) {
             const taskIndex = frappeTasks.findIndex(t => t.id == editingTaskId);
             if (taskIndex !== -1) {
+                // Oblicz różnicę w dniach dla zadań zależnych
+                const oldStart = frappeTasks[taskIndex].start;
+                const oldEnd = frappeTasks[taskIndex].end;
+                const startDiff = Math.floor((start - oldStart) / (1000 * 60 * 60 * 24));
+                const endDiff = Math.floor((end - oldEnd) / (1000 * 60 * 60 * 24));
+                
                 frappeTasks[taskIndex].name = name;
                 frappeTasks[taskIndex].start = start;
                 frappeTasks[taskIndex].end = end;
                 frappeTasks[taskIndex].progress = progress;
                 frappeTasks[taskIndex].dependencies = dependency;
+                
+                // Przesuń wszystkie zadania zależne od tego zadania
+                if (startDiff !== 0 || endDiff !== 0) {
+                    frappeTasks.forEach((task, idx) => {
+                        if (task.dependencies === editingTaskId) {
+                            const newTaskStart = new Date(task.start);
+                            const newTaskEnd = new Date(task.end);
+                            newTaskStart.setDate(newTaskStart.getDate() + endDiff);
+                            newTaskEnd.setDate(newTaskEnd.getDate() + endDiff);
+                            
+                            frappeTasks[idx].start = newTaskStart;
+                            frappeTasks[idx].end = newTaskEnd;
+                            
+                            // Zapisz zmiany w bazie dla zadania zależnego
+                            updateTaskInDB(task.id, {
+                                start: newTaskStart.toISOString().split('T')[0],
+                                end: newTaskEnd.toISOString().split('T')[0]
+                            });
+                        }
+                    });
+                }
+                
                 updateTaskInDB(editingTaskId, {
                     name: name,
                     start: start.toISOString().split('T')[0],
