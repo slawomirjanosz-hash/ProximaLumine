@@ -348,6 +348,32 @@
             this.classList.add('bg-blue-500', 'text-white', 'active-tab');
         });
     });
+    
+    // Obsługa parametrów GET z menu
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+    const addParam = urlParams.get('add');
+    
+    // Jeśli parametr add=1, rozwiń sekcję "Dodaj Projekt"
+    if (addParam === '1') {
+        const addProjectBtn = document.querySelector('[data-target="add-project-content"]');
+        const addProjectContent = document.getElementById('add-project-content');
+        const addProjectArrow = addProjectBtn.querySelector('.toggle-arrow');
+        
+        if (addProjectContent && addProjectContent.classList.contains('hidden')) {
+            addProjectContent.classList.remove('hidden');
+            addProjectArrow.textContent = '▼';
+        }
+    }
+    
+    // Jeśli parametr status, przełącz na odpowiednią zakładkę
+    if (status === 'in_progress') {
+        document.getElementById('btn-in-progress').click();
+    } else if (status === 'warranty') {
+        document.getElementById('btn-warranty').click();
+    } else if (status === 'archived') {
+        document.getElementById('btn-archived').click();
+    }
 
     // Funkcja do aktualizacji przycisku usuwania
     function setupDeleteSection(section) {

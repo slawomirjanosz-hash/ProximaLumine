@@ -615,6 +615,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             <input type="text" name="location" value="${partLocation}" maxlength="10" class="w-full px-3 py-2 border rounded" placeholder="np. A1, B2">
                         </div>
                         <div>
+                            <label class="block text-sm font-medium mb-2">Kod QR/Barcode</label>
+                            <input type="text" name="qr_code" value="${partQrCode}" maxlength="255" class="w-full px-3 py-2 border rounded" placeholder="Wprowadź lub zeskanuj kod">
+                        </div>
+                        <div>
                             <label class="block text-sm font-medium mb-2">Cena netto</label>
                             <input type="number" name="net_price" step="0.01" min="0" value="${partPrice}" class="w-full px-3 py-2 border rounded" placeholder="0.00">
                         </div>

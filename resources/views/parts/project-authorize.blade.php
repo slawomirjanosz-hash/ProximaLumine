@@ -24,33 +24,64 @@
     <div class="bg-blue-50 border border-blue-200 rounded p-4 mb-6">
         <h3 class="font-semibold text-blue-900 mb-2">📋 Instrukcja:</h3>
         <ol class="list-decimal list-inside text-sm text-blue-800 space-y-1">
-            <li>Kliknij w pole poniżej lub skieruj skaner na pole</li>
-            <li>Zeskanuj kod QR produktu</li>
-            <li>System automatycznie autoryzuje produkt i odejmie go ze stanu magazynowego</li>
+            <li>Kliknij przycisk "Zacznij autoryzację" poniżej</li>
+            <li>Zeskanuj kod QR produktu (system automatycznie rozpozna kod)</li>
+            <li>Prawidłowy kod zostanie automatycznie zautoryzowany</li>
+            <li>Błędny kod wyświetli ostrzeżenie - potwierdź aby skanować dalej</li>
             <li>Każde skanowanie autoryzuje 1 sztukę produktu</li>
         </ol>
     </div>
 
-    {{-- POLE DO SKANOWANIA --}}
-    <div class="mb-6">
-        <label class="block text-lg font-semibold mb-2">Zeskanuj kod QR:</label>
-        <input 
-            type="text" 
-            id="qr-input" 
-            class="w-full px-4 py-3 border-4 border-orange-400 rounded text-2xl font-mono text-center"
-            placeholder="Kliknij tutaj i zeskanuj kod..."
-            autofocus
+    {{-- PRZYCISK START --}}
+    <div class="mb-6 text-center">
+        <button 
+            id="start-scan-btn"
+            class="px-8 py-4 bg-green-600 hover:bg-green-700 text-white text-xl font-bold rounded-lg shadow-lg transition-all"
         >
-        <p class="text-sm text-gray-500 mt-2">💡 Po zeskanowaniu kodu pole wyświetli zeskanowany kod i automatycznie przetworzy autoryzację</p>
-        <div id="last-scanned" class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded hidden">
-            <span class="text-sm font-semibold">Ostatnio zeskanowany kod:</span>
-            <span id="last-scanned-code" class="ml-2 font-mono text-lg text-blue-800"></span>
-        </div>
+            🔍 Zacznij autoryzację
+        </button>
+        <button 
+            id="stop-scan-btn"
+            class="px-8 py-4 bg-red-600 hover:bg-red-700 text-white text-xl font-bold rounded-lg shadow-lg transition-all hidden"
+        >
+            ⏸️ Zatrzymaj skanowanie
+        </button>
+    </div>
+
+    {{-- POLE DO SKANOWANIA (ukryte, tylko do przechwytywania) --}}
+    <input 
+        type="text" 
+        id="qr-input" 
+        class="absolute opacity-0 pointer-events-none"
+        style="left: -9999px;"
+    >
+    
+    {{-- STATUS SKANOWANIA --}}
+    <div id="scan-status" class="mb-6 p-4 rounded hidden">
+        <p class="text-center text-lg font-semibold">
+            <span class="animate-pulse">🔍</span> Oczekiwanie na skan kodu QR...
+        </p>
     </div>
 
     {{-- KOMUNIKATY --}}
     <div id="message-container" class="mb-6 hidden">
-        <div id="message" class="p-4 rounded"></div>
+        <div id="message" class="p-4 rounded text-center text-xl font-bold"></div>
+    </div>
+    
+    {{-- MODAL BŁĘDNEGO KODU --}}
+    <div id="error-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center">
+            <div class="text-6xl mb-4">❌</div>
+            <h3 class="text-2xl font-bold text-red-600 mb-4">BŁĘDNY KOD!</h3>
+            <p class="text-lg mb-2" id="error-code-display"></p>
+            <p class="text-gray-600 mb-6">Ten kod nie należy do żadnego produktu w tym projekcie</p>
+            <button 
+                id="error-confirm-btn"
+                class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg"
+            >
+                OK - Kontynuuj skanowanie
+            </button>
+        </div>
     </div>
 
     {{-- STATYSTYKI --}}
@@ -148,39 +179,100 @@ document.addEventListener('DOMContentLoaded', function() {
     const statUnauthorized = document.getElementById('stat-unauthorized');
     const statAuthorized = document.getElementById('stat-authorized');
     const statScans = document.getElementById('stat-scans');
-    const lastScannedDiv = document.getElementById('last-scanned');
-    const lastScannedCode = document.getElementById('last-scanned-code');
+    const scanStatus = document.getElementById('scan-status');
+    const startBtn = document.getElementById('start-scan-btn');
+    const stopBtn = document.getElementById('stop-scan-btn');
+    const errorModal = document.getElementById('error-modal');
+    const errorCodeDisplay = document.getElementById('error-code-display');
+    const errorConfirmBtn = document.getElementById('error-confirm-btn');
     
     let scansCount = 0;
     let authorizedCount = 0;
     let unauthorizedCount = {{ $removals->sum('quantity') }};
+    let isScanning = false;
+    let scanBuffer = '';
+    let scanTimeout = null;
+    let isProcessing = false;
 
-    input.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            const qrCode = input.value.trim();
-            
-            if (!qrCode) {
-                return;
-            }
+    // Przycisk START
+    startBtn.addEventListener('click', function() {
+        startScanning();
+    });
 
-            // Pokaż zeskanowany kod
-            lastScannedDiv.classList.remove('hidden');
-            lastScannedCode.textContent = qrCode;
+    // Przycisk STOP
+    stopBtn.addEventListener('click', function() {
+        stopScanning();
+    });
 
-            processQRCode(qrCode);
-            
-            // Wyczyść pole po 2 sekundach
-            setTimeout(() => {
-                input.value = '';
-                input.focus();
-            }, 2000);
+    // Obsługa przycisku OK w modalu błędu
+    errorConfirmBtn.addEventListener('click', function() {
+        errorModal.classList.add('hidden');
+        if (isScanning) {
+            input.focus();
+            showScanStatus();
         }
     });
 
+    function startScanning() {
+        isScanning = true;
+        startBtn.classList.add('hidden');
+        stopBtn.classList.remove('hidden');
+        scanStatus.classList.remove('hidden');
+        scanStatus.className = 'mb-6 p-4 rounded bg-blue-100 border-2 border-blue-400';
+        scanStatus.querySelector('p').innerHTML = '<span class="animate-pulse">🔍</span> Oczekiwanie na skan kodu QR...';
+        input.focus();
+        
+        // Włącz nasłuchiwanie klawiatury
+        document.addEventListener('keypress', handleKeyPress);
+    }
+
+    function stopScanning() {
+        isScanning = false;
+        startBtn.classList.remove('hidden');
+        stopBtn.classList.add('hidden');
+        scanStatus.classList.add('hidden');
+        
+        // Wyłącz nasłuchiwanie klawiatury
+        document.removeEventListener('keypress', handleKeyPress);
+    }
+
+    function handleKeyPress(e) {
+        if (!isScanning || isProcessing) return;
+
+        // Jeśli Enter - przetwórz kod
+        if (e.key === 'Enter' || e.keyCode === 13) {
+            e.preventDefault();
+            if (scanBuffer.length > 0) {
+                processQRCode(scanBuffer.trim());
+                scanBuffer = '';
+            }
+            return;
+        }
+
+        // Dodaj znak do bufora
+        scanBuffer += e.key;
+
+        // Zresetuj timeout - skaner zazwyczaj wysyła wszystkie znaki bardzo szybko
+        clearTimeout(scanTimeout);
+        scanTimeout = setTimeout(() => {
+            // Jeśli timeout minie i mamy dane, przetwórz je
+            if (scanBuffer.length > 0) {
+                processQRCode(scanBuffer.trim());
+                scanBuffer = '';
+            }
+        }, 100); // 100ms powinno wystarczyć dla skanera
+    }
+
     async function processQRCode(qrCode) {
+        if (!qrCode || isProcessing) return;
+        
+        isProcessing = true;
         scansCount++;
         statScans.textContent = scansCount;
+
+        // Pokaż status skanowania
+        scanStatus.className = 'mb-6 p-4 rounded bg-yellow-100 border-2 border-yellow-400';
+        scanStatus.querySelector('p').innerHTML = `🔍 Przetwarzanie kodu: <strong class="font-mono">${qrCode}</strong>`;
 
         try {
             const response = await fetch('{{ route("magazyn.projects.authorize.process", $project->id) }}', {
@@ -195,14 +287,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (!response.ok) {
                 const errorData = await response.json();
-                showMessage(errorData.message || 'Błąd serwera', 'error');
+                showErrorModal(qrCode, errorData.message || 'Błąd serwera');
+                isProcessing = false;
                 return;
             }
 
             const data = await response.json();
 
             if (data.success) {
-                showMessage(data.message, 'success');
+                showSuccessMessage(data.message);
                 
                 authorizedCount++;
                 unauthorizedCount--;
@@ -215,34 +308,50 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Jeśli wszystko autoryzowane, pokaż komunikat
                 if (unauthorizedCount === 0) {
+                    stopScanning();
                     setTimeout(() => {
                         if (confirm('Wszystkie produkty zostały autoryzowane! Czy chcesz wrócić do projektu?')) {
                             window.location.href = '{{ route("magazyn.projects.show", $project->id) }}';
                         }
                     }, 1000);
+                } else {
+                    // Kontynuuj skanowanie
+                    setTimeout(() => {
+                        showScanStatus();
+                        input.focus();
+                        isProcessing = false;
+                    }, 1500);
                 }
             } else {
-                showMessage(data.message, 'error');
+                showErrorModal(qrCode, data.message);
+                isProcessing = false;
             }
         } catch (error) {
             console.error('Error:', error);
-            showMessage('Błąd połączenia z serwerem: ' + error.message, 'error');
+            showErrorModal(qrCode, 'Błąd połączenia z serwerem: ' + error.message);
+            isProcessing = false;
         }
     }
 
-    function showMessage(text, type) {
-        messageContainer.classList.remove('hidden');
-        message.textContent = text;
-        
-        if (type === 'success') {
-            message.className = 'p-4 rounded bg-green-100 border border-green-400 text-green-800';
-        } else {
-            message.className = 'p-4 rounded bg-red-100 border border-red-400 text-red-800';
-        }
+    function showSuccessMessage(text) {
+        scanStatus.className = 'mb-6 p-4 rounded bg-green-100 border-2 border-green-400';
+        scanStatus.querySelector('p').innerHTML = `✅ <strong>${text}</strong>`;
+    }
 
-        setTimeout(() => {
-            messageContainer.classList.add('hidden');
-        }, 3000);
+    function showScanStatus() {
+        scanStatus.className = 'mb-6 p-4 rounded bg-blue-100 border-2 border-blue-400';
+        scanStatus.querySelector('p').innerHTML = '<span class="animate-pulse">🔍</span> Oczekiwanie na skan kodu QR...';
+    }
+
+    function showErrorModal(qrCode, errorMessage) {
+        errorCodeDisplay.textContent = `Kod: ${qrCode}`;
+        errorModal.classList.remove('hidden');
+        
+        // Dodaj efekt dźwiękowy jeśli dostępny
+        try {
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZTA0PVLHn7KpYFApFnt/yuW8gBjGB0PPYgy8GHW++7uSaSwwPU7Ho66pYFApGnt/yuW4fBjGB0PTYgS8GHW++7uSbSgwPU7Ho66pYFApGnt/yuW4fBjGB0PTYgS8GHW++7uSbSgwOUbHo7KpZEwpFnt/yuW4fBjCB0PTYgS8GHW++7uSbSgwOUbHo66pZEwpFnt/yuW4fBjCB0PTYgi8FHW++7uSbSgwOUbHo66pZFApFnt/zuG4fBjCB0PTYgi8GHW/A7uSaSgwPULHo66pZFApFnt/zuG4fBjCB0PTYgi8GHW/A7uSaSgwOULHo66pZFApFnt/zuG4fBjCB0PTYgi8FHW++7uSbSgwOUbHo66pZEwpFnt/zuG4fBjCB0PTYgi8FHW++7uSbSgwOUbHo66pZEwpFnt/zuG4fBjCB0PTYgi8FHW++7uSaSgwOUbHo66pZEwpFnt/zuG4fBjCB0PTYgi8FHW++7uSaSgwOUbHo66pZEwpFnt/zuG4fBjCB0PTYgi8FHW++7uSaSgwOUbHo66pZEwpFnt/zuG4fBjCB0PTYgi8FHW++7uSaSgwOUbHo66pZEwpFnt/zuG4fBjCB0PTYgi8FHW++7uSaSgwOUbHo66pZEwpFnt/zuG4fBjCB0PTYgi8FHW++7uSaSgwOUbHo66pZEwpFnt/zuG4fBjCB0PTYgi8FHW++7uSaSgwOUbHo66pZEwpFnt/zuG4fBjCB0PTYgi8FHW++7uSaSgwOUbHo66pZEwpFnt/zuG4fBjCB0PTYgi8FHW++7uSaSgwOUbHo66pZEwpFnt/zuG4fBjCB0PTYgi8FHW++7uSaSgwOUbHo66pZEwpFnt/zuG4fBjCB0PTYgi8FHW++7uSaSgwOUbHo66pZEw==');
+            audio.play().catch(() => {});
+        } catch (e) {}
     }
 
     function updateProductTable(qrCode) {
@@ -268,17 +377,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     unauthorizedCell.classList.remove('text-red-600');
                     unauthorizedCell.classList.add('text-gray-400');
                 }
+                
+                // Animacja migania wiersza
+                row.classList.add('bg-green-200');
+                setTimeout(() => {
+                    row.classList.remove('bg-green-200');
+                    if (newUnauthorized === 0) {
+                        row.classList.add('bg-green-50');
+                    }
+                }, 500);
             }
         }
     }
-
-    // Focus na input przy załadowaniu strony
-    input.focus();
-    
-    // Przywróć focus po kliknięciu w dowolne miejsce
-    document.addEventListener('click', function() {
-        input.focus();
-    });
 });
 </script>
 

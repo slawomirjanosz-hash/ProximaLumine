@@ -679,7 +679,10 @@
         function updateRowNumbers(section) {
             const rows = document.querySelectorAll(`#${section}-table tr`);
             rows.forEach((row, index) => {
-                row.querySelector('input[type="number"][readonly]').value = index + 1;
+                const numberInput = row.querySelector('td:first-child input[type="number"][readonly]');
+                if (numberInput) {
+                    numberInput.value = index + 1;
+                }
             });
         }
 
