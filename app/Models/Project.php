@@ -59,4 +59,9 @@ class Project extends Model
     {
         return $this->hasMany(\App\Models\GanttTask::class, 'project_id');
     }
+
+    public function ganttChanges()
+    {
+        return $this->hasMany(\App\Models\GanttChange::class, 'project_id');
+    }
 }

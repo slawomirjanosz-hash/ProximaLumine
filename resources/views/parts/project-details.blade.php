@@ -638,6 +638,53 @@
     <div id="frappe-task-list" class="mt-8">
         <!-- Lista zadań pojawi się tutaj -->
     </div>
+
+    {{-- Rejestr zmian Gantt --}}
+    <div class="mt-8">
+        <button onclick="toggleGanttChangelog()" class="text-lg font-bold mb-2 text-left hover:text-blue-600 transition-colors flex items-center gap-2">
+            <span id="gantt-changelog-icon">▶</span> Rejestr zmian (Gantt)
+        </button>
+        @php
+            $changes = $project->ganttChanges()->with('user')->orderByDesc('created_at')->get();
+        @endphp
+        <div id="gantt-changelog" class="hidden">
+            @if($changes->count())
+            <div class="overflow-x-auto">
+                <table class="min-w-full border border-collapse text-xs bg-white">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="border p-2">Data</th>
+                            <th class="border p-2">Użytkownik</th>
+                            <th class="border p-2">Akcja</th>
+                            <th class="border p-2">Nazwa zadania</th>
+                            <th class="border p-2">Szczegóły</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($changes as $change)
+                        <tr>
+                            <td class="border p-2 text-center">{{ \Carbon\Carbon::parse($change->created_at)->format('d.m.Y H:i') }}</td>
+                            <td class="border p-2">{{ $change->user ? ($change->user->name ?? $change->user->short_name ?? '-') : '-' }}</td>
+                            <td class="border p-2 text-center">
+                                @if($change->action === 'add') ➕ Dodano
+                                @elseif($change->action === 'edit') ✏️ Edycja
+                                @elseif($change->action === 'delete') ❌ Usunięto
+                                @elseif($change->action === 'move') 🔄 Przesunięto
+                                @else {{ $change->action }}
+                                @endif
+                            </td>
+                            <td class="border p-2">{{ $change->task_name }}</td>
+                            <td class="border p-2">{{ $change->details }}</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            @else
+                <div class="text-gray-500 p-4 text-center">Brak zarejestrowanych zmian w Gantt.</div>
+            @endif
+        </div>
+    </div>
 </div>
 
 {{-- Modal dodawania/edycji zadania --}}
@@ -697,6 +744,13 @@
     }
 </style>
 <script>
+function toggleGanttChangelog() {
+    const content = document.getElementById('gantt-changelog');
+    const icon = document.getElementById('gantt-changelog-icon');
+    content.classList.toggle('hidden');
+    icon.textContent = content.classList.contains('hidden') ? '▶' : '▼';
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof Gantt === 'undefined') {
         console.error('❌ Frappe Gantt nie został załadowany z CDN!');
