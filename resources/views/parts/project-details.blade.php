@@ -640,12 +640,17 @@
     </div>
 
     {{-- Rejestr zmian Gantt --}}
+    @if(method_exists($project, 'ganttChanges'))
     <div class="mt-8">
         <button onclick="toggleGanttChangelog()" class="text-lg font-bold mb-2 text-left hover:text-blue-600 transition-colors flex items-center gap-2">
             <span id="gantt-changelog-icon">▶</span> Rejestr zmian (Gantt)
         </button>
         @php
-            $changes = $project->ganttChanges()->with('user')->orderByDesc('created_at')->get();
+            try {
+                $changes = $project->ganttChanges()->with('user')->orderByDesc('created_at')->get();
+            } catch (\Exception $e) {
+                $changes = collect([]);
+            }
         @endphp
         <div id="gantt-changelog" class="hidden">
             @if($changes->count())
@@ -685,6 +690,7 @@
             @endif
         </div>
     </div>
+    @endif
 </div>
 
 {{-- Modal dodawania/edycji zadania --}}
