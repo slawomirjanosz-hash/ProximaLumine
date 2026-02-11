@@ -37,8 +37,7 @@ RUN php -m && php -i
 #
 # Railway rebuild trigger
 
-CMD php artisan config:clear && php artisan storage:link && php artisan migrate --force && php artisan db:seed --force && php artisan serve --host=0.0.0.0 --port=8080
-
+CMD bash scripts/railway-start.sh
 
 # force rebuild
 # kolejny komentarz na koniec by wymusić rebuild
