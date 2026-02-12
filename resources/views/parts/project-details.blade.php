@@ -50,38 +50,40 @@
     
     {{-- INFORMACJE O PROJEKCIE --}}
     <div class="bg-gray-50 border rounded p-4 mb-6">
-        <div class="grid grid-cols-2 gap-4">
+        <div class="flex flex-wrap items-center gap-6 mb-4">
             <div>
                 <span class="text-sm font-semibold text-gray-600">Nr projektu:</span>
-                <p class="text-lg">{{ $project->project_number }}</p>
+                <span class="text-lg ml-1">{{ $project->project_number }}</span>
             </div>
             <div>
                 <span class="text-sm font-semibold text-gray-600">Nazwa:</span>
-                <p class="text-lg">{{ $project->name }}</p>
+                <span class="text-lg ml-1">{{ $project->name }}</span>
             </div>
             <div>
                 <span class="text-sm font-semibold text-gray-600">Budżet:</span>
-                <p class="text-lg">{{ $project->budget ? number_format($project->budget, 2) . ' PLN' : '-' }}</p>
+                <span class="text-lg ml-1">{{ $project->budget ? number_format($project->budget, 2) . ' PLN' : '-' }}</span>
+            </div>
+            <div>
+                <span class="text-sm font-semibold text-gray-600">Status:</span>
+                <span class="text-lg ml-1">
+                    @if($project->status === 'in_progress') W toku
+                    @elseif($project->status === 'warranty') Na gwarancji
+                    @elseif($project->status === 'archived') Archiwalny
+                    @endif
+                </span>
             </div>
             <div>
                 <span class="text-sm font-semibold text-gray-600">Osoba odpowiedzialna:</span>
-                <p class="text-lg">
+                <span class="text-lg ml-1">
                     @if(isset($project->responsibleUser) && $project->responsibleUser)
                         {{ $project->responsibleUser->name ?? ($project->responsibleUser->short_name ?? '-') }}
                     @else
                         -
                     @endif
-                </p>
+                </span>
             </div>
-            <div>
-                <span class="text-sm font-semibold text-gray-600">Status:</span>
-                <p class="text-lg">
-                    @if($project->status === 'in_progress') W toku
-                    @elseif($project->status === 'warranty') Na gwarancji
-                    @elseif($project->status === 'archived') Archiwalny
-                    @endif
-                </p>
-            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
             <div>
                 <span class="text-sm font-semibold text-gray-600">Autoryzacja pobrań:</span>
                 @php

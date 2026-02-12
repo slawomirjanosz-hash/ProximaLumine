@@ -956,6 +956,12 @@ Route::middleware('auth')->get('/wyceny/{offer}/edit', function (\App\Models\Off
 })->name('offers.edit');
 
 Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Request $request, \App\Models\Offer $offer) {
+    // DEBUG: Loguj surowe dane z formularza
+    \Log::info('=== OFERTA UPDATE DEBUG ===');
+    \Log::info('Services RAW:', $request->input('services', []));
+    \Log::info('Works RAW:', $request->input('works', []));
+    \Log::info('Materials RAW:', $request->input('materials', []));
+    
     // Oblicz całkowitą cenę
     $totalPrice = 0;
     
@@ -967,6 +973,8 @@ Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Requ
             $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
             return $item;
         })->toArray();
+    
+    \Log::info('Services AFTER processing:', $services);
     $works = collect($request->input('works', []))
         ->values() // Reindeksuj tablicę, aby usunąć luki w kluczach
         ->map(function($item) {
