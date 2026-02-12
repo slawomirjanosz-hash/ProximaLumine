@@ -9,7 +9,7 @@
 <body class="bg-gray-100 min-h-screen flex flex-col">
     <header class="bg-white shadow">
         <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div class="flex items-center gap-4">
+    @include('parts.menu')
                 @php
                     try {
                         $companySettings = \App\Models\CompanySetting::first();

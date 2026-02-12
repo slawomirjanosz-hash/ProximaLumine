@@ -7,34 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col">
-    <header class="bg-white shadow">
-        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div class="flex items-center gap-4">
-                @php
-                    try {
-                        $companySettings = \App\Models\CompanySetting::first();
-                        if ($companySettings && $companySettings->logo) {
-                            if (str_starts_with($companySettings->logo, 'data:image')) {
-                                $logoPath = $companySettings->logo;
-                            } else {
-                                $logoPath = asset('storage/' . $companySettings->logo);
-                            }
-                        } else {
-                            $logoPath = '/logo.png';
-                        }
-                        $companyName = $companySettings && $companySettings->name ? $companySettings->name : 'Moja Firma';
-                    } catch (\Exception $e) {
-                        $logoPath = '/logo.png';
-                        $companyName = 'Moja Firma';
-                    }
-                @endphp
-                <img src="{{ $logoPath }}" alt="{{ $companyName }}" class="h-10">
-                <span class="text-xl font-bold">{{ $companyName }}</span>
-                            <span id="datetime" class="ml-4 px-3 py-2 text-sm bg-white-200 text-gray-400 rounded whitespace-nowrap"></span>
-            </div>
-            </div>
-        </div>
-    </header>
+    @include('parts.menu')
     <main class="flex-1">
         <div class="relative max-w-6xl mx-auto p-6">
             <a href="{{ route('offers') }}" class="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 shadow rounded-full text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition z-10">

@@ -7,21 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100">
-
-<header class="bg-white shadow">
-    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-            <a href="{{ route('receptury') }}" class="text-2xl font-bold text-blue-600">← Lista Receptur</a>
-        </div>
-        <nav class="flex gap-2 items-center">
-            <span class="text-gray-700 text-sm">{{ Auth::user()->name }}</span>
-            <form action="{{ route('logout') }}" method="POST" class="inline">
-                @csrf
-                <button type="submit" class="px-3 py-2 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded">Wyloguj</button>
-            </form>
-        </nav>
-    </div>
-</header>
+    @include('parts.menu')
 
 <main class="max-w-7xl mx-auto mt-8 px-6">
     @if(session('success'))

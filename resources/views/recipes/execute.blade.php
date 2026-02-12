@@ -7,17 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100">
-
-<header class="bg-white shadow">
-    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-            <h2 class="text-2xl font-bold text-purple-600">🔄 Realizacja: {{ $execution->recipe->name }}</h2>
-        </div>
-        <nav class="flex gap-2 items-center">
-            <span class="text-gray-700 text-sm">{{ Auth::user()->name }}</span>
-        </nav>
-    </div>
-</header>
+    @include('parts.menu')
 
 <main class="max-w-4xl mx-auto mt-8 px-6 pb-12">
     @if(session('success'))
