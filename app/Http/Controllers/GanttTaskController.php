@@ -122,4 +122,10 @@ class GanttTaskController extends Controller
         
         return response()->json(['success' => true]);
     }
+
+    public function publicIndex($token)
+    {
+        $project = Project::where('public_gantt_token', $token)->firstOrFail();
+        return response()->json($project->ganttTasks()->orderBy('order')->get());
+    }
 }

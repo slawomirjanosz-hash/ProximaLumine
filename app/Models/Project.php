@@ -20,6 +20,7 @@ class Project extends Model
         'started_at',
         'finished_at',
         'loaded_list_id',
+        'public_gantt_token',
     ];
 
     protected $casts = [
@@ -63,5 +64,22 @@ class Project extends Model
     public function ganttChanges()
     {
         return $this->hasMany(\App\Models\GanttChange::class, 'project_id');
+    }
+
+    public function generatePublicGanttToken()
+    {
+        if (!$this->public_gantt_token) {
+            $this->public_gantt_token = bin2hex(random_bytes(32));
+            $this->save();
+        }
+        return $this->public_gantt_token;
+    }
+
+    public function getPublicGanttUrl()
+    {
+        if (!$this->public_gantt_token) {
+            $this->generatePublicGanttToken();
+        }
+        return url('/public/gantt/' . $this->public_gantt_token);
     }
 }

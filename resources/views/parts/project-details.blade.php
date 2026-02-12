@@ -600,6 +600,9 @@
             <button id="frappe-export-excel" class="bg-emerald-600 text-white px-3 py-1 rounded hover:bg-emerald-700 text-sm font-semibold">
                 📊 Eksport Excel
             </button>
+            <button id="frappe-share-link" class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 text-sm font-semibold">
+                🔗 Udostępnij link
+            </button>
             <button id="frappe-save-tasks" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm font-semibold">
                 💾 Zapisz zmiany
             </button>
@@ -1172,6 +1175,28 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.getElementById('frappe-add-task').addEventListener('click', function() {
         showTaskModal();
+    });
+    
+    document.getElementById('frappe-share-link').addEventListener('click', function() {
+        fetch(`/projekty/${PROJECT_ID}/generate-public-gantt`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const url = data.url;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('✅ Link skopiowany do schowka!\n\n' + url + '\n\nMożesz go wysłać osobom, które mają obejrzeć harmonogram bez możliwości edycji.');
+            }).catch(() => {
+                prompt('Link publiczny do harmonogramu (skopiuj):', url);
+            });
+        })
+        .catch(error => {
+            alert('❌ Błąd generowania linku: ' + error.message);
+        });
     });
     
     document.getElementById('frappe-export-excel').addEventListener('click', function() {

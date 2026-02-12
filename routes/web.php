@@ -1236,11 +1236,22 @@ Route::middleware('auth')->group(function () {
     Route::post('/projekty/{project}/save-as-list', [PartController::class, 'saveProjectAsList'])->name('magazyn.projects.saveAsList')->middleware('auth');
     Route::post('/projekty/{project}/load-list', [PartController::class, 'loadListToProject'])->name('magazyn.projects.loadList')->middleware('auth');
     
+    // Publiczny link do Gantt (generowanie)
+    Route::post('/projekty/{project}/generate-public-gantt', [PartController::class, 'generatePublicGantt'])->name('magazyn.projects.generatePublicGantt')->middleware('auth');
+    
     // Gantt Chart Routes
     Route::get('/projekty/{project}/gantt/tasks', [PartController::class, 'getGanttTasks'])->name('magazyn.projects.gantt.tasks')->middleware('auth');
     Route::post('/projekty/{project}/gantt/tasks', [PartController::class, 'storeGanttTask'])->name('magazyn.projects.gantt.storeTask')->middleware('auth');
     Route::put('/projekty/{project}/gantt/tasks/{task}', [PartController::class, 'updateGanttTask'])->name('magazyn.projects.gantt.updateTask')->middleware('auth');
     Route::delete('/projekty/{project}/gantt/tasks/{task}', [PartController::class, 'deleteGanttTask'])->name('magazyn.projects.gantt.deleteTask')->middleware('auth');
+});
+
+// Publiczny widok Gantt (bez auth)
+Route::get('/public/gantt/{token}', [PartController::class, 'showPublicGantt'])->name('public.gantt');
+
+// Publiczne API dla Gantt (bez auth, read-only)
+Route::prefix('api/public/gantt')->group(function () {
+    Route::get('/{token}', [\App\Http\Controllers\GanttTaskController::class, 'publicIndex']);
 });
 
 // Gantt Frappe API

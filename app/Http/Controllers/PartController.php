@@ -5208,4 +5208,16 @@ class PartController extends Controller
         
         return response()->json(['success' => true]);
     }
+
+    public function generatePublicGantt(\App\Models\Project $project)
+    {
+        $url = $project->getPublicGanttUrl();
+        return response()->json(['url' => $url]);
+    }
+
+    public function showPublicGantt($token)
+    {
+        $project = \App\Models\Project::where('public_gantt_token', $token)->firstOrFail();
+        return view('parts.public-gantt', compact('project', 'token'));
+    }
 }
