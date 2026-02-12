@@ -747,20 +747,22 @@ Route::middleware('auth')->post('/wyceny/nowa', function (Illuminate\Http\Reques
     // Oblicz całkowitą cenę
     $totalPrice = 0;
     
+    // USUNIĘTO FILTRACJĘ - zachowaj wszystkie produkty, nawet puste wiersze
+    // Dzięki temu produkty nie będą znikać przy zapisywaniu oferty
     $services = collect($request->input('services', []))
-        ->filter(fn($item) => !empty($item['name']))
+        ->values() // Reindeksuj tablicę, aby usunąć luki w kluczach
         ->map(function($item) {
             $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
             return $item;
         })->toArray();
     $works = collect($request->input('works', []))
-        ->filter(fn($item) => !empty($item['name']))
+        ->values() // Reindeksuj tablicę, aby usunąć luki w kluczach
         ->map(function($item) {
             $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
             return $item;
         })->toArray();
     $materials = collect($request->input('materials', []))
-        ->filter(fn($item) => !empty($item['name']))
+        ->values() // Reindeksuj tablicę, aby usunąć luki w kluczach
         ->map(function($item) {
             $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
             return $item;
@@ -957,20 +959,22 @@ Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Requ
     // Oblicz całkowitą cenę
     $totalPrice = 0;
     
+    // USUNIĘTO FILTRACJĘ - zachowaj wszystkie produkty, nawet puste wiersze
+    // Dzięki temu produkty nie będą znikać przy zapisywaniu i edycji oferty
     $services = collect($request->input('services', []))
-        ->filter(fn($item) => !empty($item['name']))
+        ->values() // Reindeksuj tablicę, aby usunąć luki w kluczach
         ->map(function($item) {
             $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
             return $item;
         })->toArray();
     $works = collect($request->input('works', []))
-        ->filter(fn($item) => !empty($item['name']))
+        ->values() // Reindeksuj tablicę, aby usunąć luki w kluczach
         ->map(function($item) {
             $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
             return $item;
         })->toArray();
     $materials = collect($request->input('materials', []))
-        ->filter(fn($item) => !empty($item['name']))
+        ->values() // Reindeksuj tablicę, aby usunąć luki w kluczach
         ->map(function($item) {
             $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
             return $item;
