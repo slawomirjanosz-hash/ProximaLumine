@@ -347,3 +347,153 @@ Route::post('/diagnostics/migrations/clean', function () {
     
     return response()->json(['success' => false, 'message' => 'Brak osieroconych migracji']);
 });
+
+// DIAGNOSTYKA: Sprawdź ustawienia kodów QR/Barcode
+Route::get('/diagnostics/qr-settings', function () {
+    $qrSettings = DB::table('qr_settings')->first();
+    
+    $diagnostics = [
+        'timestamp' => now()->format('Y-m-d H:i:s'),
+        'settings_exist' => $qrSettings !== null,
+        'code_type' => $qrSettings->code_type ?? 'BRAK',
+        'qr_enabled' => $qrSettings->qr_enabled ?? false,
+        'generation_mode' => $qrSettings->generation_mode ?? 'BRAK',
+        'all_settings' => $qrSettings,
+    ];
+    
+    // Test generowania kodu
+    $testCode = 'TEST123';
+    $testResults = [];
+    
+    try {
+        // Test kodu QR
+        $qrImage = \QrCode::format('svg')->size(100)->generate($testCode);
+        $testResults['qr_generation'] = '✅ OK';
+    } catch (\Exception $e) {
+        $testResults['qr_generation'] = '❌ BŁĄD: ' . $e->getMessage();
+    }
+    
+    try {
+        // Test kodu kreskowego
+        $generator = new \Picqer\Barcode\BarcodeGeneratorSVG();
+        $barcodeImage = $generator->getBarcode($testCode, $generator::TYPE_CODE_128, 2, 50);
+        $testResults['barcode_generation'] = '✅ OK';
+    } catch (\Exception $e) {
+        $testResults['barcode_generation'] = '❌ BŁĄD: ' . $e->getMessage();
+    }
+    
+    $html = '<!DOCTYPE html>
+    <html lang="pl">
+    <head>
+        <meta charset="UTF-8">
+        <title>Diagnostyka Kodów QR/Barcode</title>
+        <style>
+            body { font-family: monospace; padding: 20px; background: #f5f5f5; }
+            .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+            h2 { color: #555; margin-top: 30px; }
+            .info { background: #e9ecef; padding: 15px; border-radius: 4px; margin: 10px 0; }
+            .success { color: #28a745; }
+            .error { color: #dc3545; }
+            .warning { color: #ffc107; }
+            pre { background: #f8f9fa; padding: 10px; border-left: 3px solid #007bff; overflow-x: auto; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { padding: 12px; text-align: left; border: 1px solid #ddd; }
+            th { background: #007bff; color: white; }
+            tr:nth-child(even) { background: #f8f9fa; }
+            .code-display { display: inline-block; padding: 20px; background: white; border: 2px solid #ddd; margin: 10px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🔍 Diagnostyka Kodów QR/Barcode</h1>
+            
+            <div class="info">
+                <strong>Czas sprawdzenia:</strong> ' . $diagnostics['timestamp'] . '
+            </div>
+            
+            <h2>📊 Aktualne Ustawienia</h2>
+            <table>
+                <tr>
+                    <th>Parametr</th>
+                    <th>Wartość</th>
+                    <th>Status</th>
+                </tr>
+                <tr>
+                    <td><strong>Ustawienia istnieją</strong></td>
+                    <td>' . ($diagnostics['settings_exist'] ? 'TAK' : 'NIE') . '</td>
+                    <td class="' . ($diagnostics['settings_exist'] ? 'success' : 'error') . '">' . ($diagnostics['settings_exist'] ? '✅' : '❌') . '</td>
+                </tr>
+                <tr>
+                    <td><strong>Typ kodu (code_type)</strong></td>
+                    <td><strong>' . strtoupper($diagnostics['code_type']) . '</strong></td>
+                    <td class="' . ($diagnostics['code_type'] !== 'BRAK' ? 'success' : 'error') . '">' . ($diagnostics['code_type'] !== 'BRAK' ? '✅' : '❌') . '</td>
+                </tr>
+                <tr>
+                    <td><strong>Kody włączone (qr_enabled)</strong></td>
+                    <td>' . ($diagnostics['qr_enabled'] ? 'TAK' : 'NIE') . '</td>
+                    <td class="' . ($diagnostics['qr_enabled'] ? 'success' : 'warning') . '">' . ($diagnostics['qr_enabled'] ? '✅' : '⚠️') . '</td>
+                </tr>
+                <tr>
+                    <td><strong>Tryb generowania</strong></td>
+                    <td>' . $diagnostics['generation_mode'] . '</td>
+                    <td class="success">ℹ️</td>
+                </tr>
+            </table>
+            
+            <h2>🧪 Test Generowania</h2>
+            <table>
+                <tr>
+                    <th>Typ kodu</th>
+                    <th>Status</th>
+                </tr>
+                <tr>
+                    <td>Kod QR</td>
+                    <td>' . $testResults['qr_generation'] . '</td>
+                </tr>
+                <tr>
+                    <td>Kod kreskowy</td>
+                    <td>' . $testResults['barcode_generation'] . '</td>
+                </tr>
+            </table>
+            
+            <h2>🎨 Przykłady Wygenerowanych Kodów</h2>
+            <p><strong>Kod testowy:</strong> ' . $testCode . '</p>
+            
+            <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
+                <div class="code-display">
+                    <h3 style="text-align: center;">📱 Kod QR</h3>
+                    ' . (isset($qrImage) ? $qrImage : 'Błąd generowania') . '
+                </div>
+                <div class="code-display">
+                    <h3 style="text-align: center;">📦 Kod Kreskowy</h3>
+                    ' . (isset($barcodeImage) ? $barcodeImage : 'Błąd generowania') . '
+                </div>
+            </div>
+            
+            <h2>📝 Pełne Ustawienia (JSON)</h2>
+            <pre>' . json_encode($diagnostics['all_settings'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . '</pre>
+            
+            <div class="info" style="margin-top: 30px;">
+                <strong>ℹ️ Informacje:</strong>
+                <ul>
+                    <li>Jeśli <code>code_type</code> = <strong>qr</strong> → system generuje kody QR</li>
+                    <li>Jeśli <code>code_type</code> = <strong>barcode</strong> → system generuje kody kreskowe</li>
+                    <li>Ustawienia można zmienić w: <strong>Menu → Ustawienia → Inne → Ustawienia Kodów QR</strong></li>
+                </ul>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="/magazyn/ustawienia" style="display: inline-block; padding: 12px 24px; background: #007bff; color: white; text-decoration: none; border-radius: 4px;">
+                    ⚙️ Przejdź do Ustawień
+                </a>
+                <a href="/diagnostics/project-check" style="display: inline-block; padding: 12px 24px; background: #6c757d; color: white; text-decoration: none; border-radius: 4px; margin-left: 10px;">
+                    🔍 Inne Diagnostyki
+                </a>
+            </div>
+        </div>
+    </body>
+    </html>';
+    
+    return $html;
+});

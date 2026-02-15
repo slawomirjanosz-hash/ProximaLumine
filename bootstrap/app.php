@@ -13,10 +13,17 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'permission' => \App\Http\Middleware\CheckPermission::class,
+            'railway.session' => \App\Http\Middleware\RailwaySessionFix::class,
         ]);
         
         // Trust all proxies for Railway reverse proxy
         $middleware->trustProxies(at: '*');
+        
+        // Add Railway session fix to web middleware group
+        $middleware->web(append: [
+            \App\Http\Middleware\RailwaySessionFix::class,
+            \App\Http\Middleware\RailwayDebug::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

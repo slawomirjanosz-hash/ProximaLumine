@@ -321,7 +321,13 @@
                     <td class="border p-2 text-center text-xs">
                         @if($p->qr_code)
                             @php
-                                $codeType = $qrSettings->code_type ?? 'qr';
+                                // Pobierz świeże ustawienia z bazy
+                                $freshQrSettings = \DB::table('qr_settings')->first();
+                                $codeType = $freshQrSettings->code_type ?? 'qr';
+                                
+                                // Debug logging - możesz odkomentować do sprawdzenia
+                                // \Log::info('Rendering code in catalog', ['code_type' => $codeType, 'qr_code' => $p->qr_code]);
+                                
                                 try {
                                     if ($codeType === 'barcode') {
                                         $generator = new \Picqer\Barcode\BarcodeGeneratorSVG();

@@ -1321,6 +1321,13 @@
                                 </label>
                             </div>
                             <p class="text-xs text-gray-600 mt-2">💡 Wybierz jaki rodzaj kodu ma być generowany automatycznie dla produktów</p>
+                            @php
+                                $currentCodeType = $qrSettings->code_type ?? 'qr';
+                                $codeTypeLabel = $currentCodeType === 'barcode' ? '📦 Kod kreskowy' : '📱 Kod QR';
+                            @endphp
+                            <div class="mt-2 p-2 bg-green-50 border border-green-300 rounded text-xs text-green-800">
+                                ✅ <strong>Aktualnie ustawiony typ:</strong> {{ $codeTypeLabel }} ({{ $currentCodeType }})
+                            </div>
                         </div>
                         
                         {{-- Włącz/wyłącz obsługę kodów --}}

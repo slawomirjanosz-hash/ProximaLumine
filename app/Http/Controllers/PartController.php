@@ -318,6 +318,16 @@ class PartController extends Controller
 
     public function storePickupProducts(Request $request, \App\Models\Project $project)
     {
+        // Debug logging for Railway issues
+        \Log::info('Store pickup products started', [
+            'project_id' => $project->id, 
+            'user_id' => auth()->id(),
+            'session_id' => session()->getId(),
+            'csrf_token' => $request->header('X-CSRF-TOKEN'),
+            'requires_auth' => $project->requires_authorization,
+            'products_count' => count($request->input('products', []))
+        ]);
+        
         $data = $request->validate([
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:parts,id',
@@ -383,10 +393,25 @@ class PartController extends Controller
             if (count($errors) > 0) {
                 $message .= ". Błędy: " . implode(', ', $errors);
             }
+            
+            \Log::info('Products added to project successfully', [
+                'project_id' => $project->id,
+                'success_count' => $successCount,
+                'requires_auth' => $requiresAuth,
+                'errors' => $errors,
+                'user_id' => auth()->id()
+            ]);
+            
             return redirect()->route('magazyn.projects.show', $project->id)
                 ->with('success', $message);
         }
 
+        \Log::error('Failed to add any products to project', [
+            'project_id' => $project->id,
+            'errors' => $errors,
+            'user_id' => auth()->id()
+        ]);
+        
         return redirect()->back()->with('error', 'Nie udało się pobrać żadnych produktów: ' . implode(', ', $errors));
     }
 
@@ -410,6 +435,16 @@ class PartController extends Controller
 
     public function processAuthorization(Request $request, \App\Models\Project $project)
     {
+        // Debug logging for Railway issues
+        \Log::info('Authorization process started', [
+            'project_id' => $project->id, 
+            'user_id' => auth()->id(),
+            'session_id' => session()->getId(),
+            'csrf_token' => $request->header('X-CSRF-TOKEN'),
+            'user_agent' => $request->userAgent(),
+            'ip' => $request->ip()
+        ]);
+        
         $data = $request->validate([
             'qr_code' => 'required|string',
         ]);
@@ -420,6 +455,11 @@ class PartController extends Controller
         $part = Part::where('qr_code', $qrCode)->first();
 
         if (!$part) {
+            \Log::warning('QR code not found during authorization', [
+                'qr_code' => $qrCode,
+                'project_id' => $project->id,
+                'user_id' => auth()->id()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Nieznany kod QR: ' . $qrCode
@@ -434,6 +474,13 @@ class PartController extends Controller
             ->first();
 
         if (!$removal) {
+            \Log::warning('No unauthorized removal found during authorization', [
+                'part_id' => $part->id,
+                'part_name' => $part->name,
+                'project_id' => $project->id,
+                'user_id' => auth()->id(),
+                'qr_code' => $qrCode
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Produkt "' . $part->name . '" nie wymaga autoryzacji w tym projekcie (lub już autoryzowany)'
@@ -485,6 +532,15 @@ class PartController extends Controller
             'stock_after' => $part->quantity,
         ]);
 
+        \Log::info('Product authorization successful', [
+            'part_id' => $part->id,
+            'part_name' => $part->name,
+            'project_id' => $project->id,
+            'user_id' => auth()->id(),
+            'remaining_unauthorized' => $removal->quantity ?? 0,
+            'stock_after' => $part->quantity
+        ]);
+        
         return response()->json([
             'success' => true,
             'message' => 'Autoryzowano: ' . $part->name,
@@ -4031,20 +4087,33 @@ class PartController extends Controller
         // Jeśli przekazano gotowy kod QR (np. z bazy danych), użyj go bezpośrednio
         if (!empty($validated['qr_code'])) {
             $qrCode = $validated['qr_code'];
-            $qrDescription = ['Zapisany kod QR'];
+            $qrDescription = ['Zapisany kod'];
             
-            // Generuj obrazek
+            // Generuj obrazek - ZAWSZE sprawdzaj code_type
             $codeType = $qrSettings->code_type ?? 'qr';
+            
+            // Debug logging
+            \Log::info('Generating code image', [
+                'code_type' => $codeType,
+                'qr_code' => $qrCode,
+                'settings_id' => $qrSettings->id ?? 'none'
+            ]);
             
             try {
                 if ($codeType === 'barcode') {
                     $generator = new \Picqer\Barcode\BarcodeGeneratorSVG();
                     $codeImageString = $generator->getBarcode($qrCode, $generator::TYPE_CODE_128, 2, 80);
+                    $qrDescription[] = 'Kod kreskowy';
                 } else {
                     $qrImageSvg = \QrCode::format('svg')->size(200)->generate($qrCode);
                     $codeImageString = is_string($qrImageSvg) ? $qrImageSvg : (string)$qrImageSvg;
+                    $qrDescription[] = 'Kod QR';
                 }
             } catch (\Exception $e) {
+                \Log::error('Error generating code', [
+                    'error' => $e->getMessage(),
+                    'code_type' => $codeType
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Błąd generowania kodu: ' . $e->getMessage()
@@ -4055,7 +4124,8 @@ class PartController extends Controller
                 'success' => true,
                 'qr_code' => $qrCode,
                 'qr_image' => $codeImageString,
-                'description' => implode(', ', $qrDescription)
+                'code_type' => $codeType,
+                'description' => implode(' - ', $qrDescription)
             ]);
         }
         

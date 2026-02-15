@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="session-id" content="{{ session()->getId() }}">
+    <meta name="app-env" content="{{ app()->environment() }}">
+    <meta name="session-driver" content="{{ config('session.driver') }}">
     <title>Autoryzacja produktów - {{ $project->project_number }}</title>
     <link rel="icon" type="image/png" href="{{ asset('logo_proxima_male.png') }}">
     @vite(['resources/css/app.css'])
@@ -275,19 +278,57 @@ document.addEventListener('DOMContentLoaded', function() {
         scanStatus.querySelector('p').innerHTML = `🔍 Przetwarzanie kodu: <strong class="font-mono">${qrCode}</strong>`;
 
         try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || document.querySelector('input[name="_token"]')?.value;
+            
+            if (!csrfToken) {
+                console.error('CSRF token not found - Railway session issue?');
+                showErrorModal(qrCode, 'Błąd sesji - odśwież stronę i spróbuj ponownie');
+                isProcessing = false;
+                return;
+            }
+            
             const response = await fetch('{{ route("magazyn.projects.authorize.process", $project->id) }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Accept': 'application/json'
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest' // For Railway compatibility
                 },
-                body: JSON.stringify({ qr_code: qrCode })
+                body: JSON.stringify({ qr_code: qrCode }),
+                credentials: 'same-origin' // Ensure cookies are sent on Railway
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                showErrorModal(qrCode, errorData.message || 'Błąd serwera');
+                const errorData = await response.json().catch(() => ({ message: 'Błąd połączenia' }));
+                
+                // Special handling for CSRF/session issues on Railway
+                if (response.status === 419 || response.status === 403) {
+                    console.warn('CSRF/Session error on Railway - attempting token refresh');
+                    
+                    // Try to refresh CSRF token
+                    try {
+                        const refreshResponse = await fetch('/up', { 
+                            method: 'GET',
+                            credentials: 'same-origin'
+                        });
+                        
+                        if (refreshResponse.ok) {
+                            // Retry the authorization request
+                            setTimeout(() => {
+                                processQRCode(qrCode);
+                            }, 500);
+                            return;
+                        }
+                    } catch (e) {
+                        console.error('Failed to refresh session:', e);
+                    }
+                    
+                    showErrorModal(qrCode, 'Sesja wygasła - odśwież stronę i spróbuj ponownie');
+                } else {
+                    showErrorModal(qrCode, errorData.message || 'Błąd serwera');
+                }
+                
                 isProcessing = false;
                 return;
             }
