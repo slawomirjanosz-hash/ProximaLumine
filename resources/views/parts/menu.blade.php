@@ -58,7 +58,7 @@
             <span class="font-medium">Start</span>
         </a>
 
-        @if(auth()->check() && (auth()->user()->can_add || auth()->user()->can_remove || auth()->user()->can_view_catalog || auth()->user()->can_orders))
+        @if(auth()->check() && auth()->user()->can_view_magazyn)
         <!-- Magazyn (rozwijane) -->
         <div class="menu-group">
             <button onclick="toggleSubmenu('magazyn')" class="w-full flex items-center justify-between px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ (request()->routeIs('magazyn.add') || request()->routeIs('magazyn.remove') || request()->routeIs('magazyn.check') || request()->routeIs('magazyn.orders')) ? 'bg-gray-700 text-white' : '' }}">
@@ -100,40 +100,57 @@
         @endif
 
         <!-- Projekty (rozwijane) -->
-        @if(auth()->check())
+        @if(auth()->check() && auth()->user()->can_view_projects)
         <div class="menu-group">
-            <button onclick="toggleSubmenu('projekty')" class="w-full flex items-center justify-between px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.projects*') ? 'bg-gray-700 text-white' : '' }}">
+            <button onclick="toggleSubmenu('projekty')" class="w-full flex items-center justify-between px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.projects*') || request()->routeIs('magazyn.projects.settings') ? 'bg-gray-700 text-white' : '' }}">
                 <div class="flex items-center gap-3">
                     <span class="text-lg">🏗️</span>
                     <span class="font-medium">Projekty</span>
                 </div>
-                <svg class="w-4 h-4 transition-transform duration-200 {{ request()->routeIs('magazyn.projects*') ? 'rotate-180' : '' }}" id="projekty-arrow" fill="currentColor" viewBox="0 0 20 20">
+                <svg class="w-4 h-4 transition-transform duration-200 {{ request()->routeIs('magazyn.projects*') || request()->routeIs('magazyn.projects.settings') ? 'rotate-180' : '' }}" id="projekty-arrow" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
                 </svg>
             </button>
-            <div id="projekty-submenu" class="bg-gray-900 {{ request()->routeIs('magazyn.projects*') ? '' : 'hidden' }}">
+            <div id="projekty-submenu" class="bg-gray-900 {{ request()->routeIs('magazyn.projects*') || request()->routeIs('magazyn.projects.settings') ? '' : 'hidden' }}">
+                @if(auth()->user()->can_projects_add)
                 <a href="{{ route('magazyn.projects') }}?add=1" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->get('add') == '1' ? 'bg-gray-700 text-white border-l-4 border-green-500' : '' }}">
                     <span>➕</span>
                     <span>Dodaj projekt</span>
                 </a>
+                @endif
+                @if(auth()->user()->can_projects_in_progress)
                 <a href="{{ route('magazyn.projects') }}?status=in_progress" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->get('status') == 'in_progress' ? 'bg-gray-700 text-white border-l-4 border-yellow-500' : '' }}">
                     <span>⏳</span>
                     <span>Projekty w toku</span>
                 </a>
+                @endif
+                @if(auth()->user()->can_projects_warranty)
                 <a href="{{ route('magazyn.projects') }}?status=warranty" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->get('status') == 'warranty' ? 'bg-gray-700 text-white border-l-4 border-blue-500' : '' }}">
                     <span>🛡️</span>
                     <span>Projekty na gwarancji</span>
                 </a>
+                @endif
+                @if(auth()->user()->can_projects_archived)
                 <a href="{{ route('magazyn.projects') }}?status=archived" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->get('status') == 'archived' ? 'bg-gray-700 text-white border-l-4 border-gray-500' : '' }}">
                     <span>📦</span>
                     <span>Projekty archiwalne</span>
                 </a>
+                @endif
+                @if(auth()->user()->can_projects_settings)
+                <!-- Ustawienia projektów rozwijane -->
+                <div class="pl-8">
+                    <a href="{{ route('magazyn.projects.settings') }}" class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.projects.settings') ? 'bg-gray-700 text-white border-l-4 border-indigo-500' : '' }}">
+                        <span>⚙️</span>
+                        <span>Ustawienia projektów</span>
+                    </a>
+                </div>
+                @endif
             </div>
         </div>
         @endif
 
         <!-- CRM -->
-        @if(auth()->check())
+        @if(auth()->check() && auth()->user()->can_crm)
         <a href="{{ route('crm') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('crm*') ? 'bg-gray-700 text-white border-l-4 border-teal-500' : '' }}">
             <span class="text-lg">👥</span>
             <span class="font-medium">CRM</span>
@@ -141,7 +158,7 @@
         @endif
 
         <!-- Oferty (rozwijane) -->
-        @if(auth()->check())
+        @if(auth()->check() && auth()->user()->can_view_offers)
         <div class="menu-group">
             <button onclick="toggleSubmenu('oferty')" class="w-full flex items-center justify-between px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ (request()->routeIs('offers.new') || request()->routeIs('offers.portfolio') || request()->routeIs('offers.inprogress') || request()->routeIs('offers.archived') || request()->routeIs('offers.settings')) ? 'bg-gray-700 text-white' : '' }}">
                 <div class="flex items-center gap-3">

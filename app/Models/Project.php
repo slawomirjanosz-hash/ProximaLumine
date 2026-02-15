@@ -36,7 +36,12 @@ class Project extends Model
 
     public function loadedList()
     {
-        return $this->belongsTo(ProductList::class, 'loaded_list_id');
+        return $this->belongsTo(ProjectList::class, 'loaded_list_id');
+    }
+
+    public function loadedLists()
+    {
+        return $this->hasMany(ProjectLoadedList::class);
     }
 
     public function parts()

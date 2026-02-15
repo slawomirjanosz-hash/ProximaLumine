@@ -36,7 +36,16 @@
 
 <div class="max-w-6xl mx-auto bg-white p-6 rounded shadow mt-6">
     
-    <h2 class="text-xl font-bold mb-4">Projekty</h2>
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold">Projekty</h2>
+        <a href="{{ route('magazyn.projects.settings') }}" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            Ustawienia projektów
+        </a>
+    </div>
     
     {{-- PRZYCISKI WIDOKÓW --}}
     <div class="flex gap-2 mb-6">
@@ -170,7 +179,16 @@
                                     <td class="border p-2 text-right">{{ $project->budget ? number_format($project->budget, 2) . ' PLN' : '-' }}</td>
                                     <td class="border p-2">{{ $project->responsibleUser->name ?? '-' }}</td>
                                     <td class="border p-2 text-center">
-                                        <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline text-sm">Szczegóły</a>
+                                        <div class="flex items-center justify-center gap-2">
+                                            <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline text-sm">Szczegóły</a>
+                                            @if(auth()->user()->is_admin)
+                                            <form action="{{ route('magazyn.deleteProject', $project->id) }}" method="POST" class="inline delete-project-form" data-project-name="{{ $project->name }}">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-semibold" title="Usuń projekt">🗑️</button>
+                                            </form>
+                                            @endif
+                                        </div>
                                     </td>
                                 </tr>
                             @empty
@@ -228,7 +246,16 @@
                                     <td class="border p-2 text-right">{{ $project->budget ? number_format($project->budget, 2) . ' PLN' : '-' }}</td>
                                     <td class="border p-2">{{ $project->responsibleUser->name ?? '-' }}</td>
                                     <td class="border p-2 text-center">
-                                        <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline text-sm">Szczegóły</a>
+                                        <div class="flex items-center justify-center gap-2">
+                                            <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline text-sm">Szczegóły</a>
+                                            @if(auth()->user()->is_admin)
+                                            <form action="{{ route('magazyn.deleteProject', $project->id) }}" method="POST" class="inline delete-project-form" data-project-name="{{ $project->name }}">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-semibold" title="Usuń projekt">🗑️</button>
+                                            </form>
+                                            @endif
+                                        </div>
                                     </td>
                                 </tr>
                             @empty
@@ -286,7 +313,16 @@
                                     <td class="border p-2 text-right">{{ $project->budget ? number_format($project->budget, 2) . ' PLN' : '-' }}</td>
                                     <td class="border p-2">{{ $project->responsibleUser->name ?? '-' }}</td>
                                     <td class="border p-2 text-center">
-                                        <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline text-sm">Szczegóły</a>
+                                        <div class="flex items-center justify-center gap-2">
+                                            <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline text-sm">Szczegóły</a>
+                                            @if(auth()->user()->is_admin)
+                                            <form action="{{ route('magazyn.deleteProject', $project->id) }}" method="POST" class="inline delete-project-form" data-project-name="{{ $project->name }}">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-semibold" title="Usuń projekt">🗑️</button>
+                                            </form>
+                                            @endif
+                                        </div>
                                     </td>
                                 </tr>
                             @empty
@@ -428,6 +464,18 @@
     setupDeleteSection('in-progress');
     setupDeleteSection('warranty');
     setupDeleteSection('archived');
+
+    // Obsługa pojedynczych przycisków usuń (dla adminów)
+    document.querySelectorAll('.delete-project-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const projectName = this.dataset.projectName;
+            const confirmed = confirm(`Czy na pewno chcesz TRWALE usunąć projekt "${projectName}"?\n\nUWAGA! Ta operacja jest nieodwracalna i usunie:\n- Wszystkie pobrania produktów\n- Wszystkie zadania i harmonogramy\n- Wszystkie załadowane listy\n- Cały projekt\n\nCzy kontynuować?`);
+            if (confirmed) {
+                this.submit();
+            }
+        });
+    });
 </script>
 
 </body>

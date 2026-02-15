@@ -195,7 +195,7 @@ class PartController extends Controller
             $loadedList = null;
             if ($project->loaded_list_id) {
                 try {
-                    if (class_exists('\App\Models\ProductList') && method_exists($project, 'loadedList')) {
+                    if (method_exists($project, 'loadedList')) {
                         $loadedList = $project->loadedList;
                         if (!$loadedList) {
                             \Log::warning('LoadedList nie istnieje', [
@@ -219,9 +219,66 @@ class PartController extends Controller
                 'removals_count' => $removals->count(),
             ]);
 
+            // Pobierz załadowane listy z produktami
+            $loadedLists = \App\Models\ProjectLoadedList::where('project_id', $project->id)
+                ->with('projectList.items')
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            // Pobierz wszystkie listy projektowe
+            $projectLists = \App\Models\ProjectList::with('items')->orderBy('name')->get();
+
+            // Pobierz produkty dodane do projektu
+            $projectProductIds = $removals->where('status', 'added')->pluck('part_id')->unique();
+
+            // Pobierz produkty ze wszystkich list (wszystkie, nie tylko dodane)
+            $listProductIds = collect();
+            $missingProductIds = collect(); // Produkty które brakują w listach
+            
+            foreach ($loadedLists as $loadedList) {
+                $listItems = $loadedList->projectList->items ?? collect();
+                $listProductIds = $listProductIds->merge($listItems->pluck('part_id'));
+                
+                // Dodaj brakujące produkty
+                if ($loadedList->missing_items) {
+                    foreach ($loadedList->missing_items as $missing) {
+                        if (isset($missing['part_id'])) {
+                            $missingProductIds->push($missing['part_id']);
+                        }
+                    }
+                }
+            }
+            $listProductIds = $listProductIds->unique();
+            $missingProductIds = $missingProductIds->unique();
+
+            // Znajdź produkty dodane poza listami (ale nie te które uzupełniają braki)
+            $productsOutsideLists = $projectProductIds->diff($listProductIds)->diff($missingProductIds);
+            $outsideListsData = [];
+            
+            if ($productsOutsideLists->isNotEmpty()) {
+                $outsideListsData = \App\Models\ProjectRemoval::where('project_id', $project->id)
+                    ->where('status', 'added')
+                    ->whereIn('part_id', $productsOutsideLists)
+                    ->with('part')
+                    ->get()
+                    ->groupBy('part_id')
+                    ->map(function($group) {
+                        $part = $group->first()->part;
+                        return [
+                            'name' => $part ? $part->name : 'Produkt usunięty',
+                            'quantity' => $group->sum('quantity'),
+                        ];
+                    })
+                    ->values()
+                    ->toArray();
+            }
+
             return view('parts.project-details', [
                 'project' => $project,
                 'removals' => $removals,
+                'projectLists' => $projectLists,
+                'loadedLists' => $loadedLists,
+                'outsideListsData' => $outsideListsData,
             ]);
         } catch (\Exception $e) {
             \Log::error('=== BŁĄD W showProject ===', [
@@ -298,6 +355,9 @@ class PartController extends Controller
                 'quantity' => $productData['quantity'],
                 'authorized' => !$requiresAuth, // true jeśli nie wymaga autoryzacji
             ]);
+
+            // Sprawdź czy ten produkt jest w brakujących pozycjach którejś listy
+            $this->updateMissingItemsForPart($project->id, $part->id, $productData['quantity']);
 
             $successCount++;
         }
@@ -462,6 +522,53 @@ class PartController extends Controller
         return redirect()->back()->with('success', 'Projekt został zakończony i przeszedł na gwarancję.');
     }
 
+    public function deleteProject(\App\Models\Project $project)
+    {
+        // Sprawdź czy użytkownik to super admin
+        if (!auth()->user() || !auth()->user()->is_admin) {
+            return redirect()->back()->with('error', 'Brak uprawnień do usuwania projektów.');
+        }
+
+        $projectName = $project->name;
+        
+        try {
+            \DB::beginTransaction();
+
+            // Usuń wszystkie pobrania produktów
+            \App\Models\ProjectRemoval::where('project_id', $project->id)->delete();
+
+            // Usuń wszystkie zadania
+            \App\Models\ProjectTask::where('project_id', $project->id)->delete();
+
+            // Usuń wszystkie zadania Gantt
+            if (method_exists($project, 'ganttTasks')) {
+                $project->ganttTasks()->delete();
+            }
+
+            // Usuń wszystkie zmiany Gantt
+            if (method_exists($project, 'ganttChanges')) {
+                $project->ganttChanges()->delete();
+            }
+
+            // Usuń wszystkie załadowane listy
+            \App\Models\ProjectLoadedList::where('project_id', $project->id)->delete();
+
+            // Usuń powiązania z parts (project_parts pivot table)
+            $project->parts()->detach();
+
+            // Usuń sam projekt
+            $project->delete();
+
+            \DB::commit();
+
+            return redirect()->route('magazyn.projects')->with('success', "Projekt \"{$projectName}\" został całkowicie usunięty.");
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            \Log::error('Błąd podczas usuwania projektu: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Wystąpił błąd podczas usuwania projektu: ' . $e->getMessage());
+        }
+    }
+
     public function editProject(\App\Models\Project $project)
     {
         $qrSettings = \DB::table('qr_settings')->first();
@@ -549,6 +656,428 @@ class PartController extends Controller
             });
 
         return response()->json(['removals' => $removals]);
+    }
+
+    // USTAWIENIA PROJEKTÓW
+    public function projectSettings()
+    {
+        $projectLists = \App\Models\ProjectList::with('creator')->withCount('items')->orderBy('created_at', 'desc')->get();
+        
+        return view('parts.project-settings', [
+            'projectLists' => $projectLists,
+        ]);
+    }
+
+    // ZAPISZ NOWĄ LISTĘ PROJEKTOWĄ
+    public function storeProjectList(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+
+        $list = \App\Models\ProjectList::create([
+            'name' => $request->name,
+            'description' => $request->description,
+            'created_by' => auth()->id(),
+        ]);
+
+        return redirect()->route('magazyn.projects.settings')->with('success', 'Lista projektowa "' . $list->name . '" została utworzona.');
+    }
+
+    // EDYTUJ LISTĘ PROJEKTOWĄ
+    public function editProjectList(\App\Models\ProjectList $projectList)
+    {
+        $projectList->load('items.part');
+        $parts = Part::orderBy('name')->get();
+        
+        // Przygotuj dane produktów dla JavaScript
+        $listProductsData = $projectList->items->map(function($item) {
+            return [
+                'id' => $item->part_id,
+                'name' => $item->part ? $item->part->name : 'Produkt usunięty',
+                'code' => $item->part ? $item->part->qr_code : '-',
+                'code_description' => $item->part ? $item->part->description : '-',
+                'quantity' => $item->quantity
+            ];
+        });
+        
+        return view('parts.project-list-edit', [
+            'projectList' => $projectList,
+            'parts' => $parts,
+            'listProductsData' => $listProductsData,
+        ]);
+    }
+
+    // AKTUALIZUJ LISTĘ PROJEKTOWĄ
+    public function updateProjectList(Request $request, \App\Models\ProjectList $projectList)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+
+        $projectList->update([
+            'name' => $request->name,
+            'description' => $request->description,
+        ]);
+
+        return redirect()->route('magazyn.projects.settings')->with('success', 'Lista projektowa została zaktualizowana.');
+    }
+
+    // ZAPISZ PRODUKTY DO LISTY (AJAX)
+    public function saveProductsToList(Request $request, \App\Models\ProjectList $projectList)
+    {
+        $request->validate([
+            'products' => 'required|array',
+            'products.*.id' => 'required|exists:parts,id',
+            'products.*.quantity' => 'required|integer|min:1',
+        ]);
+
+        // Usuń istniejące produkty
+        $projectList->items()->delete();
+
+        // Dodaj nowe produkty
+        foreach ($request->products as $product) {
+            $projectList->items()->create([
+                'part_id' => $product['id'],
+                'quantity' => $product['quantity'],
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Lista została zapisana'
+        ]);
+    }
+
+    // IMPORT PRODUKTÓW Z EXCELA DO LISTY PROJEKTOWEJ
+    public function importExcelToProjectList(Request $request, \App\Models\ProjectList $projectList)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls|max:10240'
+        ]);
+
+        try {
+            $file = $request->file('file');
+            
+            // Załaduj plik Excel
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getPathname());
+            $worksheet = $spreadsheet->getActiveSheet();
+            $rows = $worksheet->toArray();
+
+            // Zakładamy że pierwszy wiersz to nagłówki
+            $headers = array_shift($rows);
+            
+            // Funkcja do normalizacji nagłówków
+            $normalizeHeader = function($header) {
+                $header = strtolower(trim($header));
+                $header = str_replace(['.', ',', ';', ':', ' '], '', $header);
+                $header = str_replace(['ą','ć','ę','ł','ń','ó','ś','ź','ż'],
+                    ['a','c','e','l','n','o','s','z','z'], $header);
+                return $header;
+            };
+
+            // Normalizuj nagłówki
+            $normalizedHeaders = array_map($normalizeHeader, $headers);
+
+            // Znajdź kolumny produktów i ilości
+            $nameColumn = null;
+            $quantityColumn = null;
+
+            foreach ($normalizedHeaders as $index => $header) {
+                // Szukaj kolumny z nazwą produktu
+                if (in_array($header, ['produkty', 'produkt', 'nazwa', 'name'])) {
+                    $nameColumn = $index;
+                }
+                // Szukaj kolumny z ilością
+                if (in_array($header, ['ilosc', 'quantity', 'qty', 'sztuk', 'ilosc'])) {
+                    $quantityColumn = $index;
+                }
+            }
+
+            // Sprawdź czy znaleziono kolumnę z nazwą produktu
+            if ($nameColumn === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Nie znaleziono kolumny z nazwą produktu (Produkty/Nazwa/Name)'
+                ], 400);
+            }
+
+            $products = [];
+            $skippedProducts = []; // Lista nazw produktów które nie zostały znalezione
+
+            foreach ($rows as $row) {
+                // Pomiń puste wiersze
+                if (empty(array_filter($row))) {
+                    continue;
+                }
+
+                $productName = trim($row[$nameColumn] ?? '');
+                
+                if (empty($productName)) {
+                    continue;
+                }
+
+                // Pobierz ilość (domyślnie 1 jeśli brak kolumny)
+                $quantity = 1;
+                if ($quantityColumn !== null) {
+                    $quantityValue = trim($row[$quantityColumn] ?? '');
+                    // Obsługa przecinka jako separatora dziesiętnego
+                    $quantityValue = str_replace(',', '.', $quantityValue);
+                    $quantity = intval($quantityValue);
+                    if ($quantity < 1) {
+                        $quantity = 1;
+                    }
+                }
+
+                // Znajdź produkt w bazie po nazwie
+                $part = \App\Models\Part::where('name', $productName)->first();
+
+                if (!$part) {
+                    // Spróbuj też z case-insensitive
+                    $part = \App\Models\Part::whereRaw('LOWER(name) = ?', [strtolower($productName)])->first();
+                }
+
+                if ($part) {
+                    $products[] = [
+                        'id' => $part->id,
+                        'name' => $part->name,
+                        'code' => $part->code,
+                        'code_description' => $part->code_description,
+                        'quantity' => $quantity
+                    ];
+                } else {
+                    $skippedProducts[] = $productName;
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'products' => $products,
+                'skipped' => count($skippedProducts),
+                'skippedProducts' => $skippedProducts,
+                'message' => sprintf('Znaleziono %d produktów%s', 
+                    count($products),
+                    count($skippedProducts) > 0 ? sprintf(', %d produktów nie znaleziono w magazynie', count($skippedProducts)) : ''
+                )
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Błąd importu Excel do listy projektowej', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Błąd podczas importu: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // USUŃ LISTĘ PROJEKTOWĄ
+    public function destroyProjectList(\App\Models\ProjectList $projectList)
+    {
+        $name = $projectList->name;
+        $projectList->delete();
+
+        return redirect()->route('magazyn.projects.settings')->with('success', 'Lista projektowa "' . $name . '" została usunięta.');
+    }
+
+    // PRZENIEŚ LISTĘ W GÓRĘ
+    public function moveListUp(\App\Models\ProjectList $projectList)
+    {
+        $lists = \App\Models\ProjectList::orderBy('created_at', 'desc')->get();
+        $currentIndex = $lists->search(function($item) use ($projectList) {
+            return $item->id === $projectList->id;
+        });
+
+        if ($currentIndex > 0) {
+            $previousList = $lists[$currentIndex - 1];
+            
+            // Zamień daty utworzenia
+            $tempDate = $projectList->created_at;
+            $projectList->created_at = $previousList->created_at;
+            $previousList->created_at = $tempDate;
+            
+            $projectList->save();
+            $previousList->save();
+        }
+
+        return redirect()->route('magazyn.projects.settings')->with('success', 'Kolejność została zmieniona.');
+    }
+
+    // PRZENIEŚ LISTĘ W DÓŁ
+    public function moveListDown(\App\Models\ProjectList $projectList)
+    {
+        $lists = \App\Models\ProjectList::orderBy('created_at', 'desc')->get();
+        $currentIndex = $lists->search(function($item) use ($projectList) {
+            return $item->id === $projectList->id;
+        });
+
+        if ($currentIndex < count($lists) - 1) {
+            $nextList = $lists[$currentIndex + 1];
+            
+            // Zamień daty utworzenia
+            $tempDate = $projectList->created_at;
+            $projectList->created_at = $nextList->created_at;
+            $nextList->created_at = $tempDate;
+            
+            $projectList->save();
+            $nextList->save();
+        }
+
+        return redirect()->route('magazyn.projects.settings')->with('success', 'Kolejność została zmieniona.');
+    }
+
+    // DODAJ PRODUKT DO LISTY PROJEKTOWEJ
+    public function addProjectListItem(Request $request, \App\Models\ProjectList $projectList)
+    {
+        $request->validate([
+            'part_id' => 'required|exists:parts,id',
+            'quantity' => 'required|integer|min:1',
+        ]);
+
+        // Sprawdź czy produkt już jest na liście
+        $existing = $projectList->items()->where('part_id', $request->part_id)->first();
+        
+        if ($existing) {
+            // Jeśli istnieje, zwiększ ilość
+            $existing->quantity += $request->quantity;
+            $existing->save();
+        } else {
+            // Jeśli nie istnieje, dodaj nowy
+            \App\Models\ProjectListItem::create([
+                'project_list_id' => $projectList->id,
+                'part_id' => $request->part_id,
+                'quantity' => $request->quantity,
+            ]);
+        }
+
+        return redirect()->route('magazyn.projects.lists.edit', $projectList)->with('success', 'Produkt został dodany do listy.');
+    }
+
+    // AKTUALIZUJ ILOŚĆ PRODUKTU NA LIŚCIE PROJEKTOWEJ
+    public function updateProjectListItem(Request $request, \App\Models\ProjectList $projectList, \App\Models\ProjectListItem $projectListItem)
+    {
+        $request->validate([
+            'quantity' => 'required|integer|min:1',
+        ]);
+
+        $projectListItem->update([
+            'quantity' => $request->quantity,
+        ]);
+
+        return redirect()->route('magazyn.projects.lists.edit', $projectList)->with('success', 'Ilość została zaktualizowana.');
+    }
+
+    // USUŃ PRODUKT Z LISTY PROJEKTOWEJ
+    public function removeProjectListItem(\App\Models\ProjectList $projectList, \App\Models\ProjectListItem $projectListItem)
+    {
+        $projectListItem->delete();
+
+        return redirect()->route('magazyn.projects.lists.edit', $projectList)->with('success', 'Produkt został usunięty z listy.');
+    }
+
+    // ZAŁADUJ PRODUKTY Z PROJEKTU DO LISTY
+    public function loadFromProjectToList(Request $request, \App\Models\ProjectList $projectList)
+    {
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+        ]);
+
+        $project = \App\Models\Project::findOrFail($request->project_id);
+        
+        // Pobierz produkty z projektu (aktywne, nie zwrócone)
+        $removals = $project->removals()->where('status', 'added')->with('part')->get();
+        
+        if ($removals->isEmpty()) {
+            return redirect()->route('magazyn.projects.lists.edit', $projectList)->with('error', 'Projekt nie zawiera żadnych produktów.');
+        }
+
+        // Grupuj produkty i sumuj ilości
+        $productQuantities = [];
+        foreach ($removals as $removal) {
+            if ($removal->part) {
+                $partId = $removal->part_id;
+                if (isset($productQuantities[$partId])) {
+                    $productQuantities[$partId] += $removal->quantity;
+                } else {
+                    $productQuantities[$partId] = $removal->quantity;
+                }
+            }
+        }
+
+        // Dodaj produkty do listy
+        foreach ($productQuantities as $partId => $quantity) {
+            // Sprawdź, czy produkt już istnieje na liście
+            $existingItem = $projectList->items()->where('part_id', $partId)->first();
+            
+            if ($existingItem) {
+                // Zaktualizuj ilość
+                $existingItem->quantity += $quantity;
+                $existingItem->save();
+            } else {
+                // Dodaj nowy produkt
+                $projectList->items()->create([
+                    'part_id' => $partId,
+                    'quantity' => $quantity,
+                ]);
+            }
+        }
+
+        return redirect()->route('magazyn.projects.lists.edit', $projectList)->with('success', 'Produkty z projektu zostały załadowane do listy.');
+    }
+
+    // ZAPISZ LISTĘ DO PROJEKTU
+    public function saveListToProject(Request $request, \App\Models\ProjectList $projectList)
+    {
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+        ]);
+
+        $project = \App\Models\Project::findOrFail($request->project_id);
+        
+        if ($projectList->items->isEmpty()) {
+            return redirect()->route('magazyn.projects.lists.edit', $projectList)->with('error', 'Lista nie zawiera żadnych produktów.');
+        }
+
+        // Dodaj produkty z listy do projektu
+        foreach ($projectList->items as $item) {
+            if (!$item->part) {
+                continue; // Pomiń usunięte produkty
+            }
+
+            $part = $item->part;
+
+            // Sprawdź dostępność w magazynie
+            if ($part->quantity < $item->quantity) {
+                return redirect()->route('magazyn.projects.lists.edit', $projectList)
+                    ->with('error', 'Niewystarczająca ilość produktu "' . $part->name . '" w magazynie. Dostępne: ' . $part->quantity . ', wymagane: ' . $item->quantity);
+            }
+
+            // Utwórz wpis o pobraniu produktu
+            \App\Models\Removal::create([
+                'part_id' => $part->id,
+                'project_id' => $project->id,
+                'quantity' => $item->quantity,
+                'user_id' => auth()->id(),
+                'status' => $project->requires_authorization ? 'pending' : 'added',
+            ]);
+
+            // Jeśli projekt nie wymaga autoryzacji, odejmij od magazynu
+            if (!$project->requires_authorization) {
+                $part->quantity -= $item->quantity;
+                $part->save();
+            }
+        }
+
+        $message = $project->requires_authorization 
+            ? 'Produkty z listy zostały dodane do projektu jako oczekujące na autoryzację.'
+            : 'Produkty z listy zostały dodane do projektu i pobrane z magazynu.';
+
+        return redirect()->route('magazyn.projects.lists.edit', $projectList)->with('success', $message);
     }
 
     // DODAJ KATEGORIĘ
@@ -1423,14 +1952,25 @@ class PartController extends Controller
     // USUWANIE UŻYTKOWNIKA
     public function deleteUser(User $user)
     {
+        $isSuperAdmin = auth()->user()->email === 'proximalumine@gmail.com';
+        $isAdmin = auth()->user()->is_admin;
+        $canManageUsers = auth()->user()->can_settings_users;
+        
         // Nie pozwalaj usunąć głównego admina (proximalumine@gmail.com)
         if ($user->email === 'proximalumine@gmail.com') {
             return redirect()->route('magazyn.settings')->with('error', 'Nie można usunąć głównego konta Admin!');
         }
 
         // Jeśli użytkownik jest adminem, sprawdź czy zalogowany to główny admin
-        if ($user->is_admin && auth()->user()->email !== 'proximalumine@gmail.com') {
+        if ($user->is_admin && !$isSuperAdmin) {
             return redirect()->route('magazyn.settings')->with('error', 'Tylko główny administrator może usuwać konta administratorów!');
+        }
+        
+        // Zwykły użytkownik może usuwać tylko użytkowników których sam stworzył
+        if (!$isSuperAdmin && !$isAdmin) {
+            if (!$canManageUsers || $user->created_by !== auth()->id()) {
+                return redirect()->route('magazyn.settings')->with('error', 'Nie masz uprawnień do usunięcia tego użytkownika.');
+            }
         }
 
         $name = $user->name;
@@ -1442,8 +1982,20 @@ class PartController extends Controller
     // EDYCJA UŻYTKOWNIKA - WIDOK
     public function editUserView(User $user)
     {
+        $isSuperAdmin = auth()->user()->email === 'proximalumine@gmail.com';
+        $isAdmin = auth()->user()->is_admin;
+        $canManageUsers = auth()->user()->can_settings_users;
+        
+        // Superadmin i admin mogą edytować wszystkich
+        // Zwykły użytkownik może edytować tylko użytkowników których sam stworzył
+        if (!$isSuperAdmin && !$isAdmin) {
+            if (!$canManageUsers || $user->created_by !== auth()->id()) {
+                return redirect()->route('magazyn.settings')->with('error', 'Nie masz uprawnień do edycji tego użytkownika.');
+            }
+        }
+        
         // Zwykły użytkownik (nie admin) nie może edytować admina
-        if (!auth()->user()->is_admin && $user->is_admin) {
+        if (!$isAdmin && !$isSuperAdmin && $user->is_admin) {
             return redirect()->route('magazyn.settings')->with('error', 'Nie masz uprawnień do edycji konta administratora.');
         }
         
@@ -1455,8 +2007,20 @@ class PartController extends Controller
     // EDYCJA UŻYTKOWNIKA - AKTUALIZACJA
     public function updateUser(Request $request, User $user)
     {
+        $isSuperAdmin = auth()->user()->email === 'proximalumine@gmail.com';
+        $isAdmin = auth()->user()->is_admin;
+        $canManageUsers = auth()->user()->can_settings_users;
+        
+        // Superadmin i admin mogą edytować wszystkich
+        // Zwykły użytkownik może edytować tylko użytkowników których sam stworzył
+        if (!$isSuperAdmin && !$isAdmin) {
+            if (!$canManageUsers || $user->created_by !== auth()->id()) {
+                return redirect()->route('magazyn.settings')->with('error', 'Nie masz uprawnień do edycji tego użytkownika.');
+            }
+        }
+        
         // Zwykły użytkownik (nie admin) nie może edytować admina
-        if (!auth()->user()->is_admin && $user->is_admin) {
+        if (!$isAdmin && !$isSuperAdmin && $user->is_admin) {
             return redirect()->route('magazyn.settings')->with('error', 'Nie masz uprawnień do edycji konta administratora.');
         }
         
@@ -1504,44 +2068,114 @@ class PartController extends Controller
         // Sprawdzenie uprawnień do nadawania dostępów
         $isSuperAdmin = auth()->user()->email === 'proximalumine@gmail.com';
         $isAdmin = auth()->user()->is_admin;
+        $canManageUsers = auth()->user()->can_settings_users;
         
-        // Superadmin i Admin z odpowiednimi uprawnieniami mogą nadawać uprawnienia
-        $canEditMagazyn = $isSuperAdmin || ($isAdmin && auth()->user()->can_view_magazyn);
-        $canEditOffers = $isSuperAdmin || ($isAdmin && auth()->user()->can_view_offers);
-        $canEditRecipes = $isSuperAdmin || ($isAdmin && auth()->user()->can_view_recipes);
-        $canEditCrm = $isSuperAdmin || ($isAdmin && auth()->user()->can_crm);
+        // Superadmin może wszystko
+        // Admin może nadawać tylko te uprawnienia, które sam posiada
+        // Zwykły użytkownik z can_settings_users może nadawać tylko te uprawnienia, które sam posiada
+        
+        // Funkcja pomocnicza - sprawdza czy user może nadać dane uprawnienie
+        $canGrant = function($permission) use ($isSuperAdmin, $isAdmin, $canManageUsers) {
+            if ($isSuperAdmin) return true;
+            if (!$isAdmin && !$canManageUsers) return false;
+            return (bool) auth()->user()->$permission;
+        };
 
-        // Zaktualizuj uprawnienia (konwertuj na int dla boolean kolumn)
-        // Tylko jeśli mają uprawnienia do edycji danej sekcji
-        if ($canEditMagazyn) {
+        // Zaktualizuj uprawnienia - tylko jeśli edytujący ma to uprawnienie
+        if ($canGrant('can_view_magazyn')) {
             $user->can_view_magazyn = (int) $request->has('can_view_magazyn');
         }
         
-        if ($canEditOffers) {
+        if ($canGrant('can_view_projects')) {
+            $user->can_view_projects = (int) $request->has('can_view_projects');
+        }
+        
+        // Poduprawnienia projektów
+        if ($canGrant('can_projects_add')) {
+            $user->can_projects_add = (int) $request->has('can_projects_add');
+        }
+        
+        if ($canGrant('can_projects_in_progress')) {
+            $user->can_projects_in_progress = (int) $request->has('can_projects_in_progress');
+        }
+        
+        if ($canGrant('can_projects_warranty')) {
+            $user->can_projects_warranty = (int) $request->has('can_projects_warranty');
+        }
+        
+        if ($canGrant('can_projects_archived')) {
+            $user->can_projects_archived = (int) $request->has('can_projects_archived');
+        }
+        
+        if ($canGrant('can_projects_settings')) {
+            $user->can_projects_settings = (int) $request->has('can_projects_settings');
+        }
+        
+        if ($canGrant('can_view_offers')) {
             $user->can_view_offers = (int) $request->has('can_view_offers');
         }
         
-        if ($canEditRecipes) {
+        if ($canGrant('can_view_recipes')) {
             $user->can_view_recipes = (int) $request->has('can_view_recipes');
         }
         
-        if ($canEditCrm) {
+        if ($canGrant('can_crm')) {
             $user->can_crm = (int) $request->has('can_crm');
         }
         
-        $user->can_view_catalog = (int) $request->has('can_view_catalog');
-        $user->can_add = (int) $request->has('can_add');
-        $user->can_remove = (int) $request->has('can_remove');
-        $user->can_orders = (int) $request->has('can_orders');
-        $user->can_settings = (int) $request->has('can_settings');
-        $user->can_settings_categories = (int) $request->has('can_settings_categories');
-        $user->can_settings_suppliers = (int) $request->has('can_settings_suppliers');
-        $user->can_settings_company = (int) $request->has('can_settings_company');
-        $user->can_settings_users = (int) $request->has('can_settings_users');
-        $user->can_settings_export = (int) $request->has('can_settings_export');
-        $user->can_settings_other = (int) $request->has('can_settings_other');
-        $user->can_delete_orders = (int) $request->has('can_delete_orders');
-        $user->show_action_column = (int) $request->has('show_action_column');
+        // Poduprawnienia magazynu
+        if ($canGrant('can_view_catalog')) {
+            $user->can_view_catalog = (int) $request->has('can_view_catalog');
+        }
+        
+        if ($canGrant('can_add')) {
+            $user->can_add = (int) $request->has('can_add');
+        }
+        
+        if ($canGrant('can_remove')) {
+            $user->can_remove = (int) $request->has('can_remove');
+        }
+        
+        if ($canGrant('can_orders')) {
+            $user->can_orders = (int) $request->has('can_orders');
+        }
+        
+        if ($canGrant('can_delete_orders')) {
+            $user->can_delete_orders = (int) $request->has('can_delete_orders');
+        }
+        
+        if ($canGrant('show_action_column')) {
+            $user->show_action_column = (int) $request->has('show_action_column');
+        }
+        
+        // Ustawienia
+        if ($canGrant('can_settings')) {
+            $user->can_settings = (int) $request->has('can_settings');
+        }
+        
+        if ($canGrant('can_settings_categories')) {
+            $user->can_settings_categories = (int) $request->has('can_settings_categories');
+        }
+        
+        if ($canGrant('can_settings_suppliers')) {
+            $user->can_settings_suppliers = (int) $request->has('can_settings_suppliers');
+        }
+        
+        if ($canGrant('can_settings_company')) {
+            $user->can_settings_company = (int) $request->has('can_settings_company');
+        }
+        
+        if ($canGrant('can_settings_users')) {
+            $user->can_settings_users = (int) $request->has('can_settings_users');
+        }
+        
+        if ($canGrant('can_settings_export')) {
+            $user->can_settings_export = (int) $request->has('can_settings_export');
+        }
+        
+        if ($canGrant('can_settings_other')) {
+            $user->can_settings_other = (int) $request->has('can_settings_other');
+        }
 
         $user->save();
 
@@ -5052,11 +5686,11 @@ class PartController extends Controller
 
         // Użyj istniejącej listy lub stwórz nową
         if ($request->filled('list_id')) {
-            $list = \App\Models\ProductList::findOrFail($request->list_id);
+            $list = \App\Models\ProjectList::findOrFail($request->list_id);
             // Wyczyść istniejące pozycje przed nadpisaniem
             $list->items()->delete();
         } else {
-            $list = \App\Models\ProductList::create([
+            $list = \App\Models\ProjectList::create([
                 'name' => $request->list_name,
                 'description' => $request->list_description,
                 'created_by' => auth()->id(),
@@ -5065,8 +5699,8 @@ class PartController extends Controller
 
         // Dodaj produkty do listy
         foreach ($aggregated as $partId => $quantity) {
-            \App\Models\ProductListItem::create([
-                'product_list_id' => $list->id,
+            \App\Models\ProjectListItem::create([
+                'project_list_id' => $list->id,
                 'part_id' => $partId,
                 'quantity' => $quantity,
             ]);
@@ -5075,22 +5709,97 @@ class PartController extends Controller
         return redirect()->route('magazyn.projects.show', $project->id)->with('success', 'Produkty zostały zapisane jako lista "' . $list->name . '".');
     }
 
+    // PODGLĄD LISTY PROJEKTOWEJ
+    public function previewProjectList(\App\Models\Project $project, \App\Models\ProjectList $projectList)
+    {
+        $projectList->load('items.part');
+        
+        // Sprawdź czy lista jest już załadowana
+        $isAlreadyLoaded = \App\Models\ProjectLoadedList::where('project_id', $project->id)
+            ->where('project_list_id', $projectList->id)
+            ->exists();
+        
+        $items = $projectList->items->map(function($item) {
+            $part = $item->part;
+            return [
+                'name' => $part ? $part->name : 'Produkt usunięty',
+                'quantity' => $item->quantity,
+                'stock' => $part ? $part->quantity : 0,
+            ];
+        });
+        
+        $hasMissing = $items->some(fn($item) => $item['stock'] < $item['quantity']);
+        
+        return response()->json([
+            'list_name' => $projectList->name,
+            'description' => $projectList->description,
+            'items' => $items,
+            'has_missing' => $hasMissing,
+            'project_requires_authorization' => $project->requires_authorization,
+            'is_already_loaded' => $isAlreadyLoaded,
+        ]);
+    }
+
     // POBIERZ LISTĘ PRODUKTÓW DO PROJEKTU
     public function loadListToProject(Request $request, \App\Models\Project $project)
     {
         $request->validate([
-            'list_id' => 'required|exists:product_lists,id',
+            'list_id' => 'required|exists:project_lists,id',
         ]);
 
-        $list = \App\Models\ProductList::with('items.part')->findOrFail($request->list_id);
+        $list = \App\Models\ProjectList::with('items.part')->findOrFail($request->list_id);
 
         if ($list->items->isEmpty()) {
-            return redirect()->route('magazyn.projects.show', $project->id)->with('error', 'Lista jest pusta.');
+            return response()->json([
+                'success' => false,
+                'message' => 'Lista jest pusta.'
+            ], 400);
+        }
+
+        // Sprawdź czy ta lista nie jest już załadowana
+        $existingLoad = \App\Models\ProjectLoadedList::where('project_id', $project->id)
+            ->where('project_list_id', $list->id)
+            ->first();
+            
+        if ($existingLoad) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ta lista jest już załadowana w tym projekcie.'
+            ], 400);
         }
 
         $added = 0;
+        $skipped = 0;
+        $missing = [];
+        $totalCount = 0;
+        
         foreach ($list->items as $item) {
-            if (!$item->part) continue;
+            $totalCount++;
+            
+            if (!$item->part) {
+                $skipped++;
+                $missing[] = [
+                    'part_id' => $item->part_id,
+                    'name' => 'Produkt usunięty (ID: ' . $item->part_id . ')',
+                    'quantity' => $item->quantity,
+                    'available' => 0,
+                    'reason' => 'Produkt nie istnieje'
+                ];
+                continue;
+            }
+
+            // Sprawdź dostępność na magazynie
+            if ($item->part->quantity < $item->quantity) {
+                $missing[] = [
+                    'part_id' => $item->part_id,
+                    'name' => $item->part->name,
+                    'quantity' => $item->quantity,
+                    'available' => $item->part->quantity,
+                    'reason' => 'Niewystarczająca ilość na magazynie'
+                ];
+                $skipped++;
+                continue;
+            }
 
             // Dodaj produkt do projektu
             \App\Models\ProjectRemoval::create([
@@ -5110,11 +5819,283 @@ class PartController extends Controller
             $added++;
         }
 
-        // Zapisz ID użytej listy w projekcie
-        $project->loaded_list_id = $list->id;
-        $project->save();
+        // Zapisz informację o załadowanej liście
+        \App\Models\ProjectLoadedList::create([
+            'project_id' => $project->id,
+            'project_list_id' => $list->id,
+            'is_complete' => count($missing) === 0,
+            'missing_items' => count($missing) > 0 ? $missing : null,
+            'added_count' => $added,
+            'total_count' => $totalCount,
+        ]);
 
-        return redirect()->route('magazyn.projects.show', $project->id)->with('success', "Załadowano {$added} produktów z listy \"{$list->name}\".");
+        // Usuń stare pole loaded_list_id (już nie używane)
+        // $project->loaded_list_id = $list->id;
+        // $project->save();
+
+        $message = "Załadowano {$added} z {$totalCount} produktów z listy \"{$list->name}\".";
+        if ($skipped > 0) {
+            $message .= " Pominięto {$skipped} produktów (brak na magazynie lub usunięte).";
+        }
+        
+        if ($project->requires_authorization) {
+            $message .= " Produkty oczekują na autoryzację.";
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+            'is_complete' => count($missing) === 0,
+            'missing_count' => count($missing)
+        ]);
+    }
+
+    // DODAJ BRAKUJĄCY PRODUKT DO PROJEKTU
+    public function addMissingProductToProject(Request $request, \App\Models\Project $project)
+    {
+        $request->validate([
+            'loaded_list_id' => 'required|exists:project_loaded_lists,id',
+            'part_id' => 'required|exists:parts,id',
+            'quantity' => 'required|integer|min:1',
+        ]);
+
+        $loadedList = \App\Models\ProjectLoadedList::findOrFail($request->loaded_list_id);
+        
+        // Sprawdź czy to rzeczywiście brakujący produkt z tej listy
+        $missingItems = $loadedList->missing_items ?? [];
+        $found = false;
+        $missingIndex = null;
+        
+        foreach ($missingItems as $index => $item) {
+            if (isset($item['part_id']) && $item['part_id'] == $request->part_id) {
+                $found = true;
+                $missingIndex = $index;
+                break;
+            }
+        }
+        
+        if (!$found) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ten produkt nie jest w brakujących pozycjach tej listy.'
+            ], 400);
+        }
+
+        $part = \App\Models\Part::findOrFail($request->part_id);
+        
+        // Sprawdź dostępność
+        if ($part->quantity < $request->quantity) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Niewystarczająca ilość na magazynie. Dostępne: ' . $part->quantity
+            ], 400);
+        }
+
+        // Dodaj produkt do projektu
+        \App\Models\ProjectRemoval::create([
+            'project_id' => $project->id,
+            'part_id' => $request->part_id,
+            'quantity' => $request->quantity,
+            'user_id' => auth()->id(),
+            'status' => 'added',
+            'authorized' => !$project->requires_authorization,
+        ]);
+
+        // Jeśli nie wymaga autoryzacji, odejmij ze stanu magazynu
+        if (!$project->requires_authorization) {
+            $part->decrement('quantity', $request->quantity);
+        }
+
+        // Zaktualizuj missing_items w loadedList
+        $missingItem = $missingItems[$missingIndex];
+        
+        if ($request->quantity >= $missingItem['quantity']) {
+            // Usunąć pozycję - w pełni uzupełniona
+            unset($missingItems[$missingIndex]);
+            $missingItems = array_values($missingItems); // Przeindeksuj
+        } else {
+            // Zmniejsz ilość brakującą
+            $missingItems[$missingIndex]['quantity'] -= $request->quantity;
+            $missingItems[$missingIndex]['available'] = max(0, $part->quantity);
+        }
+        
+        // Zaktualizuj loadedList
+        $loadedList->missing_items = count($missingItems) > 0 ? $missingItems : null;
+        $loadedList->is_complete = count($missingItems) === 0;
+        $loadedList->added_count += $request->quantity;
+        $loadedList->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Produkt został dodany do projektu.' . ($project->requires_authorization ? ' Oczekuje na autoryzację.' : ''),
+            'is_complete' => $loadedList->is_complete
+        ]);
+    }
+
+    // USUWANIE LISTY Z PROJEKTU (tylko dla super admina)
+    public function removeListFromProject(\App\Models\Project $project, \App\Models\ProjectLoadedList $loadedList)
+    {
+        // Sprawdź czy użytkownik to super admin
+        if (!auth()->user() || !auth()->user()->is_admin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Brak uprawnień.'
+            ], 403);
+        }
+
+        // Sprawdź czy lista należy do tego projektu
+        if ($loadedList->project_id != $project->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lista nie należy do tego projektu.'
+            ], 400);
+        }
+
+        $listName = $loadedList->projectList->name ?? 'Lista';
+        
+        // Usuń powiązanie listy z projektem
+        // UWAGA: Produkty już dodane do projektu pozostają
+        $loadedList->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => "Lista \"{$listName}\" została usunięta z projektu. Produkty już dodane do projektu pozostały."
+        ]);
+    }
+
+    // USUWANIE WIELU PRODUKTÓW Z PROJEKTU (tylko dla super admina)
+    public function deleteProductsFromProject(Request $request, \App\Models\Project $project)
+    {
+        // Sprawdź czy użytkownik to super admin
+        if (!auth()->user() || !auth()->user()->is_admin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Brak uprawnień.'
+            ], 403);
+        }
+
+        $request->validate([
+            'part_ids' => 'required|array',
+            'part_ids.*' => 'required|exists:parts,id',
+        ]);
+
+        $partIds = $request->part_ids;
+        
+        // Pobierz wszystkie pobrania do usunięcia
+        $removalsToDelete = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->whereIn('part_id', $partIds)
+            ->where('status', 'added')
+            ->get();
+
+        if ($removalsToDelete->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nie znaleziono produktów do usunięcia.'
+            ], 404);
+        }
+
+        $deletedCount = 0;
+        
+        foreach ($removalsToDelete as $removal) {
+            // Jeśli pobranie było autoryzowane (odebrano ze stanu), zwróć na stan
+            if ($removal->authorized && !$project->requires_authorization) {
+                $removal->part->increment('quantity', $removal->quantity);
+            }
+            
+            $removal->delete();
+            $deletedCount++;
+        }
+
+        // Zaktualizuj missing_items w załadowanych listach
+        $loadedLists = \App\Models\ProjectLoadedList::where('project_id', $project->id)->get();
+        
+        foreach ($loadedLists as $loadedList) {
+            $listItems = $loadedList->projectList->items ?? collect();
+            $missingItems = $loadedList->missing_items ?? [];
+            $updated = false;
+            
+            foreach ($partIds as $partId) {
+                // Sprawdź czy produkt był w liście
+                $listItem = $listItems->firstWhere('part_id', $partId);
+                
+                if ($listItem) {
+                    // Sprawdź czy już jest w missing_items
+                    $existsInMissing = false;
+                    foreach ($missingItems as &$missing) {
+                        if (isset($missing['part_id']) && $missing['part_id'] == $partId) {
+                            $existsInMissing = true;
+                            break;
+                        }
+                    }
+                    
+                    // Jeśli nie ma w missing, dodaj
+                    if (!$existsInMissing) {
+                        $part = \App\Models\Part::find($partId);
+                        if ($part) {
+                            $missingItems[] = [
+                                'part_id' => $partId,
+                                'name' => $part->name,
+                                'quantity' => $listItem->quantity,
+                                'available' => $part->quantity,
+                                'reason' => 'Produkt usunięty z projektu'
+                            ];
+                            $updated = true;
+                        }
+                    }
+                }
+            }
+            
+            if ($updated) {
+                $loadedList->missing_items = count($missingItems) > 0 ? $missingItems : null;
+                $loadedList->is_complete = count($missingItems) === 0;
+                $loadedList->save();
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Usunięto {$deletedCount} pobrań produktów z projektu."
+        ]);
+    }
+
+    // POMOCNICZA FUNKCJA: Zaktualizuj brakujące pozycje w listach
+    private function updateMissingItemsForPart($projectId, $partId, $quantity)
+    {
+        // Znajdź wszystkie listy w projekcie które mają ten produkt w brakujących
+        $loadedLists = \App\Models\ProjectLoadedList::where('project_id', $projectId)
+            ->whereNotNull('missing_items')
+            ->get();
+
+        foreach ($loadedLists as $loadedList) {
+            $missingItems = $loadedList->missing_items;
+            $updated = false;
+
+            foreach ($missingItems as $index => $item) {
+                // Sprawdź czy element ma part_id przed porównaniem
+                if (isset($item['part_id']) && $item['part_id'] == $partId) {
+                    // Znaleziono - zaktualizuj
+                    if ($quantity >= $item['quantity']) {
+                        // Usunąć pozycję - w pełni uzupełniona
+                        unset($missingItems[$index]);
+                        $missingItems = array_values($missingItems);
+                    } else {
+                        // Zmniejsz ilość brakującą
+                        $missingItems[$index]['quantity'] -= $quantity;
+                        $part = \App\Models\Part::find($partId);
+                        $missingItems[$index]['available'] = $part ? $part->quantity : 0;
+                    }
+                    $updated = true;
+                    break;
+                }
+            }
+
+            if ($updated) {
+                $loadedList->missing_items = count($missingItems) > 0 ? $missingItems : null;
+                $loadedList->is_complete = count($missingItems) === 0;
+                $loadedList->added_count += $quantity;
+                $loadedList->save();
+            }
+        }
     }
 
     // ========== GANTT CHART METHODS ==========

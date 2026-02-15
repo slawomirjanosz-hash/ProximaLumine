@@ -126,173 +126,314 @@
             @php
                 $isSuperAdmin = auth()->user()->email === 'proximalumine@gmail.com';
                 $isAdmin = auth()->user()->is_admin;
-                $canEditMagazyn = $isSuperAdmin || ($isAdmin && auth()->user()->can_view_magazyn);
-                $canEditOffers = $isSuperAdmin || ($isAdmin && auth()->user()->can_view_offers);
-                $canEditRecipes = $isSuperAdmin || ($isAdmin && auth()->user()->can_view_recipes);
-                $canEditCrm = $isSuperAdmin || ($isAdmin && auth()->user()->can_crm);
+                $canManageUsers = auth()->user()->can_settings_users;
+                
+                // Funkcja sprawdzająca czy można nadać dane uprawnienie
+                $canGrant = function($permission) use ($isSuperAdmin, $isAdmin, $canManageUsers) {
+                    if ($isSuperAdmin) return true;
+                    if (!$isAdmin && !$canManageUsers) return false;
+                    return (bool) auth()->user()->$permission;
+                };
             @endphp
-            <div class="space-y-3">
-                @if($canEditMagazyn)
-                <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
-                    <input 
-                        type="checkbox" 
-                        name="can_view_magazyn" 
-                        id="can_view_magazyn_checkbox"
-                        class="w-4 h-4"
-                        {{ $user->can_view_magazyn ? 'checked' : '' }}
-                    >
-                    <span class="text-sm">
-                        <strong>📦 Magazyn</strong>
-                        <p class="text-gray-600">Możliwość wejścia do magazynu</p>
-                    </span>
-                </label>
+            <div class="space-y-2">
+                {{-- MAGAZYN --}}
+                @if($canGrant('can_view_magazyn') || $canGrant('can_view_catalog') || $canGrant('can_add') || $canGrant('can_remove') || $canGrant('can_orders') || $canGrant('can_delete_orders') || $canGrant('show_action_column'))
+                <div class="border rounded">
+                    <label class="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            name="can_view_magazyn" 
+                            id="can_view_magazyn_checkbox"
+                            class="w-4 h-4 parent-checkbox"
+                            data-target="magazyn_tree"
+                            {{ $user->can_view_magazyn ? 'checked' : '' }}
+                        >
+                        <span class="toggle-arrow text-sm">{{ $user->can_view_magazyn ? '▼' : '▶' }}</span>
+                        <span class="text-sm flex-1">
+                            <strong>📦 Magazyn</strong>
+                        </span>
+                    </label>
+                    
+                    <div id="magazyn_tree" class="ml-8 mr-3 mb-3 space-y-2 {{ $user->can_view_magazyn ? '' : 'hidden' }}">
+                        {{-- Katalog z poddrzewem --}}
+                        @if($canGrant('can_view_catalog'))
+                        <div class="border rounded">
+                            <label class="flex items-center gap-3 p-2 hover:bg-gray-50 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    name="can_view_catalog" 
+                                    id="can_view_catalog_checkbox"
+                                    class="w-4 h-4 child-checkbox parent-checkbox"
+                                    data-parent="can_view_magazyn_checkbox"
+                                    data-target="catalog_tree"
+                                    {{ $user->can_view_catalog ? 'checked' : '' }}
+                                >
+                                <span class="toggle-arrow text-xs">{{ $user->can_view_catalog ? '▼' : '▶' }}</span>
+                                <span class="text-sm flex-1"><strong>🔍 Katalog</strong></span>
+                            </label>
+                            
+                            <div id="catalog_tree" class="ml-8 mr-2 mb-2 space-y-1 {{ $user->can_view_catalog ? '' : 'hidden' }}">
+                                @if($canGrant('show_action_column'))
+                                <label class="flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        name="show_action_column" 
+                                        class="w-4 h-4 child-checkbox"
+                                        data-parent="can_view_catalog_checkbox"
+                                        {{ $user->show_action_column ? 'checked' : '' }}
+                                    >
+                                    <span class="text-xs">👁️ Pokaż kolumnę akcja w Magazyn/Sprawdź</span>
+                                </label>
+                                @elseif($user->show_action_column)
+                                <div class="flex items-center gap-2 p-2 bg-gray-50">
+                                    <input type="checkbox" class="w-4 h-4" checked disabled>
+                                    <span class="text-xs text-gray-500">👁️ Pokaż kolumnę akcja w Magazyn/Sprawdź (tylko do odczytu)</span>
+                                </div>
+                                <input type="hidden" name="show_action_column" value="1">
+                                @endif
+                            </div>
+                        </div>
+                        @elseif($user->can_view_catalog)
+                        <div class="flex items-center gap-2 p-2 border rounded bg-gray-50">
+                            <input type="checkbox" class="w-4 h-4" checked disabled>
+                            <span class="text-sm text-gray-500">🔍 Katalog (tylko do odczytu)</span>
+                        </div>
+                        <input type="hidden" name="can_view_catalog" value="1">
+                        @endif
+                        
+                        {{-- Dodaj --}}
+                        @if($canGrant('can_add'))
+                        <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                name="can_add" 
+                                class="w-4 h-4 child-checkbox"
+                                data-parent="can_view_magazyn_checkbox"
+                                {{ $user->can_add ? 'checked' : '' }}
+                            >
+                            <span class="text-sm">➕ Dodaj</span>
+                        </label>
+                        @elseif($user->can_add)
+                        <div class="flex items-center gap-2 p-2 border rounded bg-gray-50">
+                            <input type="checkbox" class="w-4 h-4" checked disabled>
+                            <span class="text-sm text-gray-500">➕ Dodaj (tylko do odczytu)</span>
+                        </div>
+                        <input type="hidden" name="can_add" value="1">
+                        @endif
+                        
+                        {{-- Pobierz --}}
+                        @if($canGrant('can_remove'))
+                        <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                name="can_remove" 
+                                class="w-4 h-4 child-checkbox"
+                                data-parent="can_view_magazyn_checkbox"
+                                {{ $user->can_remove ? 'checked' : '' }}
+                            >
+                            <span class="text-sm">➖ Pobierz</span>
+                        </label>
+                        @elseif($user->can_remove)
+                        <div class="flex items-center gap-2 p-2 border rounded bg-gray-50">
+                            <input type="checkbox" class="w-4 h-4" checked disabled>
+                            <span class="text-sm text-gray-500">➖ Pobierz (tylko do odczytu)</span>
+                        </div>
+                        <input type="hidden" name="can_remove" value="1">
+                        @endif
+                        
+                        {{-- Zamówienia z poddrzewem --}}
+                        @if($canGrant('can_orders'))
+                        <div class="border rounded">
+                            <label class="flex items-center gap-3 p-2 hover:bg-gray-50 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    name="can_orders" 
+                                    id="can_orders_checkbox"
+                                    class="w-4 h-4 child-checkbox parent-checkbox"
+                                    data-parent="can_view_magazyn_checkbox"
+                                    data-target="orders_tree"
+                                    {{ $user->can_orders ? 'checked' : '' }}
+                                >
+                                <span class="toggle-arrow text-xs">{{ $user->can_orders ? '▼' : '▶' }}</span>
+                                <span class="text-sm flex-1"><strong>📦 Zamówienia</strong></span>
+                            </label>
+                            
+                            <div id="orders_tree" class="ml-8 mr-2 mb-2 space-y-1 {{ $user->can_orders ? '' : 'hidden' }}">
+                                @if($canGrant('can_delete_orders'))
+                                <label class="flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        name="can_delete_orders" 
+                                        class="w-4 h-4 child-checkbox"
+                                        data-parent="can_orders_checkbox"
+                                        {{ $user->can_delete_orders ? 'checked' : '' }}
+                                    >
+                                    <span class="text-xs">🗑️ Usuwanie zamówień</span>
+                                </label>
+                                @elseif($user->can_delete_orders)
+                                <div class="flex items-center gap-2 p-2 bg-gray-50">
+                                    <input type="checkbox" class="w-4 h-4" checked disabled>
+                                    <span class="text-xs text-gray-500">🗑️ Usuwanie zamówień (tylko do odczytu)</span>
+                                </div>
+                                <input type="hidden" name="can_delete_orders" value="1">
+                                @endif
+                            </div>
+                        </div>
+                        @elseif($user->can_orders)
+                        <div class="flex items-center gap-2 p-2 border rounded bg-gray-50">
+                            <input type="checkbox" class="w-4 h-4" checked disabled>
+                            <span class="text-sm text-gray-500">📦 Zamówienia (tylko do odczytu)</span>
+                        </div>
+                        <input type="hidden" name="can_orders" value="1">
+                        @endif
+                    </div>
+                </div>
                 @else
                     @if($user->can_view_magazyn)
                     <div class="flex items-center gap-3 p-3 border rounded bg-gray-50">
                         <input type="checkbox" class="w-4 h-4" checked disabled>
                         <span class="text-sm text-gray-500">
-                            <strong>📦 Magazyn</strong>
-                            <p class="text-gray-600">Możliwość wejścia do magazynu (tylko do odczytu)</p>
+                            <strong>📦 Magazyn</strong> (tylko do odczytu)
                         </span>
                     </div>
                     <input type="hidden" name="can_view_magazyn" value="1">
                     @endif
                 @endif
                 
-                <!-- Podrzędne uprawnienia Magazynu (wcięte) -->
-                <div class="ml-8 space-y-2" id="magazyn_sub_permissions">
-                    <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
+                {{-- PROJEKTY --}}
+                @if($canGrant('can_view_projects') || $canGrant('can_projects_add') || $canGrant('can_projects_in_progress') || $canGrant('can_projects_warranty') || $canGrant('can_projects_archived') || $canGrant('can_projects_settings'))
+                <div class="border rounded">
+                    <label class="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer">
                         <input 
                             type="checkbox" 
-                            name="can_view_catalog" 
-                            class="w-4 h-4 magazyn-sub-checkbox"
-                            {{ $user->can_view_catalog ? 'checked' : '' }}
+                            name="can_view_projects" 
+                            id="can_view_projects_checkbox"
+                            class="w-4 h-4 parent-checkbox"
+                            data-target="projects_tree"
+                            {{ $user->can_view_projects ? 'checked' : '' }}
                         >
-                        <span class="text-sm">
-                            <strong>🔍 Katalog</strong>
-                            <p class="text-gray-600">Możliwość przeglądania katalogu produktów</p>
+                        <span class="toggle-arrow text-sm">{{ $user->can_view_projects ? '▼' : '▶' }}</span>
+                        <span class="text-sm flex-1">
+                            <strong>📋 Projekty</strong>
                         </span>
                     </label>
-
-                    <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            name="can_add" 
-                            class="w-4 h-4 magazyn-sub-checkbox"
-                            {{ $user->can_add ? 'checked' : '' }}
-                        >
-                        <span class="text-sm">
-                            <strong>➕ Dodaj</strong>
-                            <p class="text-gray-600">Możliwość dodawania produktów do magazynu</p>
-                        </span>
-                    </label>
-
-                    <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            name="can_remove" 
-                            class="w-4 h-4 magazyn-sub-checkbox"
-                            {{ $user->can_remove ? 'checked' : '' }}
-                        >
-                        <span class="text-sm">
-                            <strong>➖ Pobierz</strong>
-                            <p class="text-gray-600">Możliwość pobierania produktów z magazynu</p>
-                        </span>
-                    </label>
-
-                    <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            name="can_orders" 
-                            class="w-4 h-4 magazyn-sub-checkbox"
-                            {{ $user->can_orders ? 'checked' : '' }}
-                        >
-                        <span class="text-sm">
-                            <strong>📦 Pobierz zamówienie</strong>
-                            <p class="text-gray-600">Możliwość zarządzania zamówieniami</p>
-                        </span>
-                    </label>
-
-                    <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            name="can_delete_orders" 
-                            class="w-4 h-4 magazyn-sub-checkbox"
-                            {{ $user->can_delete_orders ? 'checked' : '' }}
-                        >
-                        <span class="text-sm">
-                            <strong>🗑️ Usuwanie zamówień</strong>
-                            <p class="text-gray-600">Możliwość usuwania zamówień</p>
-                        </span>
-                    </label>
-
-                    <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            name="show_action_column" 
-                            class="w-4 h-4 magazyn-sub-checkbox"
-                            {{ $user->show_action_column ? 'checked' : '' }}
-                        >
-                        <span class="text-sm">
-                            <strong>👁️ Pokaż kolumnę akcja w Magazyn/Sprawdź</strong>
-                            <p class="text-gray-600">Wyświetlaj kolumnę "Akcja" w tabeli Magazyn/Sprawdź</p>
-                        </span>
-                    </label>
+                    
+                    <div id="projects_tree" class="ml-8 mr-3 mb-3 space-y-2 {{ $user->can_view_projects ? '' : 'hidden' }}">
+                        {{-- Dodawanie nowych projektów --}}
+                        @if($canGrant('can_projects_add'))
+                        <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                name="can_projects_add" 
+                                class="w-4 h-4 child-checkbox"
+                                data-parent="can_view_projects_checkbox"
+                                {{ $user->can_projects_add ? 'checked' : '' }}
+                            >
+                            <span class="text-sm">➕ Dodawanie nowych projektów</span>
+                        </label>
+                        @elseif($user->can_projects_add)
+                        <div class="flex items-center gap-2 p-2 border rounded bg-gray-50">
+                            <input type="checkbox" class="w-4 h-4" checked disabled>
+                            <span class="text-sm text-gray-500">➕ Dodawanie nowych projektów (tylko do odczytu)</span>
+                        </div>
+                        <input type="hidden" name="can_projects_add" value="1">
+                        @endif
+                        
+                        {{-- Przeglądanie projektów w toku --}}
+                        @if($canGrant('can_projects_in_progress'))
+                        <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                name="can_projects_in_progress" 
+                                class="w-4 h-4 child-checkbox"
+                                data-parent="can_view_projects_checkbox"
+                                {{ $user->can_projects_in_progress ? 'checked' : '' }}
+                            >
+                            <span class="text-sm">🔄 Przeglądanie projektów w toku</span>
+                        </label>
+                        @elseif($user->can_projects_in_progress)
+                        <div class="flex items-center gap-2 p-2 border rounded bg-gray-50">
+                            <input type="checkbox" class="w-4 h-4" checked disabled>
+                            <span class="text-sm text-gray-500">🔄 Przeglądanie projektów w toku (tylko do odczytu)</span>
+                        </div>
+                        <input type="hidden" name="can_projects_in_progress" value="1">
+                        @endif
+                        
+                        {{-- Przeglądanie projektów na gwarancji --}}
+                        @if($canGrant('can_projects_warranty'))
+                        <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                name="can_projects_warranty" 
+                                class="w-4 h-4 child-checkbox"
+                                data-parent="can_view_projects_checkbox"
+                                {{ $user->can_projects_warranty ? 'checked' : '' }}
+                            >
+                            <span class="text-sm">🛡️ Przeglądanie projektów na gwarancji</span>
+                        </label>
+                        @elseif($user->can_projects_warranty)
+                        <div class="flex items-center gap-2 p-2 border rounded bg-gray-50">
+                            <input type="checkbox" class="w-4 h-4" checked disabled>
+                            <span class="text-sm text-gray-500">🛡️ Przeglądanie projektów na gwarancji (tylko do odczytu)</span>
+                        </div>
+                        <input type="hidden" name="can_projects_warranty" value="1">
+                        @endif
+                        
+                        {{-- Przeglądanie projektów archiwalnych --}}
+                        @if($canGrant('can_projects_archived'))
+                        <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                name="can_projects_archived" 
+                                class="w-4 h-4 child-checkbox"
+                                data-parent="can_view_projects_checkbox"
+                                {{ $user->can_projects_archived ? 'checked' : '' }}
+                            >
+                            <span class="text-sm">📦 Przeglądanie projektów archiwalnych</span>
+                        </label>
+                        @elseif($user->can_projects_archived)
+                        <div class="flex items-center gap-2 p-2 border rounded bg-gray-50">
+                            <input type="checkbox" class="w-4 h-4" checked disabled>
+                            <span class="text-sm text-gray-500">📦 Przeglądanie projektów archiwalnych (tylko do odczytu)</span>
+                        </div>
+                        <input type="hidden" name="can_projects_archived" value="1">
+                        @endif
+                        
+                        {{-- Dostęp do ustawień projektów i list projektowych --}}
+                        @if($canGrant('can_projects_settings'))
+                        <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                name="can_projects_settings" 
+                                class="w-4 h-4 child-checkbox"
+                                data-parent="can_view_projects_checkbox"
+                                {{ $user->can_projects_settings ? 'checked' : '' }}
+                            >
+                            <span class="text-sm">⚙️ Dostęp do ustawień projektów i list projektowych</span>
+                        </label>
+                        @elseif($user->can_projects_settings)
+                        <div class="flex items-center gap-2 p-2 border rounded bg-gray-50">
+                            <input type="checkbox" class="w-4 h-4" checked disabled>
+                            <span class="text-sm text-gray-500">⚙️ Dostęp do ustawień projektów i list projektowych (tylko do odczytu)</span>
+                        </div>
+                        <input type="hidden" name="can_projects_settings" value="1">
+                        @endif
+                    </div>
                 </div>
-                
-                @if($canEditOffers)
-                <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
-                    <input 
-                        type="checkbox" 
-                        name="can_view_offers" 
-                        class="w-4 h-4"
-                        {{ $user->can_view_offers ? 'checked' : '' }}
-                    >
-                    <span class="text-sm">
-                        <strong>💼 Wyceny i Oferty</strong>
-                        <p class="text-gray-600">Możliwość wejścia do sekcji Wyceny i Oferty</p>
-                    </span>
-                </label>
                 @else
-                    @if($user->can_view_offers)
+                    @if($user->can_view_projects)
                     <div class="flex items-center gap-3 p-3 border rounded bg-gray-50">
                         <input type="checkbox" class="w-4 h-4" checked disabled>
                         <span class="text-sm text-gray-500">
-                            <strong>💼 Wyceny i Oferty</strong>
-                            <p class="text-gray-600">Możliwość wejścia do sekcji Wyceny i Oferty (tylko do odczytu)</p>
+                            <strong>📋 Projekty</strong> (tylko do odczytu)
                         </span>
                     </div>
-                    <input type="hidden" name="can_view_offers" value="1">
+                    <input type="hidden" name="can_view_projects" value="1">
                     @endif
                 @endif
                 
-                @if($canEditRecipes)
-                <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
-                    <input 
-                        type="checkbox" 
-                        name="can_view_recipes" 
-                        class="w-4 h-4"
-                        {{ $user->can_view_recipes ? 'checked' : '' }}
-                    >
-                    <span class="text-sm">
-                        <strong>🧪 Receptury</strong>
-                        <p class="text-gray-600">Możliwość wejścia do sekcji Receptury {{ !$isSuperAdmin ? '(admin z tym uprawnieniem może nadawać)' : '' }}</p>
-                    </span>
-                </label>
-                @else
-                    @if($user->can_view_recipes)
-                    <div class="flex items-center gap-3 p-3 border rounded bg-gray-50">
-                        <input type="checkbox" class="w-4 h-4" checked disabled>
-                        <span class="text-sm text-gray-500">
-                            <strong>🧪 Receptury</strong>
-                            <p class="text-gray-600">Możliwość wejścia do sekcji Receptury (tylko do odczytu)</p>
-                        </span>
-                    </div>
-                    <input type="hidden" name="can_view_recipes" value="1">
-                    @endif
-                @endif
-
-                @if($canEditCrm)
+                {{-- CRM --}}
+                @if($canGrant('can_crm'))
                 <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
                     <input 
                         type="checkbox" 
@@ -302,7 +443,6 @@
                     >
                     <span class="text-sm">
                         <strong>👥 CRM</strong>
-                        <p class="text-gray-600">Dostęp do systemu zarządzania relacjami z klientami</p>
                     </span>
                 </label>
                 @else
@@ -310,92 +450,172 @@
                     <div class="flex items-center gap-3 p-3 border rounded bg-gray-50">
                         <input type="checkbox" class="w-4 h-4" checked disabled>
                         <span class="text-sm text-gray-500">
-                            <strong>👥 CRM</strong>
-                            <p class="text-gray-600">Dostęp do systemu zarządzania relacjami z klientami (tylko do odczytu)</p>
+                            <strong>👥 CRM</strong> (tylko do odczytu)
                         </span>
                     </div>
                     <input type="hidden" name="can_crm" value="1">
                     @endif
                 @endif
-
+                
+                {{-- OFERTY --}}
+                @if($canGrant('can_view_offers'))
                 <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
                     <input 
                         type="checkbox" 
-                        name="can_settings" 
-                        id="can_settings_checkbox"
+                        name="can_view_offers" 
                         class="w-4 h-4"
-                        {{ $user->can_settings ? 'checked' : '' }}
+                        {{ $user->can_view_offers ? 'checked' : '' }}
                     >
                     <span class="text-sm">
-                        <strong>⚙️ Ustawienia</strong>
-                        <p class="text-gray-600">Możliwość zarządzania kategoriami i użytkownikami</p>
+                        <strong>💼 Oferty</strong>
                     </span>
                 </label>
+                @else
+                    @if($user->can_view_offers)
+                    <div class="flex items-center gap-3 p-3 border rounded bg-gray-50">
+                        <input type="checkbox" class="w-4 h-4" checked disabled>
+                        <span class="text-sm text-gray-500">
+                            <strong>💼 Oferty</strong> (tylko do odczytu)
+                        </span>
+                    </div>
+                    <input type="hidden" name="can_view_offers" value="1">
+                    @endif
+                @endif
+                
+                {{-- RECEPTURY --}}
+                @if($canGrant('can_view_recipes'))
+                <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        name="can_view_recipes" 
+                        class="w-4 h-4"
+                        {{ $user->can_view_recipes ? 'checked' : '' }}
+                    >
+                    <span class="text-sm">
+                        <strong>🧪 Receptury</strong>
+                    </span>
+                </label>
+                @else
+                    @if($user->can_view_recipes)
+                    <div class="flex items-center gap-3 p-3 border rounded bg-gray-50">
+                        <input type="checkbox" class="w-4 h-4" checked disabled>
+                        <span class="text-sm text-gray-500">
+                            <strong>🧪 Receptury</strong> (tylko do odczytu)
+                        </span>
+                    </div>
+                    <input type="hidden" name="can_view_recipes" value="1">
+                    @endif
+                @endif
 
-                <!-- Granularne uprawnienia do ustawień (widoczne tylko gdy can_settings jest zaznaczone) -->
-                <div id="settings_sub_permissions" class="ml-8 space-y-2 {{ $user->can_settings ? '' : 'hidden' }}">
-                    <p class="text-sm text-gray-500 mb-2">Dostęp do poszczególnych sekcji ustawień:</p>
+                {{-- USTAWIENIA --}}
+                @if($canGrant('can_settings') || $canGrant('can_settings_categories') || $canGrant('can_settings_suppliers') || $canGrant('can_settings_company') || $canGrant('can_settings_users') || $canGrant('can_settings_export') || $canGrant('can_settings_other'))
+                <div class="border rounded">
+                    <label class="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            name="can_settings" 
+                            id="can_settings_checkbox"
+                            class="w-4 h-4 parent-checkbox"
+                            data-target="settings_tree"
+                            {{ $user->can_settings ? 'checked' : '' }}
+                        >
+                        <span class="toggle-arrow text-sm">{{ $user->can_settings ? '▼' : '▶' }}</span>
+                        <span class="text-sm flex-1">
+                            <strong>⚙️ Ustawienia</strong>
+                        </span>
+                    </label>
                     
-                    <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            name="can_settings_categories" 
-                            class="w-4 h-4"
-                            {{ $user->can_settings_categories ? 'checked' : '' }}
-                        >
-                        <span class="text-sm">📁 Kategorie</span>
-                    </label>
+                    <div id="settings_tree" class="ml-8 mr-3 mb-3 space-y-2 {{ $user->can_settings ? '' : 'hidden' }}">
+                        @if($canGrant('can_settings_categories'))
+                        <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                name="can_settings_categories" 
+                                class="w-4 h-4 child-checkbox"
+                                data-parent="can_settings_checkbox"
+                                {{ $user->can_settings_categories ? 'checked' : '' }}
+                            >
+                            <span class="text-sm">📁 Kategorie</span>
+                        </label>
+                        @endif
 
-                    <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            name="can_settings_suppliers" 
-                            class="w-4 h-4"
-                            {{ $user->can_settings_suppliers ? 'checked' : '' }}
-                        >
-                        <span class="text-sm">🏢 Dostawcy</span>
-                    </label>
+                        @if($canGrant('can_settings_suppliers'))
+                        <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                name="can_settings_suppliers" 
+                                class="w-4 h-4 child-checkbox"
+                                data-parent="can_settings_checkbox"
+                                {{ $user->can_settings_suppliers ? 'checked' : '' }}
+                            >
+                            <span class="text-sm">🏢 Dostawcy i klienci</span>
+                        </label>
+                        @endif
 
-                    <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            name="can_settings_company" 
-                            class="w-4 h-4"
-                            {{ $user->can_settings_company ? 'checked' : '' }}
-                        >
-                        <span class="text-sm">🏭 Dane mojej firmy</span>
-                    </label>
+                        @if($canGrant('can_settings_company'))
+                        <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                name="can_settings_company" 
+                                class="w-4 h-4 child-checkbox"
+                                data-parent="can_settings_checkbox"
+                                {{ $user->can_settings_company ? 'checked' : '' }}
+                            >
+                            <span class="text-sm">🏭 Dane mojej firmy</span>
+                        </label>
+                        @endif
 
-                    <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            name="can_settings_users" 
-                            class="w-4 h-4"
-                            {{ $user->can_settings_users ? 'checked' : '' }}
-                        >
-                        <span class="text-sm">👥 Użytkownicy</span>
-                    </label>
+                        @if($canGrant('can_settings_users'))
+                        <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                name="can_settings_users" 
+                                class="w-4 h-4 child-checkbox"
+                                data-parent="can_settings_checkbox"
+                                {{ $user->can_settings_users ? 'checked' : '' }}
+                            >
+                            <span class="text-sm">👥 Użytkownicy</span>
+                        </label>
+                        @endif
 
-                    <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            name="can_settings_export" 
-                            class="w-4 h-4"
-                            {{ $user->can_settings_export ? 'checked' : '' }}
-                        >
-                        <span class="text-sm">📤 Ustawienia eksportu</span>
-                    </label>
+                        @if($canGrant('can_settings_export'))
+                        <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                name="can_settings_export" 
+                                class="w-4 h-4 child-checkbox"
+                                data-parent="can_settings_checkbox"
+                                {{ $user->can_settings_export ? 'checked' : '' }}
+                            >
+                            <span class="text-sm">📤 Ustawienia eksportu</span>
+                        </label>
+                        @endif
 
-                    <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            name="can_settings_other" 
-                            class="w-4 h-4"
-                            {{ $user->can_settings_other ? 'checked' : '' }}
-                        >
-                        <span class="text-sm">⚡ Inne ustawienia</span>
-                    </label>
+                        @if($canGrant('can_settings_other'))
+                        <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                name="can_settings_other" 
+                                class="w-4 h-4 child-checkbox"
+                                data-parent="can_settings_checkbox"
+                                {{ $user->can_settings_other ? 'checked' : '' }}
+                            >
+                            <span class="text-sm">⚡ Inne ustawienia</span>
+                        </label>
+                        @endif
+                    </div>
                 </div>
+                @else
+                    @if($user->can_settings)
+                    <div class="flex items-center gap-3 p-3 border rounded bg-gray-50">
+                        <input type="checkbox" class="w-4 h-4" checked disabled>
+                        <span class="text-sm text-gray-500">
+                            <strong>⚙️ Ustawienia</strong> (tylko do odczytu)
+                        </span>
+                    </div>
+                    <input type="hidden" name="can_settings" value="1">
+                    @endif
+                @endif
             </div>
         </div>
 
@@ -439,31 +659,71 @@
         editLastNameInput.addEventListener('input', generateEditShortName);
     }
 
-    // Przełączanie widoczności granularnych uprawnień ustawień
-    var canSettingsCheckbox = document.getElementById('can_settings_checkbox');
-    var settingsSubPermissions = document.getElementById('settings_sub_permissions');
+    // === NOWY SYSTEM HIERARCHICZNYCH UPRAWNIEŃ ===
     
-    if (canSettingsCheckbox && settingsSubPermissions) {
-        canSettingsCheckbox.addEventListener('change', function() {
-            if (this.checked) {
-                settingsSubPermissions.classList.remove('hidden');
-            } else {
-                settingsSubPermissions.classList.add('hidden');
+    // Obsługa rozwijania/zwijania drzewek i strzałek
+    document.querySelectorAll('.parent-checkbox').forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            const targetId = this.getAttribute('data-target');
+            const target = document.getElementById(targetId);
+            const arrow = this.closest('label').querySelector('.toggle-arrow');
+            
+            if (target) {
+                if (this.checked) {
+                    target.classList.remove('hidden');
+                    if (arrow) arrow.textContent = '▼';
+                } else {
+                    target.classList.add('hidden');
+                    if (arrow) arrow.textContent = '▶';
+                    
+                    // Odznacz wszystkie podrzędne checkboxy
+                    uncheckChildren(targetId);
+                }
             }
         });
-    }
-
-    // Automatyczne odznaczanie podrzędnych uprawnień Magazynu
-    var canViewMagazynCheckbox = document.getElementById('can_view_magazyn_checkbox');
-    var magazynSubCheckboxes = document.querySelectorAll('.magazyn-sub-checkbox');
+        
+        // Kliknięcie w strzałkę tylko rozwija/zwija bez zmiany checkboxa
+        const arrow = checkbox.closest('label').querySelector('.toggle-arrow');
+        if (arrow) {
+            arrow.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const targetId = checkbox.getAttribute('data-target');
+                const target = document.getElementById(targetId);
+                
+                if (target && checkbox.checked) {
+                    if (target.classList.contains('hidden')) {
+                        target.classList.remove('hidden');
+                        this.textContent = '▼';
+                    } else {
+                        target.classList.add('hidden');
+                        this.textContent = '▶';
+                    }
+                }
+            });
+        }
+    });
     
-    if (canViewMagazynCheckbox && magazynSubCheckboxes.length > 0) {
-        canViewMagazynCheckbox.addEventListener('change', function() {
-            if (!this.checked) {
-                // Jeśli Magazyn został odznaczony, odznacz wszystkie podrzędne
-                magazynSubCheckboxes.forEach(function(checkbox) {
-                    checkbox.checked = false;
-                });
+    // Funkcja rekurencyjnego odznaczania dzieci
+    function uncheckChildren(parentId) {
+        const parent = document.getElementById(parentId);
+        if (!parent) return;
+        
+        const childCheckboxes = parent.querySelectorAll('.child-checkbox');
+        childCheckboxes.forEach(function(child) {
+            child.checked = false;
+            
+            // Jeśli dziecko też jest rodzicem (nested), odznacz jego dzieci
+            if (child.classList.contains('parent-checkbox')) {
+                const childTargetId = child.getAttribute('data-target');
+                const childTarget = document.getElementById(childTargetId);
+                if (childTarget) {
+                    childTarget.classList.add('hidden');
+                    const childArrow = child.closest('label').querySelector('.toggle-arrow');
+                    if (childArrow) childArrow.textContent = '▶';
+                    uncheckChildren(childTargetId);
+                }
             }
         });
     }

@@ -891,6 +891,9 @@
                                         @if($user->can_view_magazyn)
                                             <span class="text-lg" title="Dostęp do Magazynu">📦</span>
                                         @endif
+                                        @if($user->can_view_projects)
+                                            <span class="text-lg" title="Dostęp do Projektów">📋</span>
+                                        @endif
                                         @if($user->can_view_offers)
                                             <span class="text-lg" title="Dostęp do Wycen i Ofert">💼</span>
                                         @endif
@@ -918,7 +921,7 @@
                                         @if($user->can_delete_orders)
                                             <span class="text-lg" title="Może usuwać zamówienia">🗑️</span>
                                         @endif
-                                        @if(!$user->can_view_magazyn && !$user->can_view_offers && !$user->can_view_recipes && !$user->can_view_catalog && !$user->can_add && !$user->can_remove && !$user->can_orders && !$user->can_settings)
+                                        @if(!$user->can_view_magazyn && !$user->can_view_projects && !$user->can_view_offers && !$user->can_view_recipes && !$user->can_view_catalog && !$user->can_add && !$user->can_remove && !$user->can_orders && !$user->can_settings)
                                             <span class="text-gray-400 text-xs italic">Brak uprawnień</span>
                                         @endif
                                     @endif
@@ -947,7 +950,16 @@
                                     </form>
                                     @endif
                                 @endif
-                                @if(auth()->user()->is_admin || !$user->is_admin)
+                                @php
+                                    $isSuperAdmin = auth()->user()->email === 'proximalumine@gmail.com';
+                                    $isAdmin = auth()->user()->is_admin;
+                                    $canEdit = $isSuperAdmin || $isAdmin || ($user->created_by === auth()->id());
+                                @endphp
+                                @if($canEdit && !$user->is_admin)
+                                <a href="{{ route('magazyn.user.edit', $user->id) }}" class="text-blue-600 hover:text-blue-800 font-bold text-sm" title="Edytuj użytkownika">
+                                    ✏️
+                                </a>
+                                @elseif($canEdit && $user->is_admin && (auth()->user()->is_admin || $isSuperAdmin))
                                 <a href="{{ route('magazyn.user.edit', $user->id) }}" class="text-blue-600 hover:text-blue-800 font-bold text-sm" title="Edytuj użytkownika">
                                     ✏️
                                 </a>
@@ -961,15 +973,25 @@
                                             ✕
                                         </button>
                                     </form>
-                                @elseif(!$user->is_admin)
-                                    {{-- Inni admini mogą usunąć tylko nie-adminów --}}
+                                @elseif(auth()->user()->is_admin && !$user->is_admin)
+                                    {{-- Admini mogą usunąć tylko nie-adminów --}}
                                     <form action="{{ route('magazyn.user.delete', $user->id) }}" method="POST" class="inline" id="delete-user-form-{{ $user->id }}">
                                         @csrf
                                         @method('DELETE')
                                         <button type="button" class="text-red-600 hover:text-red-800 font-bold text-sm" title="Usuń użytkownika" onclick="if(confirm('Czy na pewno usunąć użytkownika &quot;{{ $user->name }}&quot;?')) { document.getElementById('delete-user-form-{{ $user->id }}').submit(); }">
                                             ✕
-                                        </form>
-                                @else
+                                        </button>
+                                    </form>
+                                @elseif(!$user->is_admin && $user->created_by === auth()->id())
+                                    {{-- Zwykli użytkownicy mogą usunąć tylko użytkowników których sami stworzyli --}}
+                                    <form action="{{ route('magazyn.user.delete', $user->id) }}" method="POST" class="inline" id="delete-user-form-{{ $user->id }}">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="button" class="text-red-600 hover:text-red-800 font-bold text-sm" title="Usuń użytkownika" onclick="if(confirm('Czy na pewno usunąć użytkownika &quot;{{ $user->name }}&quot;?')) { document.getElementById('delete-user-form-{{ $user->id }}').submit(); }">
+                                            ✕
+                                        </button>
+                                    </form>
+                                @elseif($user->is_admin)
                                     <span class="text-gray-400 text-xs italic ml-2">Admin</span>
                                 @endif
                             </div>

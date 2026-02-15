@@ -1243,10 +1243,33 @@ Route::middleware('auth')->group(function () {
     Route::get('/projekty/{project}/removal-dates', [PartController::class, 'getRemovalDates'])->name('magazyn.projects.removal-dates')->middleware('auth');
     Route::post('/projekty/{project}/return/{removal}', [PartController::class, 'returnProduct'])->name('magazyn.returnProduct')->middleware('auth');
     Route::post('/projekty/{project}/finish', [PartController::class, 'finishProject'])->name('magazyn.finishProject')->middleware('auth');
+    Route::delete('/projekty/{project}', [PartController::class, 'deleteProject'])->name('magazyn.deleteProject')->middleware('auth');
     Route::post('/projekty/{project}/toggle-authorization', [PartController::class, 'toggleProjectAuthorization'])->name('magazyn.projects.toggleAuthorization')->middleware('auth');
     Route::delete('/projekty/{project}/removal/{removal}', [PartController::class, 'removalDelete'])->name('magazyn.projects.removalDelete')->middleware('auth');
     Route::post('/projekty/{project}/save-as-list', [PartController::class, 'saveProjectAsList'])->name('magazyn.projects.saveAsList')->middleware('auth');
+    Route::get('/projekty/{project}/preview-list/{projectList}', [PartController::class, 'previewProjectList'])->name('magazyn.projects.previewList')->middleware('auth');
     Route::post('/projekty/{project}/load-list', [PartController::class, 'loadListToProject'])->name('magazyn.projects.loadList')->middleware('auth');
+    Route::post('/projekty/{project}/add-missing-product', [PartController::class, 'addMissingProductToProject'])->name('magazyn.projects.addMissingProduct')->middleware('auth');
+    Route::delete('/projekty/{project}/remove-list/{loadedList}', [PartController::class, 'removeListFromProject'])->name('magazyn.projects.removeList')->middleware('auth');
+    Route::post('/projekty/{project}/delete-products', [PartController::class, 'deleteProductsFromProject'])->name('magazyn.projects.deleteProducts')->middleware('auth');
+    
+    // Ustawienia projektów
+    Route::get('/projekty-ustawienia', [PartController::class, 'projectSettings'])->name('magazyn.projects.settings')->middleware('auth');
+    
+    // Listy projektowe
+    Route::post('/projekty-listy', [PartController::class, 'storeProjectList'])->name('magazyn.projects.lists.store')->middleware('auth');
+    Route::get('/projekty-listy/{projectList}/edytuj', [PartController::class, 'editProjectList'])->name('magazyn.projects.lists.edit')->middleware('auth');
+    Route::put('/projekty-listy/{projectList}', [PartController::class, 'updateProjectList'])->name('magazyn.projects.lists.update')->middleware('auth');
+    Route::delete('/projekty-listy/{projectList}', [PartController::class, 'destroyProjectList'])->name('magazyn.projects.lists.destroy')->middleware('auth');
+    Route::post('/projekty-listy/{projectList}/items', [PartController::class, 'addProjectListItem'])->name('magazyn.projects.lists.addItem')->middleware('auth');
+    Route::put('/projekty-listy/{projectList}/items/{projectListItem}', [PartController::class, 'updateProjectListItem'])->name('magazyn.projects.lists.updateItem')->middleware('auth');
+    Route::delete('/projekty-listy/{projectList}/items/{projectListItem}', [PartController::class, 'removeProjectListItem'])->name('magazyn.projects.lists.removeItem')->middleware('auth');
+    Route::post('/projekty-listy/{projectList}/load-from-project', [PartController::class, 'loadFromProjectToList'])->name('magazyn.projects.lists.loadFromProject')->middleware('auth');
+    Route::post('/projekty-listy/{projectList}/save-to-project', [PartController::class, 'saveListToProject'])->name('magazyn.projects.lists.saveToProject')->middleware('auth');
+    Route::post('/projekty-listy/{projectList}/save-products', [PartController::class, 'saveProductsToList'])->name('magazyn.projects.lists.saveProducts')->middleware('auth');
+    Route::post('/projekty-listy/{projectList}/import-excel', [PartController::class, 'importExcelToProjectList'])->name('magazyn.projects.lists.importExcel')->middleware('auth');
+    Route::post('/projekty-listy/{projectList}/move-up', [PartController::class, 'moveListUp'])->name('magazyn.projects.lists.moveUp')->middleware('auth');
+    Route::post('/projekty-listy/{projectList}/move-down', [PartController::class, 'moveListDown'])->name('magazyn.projects.lists.moveDown')->middleware('auth');
     
     // Publiczny link do Gantt (generowanie)
     Route::post('/projekty/{project}/generate-public-gantt', [PartController::class, 'generatePublicGantt'])->name('magazyn.projects.generatePublicGantt')->middleware('auth');

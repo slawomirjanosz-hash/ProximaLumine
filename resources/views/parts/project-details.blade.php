@@ -120,44 +120,107 @@
             </div>
         </div>
         
-        {{-- INFORMACJA O UŻYTEJ LIŚCIE --}}
-        @if($project->loaded_list_id && method_exists($project, 'loadedList') && $project->loadedList)
-            @php
-                $loadedList = $project->loadedList->load('items');
-                
-                // Pobierz aktualne produkty w projekcie (agregowane)
-                $projectProducts = \App\Models\ProjectRemoval::where('project_id', $project->id)
-                    ->where('status', 'added')
-                    ->get()
-                    ->groupBy('part_id')
-                    ->map(fn($group) => $group->sum('quantity'));
-                
-                // Pobierz produkty z listy (agregowane)
-                $listProducts = $loadedList->items->groupBy('part_id')
-                    ->map(fn($group) => $group->sum('quantity'));
-                
-                // Porównaj
-                $isListCurrent = $projectProducts->count() === $listProducts->count() 
-                    && $projectProducts->diffAssoc($listProducts)->isEmpty() 
-                    && $listProducts->diffAssoc($projectProducts)->isEmpty();
-            @endphp
-            <div class="mt-4 p-3 rounded border {{ $isListCurrent ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200' }}">
-                <div class="flex items-center gap-2">
-                    <span class="text-sm font-semibold">📋 Użyta lista:</span>
-                    <span class="text-sm font-bold">{{ $loadedList->name }}</span>
-                    @if($isListCurrent)
-                        <span class="ml-2 px-2 py-0.5 bg-green-200 text-green-800 text-xs rounded-full font-semibold">✓ Lista aktualna</span>
-                    @else
-                        <span class="ml-2 px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs rounded-full font-semibold">⚠ Lista zmodyfikowana</span>
-                    @endif
+        {{-- INFORMACJA O ZAŁADOWANYCH LISTACH --}}
+        @if($loadedLists->count() > 0)
+            <div class="mt-4 space-y-2">
+                <h4 class="text-sm font-bold text-gray-700">📋 Załadowane listy projektowe:</h4>
+                @foreach($loadedLists as $loadedListData)
+                    @php
+                        $list = $loadedListData->projectList;
+                    @endphp
+                    <div class="p-3 rounded border {{ $loadedListData->is_complete ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200' }}">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-semibold">{{ $list->name }}</span>
+                            <span class="text-xs text-gray-600">({{ $loadedListData->added_count }} z {{ $loadedListData->total_count }})</span>
+                            @if($loadedListData->is_complete)
+                                <span class="ml-2 px-2 py-0.5 bg-green-200 text-green-800 text-xs rounded-full font-semibold">✓ Kompletna</span>
+                            @else
+                                <span class="ml-2 px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs rounded-full font-semibold">⚠ Niekompletna</span>
+                                <button type="button" class="ml-2 text-orange-600 hover:text-orange-800 font-bold text-xl" onclick="showMissingItems({{ $loadedListData->id }})" title="Kliknij aby zobaczyć czego brakuje">❗</button>
+                            @endif
+                            <span class="text-xs text-gray-500 ml-auto">{{ $loadedListData->created_at->format('d.m.Y H:i') }}</span>
+                            @if(auth()->user() && auth()->user()->is_admin)
+                            <button type="button" class="ml-2 px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-semibold remove-list-btn"
+                                    data-loaded-list-id="{{ $loadedListData->id }}"
+                                    data-list-name="{{ $list->name }}"
+                                    title="Usuń listę z projektu">
+                                🗑️ Usuń
+                            </button>
+                            @endif
+                        </div>
+                        @if(!$loadedListData->is_complete && $loadedListData->missing_items)
+                            <div id="missing-items-{{ $loadedListData->id }}" class="hidden mt-2 p-2 bg-white border border-yellow-300 rounded text-xs">
+                                <strong class="text-red-600">Produkty nie dodane do projektu:</strong>
+                                <div class="mt-2 space-y-2">
+                                    @foreach($loadedListData->missing_items as $index => $missing)
+                                        @php
+                                            $part = isset($missing['part_id']) ? \App\Models\Part::find($missing['part_id']) : null;
+                                            $currentStock = $part ? $part->quantity : 0;
+                                        @endphp
+                                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200">
+                                            <div class="flex-1">
+                                                <strong>{{ $missing['name'] }}</strong> - ilość: {{ $missing['quantity'] }}
+                                                <span class="text-xs {{ $currentStock >= $missing['quantity'] ? 'text-green-600 font-semibold' : 'text-red-600' }}">(teraz dostępne: {{ $currentStock }})</span>
+                                                <br>
+                                                <span class="text-gray-600 text-xs">{{ $missing['reason'] }}</span>
+                                            </div>
+                                            @if($part && $part->quantity >= $missing['quantity'])
+                                                <button type="button" 
+                                                        class="ml-2 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-semibold add-missing-btn"
+                                                        data-loaded-list-id="{{ $loadedListData->id }}"
+                                                        data-part-id="{{ $missing['part_id'] }}"
+                                                        data-quantity="{{ $missing['quantity'] }}"
+                                                        data-part-name="{{ $missing['name'] }}">
+                                                    ✓ Dostępny - Dodaj
+                                                </button>
+                                            @elseif($part && $part->quantity > 0)
+                                                <button type="button" 
+                                                        class="ml-2 px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-xs font-semibold add-missing-btn"
+                                                        data-loaded-list-id="{{ $loadedListData->id }}"
+                                                        data-part-id="{{ $missing['part_id'] }}"
+                                                        data-quantity="{{ $part->quantity }}"
+                                                        data-part-name="{{ $missing['name'] }}">
+                                                    ⚠ Dodaj {{ $part->quantity }}
+                                                </button>
+                                            @else
+                                                <span class="ml-2 px-3 py-1 bg-red-200 text-red-800 rounded text-xs font-semibold">
+                                                    ✗ Brak na magazynie
+                                                </span>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        @endif
+
+        {{-- INFORMACJA O PRODUKTACH SPOZA LIST --}}
+        @if(count($outsideListsData) > 0)
+            <div class="mt-4">
+                <div class="p-3 rounded border bg-blue-50 border-blue-200">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-semibold text-blue-800">📦 Produkty dodane poza listami</span>
+                        <button type="button" class="ml-2 text-orange-600 hover:text-orange-800 font-bold text-xl" onclick="showOutsideProducts()" title="Kliknij aby zobaczyć produkty">❗</button>
+                    </div>
+                    <div id="outside-products-details" class="hidden mt-2 p-2 bg-white border border-blue-300 rounded text-xs">
+                        <strong class="text-blue-600">Produkty dodane ręcznie (przez "Pobierz produkty do projektu"):</strong>
+                        <ul class="list-disc list-inside ml-2 mt-1">
+                            @foreach($outsideListsData as $product)
+                                <li><strong>{{ $product['name'] }}</strong> - ilość: {{ $product['quantity'] }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
                 </div>
-                @if(!$isListCurrent)
-                    <p class="text-xs text-yellow-700 mt-1">Produkty w projekcie różnią się od oryginalnej listy (dodano lub usunięto produkty).</p>
-                @endif
             </div>
         @endif
         
         <div class="mt-4 flex gap-2 justify-end">
+            <button type="button" id="choose-list-btn" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+                📋 Wybierz listę projektową
+            </button>
             <a href="{{ route('magazyn.projects.pickup', $project->id) }}" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
                 ➖ Pobierz produkty do projektu
             </a>
@@ -231,94 +294,110 @@
         </div>
         @endif
         
-        {{-- SEKCJA AUTORYZOWANYCH/ZWYKŁYCH --}}
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold">
-                @if($project->requires_authorization)
-                    ✅ Produkty autoryzowane ({{ $authorized->count() }})
-                @else
-                    Pobrane produkty
-                @endif
-            </h3>
-            <div class="flex gap-2">
-                <button id="save-list-btn" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm">
-                    💾 Zapisz jako lista
-                </button>
-                <button id="load-list-btn" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm">
-                    📥 Załaduj listę
-                </button>
+        {{-- KONTENER NA PRZESUWALNE SEKCJE --}}
+        <div id="sortable-sections" class="space-y-8">
+        
+        {{-- SEKCJA 1: ZMIANY W MAGAZYNIE --}}
+        <div id="section-changes" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" draggable="true" data-order="1">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="cursor-move text-gray-400 hover:text-gray-600" title="Przeciągnij, aby zmienić kolejność">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                </svg>
             </div>
+            <button type="button" id="toggle-changes-section" class="text-gray-400 hover:text-gray-600 focus:outline-none">
+                <span id="toggle-changes-arrow">▶</span>
+            </button>
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+                <span class="text-blue-600">🔄</span>
+                Zmiany w magazynie
+            </h3>
         </div>
-    </div>
-    
-    <table class="w-full border border-collapse text-xs">
-        <thead class="bg-gray-100">
-            <tr>
-                <th class="border p-2">Nazwa produktu</th>
-                <th class="border p-2 text-center">Ilość</th>
-                <th class="border p-2 text-center">Data/Godzina</th>
-                <th class="border p-2 text-center">Pobrał</th>
-                <th class="border p-2 text-center">Status</th>
-                <th class="border p-2 text-center">Akcje</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($authorized as $removal)
-                <tr class="{{ $removal->status === 'returned' ? 'bg-green-50' : '' }}">
-                    <td class="border p-2">{{ $removal->part ? $removal->part->name : '⚠️ Produkt usunięty' }}</td>
-                    <td class="border p-2 text-center">{{ $removal->quantity }}</td>
-                    <td class="border p-2 text-center">
-                        {{ $removal->created_at->format('d.m.Y H:i') }}
-                    </td>
-                    <td class="border p-2 text-center">
-                        @if(isset($removal->user) && $removal->user)
-                            {{ $removal->user->short_name ?? $removal->user->name }}
-                        @else
-                            -
-                        @endif
-                    </td>
-                    <td class="border p-2 text-center">
-                        @if($removal->status === 'added')
-                            <span class="text-blue-600 font-semibold">Dodany</span>
-                        @else
-                            <span class="text-green-600 font-semibold">Zwrócony</span>
-                            <br>
-                            <span class="text-xs text-gray-500">{{ $removal->returned_at->format('d.m.Y H:i') }}</span>
-                            <br>
-                            <span class="text-xs text-gray-500">
-                                przez
-                                @if(isset($removal->returnedBy) && $removal->returnedBy)
-                                    {{ $removal->returnedBy->short_name ?? $removal->returnedBy->name }}
+        <div id="changes-section-content" class="hidden">
+            <table class="w-full border border-collapse text-xs">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="border p-2">Nazwa produktu</th>
+                        <th class="border p-2 text-center">Ilość</th>
+                        <th class="border p-2 text-center">Data/Godzina</th>
+                        <th class="border p-2 text-center">Pobrał</th>
+                        <th class="border p-2 text-center">Status</th>
+                        <th class="border p-2 text-center">Akcje</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($authorized as $removal)
+                        <tr class="{{ $removal->status === 'returned' ? 'bg-green-50' : '' }}">
+                            <td class="border p-2">{{ $removal->part ? $removal->part->name : '⚠️ Produkt usunięty' }}</td>
+                            <td class="border p-2 text-center">{{ $removal->quantity }}</td>
+                            <td class="border p-2 text-center">
+                                {{ $removal->created_at->format('d.m.Y H:i') }}
+                            </td>
+                            <td class="border p-2 text-center">
+                                @if(isset($removal->user) && $removal->user)
+                                    {{ $removal->user->short_name ?? $removal->user->name }}
                                 @else
                                     -
                                 @endif
-                            </span>
-                        @endif
-                    </td>
-                    <td class="border p-2 text-center">
-                        @if($removal->status === 'added')
-                            <form action="{{ route('magazyn.returnProduct', ['project' => $project->id, 'removal' => $removal->id]) }}" method="POST" class="inline" onsubmit="return confirm('Czy na pewno chcesz zwrócić ten produkt do katalogu?');">
-                                @csrf
-                                <button type="submit" class="text-green-600 hover:underline text-xs font-semibold">
-                                    Zwróć produkt
-                                </button>
-                            </form>
-                        @else
-                            <span class="text-gray-400 text-xs">-</span>
-                        @endif
-                    </td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="6" class="border p-4 text-center text-gray-500">Brak {{ $project->requires_authorization ? 'autoryzowanych' : 'pobranych' }} produktów</td>
-                </tr>
-            @endforelse
-        </tbody>
-    </table>
+                            </td>
+                            <td class="border p-2 text-center">
+                                @if($removal->status === 'added')
+                                    <span class="text-blue-600 font-semibold">Dodany</span>
+                                @else
+                                    <span class="text-green-600 font-semibold">Zwrócony</span>
+                                    <br>
+                                    <span class="text-xs text-gray-500">{{ $removal->returned_at->format('d.m.Y H:i') }}</span>
+                                    <br>
+                                    <span class="text-xs text-gray-500">
+                                        przez
+                                        @if(isset($removal->returnedBy) && $removal->returnedBy)
+                                            {{ $removal->returnedBy->short_name ?? $removal->returnedBy->name }}
+                                        @else
+                                            -
+                                        @endif
+                                    </span>
+                                @endif
+                            </td>
+                            <td class="border p-2 text-center">
+                                @if($removal->status === 'added')
+                                    <form action="{{ route('magazyn.returnProduct', ['project' => $project->id, 'removal' => $removal->id]) }}" method="POST" class="inline" onsubmit="return confirm('Czy na pewno chcesz zwrócić ten produkt do katalogu?');">
+                                        @csrf
+                                        <button type="submit" class="text-green-600 hover:underline text-xs font-semibold">
+                                            Zwróć produkt
+                                        </button>
+                                    </form>
+                                @else
+                                    <span class="text-gray-400 text-xs">-</span>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="border p-4 text-center text-gray-500">Brak produktów w magazynie</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {{-- KONIEC SEKCJI 1: ZMIANY W MAGAZYNIE --}}
     
-    {{-- TABELA SUMARYCZNA PRODUKTÓW --}}
-    <div class="mt-8">
-        <h3 class="text-lg font-semibold mb-4">📊 Podsumowanie produktów w projekcie</h3>
+    {{-- SEKCJA 2: PODSUMOWANIE PRODUKTÓW --}}
+    <div id="section-summary" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" draggable="true" data-order="2">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+                <div class="cursor-move text-gray-400 hover:text-gray-600" title="Przeciągnij, aby zmienić kolejność">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                    </svg>
+                </div>
+                <button type="button" id="toggle-summary-section" class="text-gray-400 hover:text-gray-600 focus:outline-none">
+                    <span id="toggle-summary-arrow">▼</span>
+                </button>
+                <h3 class="text-lg font-semibold">📋 Lista produktów w projekcie</h3>
+            </div>
+        </div>
+        <div id="summary-section-content">
         @php
             // Grupowanie produktów i sumowanie ilości
             $summary = $removals->where('status', 'added')->groupBy('part_id')->map(function($group) {
@@ -335,9 +414,28 @@
             });
         @endphp
         
+        @if(auth()->user() && auth()->user()->is_admin)
+        <div class="mb-3 flex items-center gap-2">
+            <button type="button" id="select-all-products" class="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm">
+                Zaznacz wszystkie
+            </button>
+            <button type="button" id="deselect-all-products" class="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm">
+                Odznacz wszystkie
+            </button>
+            <button type="button" id="delete-selected-products" class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-semibold" disabled>
+                🗑️ Usuń zaznaczone (<span id="selected-count">0</span>)
+            </button>
+        </div>
+        @endif
+        
         <table class="w-full border border-collapse text-sm bg-white">
             <thead class="bg-blue-100">
                 <tr>
+                    @if(auth()->user() && auth()->user()->is_admin)
+                    <th class="border p-3 text-center" style="width: 50px;">
+                        <input type="checkbox" id="select-all-checkbox" class="w-4 h-4 cursor-pointer" title="Zaznacz wszystkie">
+                    </th>
+                    @endif
                     <th class="border p-3 text-left">Nazwa produktu</th>
                     <th class="border p-3 text-left">Opis</th>
                     <th class="border p-3 text-center">Łączna ilość w projekcie</th>
@@ -346,18 +444,149 @@
             <tbody>
                 @forelse($summary as $item)
                     <tr class="hover:bg-gray-50">
+                        @if(auth()->user() && auth()->user()->is_admin)
+                        <td class="border p-3 text-center">
+                            <input type="checkbox" class="product-checkbox w-4 h-4 cursor-pointer" data-part-id="{{ $item['part']->id }}" data-part-name="{{ $item['part']->name }}">
+                        </td>
+                        @endif
                         <td class="border p-3">{{ isset($item['part']) && $item['part'] ? $item['part']->name : '-' }}</td>
                         <td class="border p-3 text-gray-600">{{ isset($item['part']) && $item['part'] ? ($item['part']->description ?? '-') : '-' }}</td>
                         <td class="border p-3 text-center font-bold text-blue-600">{{ $item['total_quantity'] }}</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="3" class="border p-4 text-center text-gray-500">Brak produktów w projekcie</td>
+                        <td colspan="{{ auth()->user() && auth()->user()->is_admin ? '4' : '3' }}" class="border p-4 text-center text-gray-500">Brak produktów w projekcie</td>
                     </tr>
                 @endforelse
             </tbody>
         </table>
+        </div>
     </div>
+    {{-- KONIEC SEKCJI 2 --}}
+    
+    {{-- SEKCJA 3: GANTT FRAPPE --}}
+    <div id="section-frappe" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" draggable="true" data-order="3">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="cursor-move text-gray-400 hover:text-gray-600" title="Przeciągnij, aby zmienić kolejność">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                </svg>
+            </div>
+            <button type="button" id="toggle-frappe-section" class="text-gray-400 hover:text-gray-600 focus:outline-none">
+                <span id="toggle-frappe-arrow">▶</span>
+            </button>
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+                <span class="text-blue-600">📊</span>
+                Gantt Frappe - Interaktywny harmonogram
+            </h3>
+        </div>
+        <div id="frappe-section-content" class="hidden">
+            <div class="mb-4 flex gap-2 items-center flex-wrap">
+                <button id="frappe-add-task" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm font-semibold">
+                    ➕ Dodaj zadanie
+                </button>
+                <button id="frappe-export-excel" class="bg-emerald-600 text-white px-3 py-1 rounded hover:bg-emerald-700 text-sm font-semibold">
+                    📊 Eksport Excel
+                </button>
+                <button id="frappe-share-link" class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 text-sm font-semibold">
+                    🔗 Udostępnij link
+                </button>
+                <button id="frappe-save-tasks" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm font-semibold">
+                    💾 Zapisz zmiany
+                </button>
+                @if(auth()->user() && auth()->user()->is_admin)
+                <button id="frappe-clear-all" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm font-semibold">
+                    🗑️ Wyczyść wszystko
+                </button>
+                @endif
+            </div>
+            
+            <div class="mb-4 flex gap-2 items-center flex-wrap">
+                <label class="text-sm font-semibold text-gray-700">Widok:</label>
+                <button class="frappe-view-btn bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm" data-mode="Quarter Day">Ćwierć dnia</button>
+                <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Half Day">Pół dnia</button>
+                <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Day">Dzień</button>
+                <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Week">Tydzień</button>
+                <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Month">Miesiąc</button>
+                <button id="frappe-today" class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 text-sm ml-4">
+                    📅 Dzisiaj
+                </button>
+            </div>
+            
+            <div class="mb-3 p-2 bg-gray-50 rounded border">
+                <p class="text-xs text-gray-600">
+                    <strong>Instrukcja:</strong> 
+                    • Kliknij dwukrotnie zadanie, aby je edytować 
+                    • Przeciągnij zadanie, aby zmienić daty 
+                    • Przeciągnij pasek postępu, aby zmienić procent ukończenia 
+                    • Kliknij i przeciągnij z krawędzi zadania, aby utworzyć zależność
+                </p>
+            </div>
+            
+            <div id="frappe-gantt"></div>
+
+            <div id="frappe-task-list" class="mt-8">
+                <!-- Lista zadań pojawi się tutaj -->
+            </div>
+
+            {{-- Rejestr zmian Gantt --}}
+            @if(method_exists($project, 'ganttChanges'))
+            <div class="mt-8">
+                <button onclick="toggleGanttChangelog()" class="text-lg font-bold mb-2 text-left hover:text-blue-600 transition-colors flex items-center gap-2">
+                    <span id="gantt-changelog-icon">▶</span> Rejestr zmian (Gantt)
+                </button>
+                @php
+                    try {
+                        $changes = $project->ganttChanges()->with('user')->orderByDesc('created_at')->get();
+                    } catch (\Exception $e) {
+                        $changes = collect([]);
+                    }
+                @endphp
+                <div id="gantt-changelog" class="hidden">
+                    @if($changes->count())
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full border border-collapse text-xs bg-white">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="border p-2">Data</th>
+                                    <th class="border p-2">Użytkownik</th>
+                                    <th class="border p-2">Akcja</th>
+                                    <th class="border p-2">Nazwa zadania</th>
+                                    <th class="border p-2">Szczegóły</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($changes as $change)
+                                <tr>
+                                    <td class="border p-2 text-center">{{ \Carbon\Carbon::parse($change->created_at)->format('d.m.Y H:i') }}</td>
+                                    <td class="border p-2">{{ $change->user ? ($change->user->name ?? $change->user->short_name ?? '-') : '-' }}</td>
+                                    <td class="border p-2 text-center">
+                                        @if($change->action === 'add') ➕ Dodano
+                                        @elseif($change->action === 'edit') ✏️ Edycja
+                                        @elseif($change->action === 'delete') ❌ Usunięto
+                                        @elseif($change->action === 'move') 🔄 Przesunięto
+                                        @else {{ $change->action }}
+                                        @endif
+                                    </td>
+                                    <td class="border p-2">{{ $change->task_name }}</td>
+                                    <td class="border p-2">{{ $change->details }}</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    @else
+                        <div class="text-gray-500 p-4 text-center">Brak zarejestrowanych zmian w Gantt.</div>
+                    @endif
+                </div>
+            </div>
+            @endif
+        </div>
+    </div>
+    {{-- KONIEC SEKCJI 3 --}}
+    
+    </div>
+    {{-- KONIEC KONTENERA PRZESUWANYCH SEKCJI --}}
     
 </div>
 
@@ -374,97 +603,6 @@
                 </button>
                 <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
                     Potwierdź
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-{{-- MODAL ZAPISZ JAKO LISTA --}}
-<div id="save-list-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 max-w-md w-full">
-        <h3 class="text-lg font-bold mb-4">💾 Zapisz produkty jako listę</h3>
-        <form action="{{ route('magazyn.projects.saveAsList', $project->id) }}" method="POST">
-            @csrf
-            <div class="mb-4">
-                <label class="block text-sm font-medium mb-2">Wybierz istniejącą listę lub utwórz nową:</label>
-                <select name="list_id" id="existing-list-select" class="w-full border rounded p-2 mb-2">
-                    <option value="">-- Nowa lista --</option>
-                    @if(class_exists('\App\Models\ProductList'))
-                        @foreach(\App\Models\ProductList::orderBy('name')->get() as $list)
-                            <option value="{{ $list->id }}">{{ $list->name }}</option>
-                        @endforeach
-                    @endif
-                </select>
-            </div>
-            <div id="new-list-fields">
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-2">Nazwa nowej listy:</label>
-                    <input type="text" name="list_name" class="w-full border rounded p-2" placeholder="np. Instalacja elektryczna">
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-2">Opis (opcjonalnie):</label>
-                    <textarea name="list_description" class="w-full border rounded p-2" rows="2" placeholder="Krótki opis listy..."></textarea>
-                </div>
-            </div>
-            <div class="flex gap-2 justify-end">
-                <button type="button" id="cancel-save-list-btn" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
-                    Anuluj
-                </button>
-                <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                    Zapisz
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-{{-- MODAL ZAŁADUJ LISTĘ --}}
-<div id="load-list-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <h3 class="text-lg font-bold mb-4">📥 Załaduj listę produktów do projektu</h3>
-        <form action="{{ route('magazyn.projects.loadList', $project->id) }}" method="POST">
-            @csrf
-            <div class="mb-4">
-                <label class="block text-sm font-medium mb-2">Wybierz listę:</label>
-                <select name="list_id" id="load-list-select" class="w-full border rounded p-2" required>
-                    <option value="">-- Wybierz listę --</option>
-                    @foreach(\App\Models\ProductList::with('items.part')->orderBy('name')->get() as $list)
-                        <option value="{{ $list->id }}" data-items='@json($list->items->map(fn($item) => ["name" => $item->part->name ?? "Usunięty produkt", "quantity" => $item->quantity]))'>{{ $list->name }} ({{ $list->items->count() }} produktów)</option>
-                    @endforeach
-                </select>
-            </div>
-            
-            {{-- PODGLĄD LISTY --}}
-            <div id="list-preview" class="hidden mb-4">
-                <label class="block text-sm font-medium mb-2">Podgląd produktów na liście:</label>
-                <div class="bg-gray-50 border rounded p-3 max-h-60 overflow-y-auto">
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-100">
-                            <tr>
-                                <th class="text-left p-2 border-b">Nazwa produktu</th>
-                                <th class="text-center p-2 border-b w-24">Ilość</th>
-                            </tr>
-                        </thead>
-                        <tbody id="list-preview-body">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            
-            <p class="text-sm text-gray-600 mb-4">
-                @if($project->requires_authorization)
-                    ⚠️ Produkty zostaną dodane jako oczekujące na autoryzację.
-                @else
-                    ℹ️ Produkty zostaną pobrane bezpośrednio z magazynu.
-                @endif
-            </p>
-            <div class="flex gap-2 justify-end">
-                <button type="button" id="cancel-load-list-btn" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
-                    Anuluj
-                </button>
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                    Załaduj
                 </button>
             </div>
         </form>
@@ -496,207 +634,140 @@
         });
     }
 
-    // Modal zapisz jako lista
-    const saveListBtn = document.getElementById('save-list-btn');
-    const saveListModal = document.getElementById('save-list-modal');
-    const cancelSaveListBtn = document.getElementById('cancel-save-list-btn');
-    const existingListSelect = document.getElementById('existing-list-select');
-    const newListFields = document.getElementById('new-list-fields');
+    // ===== FUNKCJONALNOŚĆ PRZESUWANIA SEKCJI =====
+    const sortableContainer = document.getElementById('sortable-sections');
+    let draggedElement = null;
 
-    if (saveListBtn) {
-        saveListBtn.addEventListener('click', function() {
-            saveListModal.classList.remove('hidden');
+    // Obsługa przeciągania (drag & drop)
+    document.querySelectorAll('.sortable-section').forEach(section => {
+        section.addEventListener('dragstart', function(e) {
+            draggedElement = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
         });
-    }
 
-    if (cancelSaveListBtn) {
-        cancelSaveListBtn.addEventListener('click', function() {
-            saveListModal.classList.add('hidden');
+        section.addEventListener('dragend', function() {
+            this.classList.remove('dragging');
+            saveSectionOrder();
         });
-    }
 
-    if (saveListModal) {
-        saveListModal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                this.classList.add('hidden');
-            }
-        });
-    }
-
-    // Pokaż/ukryj pola nowej listy w zależności od wyboru
-    if (existingListSelect) {
-        existingListSelect.addEventListener('change', function() {
-            if (this.value) {
-                newListFields.classList.add('hidden');
-            } else {
-                newListFields.classList.remove('hidden');
-            }
-        });
-    }
-
-    // Modal załaduj listę
-    const loadListBtn = document.getElementById('load-list-btn');
-    const loadListModal = document.getElementById('load-list-modal');
-    const cancelLoadListBtn = document.getElementById('cancel-load-list-btn');
-
-    if (loadListBtn) {
-        loadListBtn.addEventListener('click', function() {
-            loadListModal.classList.remove('hidden');
-        });
-    }
-
-    if (cancelLoadListBtn) {
-        cancelLoadListBtn.addEventListener('click', function() {
-            loadListModal.classList.add('hidden');
-        });
-    }
-
-    if (loadListModal) {
-        loadListModal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                this.classList.add('hidden');
-            }
-        });
-    }
-
-    // Podgląd listy po wybraniu
-    const loadListSelect = document.getElementById('load-list-select');
-    const listPreview = document.getElementById('list-preview');
-    const listPreviewBody = document.getElementById('list-preview-body');
-
-    if (loadListSelect) {
-        loadListSelect.addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            const itemsData = selectedOption.getAttribute('data-items');
+        section.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
             
-            if (itemsData && this.value) {
-                const items = JSON.parse(itemsData);
-                listPreviewBody.innerHTML = '';
+            if (this !== draggedElement) {
+                const rect = this.getBoundingClientRect();
+                const midpoint = rect.top + rect.height / 2;
                 
-                items.forEach(function(item) {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td class="p-2 border-b">${item.name}</td>
-                        <td class="p-2 border-b text-center font-semibold text-blue-600">${item.quantity}</td>
-                    `;
-                    listPreviewBody.appendChild(row);
-                });
-                
-                listPreview.classList.remove('hidden');
-            } else {
-                listPreview.classList.add('hidden');
-                listPreviewBody.innerHTML = '';
+                if (e.clientY < midpoint) {
+                    this.parentNode.insertBefore(draggedElement, this);
+                } else {
+                    this.parentNode.insertBefore(draggedElement, this.nextSibling);
+                }
             }
         });
+    });
+
+    // Obsługa przycisków (strzałki)
+    function moveSection(sectionId, direction) {
+        const section = document.getElementById(sectionId);
+        const container = document.getElementById('sortable-sections');
+        const sections = Array.from(container.children);
+        const currentIndex = sections.indexOf(section);
+
+        if (direction === 'up' && currentIndex > 0) {
+            container.insertBefore(section, sections[currentIndex - 1]);
+            saveSectionOrder();
+        } else if (direction === 'down' && currentIndex < sections.length - 1) {
+            container.insertBefore(section, sections[currentIndex + 2]);
+            saveSectionOrder();
+        }
     }
-</script>
 
-{{-- Gantt Frappe (na dole strony) --}}
-<div class="max-w-6xl mx-auto bg-white p-4 rounded shadow mt-8 mb-8">
-    <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-bold text-blue-800">📊 Gantt Frappe - Interaktywny harmonogram</h3>
-        <div class="flex gap-2">
-            <button id="frappe-add-task" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm font-semibold">
-                ➕ Dodaj zadanie
-            </button>
-            <button id="frappe-export-excel" class="bg-emerald-600 text-white px-3 py-1 rounded hover:bg-emerald-700 text-sm font-semibold">
-                📊 Eksport Excel
-            </button>
-            <button id="frappe-share-link" class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 text-sm font-semibold">
-                🔗 Udostępnij link
-            </button>
-            <button id="frappe-save-tasks" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm font-semibold">
-                💾 Zapisz zmiany
-            </button>
-            @if(auth()->user() && auth()->user()->is_admin)
-            <button id="frappe-clear-all" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm font-semibold">
-                🗑️ Wyczyść wszystko
-            </button>
-            @endif
-        </div>
-    </div>
-    
-    <div class="mb-4 flex gap-2 items-center flex-wrap">
-        <label class="text-sm font-semibold text-gray-700">Widok:</label>
-        <button class="frappe-view-btn bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm" data-mode="Quarter Day">Ćwierć dnia</button>
-        <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Half Day">Pół dnia</button>
-        <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Day">Dzień</button>
-        <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Week">Tydzień</button>
-        <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Month">Miesiąc</button>
-        <button id="frappe-today" class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 text-sm ml-4">
-            📅 Dzisiaj
-        </button>
-    </div>
-    
-    <div class="mb-3 p-2 bg-gray-50 rounded border">
-        <p class="text-xs text-gray-600">
-            <strong>Instrukcja:</strong> 
-            • Kliknij dwukrotnie zadanie, aby je edytować 
-            • Przeciągnij zadanie, aby zmienić daty 
-            • Przeciągnij pasek postępu, aby zmienić procent ukończenia 
-            • Kliknij i przeciągnij z krawędzi zadania, aby utworzyć zależność
-        </p>
-    </div>
-    
-    <div id="frappe-gantt"></div>
+    // Zapisz kolejność do localStorage
+    function saveSectionOrder() {
+        const container = document.getElementById('sortable-sections');
+        const sections = Array.from(container.children);
+        const order = sections.map(section => section.id);
+        localStorage.setItem('projectSectionsOrder_{{ $project->id }}', JSON.stringify(order));
+    }
 
-    <div id="frappe-task-list" class="mt-8">
-        <!-- Lista zadań pojawi się tutaj -->
-    </div>
+    // Wczytaj kolejność z localStorage
+    function loadSectionOrder() {
 
-    {{-- Rejestr zmian Gantt --}}
-    @if(method_exists($project, 'ganttChanges'))
-    <div class="mt-8">
-        <button onclick="toggleGanttChangelog()" class="text-lg font-bold mb-2 text-left hover:text-blue-600 transition-colors flex items-center gap-2">
-            <span id="gantt-changelog-icon">▶</span> Rejestr zmian (Gantt)
-        </button>
-        @php
-            try {
-                $changes = $project->ganttChanges()->with('user')->orderByDesc('created_at')->get();
-            } catch (\Exception $e) {
-                $changes = collect([]);
+        const savedOrder = localStorage.getItem('projectSectionsOrder_{{ $project->id }}');
+        const container = document.getElementById('sortable-sections');
+        if (!savedOrder) {
+            // Domyślna kolejność: podsumowanie na górze, zmiany w magazynie w środku, frappe na dole
+            const summary = document.getElementById('section-summary');
+            const changes = document.getElementById('section-changes');
+            const frappe = document.getElementById('section-frappe');
+            if (summary && changes && frappe) {
+                container.appendChild(summary);
+                container.appendChild(changes);
+                container.appendChild(frappe);
             }
-        @endphp
-        <div id="gantt-changelog" class="hidden">
-            @if($changes->count())
-            <div class="overflow-x-auto">
-                <table class="min-w-full border border-collapse text-xs bg-white">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="border p-2">Data</th>
-                            <th class="border p-2">Użytkownik</th>
-                            <th class="border p-2">Akcja</th>
-                            <th class="border p-2">Nazwa zadania</th>
-                            <th class="border p-2">Szczegóły</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($changes as $change)
-                        <tr>
-                            <td class="border p-2 text-center">{{ \Carbon\Carbon::parse($change->created_at)->format('d.m.Y H:i') }}</td>
-                            <td class="border p-2">{{ $change->user ? ($change->user->name ?? $change->user->short_name ?? '-') : '-' }}</td>
-                            <td class="border p-2 text-center">
-                                @if($change->action === 'add') ➕ Dodano
-                                @elseif($change->action === 'edit') ✏️ Edycja
-                                @elseif($change->action === 'delete') ❌ Usunięto
-                                @elseif($change->action === 'move') 🔄 Przesunięto
-                                @else {{ $change->action }}
-                                @endif
-                            </td>
-                            <td class="border p-2">{{ $change->task_name }}</td>
-                            <td class="border p-2">{{ $change->details }}</td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-            @else
-                <div class="text-gray-500 p-4 text-center">Brak zarejestrowanych zmian w Gantt.</div>
-            @endif
-        </div>
-    </div>
-    @endif
-</div>
+            return;
+        }
+        try {
+            const order = JSON.parse(savedOrder);
+            order.forEach(sectionId => {
+                const section = document.getElementById(sectionId);
+                if (section) {
+                    container.appendChild(section);
+                }
+            });
+        } catch (e) {
+            console.error('Błąd wczytywania kolejności sekcji:', e);
+        }
+    }
+
+    // Wczytaj zapisaną kolejność przy załadowaniu strony
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSectionOrder();
+        
+        // Obsługa rozwijania sekcji Zmiany w magazynie
+        const toggleBtn = document.getElementById('toggle-changes-section');
+        const content = document.getElementById('changes-section-content');
+        const arrow = document.getElementById('toggle-changes-arrow');
+        if (toggleBtn && content && arrow) {
+            // Ustaw domyślnie zamknięte
+            content.classList.add('hidden');
+            arrow.textContent = '▶';
+            toggleBtn.addEventListener('click', function() {
+                content.classList.toggle('hidden');
+                arrow.textContent = content.classList.contains('hidden') ? '▶' : '▼';
+            });
+        }
+        
+        // Obsługa rozwijania sekcji Lista produktów w projekcie
+        const summaryToggleBtn = document.getElementById('toggle-summary-section');
+        const summaryContent = document.getElementById('summary-section-content');
+        const summaryArrow = document.getElementById('toggle-summary-arrow');
+        if (summaryToggleBtn && summaryContent && summaryArrow) {
+            // Domyślnie rozwinięta (bez hidden)
+            summaryArrow.textContent = '▼';
+            summaryToggleBtn.addEventListener('click', function() {
+                summaryContent.classList.toggle('hidden');
+                summaryArrow.textContent = summaryContent.classList.contains('hidden') ? '▶' : '▼';
+            });
+        }
+        
+        // Obsługa rozwijania sekcji Gantt Frappe
+        const frappeToggleBtn = document.getElementById('toggle-frappe-section');
+        const frappeContent = document.getElementById('frappe-section-content');
+        const frappeArrow = document.getElementById('toggle-frappe-arrow');
+        if (frappeToggleBtn && frappeContent && frappeArrow) {
+            // Ustaw domyślnie zamknięte
+            frappeContent.classList.add('hidden');
+            frappeArrow.textContent = '▶';
+            frappeToggleBtn.addEventListener('click', function() {
+                frappeContent.classList.toggle('hidden');
+                frappeArrow.textContent = frappeContent.classList.contains('hidden') ? '▶' : '▼';
+            });
+        }
+    });
+</script>
 
 {{-- Modal dodawania/edycji zadania --}}
 <div id="frappe-task-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -756,6 +827,22 @@
     }
     .gantt-container {
         background-color: white !important;
+    }
+    
+    /* Style dla przeciąganych sekcji */
+    .sortable-section {
+        transition: all 0.3s ease;
+        cursor: move;
+    }
+    
+    .sortable-section:hover {
+        border-color: #3b82f6 !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    
+    .sortable-section.dragging {
+        opacity: 0.5;
+        transform: scale(0.98);
     }
 </style>
 <script>
@@ -1362,6 +1449,435 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+{{-- MODAL: Wybierz listę projektową --}}
+<div id="choose-list-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold">Wybierz listę projektową</h3>
+            <button type="button" id="close-choose-list-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+        </div>
+        
+        <div class="space-y-2 max-h-96 overflow-y-auto">
+            @foreach($projectLists as $list)
+                <div class="border rounded p-3 hover:bg-gray-50 cursor-pointer list-item" data-list-id="{{ $list->id }}">
+                    <div class="font-semibold">{{ $list->name }}</div>
+                    @if($list->description)
+                        <div class="text-sm text-gray-600">{{ $list->description }}</div>
+                    @endif
+                    <div class="text-xs text-gray-500 mt-1">
+                        Produktów: {{ $list->items->count() }} | Utworzono: {{ $list->created_at->format('d.m.Y') }}
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+</div>
+
+{{-- MODAL: Podgląd produktów z listy --}}
+<div id="list-preview-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto mx-4">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold" id="list-preview-title">Produkty z listy</h3>
+            <button type="button" id="close-list-preview-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+        </div>
+        
+        <div id="list-preview-content" class="mb-4">
+            <!-- Zawartość będzie wczytana przez JavaScript -->
+        </div>
+        
+        <div class="flex justify-end gap-2 mt-4">
+            <button type="button" id="cancel-list-load" class="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500">
+                Anuluj
+            </button>
+            <button type="button" id="confirm-list-load" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                Dodaj produkty do projektu
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Pokazywanie brakujących produktów w liście
+function showMissingItems(loadedListId) {
+    const details = document.getElementById('missing-items-' + loadedListId);
+    if (details) {
+        details.classList.toggle('hidden');
+    }
+}
+
+// Pokazywanie produktów spoza list
+function showOutsideProducts() {
+    const details = document.getElementById('outside-products-details');
+    if (details) {
+        details.classList.toggle('hidden');
+    }
+}
+
+// Obsługa dodawania brakujących produktów
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('add-missing-btn')) {
+        const btn = e.target;
+        const loadedListId = btn.dataset.loadedListId;
+        const partId = btn.dataset.partId;
+        const quantity = btn.dataset.quantity;
+        const partName = btn.dataset.partName;
+        
+        if (!confirm(`Czy na pewno chcesz dodać produkt "${partName}" (ilość: ${quantity}) do projektu?`)) {
+            return;
+        }
+        
+        btn.disabled = true;
+        const originalText = btn.textContent;
+        btn.textContent = 'Dodawanie...';
+        
+        fetch(`/projekty/{{ $project->id }}/add-missing-product`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                loaded_list_id: loadedListId,
+                part_id: partId,
+                quantity: quantity
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('Błąd: ' + (data.message || 'Nie udało się dodać produktu'));
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        })
+        .catch(error => {
+            alert('Błąd połączenia: ' + error.message);
+            btn.disabled = false;
+            btn.textContent = originalText;
+        });
+    }
+    
+    // Obsługa usuwania listy z projektu
+    if (e.target.classList.contains('remove-list-btn')) {
+        const btn = e.target;
+        const loadedListId = btn.dataset.loadedListId;
+        const listName = btn.dataset.listName;
+        
+        if (!confirm(`Czy na pewno chcesz usunąć listę "${listName}" z tego projektu?\n\nUWAGA: Lista zostanie tylko odrzeżona od projektu. Produkty już dodane do projektu z tej listy POZOSTANĄ w projekcie.`)) {
+            return;
+        }
+        
+        btn.disabled = true;
+        btn.textContent = 'Usuwanie...';
+        
+        fetch(`/projekty/{{ $project->id }}/remove-list/${loadedListId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('Błąd: ' + (data.message || 'Nie udało się usunąć listy'));
+                btn.disabled = false;
+                btn.textContent = '🗑️ Usuń';
+            }
+        })
+        .catch(error => {
+            alert('Błąd połączenia: ' + error.message);
+            btn.disabled = false;
+            btn.textContent = '🗑️ Usuń';
+        });
+    }
+});
+
+// Obsługa wyboru listy projektowej
+const chooseListBtn = document.getElementById('choose-list-btn');
+const chooseListModal = document.getElementById('choose-list-modal');
+const closeChooseListModal = document.getElementById('close-choose-list-modal');
+const closeListPreviewModal = document.getElementById('close-list-preview-modal');
+const cancelListLoad = document.getElementById('cancel-list-load');
+
+if (chooseListBtn && chooseListModal) {
+    chooseListBtn.addEventListener('click', function() {
+        chooseListModal.classList.remove('hidden');
+    });
+}
+
+if (closeChooseListModal && chooseListModal) {
+    closeChooseListModal.addEventListener('click', function() {
+        chooseListModal.classList.add('hidden');
+    });
+}
+
+if (closeListPreviewModal) {
+    closeListPreviewModal.addEventListener('click', function() {
+        document.getElementById('list-preview-modal').classList.add('hidden');
+    });
+}
+
+if (cancelListLoad) {
+    cancelListLoad.addEventListener('click', function() {
+        document.getElementById('list-preview-modal').classList.add('hidden');
+    });
+}
+
+document.querySelectorAll('.list-item').forEach(item => {
+    item.addEventListener('click', function() {
+        const listId = this.dataset.listId;
+        loadListPreview(listId);
+    });
+});
+
+let selectedListId = null;
+
+function loadListPreview(listId) {
+    selectedListId = listId;
+    document.getElementById('choose-list-modal').classList.add('hidden');
+    
+    // Pobierz szczegóły listy przez AJAX
+    fetch(`/projekty/{{ $project->id }}/preview-list/${listId}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('list-preview-title').textContent = `Produkty z listy: ${data.list_name}`;
+            
+            let html = `
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600">${data.description || ''}</p>
+                </div>
+                <table class="w-full border border-collapse text-sm">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="border p-2 text-left">Produkt</th>
+                            <th class="border p-2 text-center">Ilość na liście</th>
+                            <th class="border p-2 text-center">Stan magazynu</th>
+                            <th class="border p-2 text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            data.items.forEach(item => {
+                const isAvailable = item.stock >= item.quantity;
+                const statusClass = isAvailable ? 'bg-green-50' : 'bg-red-50';
+                const statusText = isAvailable ? '✓ Dostępny' : '⚠ Brak na magazynie';
+                const statusColor = isAvailable ? 'text-green-700' : 'text-red-700';
+                
+                html += `
+                    <tr class="${statusClass}">
+                        <td class="border p-2">${item.name}</td>
+                        <td class="border p-2 text-center">${item.quantity}</td>
+                        <td class="border p-2 text-center ${item.stock < item.quantity ? 'text-red-600 font-bold' : ''}">${item.stock}</td>
+                        <td class="border p-2 text-center ${statusColor} font-semibold">${statusText}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+            
+            if (data.is_already_loaded) {
+                html += `
+                    <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded">
+                        <p class="text-sm text-red-800">
+                            <strong>⚠ Uwaga:</strong> Ta lista jest już załadowana w tym projekcie. Nie możesz załadować jej ponownie.
+                        </p>
+                    </div>
+                `;
+                // Zablokuj przycisk dodawania
+                document.getElementById('confirm-list-load').disabled = true;
+                document.getElementById('confirm-list-load').classList.add('opacity-50', 'cursor-not-allowed');
+            } else if (data.has_missing) {
+                html += `
+                    <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                        <p class="text-sm text-yellow-800">
+                            <strong>⚠ Uwaga:</strong> Niektóre produkty nie są dostępne w wystarczającej ilości na magazynie. 
+                            <strong>Te produkty NIE ZOSTANĄ dodane do projektu.</strong> Lista będzie niekompletna (z wykrzyknikiem).
+                        </p>
+                    </div>
+                `;
+                // Odblokuj przycisk
+                document.getElementById('confirm-list-load').disabled = false;
+                document.getElementById('confirm-list-load').classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                // Odblokuj przycisk
+                document.getElementById('confirm-list-load').disabled = false;
+                document.getElementById('confirm-list-load').classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+            
+            document.getElementById('list-preview-content').innerHTML = html;
+            document.getElementById('list-preview-modal').classList.remove('hidden');
+        })
+        .catch(error => {
+            alert('Błąd podczas ładowania podglądu listy: ' + error.message);
+        });
+}
+
+document.getElementById('confirm-list-load').addEventListener('click', function() {
+    if (!selectedListId) {
+        alert('Nie wybrano listy');
+        return;
+    }
+    
+    const btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Dodawanie...';
+    
+    // Wyślij żądanie dodania produktów z listy
+    fetch(`/projekty/{{ $project->id }}/load-list`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            list_id: selectedListId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            let message = data.message;
+            if (!data.is_complete && data.missing_count > 0) {
+                message += `\n\n⚠ Uwaga: ${data.missing_count} produktów nie zostało dodanych (brak na magazynie).`;
+            }
+            alert(message);
+            window.location.reload();
+        } else {
+            alert('Błąd: ' + (data.message || 'Nie udało się dodać produktów'));
+            btn.disabled = false;
+            btn.textContent = 'Dodaj produkty do projektu';
+        }
+    })
+    .catch(error => {
+        alert('Błąd połączenia: ' + error.message);
+        btn.disabled = false;
+        btn.textContent = 'Dodaj produkty do projektu';
+    });
+});
+
+// ===== OBSŁUGA CHECKBOXÓW I USUWANIA PRODUKTÓW =====
+@if(auth()->user() && auth()->user()->is_admin)
+const selectAllCheckbox = document.getElementById('select-all-checkbox');
+const productCheckboxes = document.querySelectorAll('.product-checkbox');
+const selectAllBtn = document.getElementById('select-all-products');
+const deselectAllBtn = document.getElementById('deselect-all-products');
+const deleteBtn = document.getElementById('delete-selected-products');
+const selectedCountSpan = document.getElementById('selected-count');
+
+function updateSelectedCount() {
+    const checkedCount = document.querySelectorAll('.product-checkbox:checked').length;
+    selectedCountSpan.textContent = checkedCount;
+    deleteBtn.disabled = checkedCount === 0;
+    
+    // Aktualizuj stan checkboxa "zaznacz wszystkie"
+    if (checkedCount === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    } else if (checkedCount === productCheckboxes.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+    } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+    }
+}
+
+// Checkbox "zaznacz wszystkie" w nagłówku
+if (selectAllCheckbox) {
+    selectAllCheckbox.addEventListener('change', function() {
+        productCheckboxes.forEach(cb => {
+            cb.checked = this.checked;
+        });
+        updateSelectedCount();
+    });
+}
+
+// Checkboxy produktów
+productCheckboxes.forEach(cb => {
+    cb.addEventListener('change', updateSelectedCount);
+});
+
+// Przycisk "Zaznacz wszystkie"
+if (selectAllBtn) {
+    selectAllBtn.addEventListener('click', function() {
+        productCheckboxes.forEach(cb => cb.checked = true);
+        updateSelectedCount();
+    });
+}
+
+// Przycisk "Odznacz wszystkie"
+if (deselectAllBtn) {
+    deselectAllBtn.addEventListener('click', function() {
+        productCheckboxes.forEach(cb => cb.checked = false);
+        updateSelectedCount();
+    });
+}
+
+// Przycisk "Usuń zaznaczone"
+if (deleteBtn) {
+    deleteBtn.addEventListener('click', function() {
+        const checkedBoxes = document.querySelectorAll('.product-checkbox:checked');
+        if (checkedBoxes.length === 0) {
+            alert('Nie zaznaczono żadnych produktów');
+            return;
+        }
+        
+        const partIds = Array.from(checkedBoxes).map(cb => cb.dataset.partId);
+        const partNames = Array.from(checkedBoxes).map(cb => cb.dataset.partName).join(', ');
+        
+        if (!confirm(`Czy na pewno chcesz usunąć ${checkedBoxes.length} zaznaczonych produktów z projektu?\n\nProdukty: ${partNames}\n\nUWAGA: Usunięte zostaną WSZYSTKIE pobrania tych produktów w tym projekcie!`)) {
+            return;
+        }
+        
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = 'Usuwanie...';
+        
+        fetch(`/projekty/{{ $project->id }}/delete-products`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                part_ids: partIds
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('Błąd: ' + (data.message || 'Nie udało się usunąć produktów'));
+                deleteBtn.disabled = false;
+                deleteBtn.innerHTML = '🗑️ Usuń zaznaczone (<span id="selected-count">' + checkedBoxes.length + '</span>)';
+            }
+        })
+        .catch(error => {
+            alert('Błąd połączenia: ' + error.message);
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = '🗑️ Usuń zaznaczone (<span id="selected-count">' + checkedBoxes.length + '</span>)';
+        });
+    });
+}
+
+// Inicjalizacja licznika
+updateSelectedCount();
+@endif
+</script>
+
 </body>
+
 </html>
 </div>
