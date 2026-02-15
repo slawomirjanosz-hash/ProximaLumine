@@ -71,6 +71,12 @@
                 </svg>
             </button>
             <div id="magazyn-submenu" class="bg-gray-900 {{ (request()->routeIs('magazyn.add') || request()->routeIs('magazyn.remove') || request()->routeIs('magazyn.check') || request()->routeIs('magazyn.orders')) ? '' : 'hidden' }}">
+                @if(auth()->user()->can_view_catalog)
+                <a href="{{ route('magazyn.check') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.check') ? 'bg-gray-700 text-white border-l-4 border-blue-500' : '' }}">
+                    <span>🔍</span>
+                    <span>Katalog</span>
+                </a>
+                @endif
                 @if(auth()->user()->can_add)
                 <a href="{{ route('magazyn.add') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.add') ? 'bg-gray-700 text-white border-l-4 border-green-500' : '' }}">
                     <span>➕</span>
@@ -85,12 +91,6 @@
                 <a href="{{ route('magazyn.remove') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.remove') ? 'bg-gray-700 text-white border-l-4 border-red-500' : '' }}">
                     <span>➖</span>
                     <span>Pobierz</span>
-                </a>
-                @endif
-                @if(auth()->user()->can_view_catalog)
-                <a href="{{ route('magazyn.check') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.check') ? 'bg-gray-700 text-white border-l-4 border-blue-500' : '' }}">
-                    <span>🔍</span>
-                    <span>Katalog</span>
                 </a>
                 @endif
                 @if(auth()->user()->can_orders)
