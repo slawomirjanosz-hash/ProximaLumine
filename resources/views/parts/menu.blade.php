@@ -76,6 +76,10 @@
                     <span>➕</span>
                     <span>Dodaj</span>
                 </a>
+                <a href="{{ route('magazyn.receive') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.receive') ? 'bg-gray-700 text-white border-l-4 border-green-400' : '' }}">
+                    <span>📥</span>
+                    <span>Przyjmij na magazyn</span>
+                </a>
                 @endif
                 @if(auth()->user()->can_remove)
                 <a href="{{ route('magazyn.remove') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.remove') ? 'bg-gray-700 text-white border-l-4 border-red-500' : '' }}">
@@ -100,43 +104,47 @@
         @endif
 
         <!-- Projekty (rozwijane) -->
-        @if(auth()->check() && auth()->user()->can_view_projects)
+        @php
+            $isSuperAdmin = auth()->check() && strtolower(auth()->user()->email) === 'proximalumine@gmail.com';
+            $isAdmin = auth()->check() && auth()->user()->is_admin;
+        @endphp
+        @if(auth()->check() && (auth()->user()->can_view_projects || $isAdmin || $isSuperAdmin))
         <div class="menu-group">
-            <button onclick="toggleSubmenu('projekty')" class="w-full flex items-center justify-between px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.projects*') || request()->routeIs('magazyn.projects.settings') ? 'bg-gray-700 text-white' : '' }}">
+            <button onclick="toggleSubmenu('projekty')" class="w-full flex items-center justify-between px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200">
                 <div class="flex items-center gap-3">
                     <span class="text-lg">🏗️</span>
                     <span class="font-medium">Projekty</span>
                 </div>
-                <svg class="w-4 h-4 transition-transform duration-200 {{ request()->routeIs('magazyn.projects*') || request()->routeIs('magazyn.projects.settings') ? 'rotate-180' : '' }}" id="projekty-arrow" fill="currentColor" viewBox="0 0 20 20">
+                <svg class="w-4 h-4 transition-transform duration-200" id="projekty-arrow" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
                 </svg>
             </button>
-            <div id="projekty-submenu" class="bg-gray-900 {{ request()->routeIs('magazyn.projects*') || request()->routeIs('magazyn.projects.settings') ? '' : 'hidden' }}">
-                @if(auth()->user()->can_projects_add)
+            <div id="projekty-submenu" class="bg-gray-900 hidden">
+                @if($isAdmin || $isSuperAdmin || auth()->user()->can_projects_add)
                 <a href="{{ route('magazyn.projects') }}?add=1" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->get('add') == '1' ? 'bg-gray-700 text-white border-l-4 border-green-500' : '' }}">
                     <span>➕</span>
                     <span>Dodaj projekt</span>
                 </a>
                 @endif
-                @if(auth()->user()->can_projects_in_progress)
+                @if($isAdmin || $isSuperAdmin || auth()->user()->can_projects_in_progress)
                 <a href="{{ route('magazyn.projects') }}?status=in_progress" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->get('status') == 'in_progress' ? 'bg-gray-700 text-white border-l-4 border-yellow-500' : '' }}">
                     <span>⏳</span>
                     <span>Projekty w toku</span>
                 </a>
                 @endif
-                @if(auth()->user()->can_projects_warranty)
+                @if($isAdmin || $isSuperAdmin || auth()->user()->can_projects_warranty)
                 <a href="{{ route('magazyn.projects') }}?status=warranty" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->get('status') == 'warranty' ? 'bg-gray-700 text-white border-l-4 border-blue-500' : '' }}">
                     <span>🛡️</span>
                     <span>Projekty na gwarancji</span>
                 </a>
                 @endif
-                @if(auth()->user()->can_projects_archived)
+                @if($isAdmin || $isSuperAdmin || auth()->user()->can_projects_archived)
                 <a href="{{ route('magazyn.projects') }}?status=archived" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->get('status') == 'archived' ? 'bg-gray-700 text-white border-l-4 border-gray-500' : '' }}">
                     <span>📦</span>
                     <span>Projekty archiwalne</span>
                 </a>
                 @endif
-                @if(auth()->user()->can_projects_settings)
+                @if($isAdmin || $isSuperAdmin || auth()->user()->can_projects_settings)
                 <!-- Ustawienia projektów rozwijane -->
                 <div class="pl-8">
                     <a href="{{ route('magazyn.projects.settings') }}" class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.projects.settings') ? 'bg-gray-700 text-white border-l-4 border-indigo-500' : '' }}">
@@ -231,9 +239,38 @@ updateDateTime();
 function toggleSubmenu(id) {
     const submenu = document.getElementById(id + '-submenu');
     const arrow = document.getElementById(id + '-arrow');
+    const isOpen = !submenu.classList.contains('hidden');
     submenu.classList.toggle('hidden');
     arrow.classList.toggle('rotate-180');
+    // Zapamiętaj stan w localStorage
+    let menuState = {};
+    try {
+        menuState = JSON.parse(localStorage.getItem('sidebarMenuState')) || {};
+    } catch (e) { menuState = {}; }
+    menuState[id] = !isOpen;
+    localStorage.setItem('sidebarMenuState', JSON.stringify(menuState));
 }
+
+// Przy ładowaniu strony odtwórz stan menu
+document.addEventListener('DOMContentLoaded', function() {
+    let menuState = {};
+    try {
+        menuState = JSON.parse(localStorage.getItem('sidebarMenuState')) || {};
+    } catch (e) { menuState = {}; }
+    for (const id in menuState) {
+        const submenu = document.getElementById(id + '-submenu');
+        const arrow = document.getElementById(id + '-arrow');
+        if (submenu && arrow) {
+            if (menuState[id]) {
+                submenu.classList.remove('hidden');
+                arrow.classList.add('rotate-180');
+            } else {
+                submenu.classList.add('hidden');
+                arrow.classList.remove('rotate-180');
+            }
+        }
+    }
+});
 </script>
 
 <!-- Style dla layoutu z sidebar -->

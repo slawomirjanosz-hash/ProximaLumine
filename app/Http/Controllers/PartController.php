@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\Category;
@@ -18,6 +17,20 @@ use Illuminate\Support\Str;
 class PartController extends Controller
 {
     /* ===================== WIDOKI ===================== */
+
+    // PRZYJMIJ NA MAGAZYN
+    public function receiveView()
+    {
+        return view('parts.receive', [
+            'parts'      => Part::with(['category', 'lastModifiedBy'])->orderBy('name')->get(),
+            'categories' => Category::all(),
+            'suppliers'  => Supplier::orderBy('name')->get(),
+            'sortBy'     => 'name',
+            'sortDir'    => 'asc',
+            'catalogSettings' => \DB::table('catalog_columns_settings')->first(),
+            'qrSettings' => \DB::table('qr_settings')->first(),
+        ]);
+    }
 
     // DODAJ
     public function addView()
@@ -1667,6 +1680,85 @@ class PartController extends Controller
             }
             
             return redirect()->back()->with('error', 'Błąd podczas dodawania produktu: ' . $e->getMessage());
+        }
+    }
+
+    // MASOWE DODAWANIE (dla skanera)
+    public function bulkAdd(Request $request)
+    {
+        try {
+            $data = $request->validate([
+                'products' => 'required|array|min:1',
+                'products.*.id' => 'required|exists:parts,id',
+                'products.*.quantity' => 'required|integer|min:1',
+            ]);
+
+            $addedCount = 0;
+            $errors = [];
+
+            foreach ($data['products'] as $productData) {
+                try {
+                    $part = Part::find($productData['id']);
+                    
+                    if (!$part) {
+                        $errors[] = "Nie znaleziono produktu o ID: {$productData['id']}";
+                        continue;
+                    }
+
+                    // Zwiększ stan magazynowy
+                    $part->quantity += (int) $productData['quantity'];
+                    $part->last_modified_by = auth()->id();
+                    $part->save();
+                    
+                    $addedCount++;
+                    
+                    // Dodaj do historii sesji
+                    $supplierDisplay = '';
+                    if ($part->supplier) {
+                        $supplier = \App\Models\Supplier::where('name', $part->supplier)->first();
+                        $supplierDisplay = $supplier && $supplier->short_name ? $supplier->short_name : $part->supplier;
+                    }
+                    
+                    session()->push('adds', [
+                        'date'        => now()->format('Y-m-d H:i'),
+                        'name'        => $part->name,
+                        'description' => $part->description,
+                        'supplier'    => $supplierDisplay,
+                        'changed'     => (int) $productData['quantity'],
+                        'after'       => $part->quantity,
+                        'category'    => $part->category->name ?? '-',
+                    ]);
+                    
+                } catch (\Exception $e) {
+                    $errors[] = "Błąd przy produkcie ID {$productData['id']}: {$e->getMessage()}";
+                    \Log::error('Błąd podczas masowego dodawania produktu', [
+                        'product_id' => $productData['id'],
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            if ($addedCount > 0) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Przyjęto {$addedCount} produktów na magazyn",
+                    'added_count' => $addedCount,
+                    'errors' => $errors
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Nie udało się przyjąć żadnego produktu',
+                    'errors' => $errors
+                ], 400);
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error('Błąd podczas masowego dodawania produktów: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Błąd serwera: ' . $e->getMessage()
+            ], 500);
         }
     }
 

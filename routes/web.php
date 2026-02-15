@@ -1118,6 +1118,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 // MAGAZYN - CHRONIONE TRASAMI
 Route::middleware('auth')->group(function () {
     Route::get('/magazyn/dodaj', [PartController::class, 'addView'])->name('magazyn.add')->middleware('permission:add');
+    Route::get('/magazyn/przyjmij', [PartController::class, 'receiveView'])->name('magazyn.receive')->middleware('permission:add');
     Route::get('/magazyn/pobierz', [PartController::class, 'removeView'])->name('magazyn.remove')->middleware('permission:remove');
     Route::get('/magazyn/sprawdz', [PartController::class, 'checkView'])->name('magazyn.check')->middleware('permission:view_catalog');
     Route::get('/magazyn/zamowienia', [PartController::class, 'ordersView'])->name('magazyn.orders')->middleware('permission:orders');
@@ -1128,6 +1129,7 @@ Route::middleware('auth')->group(function () {
 
     // AKCJE
     Route::post('/parts/add', [PartController::class, 'add'])->name('parts.add')->middleware('permission:add');
+    Route::post('/parts/bulk-add', [PartController::class, 'bulkAdd'])->name('magazyn.parts.bulkAdd')->middleware('permission:add');
     Route::post('/parts/remove', [PartController::class, 'remove'])->name('parts.remove')->middleware('permission:remove');
     Route::post('/magazyn/ustawienia/kategoria', [PartController::class, 'addCategory'])->name('magazyn.category.add')->middleware('permission:settings');
     Route::put('/magazyn/ustawienia/kategoria/{category}', [PartController::class, 'updateCategory'])->name('magazyn.category.update')->middleware('permission:settings');

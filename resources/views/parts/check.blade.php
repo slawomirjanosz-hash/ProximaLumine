@@ -227,6 +227,7 @@
                 @endphp
                 <tr data-name="{{ strtolower($p->name) }}"
                     data-description="{{ strtolower($p->description ?? '') }}"
+                    data-qr-code="{{ strtolower($p->qr_code ?? '') }}"
                     data-supplier="{{ strtolower($supplierShort ?: ($p->supplier ?? '')) }}"
                     data-category="{{ strtolower($p->category->name ?? '') }}"
                     data-price="{{ $p->net_price ?? 0 }}"
@@ -828,28 +829,42 @@ document.addEventListener('DOMContentLoaded', function() {
             rows.forEach(row => {
                 const name = (row.getAttribute('data-name') || '').toLowerCase();
                 const description = (row.getAttribute('data-description') || '').toLowerCase();
+                const qrCode = (row.getAttribute('data-qr-code') || '').toLowerCase();
                 const category = (row.getAttribute('data-category') || '').toLowerCase();
                 const supplier = (row.getAttribute('data-supplier') || '').toLowerCase();
-                
+
+                // Pobierz tekst z kolumny "Opis kodu" jeśli istnieje
+                let qrDescText = '';
+                const table = row.closest('table');
+                if (table) {
+                    const ths = table.querySelectorAll('thead th');
+                    const tds = row.querySelectorAll('td');
+                    ths.forEach((th, idx) => {
+                        if (th.textContent && th.textContent.toLowerCase().includes('opis kodu')) {
+                            qrDescText = (tds[idx] && tds[idx].textContent) ? tds[idx].textContent.trim().toLowerCase() : '';
+                        }
+                    });
+                }
+
                 let matchesSearch = true;
                 let matchesCategory = true;
                 let matchesSupplier = true;
-                
+
                 // Wyszukiwanie tekstowe
                 if (searchTerm) {
-                    matchesSearch = name.includes(searchTerm) || description.includes(searchTerm);
+                    matchesSearch = name.includes(searchTerm) || description.includes(searchTerm) || qrCode.includes(searchTerm) || qrDescText.includes(searchTerm);
                 }
-                
+
                 // Filtr kategorii
                 if (categoryValue) {
                     matchesCategory = category === categoryValue;
                 }
-                
+
                 // Filtr dostawcy
                 if (supplierValue) {
                     matchesSupplier = supplier === supplierValue;
                 }
-                
+
                 // Pokaż lub ukryj wiersz
                 if (matchesSearch && matchesCategory && matchesSupplier) {
                     row.style.display = '';
