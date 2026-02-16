@@ -1115,6 +1115,46 @@ Route::get('/login', [AuthController::class, 'loginView'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+// Railway session diagnostics - dostępne bez logowania
+Route::get('/railway/session-test', function () {
+    $sessionData = [
+        'timestamp' => now()->toDateTimeString(),
+        'environment' => app()->environment(),
+        'session_driver' => config('session.driver'),
+        'session_started' => session()->isStarted(),
+        'session_id' => session()->getId(),
+        'has_csrf_token' => csrf_token() !== null,
+        'csrf_token' => csrf_token(),
+        'secure_cookie' => config('session.secure'),
+        'same_site' => config('session.same_site'),
+        'session_lifetime' => config('session.lifetime'),
+        'app_url' => config('app.url'),
+        'request_secure' => request()->secure(),
+        'request_url' => request()->fullUrl(),
+        'cookies' => request()->cookies->all(),
+        'headers' => [
+            'host' => request()->header('host'),
+            'x-forwarded-proto' => request()->header('x-forwarded-proto'),
+            'x-forwarded-for' => request()->header('x-forwarded-for'),
+        ],
+    ];
+    
+    // Test zapisu do sesji
+    session()->put('test_key', 'test_value_' . time());
+    $sessionData['test_write'] = session()->get('test_key');
+    
+    // Sprawdź czy tabela sessions istnieje
+    try {
+        $sessionsCount = DB::table('sessions')->count();
+        $sessionData['database_sessions_count'] = $sessionsCount;
+        $sessionData['database_sessions_table'] = 'EXISTS';
+    } catch (\Exception $e) {
+        $sessionData['database_sessions_table'] = 'ERROR: ' . $e->getMessage();
+    }
+    
+    return response()->json($sessionData, 200, [], JSON_PRETTY_PRINT);
+})->name('railway.session.test');
+
 // MAGAZYN - CHRONIONE TRASAMI
 Route::middleware('auth')->group(function () {
     Route::get('/magazyn/dodaj', [PartController::class, 'addView'])->name('magazyn.add')->middleware('permission:add');

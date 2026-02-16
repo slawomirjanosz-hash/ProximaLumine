@@ -3,9 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Logowanie - Magazyn</title>
     @vite('resources/css/app.css')
     <link rel="icon" type="image/png" href="{{ asset('logo_proxima_male.png') }}">
+    <style>
+        .debug-info { position: fixed; bottom: 10px; right: 10px; background: #f3f4f6; padding: 8px; border-radius: 4px; font-size: 10px; opacity: 0.7; }
+    </style>
 </head>
 <body class="bg-gray-100">
     <div class="min-h-screen flex items-center justify-center">
@@ -69,7 +73,75 @@
                     Zaloguj się
                 </button>
             </form>
+            
+            @if(config('app.debug'))
+            <div class="mt-4 text-xs text-gray-500 text-center">
+                Session: {{ session()->getId() ? 'OK' : 'BRAK' }} | 
+                CSRF: {{ csrf_token() ? 'OK' : 'BRAK' }} | 
+                Env: {{ app()->environment() }}
+            </div>
+            @endif
         </div>
     </div>
+    
+    <script>
+        // Automatyczna regeneracja tokenu CSRF przed wysłaniem formularza
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('form');
+            
+            // Sprawdź czy token istnieje
+            let csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            console.log('CSRF Token na starcie:', csrfToken ? 'OK' : 'BRAK');
+            
+            form.addEventListener('submit', function(e) {
+                // Odśwież token przed wysłaniem
+                const tokenInput = form.querySelector('input[name="_token"]');
+                const metaToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                
+                if (tokenInput && metaToken) {
+                    tokenInput.value = metaToken;
+                    console.log('Token CSRF odświeżony przed wysłaniem');
+                }
+            });
+            
+            // Nasłuchuj błędu 419 i automatycznie przeładuj stronę
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(form);
+                
+                try {
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        credentials: 'same-origin'
+                    });
+                    
+                    if (response.status === 419) {
+                        console.warn('Błąd 419 - sesja wygasła, przeładowuję stronę...');
+                        // Przeładuj stronę aby uzyskać nowy token
+                        window.location.reload();
+                        return;
+                    }
+                    
+                    // Jeśli sukces, przekieruj manualnie
+                    if (response.ok || response.redirected) {
+                        window.location.href = response.url || '/magazyn';
+                    } else {
+                        // Dla innych błędów, pozwól formie działać normalnie
+                        form.submit();
+                    }
+                } catch (error) {
+                    console.error('Błąd logowania:', error);
+                    // Fallback - normalnie wyślij formularz
+                    form.submit();
+                }
+            });
+        });
+    </script>
 </body>
 </html>

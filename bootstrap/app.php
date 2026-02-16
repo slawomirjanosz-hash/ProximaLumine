@@ -26,5 +26,31 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Globalna obsługa błędu 419 - TokenMismatchException
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, $request) {
+            \Log::warning('TokenMismatchException (419) caught globally', [
+                'url' => $request->fullUrl(),
+                'method' => $request->method(),
+                'session_id' => $request->session()->getId(),
+                'ip' => $request->ip(),
+            ]);
+            
+            // Regeneruj token sesji
+            $request->session()->regenerateToken();
+            
+            // Jeśli to AJAX request, zwróć JSON
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sesja wygasła. Odśwież stronę i spróbuj ponownie.',
+                    'error' => 'token_mismatch',
+                    'csrf_token' => csrf_token(),
+                ], 419);
+            }
+            
+            // Dla zwykłych requestów, przekieruj z komunikatem
+            return redirect()->back()
+                ->withInput($request->except('password', '_token'))
+                ->with('error', 'Sesja wygasła. Spróbuj ponownie.');
+        });
     })->create();
