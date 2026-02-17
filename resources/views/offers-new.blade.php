@@ -1008,12 +1008,14 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
-                const data = await response.json();
+                let data = await response.json();
                 console.log('=== DEBUG: Otrzymane dane z API ===');
                 console.log('Pełna odpowiedź:', data);
                 console.log('Typ danych:', typeof data);
                 console.log('Czy tablica:', Array.isArray(data));
-                console.log('Klucze obiektu:', Object.keys(data));
+                if (typeof data === 'object' && data !== null) {
+                    console.log('Klucze obiektu:', Object.keys(data));
+                }
                 console.log('Długość (length):', data.length);
                 console.log('===================================');
                 
@@ -1025,8 +1027,21 @@
                 
                 // Sprawdź czy odpowiedź jest tablicą
                 if (!Array.isArray(data)) {
-                    console.error('API nie zwróciło tablicy. Pełne dane:', JSON.stringify(data));
-                    throw new Error('API zwróciło nieprawidłowy format danych (oczekiwano tablicy, otrzymano: ' + typeof data + ')');
+                    // Jeśli to obiekt z numerycznymi kluczami (0,1,2...), konwertuj na tablicę
+                    if (typeof data === 'object' && data !== null) {
+                        const keys = Object.keys(data);
+                        const isNumericKeys = keys.every(key => !isNaN(key));
+                        if (isNumericKeys && keys.length > 0) {
+                            console.log('Konwertuję obiekt z numerycznymi kluczami na tablicę');
+                            data = Object.values(data);
+                        } else {
+                            console.error('API nie zwróciło tablicy. Pełne dane:', JSON.stringify(data));
+                            throw new Error('API zwróciło nieprawidłowy format danych (oczekiwano tablicy, otrzymano: ' + typeof data + ')');
+                        }
+                    } else {
+                        console.error('API nie zwróciło tablicy. Pełne dane:', JSON.stringify(data));
+                        throw new Error('API zwróciło nieprawidłowy format danych (oczekiwano tablicy, otrzymano: ' + typeof data + ')');
+                    }
                 }
                 
                 allParts = data;

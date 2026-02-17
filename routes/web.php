@@ -633,7 +633,9 @@ Route::get('/api/test/parts-raw', function () {
             'is_array' => is_array($parts),
             'is_collection' => $parts instanceof \Illuminate\Support\Collection,
             'first_part' => $parts->first(),
-            'parts' => $parts,
+            'using_toArray' => $parts->toArray(),
+            'using_values_all' => $parts->values()->all(),
+            'parts_values_all' => $parts->values()->all(),
         ]);
     } catch (\Exception $e) {
         return response()->json([
@@ -683,8 +685,9 @@ Route::get('/api/parts/catalog', function (Illuminate\Http\Request $request) {
             ]);
         }
         
-        // Konwertuj Collection na array dla JSON
-        return response()->json($parts->toArray());
+        // Użyj values()->all() aby uzyskać prawdziwą numeryczną tablicę (nie asocjacyjną)
+        // values() resetuje klucze do 0,1,2... i all() konwertuje do array
+        return response()->json($parts->values()->all());
     } catch (\Exception $e) {
         \Log::error('Błąd podczas ładowania katalogu części: ' . $e->getMessage(), [
             'exception' => get_class($e),
