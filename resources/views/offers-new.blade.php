@@ -1025,23 +1025,24 @@
                     throw new Error(data.message || data.error || 'Nieznany błąd API');
                 }
                 
-                // Sprawdź czy odpowiedź jest tablicą
+                // WYMUSZENIE TABLICY: Konwertuj obiekt na tablicę jeśli nie jest już tablicą
                 if (!Array.isArray(data)) {
-                    // Jeśli to obiekt z numerycznymi kluczami (0,1,2...), konwertuj na tablicę
                     if (typeof data === 'object' && data !== null) {
-                        const keys = Object.keys(data);
-                        const isNumericKeys = keys.every(key => !isNaN(key));
-                        if (isNumericKeys && keys.length > 0) {
-                            console.log('Konwertuję obiekt z numerycznymi kluczami na tablicę');
-                            data = Object.values(data);
-                        } else {
-                            console.error('API nie zwróciło tablicy. Pełne dane:', JSON.stringify(data));
-                            throw new Error('API zwróciło nieprawidłowy format danych (oczekiwano tablicy, otrzymano: ' + typeof data + ')');
-                        }
+                        console.warn('⚠️ API zwróciło obiekt zamiast tablicy - konwertuję automatycznie');
+                        console.log('Przed konwersją:', data);
+                        // Użyj Object.values() aby wyciągnąć wartości
+                        data = Object.values(data);
+                        console.log('Po konwersji (is array):', Array.isArray(data), 'length:', data.length);
                     } else {
-                        console.error('API nie zwróciło tablicy. Pełne dane:', JSON.stringify(data));
-                        throw new Error('API zwróciło nieprawidłowy format danych (oczekiwano tablicy, otrzymano: ' + typeof data + ')');
+                        console.error('❌ API zwróciło nieprawidłowy typ:', typeof data);
+                        throw new Error('API zwróciło nieprawidłowy format danych (oczekiwano tablicy lub obiektu, otrzymano: ' + typeof data + ')');
                     }
+                }
+                
+                // Dodatkowa walidacja
+                if (!Array.isArray(data)) {
+                    console.error('❌ Konwersja nie powiodła się, data nadal nie jest tablicą');
+                    throw new Error('Nie udało się przekonwertować danych na tablicę');
                 }
                 
                 allParts = data;

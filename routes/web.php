@@ -680,17 +680,34 @@ Route::get('/api/parts/catalog', function (Illuminate\Http\Request $request) {
             \Log::info('API parts/catalog - Success', [
                 'parts_count' => $parts->count(),
                 'user_id' => auth()->id(),
-                'parts_type' => gettype($parts),
-                'is_collection' => $parts instanceof \Illuminate\Support\Collection,
             ]);
         }
         
-        // Wymuś właściwą tablicę JSON (nie obiekt)
-        // array_values() gwarantuje że PHP array będzie miało numeryczne klucze 0,1,2...
-        // co Laravel JSON encoder konwertuje na tablicę JSON, nie obiekt
-        $data = array_values($parts->values()->toArray());
+        // Przekształć Collection na czystą PHP array z wymuszeniem tablicy JSON
+        $data = $parts->map(function($part) {
+            return [
+                'id' => $part->id,
+                'name' => $part->name,
+                'description' => $part->description,
+                'net_price' => $part->net_price,
+                'supplier' => $part->supplier,
+                'quantity' => $part->quantity,
+                'category_id' => $part->category_id,
+                'category' => $part->category ? [
+                    'id' => $part->category->id,
+                    'name' => $part->category->name,
+                    'created_at' => $part->category->created_at,
+                    'updated_at' => $part->category->updated_at,
+                ] : null,
+            ];
+        })->values()->all();
         
-        return response()->json($data);
+        // Ręczny json_encode z flagami wymuszającymi tablicę
+        $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        
+        return response($json, 200)
+            ->header('Content-Type', 'application/json')
+            ->header('X-Content-Type-Options', 'nosniff');
     } catch (\Exception $e) {
         \Log::error('Błąd podczas ładowania katalogu części: ' . $e->getMessage(), [
             'exception' => get_class($e),
