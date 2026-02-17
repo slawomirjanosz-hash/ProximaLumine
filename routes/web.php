@@ -1431,6 +1431,11 @@ Route::middleware('auth')->group(function () {
     Route::put('/projekty/{project}/gantt/tasks/{task}', [PartController::class, 'updateGanttTask'])->name('magazyn.projects.gantt.updateTask')->middleware('auth');
     Route::delete('/projekty/{project}/gantt/tasks/{task}', [PartController::class, 'deleteGanttTask'])->name('magazyn.projects.gantt.deleteTask')->middleware('auth');
     
+    // DIAGNOSTYKA RAILWAY - widok diagnostyczny
+    Route::get('/diagnostics', function() {
+        return view('diagnostics');
+    })->name('diagnostics');
+    
     // DIAGNOSTYKA RAILWAY - endpoint do sprawdzania środowiska
     Route::get('/api/diagnostics/environment', function() {
         if (!auth()->check()) {
