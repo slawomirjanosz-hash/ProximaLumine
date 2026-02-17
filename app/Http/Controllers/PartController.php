@@ -1351,6 +1351,26 @@ class PartController extends Controller
         $parts = $query->get();
 
         try {
+            // Sprawdź wymagane rozszerzenia PHP
+            $requiredExtensions = ['zip', 'xml', 'gd'];
+            foreach ($requiredExtensions as $ext) {
+                if (!extension_loaded($ext)) {
+                    \Log::error("Missing PHP extension for Word exportWord: {$ext}");
+                    return redirect()->back()->with('error', "Brak wymaganego rozszerzenia PHP: {$ext}");
+                }
+            }
+            
+            // Walidacja katalogu tymczasowego z fallbackiem do storage
+            $tempDir = sys_get_temp_dir();
+            if (!is_writable($tempDir)) {
+                $tempDir = storage_path('app/temp');
+                if (!is_dir($tempDir)) {
+                    mkdir($tempDir, 0755, true);
+                }
+                \Log::warning("sys_get_temp_dir() not writable in exportWord, using fallback: {$tempDir}");
+            }
+            \Log::info("ExportWord using temp directory: {$tempDir}");
+            
             $phpWord = new \PhpOffice\PhpWord\PhpWord();
             $section = $phpWord->addSection();
 
@@ -1369,7 +1389,7 @@ class PartController extends Controller
                 if ($matches) {
                     $extension = $matches[1];
                     $base64Data = $matches[2];
-                    $tempLogoPath = sys_get_temp_dir() . '/temp_logo_' . uniqid() . '.' . $extension;
+                    $tempLogoPath = $tempDir . '/temp_logo_' . uniqid() . '.' . $extension;
                     file_put_contents($tempLogoPath, base64_decode($base64Data));
                     $logoPath = $tempLogoPath;
                 } else {
@@ -1479,12 +1499,13 @@ class PartController extends Controller
                 $table->addCell($userWidth, $cellStyle)->addText($p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             }
 
-            $temp = tempnam(sys_get_temp_dir(), 'word');
+            $temp = tempnam($tempDir, 'word');
             $file = $temp . '.docx';
             \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007')->save($file);
 
             return response()->download($file, 'katalog.docx')->deleteFileAfterSend(true);
         } catch (\Throwable $e) {
+            \Log::error("Export error: {$e->getMessage()}", ['trace' => $e->getTraceAsString()]);
             return redirect()->back()->with('error', 'Wystąpił błąd podczas generowania dokumentu: ' . $e->getMessage());
         }
     }
@@ -3225,7 +3246,25 @@ class PartController extends Controller
     // GENERUJ DOKUMENT WORD DLA ZAMÓWIENIA
     public function generateOrderWord($orderId)
     {
-        $order = \App\Models\Order::findOrFail($orderId);
+        try {
+            // Sprawdź dostępność katalogu temp
+            $tempDir = sys_get_temp_dir();
+            if (!is_dir($tempDir) || !is_writable($tempDir)) {
+                $tempDir = storage_path('app/temp');
+                if (!is_dir($tempDir)) {
+                    mkdir($tempDir, 0755, true);
+                }
+            }
+            
+            \Log::info('Rozpoczęcie generowania dokumentu Word dla zamówienia', [
+                'order_id' => $orderId,
+                'environment' => app()->environment(),
+                'sys_temp_dir' => sys_get_temp_dir(),
+                'temp_dir' => $tempDir,
+                'temp_writable' => is_writable($tempDir),
+            ]);
+            
+            $order = \App\Models\Order::findOrFail($orderId);
         
         $orderName = $order->order_number;
         $supplierName = $order->supplier;
@@ -3274,7 +3313,7 @@ class PartController extends Controller
                         }
                         
                         // Zapisz do tymczasowego pliku
-                        $tempLogoPath = tempnam(sys_get_temp_dir(), 'logo_') . $extension;
+                        $tempLogoPath = tempnam($tempDir, 'logo_') . $extension;
                         file_put_contents($tempLogoPath, $imageContent);
                         $tempFilesToDelete[] = $tempLogoPath;
                         
@@ -3392,7 +3431,7 @@ class PartController extends Controller
                             }
                             
                             // Zapisz do tymczasowego pliku
-                            $tempSupplierLogoPath = tempnam(sys_get_temp_dir(), 'supplier_logo_') . $extension;
+                            $tempSupplierLogoPath = tempnam($tempDir, 'supplier_logo_') . $extension;
                             file_put_contents($tempSupplierLogoPath, $imageContent);
                             $tempFilesToDelete[] = $tempSupplierLogoPath;
                             
@@ -3584,7 +3623,7 @@ class PartController extends Controller
         $fileName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $orderName) . '.docx';
         
         // Zapisz do tymczasowego pliku
-        $tempFile = tempnam(sys_get_temp_dir(), 'order_');
+        $tempFile = tempnam($tempDir, 'order_');
         $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
         $objWriter->save($tempFile);
         
@@ -3593,8 +3632,35 @@ class PartController extends Controller
             @unlink($tempFilePath);
         }
         
+        \Log::info('Dokument Word dla zamówienia wygenerowany pomyślnie', [
+            'order_id' => $orderId,
+            'file_name' => $fileName,
+            'temp_file' => $tempFile,
+            'file_size' => filesize($tempFile),
+        ]);
+        
         // Zwróć plik do pobrania
         return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
+        
+        } catch (\Exception $e) {
+            \Log::error('Błąd podczas generowania dokumentu Word dla zamówienia', [
+                'order_id' => $orderId,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            return response()->json([
+                'error' => 'Nie udało się wygenerować dokumentu Word',
+                'message' => app()->environment('production') ? 'Błąd serwera. Sprawdź logi.' : $e->getMessage(),
+                'debug' => app()->environment('local') ? [
+                    'exception' => get_class($e),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ] : null,
+            ], 500);
+        }
     }
     
     // GENERUJ DOKUMENT PDF DLA ZAMÓWIENIA
@@ -4696,7 +4762,51 @@ class PartController extends Controller
     // GENERUJ DOKUMENT WORD DLA OFERTY
     public function generateOfferWord($offerId)
     {
-        $offer = \App\Models\Offer::findOrFail($offerId);
+        try {
+            // Sprawdź wymagane rozszerzenia PHP
+            $requiredExtensions = ['zip', 'xml', 'gd'];
+            $missingExtensions = [];
+            foreach ($requiredExtensions as $ext) {
+                if (!extension_loaded($ext)) {
+                    $missingExtensions[] = $ext;
+                }
+            }
+            
+            if (!empty($missingExtensions)) {
+                \Log::error('Brakujące rozszerzenia PHP do generowania Word', [
+                    'missing_extensions' => $missingExtensions,
+                ]);
+                throw new \Exception('Brakujące rozszerzenia PHP: ' . implode(', ', $missingExtensions));
+            }
+            
+            // Sprawdź dostępność katalogu temp
+            $tempDir = sys_get_temp_dir();
+            if (!is_dir($tempDir) || !is_writable($tempDir)) {
+                \Log::error('Katalog tymczasowy nie jest dostępny lub zapisywalny', [
+                    'temp_dir' => $tempDir,
+                    'exists' => is_dir($tempDir),
+                    'writable' => is_writable($tempDir),
+                ]);
+                
+                // Spróbuj użyć storage/app/temp jako fallback
+                $tempDir = storage_path('app/temp');
+                if (!is_dir($tempDir)) {
+                    mkdir($tempDir, 0755, true);
+                }
+            }
+            
+            // Log start generowania (szczególnie dla Railway)
+            \Log::info('Rozpoczęcie generowania dokumentu Word dla oferty', [
+                'offer_id' => $offerId,
+                'environment' => app()->environment(),
+                'sys_temp_dir' => sys_get_temp_dir(),
+                'temp_dir' => $tempDir,
+                'temp_writable' => is_writable($tempDir),
+                'storage_path' => storage_path(),
+                'loaded_extensions' => get_loaded_extensions(),
+            ]);
+            
+            $offer = \App\Models\Offer::findOrFail($offerId);
         
         $offerNumber = $offer->offer_number;
         $offerTitle = $offer->offer_title;
@@ -4751,7 +4861,7 @@ class PartController extends Controller
                             $extension = '.gif';
                         }
                         
-                        $tempLogoPath = tempnam(sys_get_temp_dir(), 'logo_') . $extension;
+                        $tempLogoPath = tempnam($tempDir, 'logo_') . $extension;
                         file_put_contents($tempLogoPath, $imageContent);
                         $tempFilesToDelete[] = $tempLogoPath;
                         
@@ -5003,7 +5113,7 @@ class PartController extends Controller
         $fileName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $fileName) . '.docx';
 
         // Zapisz do tymczasowego pliku
-        $tempFile = tempnam(sys_get_temp_dir(), 'offer_');
+        $tempFile = tempnam($tempDir, 'offer_');
         $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
         $objWriter->save($tempFile);
 
@@ -5011,15 +5121,61 @@ class PartController extends Controller
         foreach ($tempFilesToDelete as $tempFilePath) {
             @unlink($tempFilePath);
         }
+        
+        \Log::info('Dokument Word dla oferty wygenerowany pomyślnie', [
+            'offer_id' => $offerId,
+            'file_name' => $fileName,
+            'temp_file' => $tempFile,
+            'file_size' => filesize($tempFile),
+        ]);
 
         // Zwróć plik do pobrania
         return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
+        
+        } catch (\Exception $e) {
+            \Log::error('Błąd podczas generowania dokumentu Word dla oferty', [
+                'offer_id' => $offerId,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            // Zwróć błąd 500 z informacją
+            return response()->json([
+                'error' => 'Nie udało się wygenerować dokumentu Word',
+                'message' => app()->environment('production') ? 'Błąd serwera. Sprawdź logi.' : $e->getMessage(),
+                'debug' => app()->environment('local') ? [
+                    'exception' => get_class($e),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ] : null,
+            ], 500);
+        }
     }
 
     // GENERUJ DOKUMENT WORD DLA OFERTY NA PODSTAWIE SZABLONU
     protected function generateOfferWordFromTemplate($offer, $templatePath, $companySettings)
     {
-        $offerNumber = $offer->offer_number;
+        try {
+            // Sprawdź dostępność katalogu temp
+            $tempDir = sys_get_temp_dir();
+            if (!is_dir($tempDir) || !is_writable($tempDir)) {
+                $tempDir = storage_path('app/temp');
+                if (!is_dir($tempDir)) {
+                    mkdir($tempDir, 0755, true);
+                }
+            }
+            
+            \Log::info('Generowanie dokumentu Word z szablonu dla oferty', [
+                'offer_id' => $offer->id,
+                'template_path' => $templatePath,
+                'storage_path' => storage_path('app/' . $templatePath),
+                'template_exists' => file_exists(storage_path('app/' . $templatePath)),
+                'temp_dir' => $tempDir,
+            ]);
+            
+            $offerNumber = $offer->offer_number;
         $offerTitle = $offer->offer_title ?? '';
 
         // Przygotuj dane do zamiany
@@ -5071,10 +5227,38 @@ class PartController extends Controller
         $fileName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $fileName) . '.docx';
 
         // Zapisz do pliku tymczasowego
-        $tempFile = tempnam(sys_get_temp_dir(), 'offer_template_') . '.docx';
+        $tempFile = tempnam($tempDir, 'offer_template_') . '.docx';
         $templateProcessor->saveAs($tempFile);
+        
+        \Log::info('Dokument Word z szablonu wygenerowany pomyślnie', [
+            'offer_id' => $offer->id,
+            'file_name' => $fileName,
+            'temp_file' => $tempFile,
+            'file_size' => filesize($tempFile),
+        ]);
 
         return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
+        
+        } catch (\Exception $e) {
+            \Log::error('Błąd podczas generowania dokumentu Word z szablonu dla oferty', [
+                'offer_id' => $offer->id,
+                'template_path' => $templatePath,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            return response()->json([
+                'error' => 'Nie udało się wygenerować dokumentu Word z szablonu',
+                'message' => app()->environment('production') ? 'Błąd serwera. Sprawdź logi.' : $e->getMessage(),
+                'debug' => app()->environment('local') ? [
+                    'exception' => get_class($e),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ] : null,
+            ], 500);
+        }
     }
 
     // ========== CRM ==========
