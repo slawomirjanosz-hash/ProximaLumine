@@ -616,6 +616,34 @@ Route::get('/api/test/auth', function () {
     ]);
 })->name('api.test.auth');
 
+// Test endpoint - zwróć surowe dane bez middleware
+Route::get('/api/test/parts-raw', function () {
+    try {
+        $parts = \App\Models\Part::with('category')
+            ->orderBy('name')
+            ->limit(5)
+            ->get(['id', 'name', 'description', 'net_price', 'supplier', 'quantity', 'category_id']);
+        
+        return response()->json([
+            'test' => 'success',
+            'authenticated' => auth()->check(),
+            'parts_count' => $parts->count(),
+            'parts_type' => gettype($parts),
+            'parts_class' => get_class($parts),
+            'is_array' => is_array($parts),
+            'is_collection' => $parts instanceof \Illuminate\Support\Collection,
+            'first_part' => $parts->first(),
+            'parts' => $parts,
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'test' => 'error',
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+    }
+})->name('api.test.parts.raw');
+
 // API endpoint do pobierania wszystkich części (katalog)
 Route::get('/api/parts/catalog', function (Illuminate\Http\Request $request) {
     // Loguj request w środowisku produkcyjnym
@@ -650,10 +678,13 @@ Route::get('/api/parts/catalog', function (Illuminate\Http\Request $request) {
             \Log::info('API parts/catalog - Success', [
                 'parts_count' => $parts->count(),
                 'user_id' => auth()->id(),
+                'parts_type' => gettype($parts),
+                'is_collection' => $parts instanceof \Illuminate\Support\Collection,
             ]);
         }
         
-        return response()->json($parts);
+        // Konwertuj Collection na array dla JSON
+        return response()->json($parts->toArray());
     } catch (\Exception $e) {
         \Log::error('Błąd podczas ładowania katalogu części: ' . $e->getMessage(), [
             'exception' => get_class($e),

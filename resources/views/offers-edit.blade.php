@@ -707,12 +707,24 @@
                 }
                 
                 const data = await response.json();
-                console.log('Otrzymane dane z API:', data);
+                console.log('=== DEBUG: Otrzymane dane z API ===');
+                console.log('Pełna odpowiedź:', data);
+                console.log('Typ danych:', typeof data);
+                console.log('Czy tablica:', Array.isArray(data));
+                console.log('Klucze obiektu:', Object.keys(data));
+                console.log('Długość (length):', data.length);
+                console.log('===================================');
+                
+                // Sprawdź czy API zwróciło błąd (obiekt z kluczem 'error')
+                if (data && typeof data === 'object' && data.error) {
+                    console.error('API zwróciło błąd:', data);
+                    throw new Error(data.message || data.error || 'Nieznany błąd API');
+                }
                 
                 // Sprawdź czy odpowiedź jest tablicą
                 if (!Array.isArray(data)) {
-                    console.error('API nie zwróciło tablicy:', data);
-                    throw new Error('API zwróciło nieprawidłowy format danych');
+                    console.error('API nie zwróciło tablicy. Pełne dane:', JSON.stringify(data));
+                    throw new Error('API zwróciło nieprawidłowy format danych (oczekiwano tablicy, otrzymano: ' + typeof data + ')');
                 }
                 
                 allParts = data;
