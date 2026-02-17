@@ -19,8 +19,5 @@
         @yield('content')
     </main>
     @stack('scripts')
-    <footer class="bg-white text-center py-4 mt-8 border-t text-gray-400 text-sm">
-        Powered by ProximaLumine
-    </footer>
 </body>
 </html>

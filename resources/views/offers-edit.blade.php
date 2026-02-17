@@ -586,10 +586,6 @@
         </div>
     </div>
 
-    <footer class="bg-white text-center py-4 mt-8 border-t text-gray-400 text-sm">
-        Powered by ProximaLumine
-    </footer>
-
     <script>
         async function addProductToCatalog(button, section, index) {
             const row = button.closest('tr');
@@ -694,7 +690,22 @@
         
         async function loadPartsCatalog() {
             try {
-                const response = await fetch('/api/parts/catalog');
+                const response = await fetch('/api/parts/catalog', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Błąd HTTP:', response.status, errorText);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 allParts = await response.json();
                 filteredParts = [...allParts];
                 
@@ -705,7 +716,7 @@
                 setupCatalogSearch();
             } catch (error) {
                 console.error('Błąd ładowania katalogu:', error);
-                alert('Nie udało się załadować katalogu części');
+                alert('Nie udało się załadować katalogu części. Błąd: ' + error.message);
             }
         }
         

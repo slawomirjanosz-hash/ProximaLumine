@@ -604,13 +604,68 @@ Route::middleware('auth')->get('/api/parts/search', function (Illuminate\Http\Re
     return response()->json($parts);
 })->name('api.parts.search');
 
+// Endpoint testowy do diagnostyki autentykacji API
+Route::get('/api/test/auth', function () {
+    return response()->json([
+        'authenticated' => auth()->check(),
+        'user_id' => auth()->id(),
+        'user_name' => auth()->user()->name ?? null,
+        'session_id' => session()->getId(),
+        'csrf_token' => csrf_token(),
+        'timestamp' => now()->toDateTimeString(),
+    ]);
+})->name('api.test.auth');
+
 // API endpoint do pobierania wszystkich części (katalog)
-Route::middleware('auth')->get('/api/parts/catalog', function () {
-    $parts = \App\Models\Part::with('category')
-        ->orderBy('name')
-        ->get(['id', 'name', 'description', 'net_price', 'supplier', 'quantity', 'category_id']);
+Route::get('/api/parts/catalog', function (Illuminate\Http\Request $request) {
+    // Loguj request w środowisku produkcyjnym
+    if (app()->environment('production')) {
+        \Log::info('API parts/catalog request', [
+            'authenticated' => auth()->check(),
+            'user_id' => auth()->id(),
+            'session_id' => session()->getId(),
+            'has_csrf_header' => $request->header('X-CSRF-TOKEN') !== null,
+            'ip' => $request->ip(),
+        ]);
+    }
     
-    return response()->json($parts);
+    // Sprawdź czy użytkownik jest zalogowany
+    if (!auth()->check()) {
+        \Log::warning('API parts/catalog - Unauthorized access attempt', [
+            'ip' => $request->ip(),
+            'session_id' => session()->getId(),
+        ]);
+        return response()->json([
+            'error' => 'Unauthorized',
+            'message' => 'Musisz być zalogowany aby uzyskać dostęp do katalogu.'
+        ], 401);
+    }
+    
+    try {
+        $parts = \App\Models\Part::with('category')
+            ->orderBy('name')
+            ->get(['id', 'name', 'description', 'net_price', 'supplier', 'quantity', 'category_id']);
+        
+        if (app()->environment('production')) {
+            \Log::info('API parts/catalog - Success', [
+                'parts_count' => $parts->count(),
+                'user_id' => auth()->id(),
+            ]);
+        }
+        
+        return response()->json($parts);
+    } catch (\Exception $e) {
+        \Log::error('Błąd podczas ładowania katalogu części: ' . $e->getMessage(), [
+            'exception' => get_class($e),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+        return response()->json([
+            'error' => 'Internal Server Error',
+            'message' => 'Nie udało się załadować katalogu części.'
+        ], 500);
+    }
 })->name('api.parts.catalog');
 
 // API endpoint do dodawania produktu do katalogu

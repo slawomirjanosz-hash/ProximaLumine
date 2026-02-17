@@ -50,8 +50,9 @@
 </div>
 
 <!-- Sidebar -->
-<aside id="app-sidebar" class="fixed left-0 w-64 bg-gradient-to-b from-gray-800 to-gray-900 shadow-2xl overflow-y-auto z-40" style="top: 56px; bottom: 0;">
-    <nav class="py-4">
+<aside id="app-sidebar" class="fixed left-0 w-64 bg-gradient-to-b from-gray-800 to-gray-900 shadow-2xl flex flex-col justify-between overflow-y-auto z-40" style="top: 56px; bottom: 0;">
+    <div>
+        <nav class="py-4">
         <!-- Start -->
         <a href="{{ url('/') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->is('/') ? 'bg-gray-700 text-white border-l-4 border-blue-500' : '' }}">
             <span class="text-lg">🏠</span>
@@ -145,13 +146,10 @@
                 </a>
                 @endif
                 @if($isAdmin || $isSuperAdmin || auth()->user()->can_projects_settings)
-                <!-- Ustawienia projektów rozwijane -->
-                <div class="pl-8">
-                    <a href="{{ route('magazyn.projects.settings') }}" class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.projects.settings') ? 'bg-gray-700 text-white border-l-4 border-indigo-500' : '' }}">
-                        <span>⚙️</span>
-                        <span>Ustawienia projektów</span>
-                    </a>
-                </div>
+                <a href="{{ route('magazyn.projects.settings') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.projects.settings') ? 'bg-gray-700 text-white border-l-4 border-indigo-500' : '' }}">
+                    <span>⚙️</span>
+                    <span>Ustawienia projektów</span>
+                </a>
                 @endif
             </div>
         </div>
@@ -219,7 +217,14 @@
             <span class="font-medium">Ustawienia</span>
         </a>
         @endif
-    </nav>
+        </nav>
+    </div>
+    
+    <!-- Logo ProximaLumine w lewym dolnym rogu -->
+    <div class="p-4 border-t border-gray-700 flex flex-col items-center">
+        <img src="{{ asset('logo_proxima.png') }}" alt="ProximaLumine" class="h-10 mb-2">
+        <span class="text-xs text-gray-400 italic">Powered by ProximaLumine</span>
+    </div>
 </aside>
 
 <script>
@@ -438,10 +443,4 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 </style>
-
-<!-- Stopka z logo i napisem Powered by ProximaLumine -->
-<div style="position: fixed; right: 20px; bottom: 10px; z-index: 50; color: #888; font-style: italic; font-size: 1rem; pointer-events: none; display: flex; align-items: center; gap: 8px;">
-    <img src="{{ asset('logo_proxima.png') }}" alt="ProximaLumine" style="height:44px;vertical-align:middle;">
-    <span>Powered by ProximaLumine</span>
-</div>
 
