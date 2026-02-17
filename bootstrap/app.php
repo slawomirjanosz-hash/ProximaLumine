@@ -53,4 +53,19 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->withInput($request->except('password', '_token'))
                 ->with('error', 'Sesja wygasła. Spróbuj ponownie.');
         });
-    })->create();
+    })
+    ->booting(function () {
+        // Upewnij się że katalog temp istnieje podczas uruchamiania aplikacji
+        $tempDir = storage_path('app/temp');
+        if (!is_dir($tempDir)) {
+            try {
+                mkdir($tempDir, 0755, true);
+                \Log::info("Created temp directory: {$tempDir}");
+            } catch (\Exception $e) {
+                \Log::error("Failed to create temp directory: {$tempDir}", [
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+    })
+    ->create();

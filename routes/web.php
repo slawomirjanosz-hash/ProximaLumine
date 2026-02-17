@@ -1430,6 +1430,124 @@ Route::middleware('auth')->group(function () {
     Route::post('/projekty/{project}/gantt/tasks', [PartController::class, 'storeGanttTask'])->name('magazyn.projects.gantt.storeTask')->middleware('auth');
     Route::put('/projekty/{project}/gantt/tasks/{task}', [PartController::class, 'updateGanttTask'])->name('magazyn.projects.gantt.updateTask')->middleware('auth');
     Route::delete('/projekty/{project}/gantt/tasks/{task}', [PartController::class, 'deleteGanttTask'])->name('magazyn.projects.gantt.deleteTask')->middleware('auth');
+    
+    // DIAGNOSTYKA RAILWAY - endpoint do sprawdzania środowiska
+    Route::get('/api/diagnostics/environment', function() {
+        if (!auth()->check()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+        
+        $diagnostics = [
+            'timestamp' => now()->toDateTimeString(),
+            'environment' => app()->environment(),
+            
+            // PHP Extensions
+            'php_extensions' => [
+                'zip' => extension_loaded('zip') ? '✅ Zainstalowane' : '❌ BRAK',
+                'xml' => extension_loaded('xml') ? '✅ Zainstalowane' : '❌ BRAK',
+                'gd' => extension_loaded('gd') ? '✅ Zainstalowane' : '❌ BRAK',
+                'dom' => extension_loaded('dom') ? '✅ Zainstalowane' : '❌ BRAK',
+                'libxml' => extension_loaded('libxml') ? '✅ Zainstalowane' : '❌ BRAK',
+                'simplexml' => extension_loaded('simplexml') ? '✅ Zainstalowane' : '❌ BRAK',
+            ],
+            
+            // Temp directories
+            'temp_directories' => [
+                'sys_get_temp_dir()' => [
+                    'path' => sys_get_temp_dir(),
+                    'exists' => is_dir(sys_get_temp_dir()),
+                    'writable' => is_writable(sys_get_temp_dir()),
+                    'readable' => is_readable(sys_get_temp_dir()),
+                ],
+                'storage_path(app/temp)' => [
+                    'path' => storage_path('app/temp'),
+                    'exists' => is_dir(storage_path('app/temp')),
+                    'writable' => file_exists(storage_path('app/temp')) ? is_writable(storage_path('app/temp')) : 'N/A (katalog nie istnieje)',
+                    'readable' => file_exists(storage_path('app/temp')) ? is_readable(storage_path('app/temp')) : 'N/A (katalog nie istnieje)',
+                ],
+                'storage_path(app)' => [
+                    'path' => storage_path('app'),
+                    'exists' => is_dir(storage_path('app')),
+                    'writable' => is_writable(storage_path('app')),
+                    'readable' => is_readable(storage_path('app')),
+                ],
+            ],
+            
+            // Test tworzenia pliku
+            'file_creation_test' => function() {
+                $results = [];
+                
+                // Test 1: sys_get_temp_dir()
+                try {
+                    $testFile = tempnam(sys_get_temp_dir(), 'test_');
+                    if ($testFile) {
+                        file_put_contents($testFile, 'test');
+                        $canRead = file_get_contents($testFile) === 'test';
+                        unlink($testFile);
+                        $results['sys_get_temp_dir'] = '✅ Działa (można tworzyć, zapisywać, odczytywać)';
+                    } else {
+                        $results['sys_get_temp_dir'] = '❌ tempnam() zwrócił false';
+                    }
+                } catch (\Exception $e) {
+                    $results['sys_get_temp_dir'] = '❌ Błąd: ' . $e->getMessage();
+                }
+                
+                // Test 2: storage_path('app/temp') - upewnij się że katalog istnieje
+                try {
+                    $tempDir = storage_path('app/temp');
+                    if (!is_dir($tempDir)) {
+                        mkdir($tempDir, 0755, true);
+                    }
+                    $testFile = tempnam($tempDir, 'test_');
+                    if ($testFile) {
+                        file_put_contents($testFile, 'test');
+                        $canRead = file_get_contents($testFile) === 'test';
+                        unlink($testFile);
+                        $results['storage/app/temp'] = '✅ Działa (można tworzyć, zapisywać, odczytywać)';
+                    } else {
+                        $results['storage/app/temp'] = '❌ tempnam() zwrócił false';
+                    }
+                } catch (\Exception $e) {
+                    $results['storage/app/temp'] = '❌ Błąd: ' . $e->getMessage();
+                }
+                
+                return $results;
+            },
+            
+            // PhpWord availability
+            'phpword' => [
+                'class_exists' => class_exists(\PhpOffice\PhpWord\PhpWord::class) ? '✅ Zainstalowane' : '❌ BRAK',
+                'version' => class_exists(\PhpOffice\PhpWord\PhpWord::class) ? 'Dostępne' : 'N/A',
+            ],
+            
+            // PHP Info
+            'php_info' => [
+                'version' => PHP_VERSION,
+                'memory_limit' => ini_get('memory_limit'),
+                'max_execution_time' => ini_get('max_execution_time'),
+                'upload_max_filesize' => ini_get('upload_max_filesize'),
+                'post_max_size' => ini_get('post_max_size'),
+            ],
+            
+            // Database connection
+            'database' => [
+                'connected' => function() {
+                    try {
+                        \DB::connection()->getPdo();
+                        return '✅ Połączono';
+                    } catch (\Exception $e) {
+                        return '❌ Błąd: ' . $e->getMessage();
+                    }
+                },
+            ],
+        ];
+        
+        // Execute closures
+        $diagnostics['file_creation_test'] = $diagnostics['file_creation_test']();
+        $diagnostics['database']['connected'] = $diagnostics['database']['connected']();
+        
+        return response()->json($diagnostics, 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    })->name('api.diagnostics.environment');
 });
 
 // Publiczny widok Gantt (bez auth)

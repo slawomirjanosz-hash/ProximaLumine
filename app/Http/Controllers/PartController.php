@@ -4831,7 +4831,9 @@ class PartController extends Controller
         }
 
         // Tworzenie dokumentu Word (domyślna metoda)
+        \Log::info('Tworzenie obiektu PhpWord', ['offer_id' => $offerId]);
         $phpWord = new \PhpOffice\PhpWord\PhpWord();
+        \Log::info('Obiekt PhpWord utworzony pomyślnie', ['offer_id' => $offerId]);
         
         // Dodaj sekcję
         $section = $phpWord->addSection();
@@ -5113,9 +5115,28 @@ class PartController extends Controller
         $fileName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $fileName) . '.docx';
 
         // Zapisz do tymczasowego pliku
+        \Log::info('Zapisywanie dokumentu Word', [
+            'offer_id' => $offerId,
+            'temp_dir' => $tempDir,
+            'file_name' => $fileName,
+        ]);
+        
         $tempFile = tempnam($tempDir, 'offer_');
+        \Log::info('Utworzono plik tymczasowy', [
+            'offer_id' => $offerId,
+            'temp_file' => $tempFile,
+        ]);
+        
         $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+        \Log::info('Utworzono writer Word2007', ['offer_id' => $offerId]);
+        
         $objWriter->save($tempFile);
+        \Log::info('Zapisano dokument do pliku tymczasowego', [
+            'offer_id' => $offerId,
+            'temp_file' => $tempFile,
+            'file_exists' => file_exists($tempFile),
+            'file_size' => file_exists($tempFile) ? filesize($tempFile) : 0,
+        ]);
 
         // Usuń pliki tymczasowe logo
         foreach ($tempFilesToDelete as $tempFilePath) {
