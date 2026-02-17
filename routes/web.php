@@ -685,9 +685,12 @@ Route::get('/api/parts/catalog', function (Illuminate\Http\Request $request) {
             ]);
         }
         
-        // Użyj values()->all() aby uzyskać prawdziwą numeryczną tablicę (nie asocjacyjną)
-        // values() resetuje klucze do 0,1,2... i all() konwertuje do array
-        return response()->json($parts->values()->all());
+        // Wymuś właściwą tablicę JSON (nie obiekt)
+        // array_values() gwarantuje że PHP array będzie miało numeryczne klucze 0,1,2...
+        // co Laravel JSON encoder konwertuje na tablicę JSON, nie obiekt
+        $data = array_values($parts->values()->toArray());
+        
+        return response()->json($data);
     } catch (\Exception $e) {
         \Log::error('Błąd podczas ładowania katalogu części: ' . $e->getMessage(), [
             'exception' => get_class($e),
