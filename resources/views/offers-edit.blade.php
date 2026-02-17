@@ -706,7 +706,16 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
-                allParts = await response.json();
+                const data = await response.json();
+                console.log('Otrzymane dane z API:', data);
+                
+                // Sprawdź czy odpowiedź jest tablicą
+                if (!Array.isArray(data)) {
+                    console.error('API nie zwróciło tablicy:', data);
+                    throw new Error('API zwróciło nieprawidłowy format danych');
+                }
+                
+                allParts = data;
                 filteredParts = [...allParts];
                 
                 document.getElementById('catalog-loading').classList.add('hidden');
@@ -716,6 +725,18 @@
                 setupCatalogSearch();
             } catch (error) {
                 console.error('Błąd ładowania katalogu:', error);
+                
+                // Ukryj loading, pokaż treść (która wyświetli komunikat o błędzie)
+                document.getElementById('catalog-loading').classList.add('hidden');
+                document.getElementById('catalog-content').classList.remove('hidden');
+                
+                // Wyświetl komunikat o błędzie w tabeli
+                const tbody = document.getElementById('catalog-parts-list');
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-600">
+                    Nie udało się załadować katalogu: ${error.message}<br>
+                    <small>Sprawdz konsolę przeglądarki (F12) aby zobaczyć szczegóły.</small>
+                </td></tr>`;
+                
                 alert('Nie udało się załadować katalogu części. Błąd: ' + error.message);
             }
         }
