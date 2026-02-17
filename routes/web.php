@@ -1553,6 +1553,105 @@ Route::middleware('auth')->group(function () {
         
         return response()->json($diagnostics, 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     })->name('api.diagnostics.environment');
+    
+    // TEST generowania prostego dokumentu Word
+    Route::get('/api/diagnostics/test-word', function() {
+        if (!auth()->check()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+        
+        try {
+            \Log::info('=== START: Test generowania Word ===');
+            
+            // Walidacja temp directory
+            $tempDir = sys_get_temp_dir();
+            if (!is_writable($tempDir)) {
+                $tempDir = storage_path('app/temp');
+                if (!is_dir($tempDir)) {
+                    mkdir($tempDir, 0755, true);
+                }
+            }
+            \Log::info('Temp dir: ' . $tempDir);
+            
+            // Sprawdź PhpWord
+            if (!class_exists(\PhpOffice\PhpWord\PhpWord::class)) {
+                throw new \Exception('PhpOffice\PhpWord\PhpWord class not found');
+            }
+            \Log::info('PhpWord class exists');
+            
+            // Utwórz prosty dokument
+            $phpWord = new \PhpOffice\PhpWord\PhpWord();
+            \Log::info('PhpWord object created');
+            
+            $section = $phpWord->addSection();
+            \Log::info('Section added');
+            
+            $section->addText('Test Document - Railway Diagnostics', ['bold' => true, 'size' => 16]);
+            $section->addText('');
+            $section->addText('Environment: ' . app()->environment());
+            $section->addText('PHP Version: ' . PHP_VERSION);
+            $section->addText('Timestamp: ' . now()->toDateTimeString());
+            \Log::info('Content added');
+            
+            // Utwórz plik tymczasowy
+            $tempFile = tempnam($tempDir, 'test_word_');
+            \Log::info('Temp file created: ' . $tempFile);
+            
+            // Zapisz dokument
+            $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+            \Log::info('Writer created');
+            
+            $objWriter->save($tempFile);
+            \Log::info('Document saved to temp file');
+            
+            $fileSize = filesize($tempFile);
+            \Log::info('File size: ' . $fileSize . ' bytes');
+            
+            if ($fileSize === 0) {
+                throw new \Exception('Generated file is empty (0 bytes)');
+            }
+            
+            // Zwróć sukces
+            $result = [
+                'success' => true,
+                'message' => '✅ Dokument Word został pomyślnie wygenerowany!',
+                'details' => [
+                    'temp_file' => $tempFile,
+                    'file_size' => $fileSize . ' bytes',
+                    'temp_dir' => $tempDir,
+                    'environment' => app()->environment(),
+                    'php_version' => PHP_VERSION,
+                ]
+            ];
+            
+            // Usuń plik testowy
+            @unlink($tempFile);
+            \Log::info('Test file deleted');
+            
+            \Log::info('=== SUCCESS: Test generowania Word zakończony sukcesem ===');
+            
+            return response()->json($result, 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            
+        } catch (\Throwable $e) {
+            \Log::error('=== ERROR: Test generowania Word FAILED ===', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'details' => [
+                    'exception_class' => get_class($e),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => explode("\n", $e->getTraceAsString()),
+                ]
+            ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        }
+    })->name('api.diagnostics.test-word');
 });
 
 // Publiczny widok Gantt (bez auth)

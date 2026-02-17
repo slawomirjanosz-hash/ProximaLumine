@@ -173,11 +173,87 @@
         }
         
         async function testWordGeneration() {
-            if (!confirm('Czy na pewno chcesz przetestować generowanie dokumentu Word?\n\nTo utworzy testową ofertę i spróbuje wygenerować dokument.')) {
-                return;
-            }
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('error').classList.add('hidden');
             
-            alert('Ta funkcja nie jest jeszcze zaimplementowana. Sprawdź logi Railway po próbie wygenerowania dokumentu z istniejącej oferty.');
+            try {
+                const response = await fetch('/api/diagnostics/test-word', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    // Błąd - pokaż szczegóły
+                    const container = document.getElementById('results-content');
+                    container.innerHTML = '';
+                    
+                    const errorSection = document.createElement('div');
+                    errorSection.className = 'border border-red-400 bg-red-50 rounded-lg p-6';
+                    errorSection.innerHTML = `
+                        <h3 class="text-2xl font-bold text-red-700 mb-4">❌ Test Generowania Word - BŁĄD</h3>
+                        <div class="space-y-2">
+                            <p><strong>Błąd:</strong> <span class="text-red-600">${data.error || 'Unknown error'}</span></p>
+                            ${data.details ? `
+                                <p><strong>Klasa wyjątku:</strong> ${data.details.exception_class || 'N/A'}</p>
+                                <p><strong>Plik:</strong> ${data.details.file || 'N/A'}</p>
+                                <p><strong>Linia:</strong> ${data.details.line || 'N/A'}</p>
+                                ${data.details.trace ? `
+                                    <details class="mt-4">
+                                        <summary class="cursor-pointer font-semibold text-red-700">Stack Trace (kliknij aby rozwinąć)</summary>
+                                        <pre class="mt-2 p-4 bg-red-100 rounded text-xs overflow-auto">${data.details.trace.join('\n')}</pre>
+                                    </details>
+                                ` : ''}
+                            ` : ''}
+                        </div>
+                    `;
+                    container.appendChild(errorSection);
+                    
+                    document.getElementById('results').classList.remove('hidden');
+                } else {
+                    // Sukces
+                    const container = document.getElementById('results-content');
+                    container.innerHTML = '';
+                    
+                    const successSection = document.createElement('div');
+                    successSection.className = 'border border-green-400 bg-green-50 rounded-lg p-6';
+                    successSection.innerHTML = `
+                        <h3 class="text-2xl font-bold text-green-700 mb-4">✅ ${data.message}</h3>
+                        <div class="space-y-2">
+                            <p><strong>Plik tymczasowy:</strong> ${data.details.temp_file}</p>
+                            <p><strong>Rozmiar pliku:</strong> ${data.details.file_size}</p>
+                            <p><strong>Katalog temp:</strong> ${data.details.temp_dir}</p>
+                            <p><strong>Środowisko:</strong> ${data.details.environment}</p>
+                            <p><strong>PHP Version:</strong> ${data.details.php_version}</p>
+                        </div>
+                        <div class="mt-4 p-4 bg-green-100 rounded">
+                            <p class="font-semibold">✅ Generowanie prostych dokumentów Word <strong>DZIAŁA</strong> na Railway!</p>
+                            <p class="text-sm mt-2">Jeśli generowanie ofert nadal nie działa, problem może być w:</p>
+                            <ul class="list-disc ml-6 text-sm mt-1">
+                                <li>Konkretnych danych oferty (np. złe znaki, zbyt duże obrazy)</li>
+                                <li>Rozmiarze generowanego dokumentu</li>
+                                <li>Timeout serwera Railway (domyślnie 30s)</li>
+                            </ul>
+                        </div>
+                    `;
+                    container.appendChild(successSection);
+                    
+                    document.getElementById('results').classList.remove('hidden');
+                }
+                
+            } catch (error) {
+                console.error('Błąd testu Word:', error);
+                document.getElementById('error-message').textContent = error.message;
+                document.getElementById('error').classList.remove('hidden');
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+            }
         }
     </script>
 </body>

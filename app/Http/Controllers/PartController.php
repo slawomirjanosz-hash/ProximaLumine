@@ -3653,12 +3653,13 @@ class PartController extends Controller
             
             return response()->json([
                 'error' => 'Nie udało się wygenerować dokumentu Word',
-                'message' => app()->environment('production') ? 'Błąd serwera. Sprawdź logi.' : $e->getMessage(),
-                'debug' => app()->environment('local') ? [
-                    'exception' => get_class($e),
+                'message' => $e->getMessage(),
+                'debug' => [
+                    'exception_class' => get_class($e),
                     'file' => $e->getFile(),
                     'line' => $e->getLine(),
-                ] : null,
+                    'environment' => app()->environment(),
+                ],
             ], 500);
         }
     }
@@ -5162,15 +5163,16 @@ class PartController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
             
-            // Zwróć błąd 500 z informacją
+            // Zwróć błąd 500 z pełnymi informacjami (szczególnie dla Railway debugging)
             return response()->json([
                 'error' => 'Nie udało się wygenerować dokumentu Word',
-                'message' => app()->environment('production') ? 'Błąd serwera. Sprawdź logi.' : $e->getMessage(),
-                'debug' => app()->environment('local') ? [
-                    'exception' => get_class($e),
+                'message' => $e->getMessage(),
+                'debug' => [
+                    'exception_class' => get_class($e),
                     'file' => $e->getFile(),
                     'line' => $e->getLine(),
-                ] : null,
+                    'environment' => app()->environment(),
+                ],
             ], 500);
         }
     }
@@ -5272,12 +5274,13 @@ class PartController extends Controller
             
             return response()->json([
                 'error' => 'Nie udało się wygenerować dokumentu Word z szablonu',
-                'message' => app()->environment('production') ? 'Błąd serwera. Sprawdź logi.' : $e->getMessage(),
-                'debug' => app()->environment('local') ? [
-                    'exception' => get_class($e),
+                'message' => $e->getMessage(),
+                'debug' => [
+                    'exception_class' => get_class($e),
                     'file' => $e->getFile(),
                     'line' => $e->getLine(),
-                ] : null,
+                    'environment' => app()->environment(),
+                ],
             ], 500);
         }
     }
