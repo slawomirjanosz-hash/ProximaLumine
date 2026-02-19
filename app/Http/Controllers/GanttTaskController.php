@@ -14,7 +14,12 @@ class GanttTaskController extends Controller
     {
         $project = Project::findOrFail($projectId);
         // Brak autoryzacji - każdy zalogowany użytkownik może zobaczyć
-        return response()->json($project->ganttTasks()->orderBy('order')->get());
+        $tasks = $project->ganttTasks()->orderBy('order')->get()->values(); // ->values() resetuje klucze i zapewnia tablicę JSON
+        \Log::info('📤 Gantt: Zwracam zadania dla projektu', [
+            'project_id' => $projectId,
+            'tasks_count' => $tasks->count()
+        ]);
+        return response()->json($tasks);
     }
 
     public function store(Request $request, $projectId)
@@ -188,6 +193,7 @@ class GanttTaskController extends Controller
     public function publicIndex($token)
     {
         $project = Project::where('public_gantt_token', $token)->firstOrFail();
-        return response()->json($project->ganttTasks()->orderBy('order')->get());
+        $tasks = $project->ganttTasks()->orderBy('order')->get()->values(); // ->values() zapewnia tablicę JSON
+        return response()->json($tasks);
     }
 }

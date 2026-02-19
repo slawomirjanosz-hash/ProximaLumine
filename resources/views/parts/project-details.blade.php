@@ -1230,12 +1230,23 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(tasks => {
             console.log('📦 Otrzymano zadania z API:', tasks);
+            
+            // Konwertuj obiekt na tablicę jeśli trzeba (Laravel czasem zwraca obiekt zamiast tablicy)
+            let tasksArray = tasks;
             if (!Array.isArray(tasks)) {
-                console.error('❌ API nie zwróciło tablicy zadań:', tasks);
-                frappeTasks = [];
-                return;
+                console.warn('⚠️ API zwróciło obiekt zamiast tablicy, konwertuję...');
+                // Sprawdź czy to obiekt z kluczami numerycznymi
+                if (typeof tasks === 'object' && tasks !== null) {
+                    tasksArray = Object.values(tasks);
+                    console.log('🔄 Skonwertowano obiekt na tablicę:', tasksArray);
+                } else {
+                    console.error('❌ API nie zwróciło prawidłowych danych:', tasks);
+                    frappeTasks = [];
+                    return;
+                }
             }
-            frappeTasks = tasks.map(t => ({
+            
+            frappeTasks = tasksArray.map(t => ({
                 id: t.id.toString(),
                 name: t.name,
                 start: parseDate(t.start),
