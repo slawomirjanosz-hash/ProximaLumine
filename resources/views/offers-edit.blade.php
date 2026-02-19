@@ -665,6 +665,17 @@
             customSections.forEach(sectionNum => {
                 calculateTotal(`custom${sectionNum}`);
             });
+            
+            // Loguj wartości nazw sekcji przed wysłaniem formularza
+            const form = document.querySelector('form[action*="offers"]');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    console.log('📤 Wysyłanie formularza oferty...');
+                    console.log('Nazwa sekcji Services:', document.getElementById('services-name-input')?.value);
+                    console.log('Nazwa sekcji Works:', document.getElementById('works-name-input')?.value);
+                    console.log('Nazwa sekcji Materials:', document.getElementById('materials-name-input')?.value);
+                });
+            }
         });
 
         // ===========================================
@@ -1081,15 +1092,24 @@
 
         function editSectionName(sectionId, sectionNumber) {
             const label = document.getElementById(`${sectionId}-name-label`);
-            if (!label) return;
+            if (!label) {
+                console.error('❌ Nie znaleziono labela dla sekcji:', sectionId);
+                return;
+            }
             const current = label.textContent;
             const newName = prompt('Edytuj nazwę sekcji:', current);
             if (newName && newName.trim() !== '') {
                 label.textContent = newName.trim();
-                // For custom sections, update hidden input
+                // Update hidden input (for both main and custom sections)
                 const inputId = `${sectionId}-name-input`;
                 const input = document.getElementById(inputId);
-                if (input) input.value = newName.trim();
+                if (input) {
+                    input.value = newName.trim();
+                    console.log('✅ Zaktualizowano nazwę sekcji:', sectionId, '→', newName.trim());
+                    console.log('   Hidden input value:', input.value);
+                } else {
+                    console.error('❌ Nie znaleziono hidden inputu:', inputId);
+                }
             }
         }
 
