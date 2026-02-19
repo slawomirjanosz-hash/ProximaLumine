@@ -81,7 +81,18 @@ document.addEventListener('DOMContentLoaded', function() {
         return fetch(`/api/public/gantt/${TOKEN}`)
         .then(response => response.json())
         .then(tasks => {
-            frappeTasks = tasks.map(t => ({
+            console.log('📥 Otrzymano dane z API (publiczny):', tasks);
+            console.log('📋 Typ danych:', typeof tasks, Array.isArray(tasks) ? 'TABLICA' : 'OBIEKT');
+            
+            // Konwersja obiektu na tablicę jeśli potrzebne (podobny problem jak w głównym widoku)
+            let tasksArray = Array.isArray(tasks) ? tasks : Object.values(tasks);
+            console.log('📦 Po konwersji:', tasksArray);
+            
+            // Filtruj tylko zadania z id
+            tasksArray = tasksArray.filter(t => t && t.id);
+            console.log('✅ Zadania z id:', tasksArray.length);
+            
+            frappeTasks = tasksArray.map(t => ({
                 id: t.id.toString(),
                 name: t.name,
                 start: parseDate(t.start),
