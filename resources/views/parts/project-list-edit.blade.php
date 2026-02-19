@@ -198,11 +198,11 @@ window.addEventListener('beforeunload', function(e) {
                 <strong>Wymagane kolumny:</strong>
             </p>
             <ul class="text-xs text-gray-600 list-disc list-inside mb-4">
-                <li><strong>Produkty/Nazwa/Name</strong> - nazwa produktu (musi istnieć w magazynie)</li>
-                <li><strong>Ilość/Quantity/Qty</strong> - ilość produktu na liście</li>
+                <li><strong>Nazwa produktu</strong>: użyj <strong>jednej</strong> z nazw kolumn: <code>Produkty</code>, <code>Nazwa</code> lub <code>Name</code> (wystarczy jedna z nich, nie wszystkie). Nazwa produktu musi istnieć w magazynie.</li>
+                <li><strong>Ilość</strong>: użyj <strong>jednej</strong> z nazw kolumn: <code>Ilość</code>, <code>Quantity</code> lub <code>Qty</code> (wystarczy jedna z nich, nie wszystkie).</li>
             </ul>
             <p class="text-xs text-yellow-600">
-                ⚠️ Produkty które nie istnieją w magazynie zostaną pominięte.
+                ⚠️ Produkty, które nie istnieją w magazynie, zostaną pominięte. W pliku Excel wystarczy jedna kolumna z nazwą produktu i jedna z ilością (nie wpisuj wszystkich wariantów naraz).
             </p>
         </div>
         
