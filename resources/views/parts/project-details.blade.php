@@ -918,6 +918,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function saveTasks() {
         // Zapisz zadania do bazy danych przez API
+        console.log('💾 Zapisywanie kolejności ' + frappeTasks.length + ' zadań...');
         const tasksToSave = frappeTasks.map((t, index) => ({
             id: t.id,
             name: t.name,
@@ -928,6 +929,8 @@ document.addEventListener('DOMContentLoaded', function() {
             order: index
         }));
         
+        console.log('📤 Wysyłam kolejność zadań:', tasksToSave.map(t => `#${t.id}: ${t.name}`));
+        
         fetch(`/api/gantt/${PROJECT_ID}/reorder`, {
             method: 'POST',
             headers: {
@@ -936,10 +939,19 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: JSON.stringify({ order: tasksToSave.map(t => t.id) })
         }).then(response => {
-            if (!response.ok) throw new Error('Błąd zapisu kolejności');
-            console.log('💾 Zapisano kolejność zadań');
+            console.log('📥 Odpowiedź zapisu kolejności status:', response.status);
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('❌ Błąd HTTP przy zapisie kolejności:', response.status, text);
+                    throw new Error(`HTTP ${response.status}: ${text}`);
+                });
+            }
+            return response.json();
+        }).then(data => {
+            console.log('✅ Zapisano kolejność zadań w bazie danych');
         }).catch(error => {
-            console.error('❌ Błąd zapisu:', error);
+            console.error('❌ Błąd zapisu kolejności:', error);
+            alert('⚠️ Nie udało się zapisać kolejności zadań!\n' + error.message);
         });
     }
     
@@ -1254,6 +1266,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function updateTaskInDB(taskId, data) {
+        console.log('📝 Aktualizacja zadania #' + taskId + ':', data);
         return fetch(`/api/gantt/${PROJECT_ID}/${taskId}`, {
             method: 'PUT',
             headers: {
@@ -1263,29 +1276,55 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify(data)
         })
         .then(response => {
-            if (!response.ok) throw new Error('Błąd aktualizacji');
-            console.log('✅ Zaktualizowano zadanie:', taskId);
+            console.log('📥 Odpowiedź aktualizacji status:', response.status);
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('❌ Błąd HTTP przy aktualizacji:', response.status, text);
+                    throw new Error(`HTTP ${response.status}: ${text}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('✅ Zaktualizowano zadanie #' + taskId + ' w bazie');
+            return data;
         })
         .catch(error => {
             console.error('❌ Błąd aktualizacji zadania:', error);
+            alert('⚠️ Nie udało się zaktualizować zadania!\n' + error.message);
+            throw error;
         });
     }
     
     function deleteTaskFromDB(taskId) {
+        console.log('🗑️ Usuwanie zadania #' + taskId);
         return fetch(`/api/gantt/${PROJECT_ID}/${taskId}`, {
             method: 'DELETE',
             headers: { 'X-CSRF-TOKEN': CSRF_TOKEN }
         })
         .then(response => {
-            if (!response.ok) throw new Error('Błąd usuwania');
-            console.log('✅ Usunięto zadanie:', taskId);
+            console.log('📥 Odpowiedź usuwania status:', response.status);
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('❌ Błąd HTTP przy usuwaniu:', response.status, text);
+                    throw new Error(`HTTP ${response.status}: ${text}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('✅ Usunięto zadanie #' + taskId + ' z bazy');
+            return data;
         })
         .catch(error => {
             console.error('❌ Błąd usuwania zadania:', error);
+            alert('⚠️ Nie udało się usunąć zadania!\n' + error.message);
+            throw error;
         });
     }
     
     function createTaskInDB(task) {
+        console.log('📤 Wysyłam żądanie utworzenia zadania:', task);
         return fetch(`/api/gantt/${PROJECT_ID}`, {
             method: 'POST',
             headers: {
@@ -1301,13 +1340,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 order: frappeTasks.length
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('📥 Odpowiedź serwera status:', response.status, response.statusText);
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('❌ Błąd HTTP:', response.status, text);
+                    throw new Error(`HTTP ${response.status}: ${text}`);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
-            console.log('✅ Utworzono zadanie:', data);
+            console.log('✅ Utworzono zadanie w bazie danych:', data);
+            if (!data.id) {
+                console.error('⚠️ UWAGA: Serwer nie zwrócił ID zadania!', data);
+                throw new Error('Serwer nie zwrócił ID zadania');
+            }
             return data;
         })
         .catch(error => {
             console.error('❌ Błąd tworzenia zadania:', error);
+            alert('❌ Nie udało się zapisać zadania do bazy danych!\n' + error.message + '\n\nZadanie NIE zostało zapisane.');
             throw error;
         });
     }

@@ -19,18 +19,39 @@ class GanttTaskController extends Controller
 
     public function store(Request $request, $projectId)
     {
+        \Log::info('🆕 Gantt: Próba utworzenia zadania', [
+            'project_id' => $projectId,
+            'user_id' => Auth::id(),
+            'data' => $request->all()
+        ]);
+        
         $project = Project::findOrFail($projectId);
         // Brak autoryzacji - każdy zalogowany użytkownik może dodać
-        $data = $request->validate([
-            'name' => 'required|string',
-            'start' => 'required|date',
-            'end' => 'required|date',
-            'progress' => 'integer',
-            'dependencies' => 'nullable|string',
-            'order' => 'integer',
-        ]);
+        
+        try {
+            $data = $request->validate([
+                'name' => 'required|string',
+                'start' => 'required|date',
+                'end' => 'required|date',
+                'progress' => 'integer',
+                'dependencies' => 'nullable|string',
+                'order' => 'integer',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('❌ Gantt: Błąd walidacji przy tworzeniu zadania', [
+                'errors' => $e->errors()
+            ]);
+            throw $e;
+        }
+        
         $data['project_id'] = $project->id;
         $task = GanttTask::create($data);
+        
+        \Log::info('✅ Gantt: Utworzono zadanie', [
+            'task_id' => $task->id,
+            'task_name' => $task->name,
+            'project_id' => $project->id
+        ]);
         
         // Loguj zmianę
         GanttChange::create([
@@ -46,17 +67,32 @@ class GanttTaskController extends Controller
 
     public function update(Request $request, $projectId, $id)
     {
+        \Log::info('📝 Gantt: Próba aktualizacji zadania', [
+            'project_id' => $projectId,
+            'task_id' => $id,
+            'user_id' => Auth::id(),
+            'data' => $request->all()
+        ]);
+        
         $project = Project::findOrFail($projectId);
         // Brak autoryzacji - każdy zalogowany użytkownik może aktualizować
         $task = GanttTask::where('project_id', $project->id)->findOrFail($id);
-        $data = $request->validate([
-            'name' => 'string',
-            'start' => 'date',
-            'end' => 'date',
-            'progress' => 'integer',
-            'dependencies' => 'nullable|string',
-            'order' => 'integer',
-        ]);
+        
+        try {
+            $data = $request->validate([
+                'name' => 'string',
+                'start' => 'date',
+                'end' => 'date',
+                'progress' => 'integer',
+                'dependencies' => 'nullable|string',
+                'order' => 'integer',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('❌ Gantt: Błąd walidacji przy aktualizacji zadania', [
+                'errors' => $e->errors()
+            ]);
+            throw $e;
+        }
         
         // Zbierz szczegóły zmian
         $details = [];
@@ -67,6 +103,11 @@ class GanttTaskController extends Controller
         }
         
         $task->update($data);
+        
+        \Log::info('✅ Gantt: Zaktualizowano zadanie', [
+            'task_id' => $task->id,
+            'changes' => $details
+        ]);
         
         // Loguj zmianę jeśli coś się zmieniło
         if (!empty($details)) {
@@ -104,12 +145,33 @@ class GanttTaskController extends Controller
 
     public function reorder(Request $request, $projectId)
     {
+        \Log::info('🔄 Gantt: Próba zmiany kolejności zadań', [
+            'project_id' => $projectId,
+            'user_id' => Auth::id(),
+            'order' => $request->input('order')
+        ]);
+        
         $project = Project::findOrFail($projectId);
         // Brak autoryzacji - każdy zalogowany użytkownik może zmieniać kolejność
         $order = $request->input('order'); // array of task IDs in new order
-        foreach ($order as $idx => $taskId) {
-            GanttTask::where('project_id', $project->id)->where('id', $taskId)->update(['order' => $idx]);
+        
+        if (!is_array($order)) {
+            \Log::error('❌ Gantt: Nieprawidłowy format kolejności (nie jest tablicą)');
+            return response()->json(['error' => 'Order must be an array'], 400);
         }
+        
+        $updated = 0;
+        foreach ($order as $idx => $taskId) {
+            $result = GanttTask::where('project_id', $project->id)
+                ->where('id', $taskId)
+                ->update(['order' => $idx]);
+            $updated += $result;
+        }
+        
+        \Log::info('✅ Gantt: Zmieniono kolejność zadań', [
+            'updated_count' => $updated,
+            'total_in_order' => count($order)
+        ]);
         
         // Loguj zmianę kolejności
         GanttChange::create([
@@ -120,7 +182,7 @@ class GanttTaskController extends Controller
             'details' => 'Zmieniono kolejność zadań',
         ]);
         
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'updated' => $updated]);
     }
 
     public function publicIndex($token)
