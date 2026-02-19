@@ -1246,15 +1246,41 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            frappeTasks = tasksArray.map(t => ({
-                id: t.id.toString(),
-                name: t.name,
-                start: parseDate(t.start),
-                end: parseDate(t.end),
-                progress: t.progress || 0,
-                dependencies: t.dependencies || ''
-            }));
-            console.log('✅ Załadowano ' + frappeTasks.length + ' zadań z bazy:', frappeTasks);
+            // Loguj pierwsze zadanie do debugowania
+            if (tasksArray.length > 0) {
+                console.log('🔍 Pierwsze zadanie (sample):', tasksArray[0]);
+                console.log('🔍 Klucze pierwszego zadania:', Object.keys(tasksArray[0]));
+            }
+            
+            // Mapuj zadania z walidacją
+            frappeTasks = tasksArray
+                .filter(t => {
+                    if (!t || typeof t !== 'object') {
+                        console.warn('⚠️ Pomijam nieprawidłowy element:', t);
+                        return false;
+                    }
+                    if (!t.id) {
+                        console.error('❌ Zadanie bez ID - pomijam:', t);
+                        return false;
+                    }
+                    if (!t.name) {
+                        console.warn('⚠️ Zadanie bez nazwy - ID:', t.id);
+                    }
+                    return true;
+                })
+                .map(t => ({
+                    id: t.id.toString(),
+                    name: t.name || 'Bez nazwy',
+                    start: parseDate(t.start),
+                    end: parseDate(t.end),
+                    progress: t.progress || 0,
+                    dependencies: t.dependencies || ''
+                }));
+            
+            console.log('✅ Załadowano ' + frappeTasks.length + ' zadań z bazy (z ' + tasksArray.length + ' otrzymanych)');
+            if (frappeTasks.length < tasksArray.length) {
+                console.warn('⚠️ Pominięto ' + (tasksArray.length - frappeTasks.length) + ' nieprawidłowych zadań');
+            }
             if (frappeTasks.length === 0) {
                 console.warn('⚠️ Brak zadań Gantta dla tego projektu. Kliknij "➕ Dodaj zadanie" aby utworzyć nowe.');
             }
