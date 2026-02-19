@@ -6,6 +6,11 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 
+// Diagnostyka wykresów Gantta
+Route::get('/diagnostics/gantt', function () {
+    return view('diagnostics-gantt');
+})->name('diagnostics.gantt');
+
 // NOWA ROUTE: Diagnostyka projektu - sprawdza tabele i kolumny
 Route::get('/diagnostics/project-check', function () {
     $results = [];

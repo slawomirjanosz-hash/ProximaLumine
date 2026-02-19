@@ -523,6 +523,17 @@
                 </p>
             </div>
             
+            @if(auth()->user() && auth()->user()->is_admin)
+            <div class="mb-3 p-2 bg-yellow-50 rounded border border-yellow-200">
+                <p class="text-xs text-gray-700">
+                    <strong>🔧 Diagnostyka (tylko dla administratora):</strong> 
+                    Projekt #{{ $project->id }} "{{ $project->name }}" • 
+                    Otwórz konsolę przeglądarki (F12) aby zobaczyć szczegółowe logi ładowania danych • 
+                    Jeśli wykres nie pokazuje zadań, sprawdź czy są one przypisane do tego projektu
+                </p>
+            </div>
+            @endif
+            
             <div id="frappe-gantt"></div>
 
             <div id="frappe-task-list" class="mt-8">
@@ -1024,8 +1035,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function renderGantt() {
+        console.log('🎨 renderGantt() wywołane, liczba zadań:', frappeTasks.length);
         if (frappeTasks.length === 0) {
-            document.getElementById('frappe-gantt').innerHTML = '<div class="text-gray-500 p-4 text-center">Brak zadań. Kliknij "➕ Dodaj zadanie", aby rozpocząć.</div>';
+            console.log('ℹ️ Brak zadań Gantta dla tego projektu.');
+            document.getElementById('frappe-gantt').innerHTML = `<div class="bg-blue-50 border border-blue-200 text-blue-700 p-6 text-center rounded">
+                <div class="text-5xl mb-3">📊</div>
+                <div class="text-lg font-semibold mb-2">Brak zadań w harmonogramie</div>
+                <div class="text-sm">Kliknij <strong>"➕ Dodaj zadanie"</strong> powyżej, aby utworzyć pierwszy wpis w wykresie Gantta.</div>
+                <div class="text-xs text-gray-500 mt-3">Projekt #${PROJECT_ID}</div>
+            </div>`;
             document.getElementById('frappe-task-list').innerHTML = '';
             return;
         }
@@ -1166,11 +1184,24 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Funkcje pomocnicze dla API
     function loadTasksFromDB() {
+        console.log('📡 Próba pobrania zadań Gantta dla projektu #' + PROJECT_ID + '...');
         return fetch(`/api/gantt/${PROJECT_ID}`, {
             headers: { 'X-CSRF-TOKEN': CSRF_TOKEN }
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('📥 Otrzymano odpowiedź API:', response.status, response.statusText);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(tasks => {
+            console.log('📦 Otrzymano zadania z API:', tasks);
+            if (!Array.isArray(tasks)) {
+                console.error('❌ API nie zwróciło tablicy zadań:', tasks);
+                frappeTasks = [];
+                return;
+            }
             frappeTasks = tasks.map(t => ({
                 id: t.id.toString(),
                 name: t.name,
@@ -1179,11 +1210,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 progress: t.progress || 0,
                 dependencies: t.dependencies || ''
             }));
-            console.log('✅ Załadowano zadania z bazy:', frappeTasks);
+            console.log('✅ Załadowano ' + frappeTasks.length + ' zadań z bazy:', frappeTasks);
+            if (frappeTasks.length === 0) {
+                console.warn('⚠️ Brak zadań Gantta dla tego projektu. Kliknij "➕ Dodaj zadanie" aby utworzyć nowe.');
+            }
         })
         .catch(error => {
-            console.error('❌ Błąd ładowania zadań:', error);
+            console.error('❌ Błąd ładowania zadań Gantta:', error);
+            console.error('URL:', `/api/gantt/${PROJECT_ID}`);
+            console.error('Szczegóły błędu:', error.message);
             frappeTasks = [];
+            // Pokaż komunikat użytkownikowi
+            const ganttDiv = document.getElementById('frappe-gantt');
+            if (ganttDiv) {
+                ganttDiv.innerHTML = `<div class="text-red-500 p-4 border border-red-300 rounded bg-red-50">
+                    <strong>❌ Błąd ładowania wykresu Gantta</strong><br>
+                    ${error.message}<br>
+                    <small>Sprawdź konsolę przeglądarki (F12) dla więcej szczegółów.</small>
+                </div>`;
+            }
         });
     }
     
@@ -1247,8 +1292,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Załaduj zadania z bazy przy starcie
+    console.log('🚀 Inicjalizacja wykresu Gantta dla projektu #' + PROJECT_ID);
     loadTasksFromDB().then(() => {
+        console.log('📊 Renderowanie wykresu Gantta z ' + frappeTasks.length + ' zadaniami...');
         renderGantt();
+    }).catch(error => {
+        console.error('❌ Krytyczny błąd inicjalizacji Gantta:', error);
     });
     
     document.querySelectorAll('.frappe-view-btn').forEach(btn => {
