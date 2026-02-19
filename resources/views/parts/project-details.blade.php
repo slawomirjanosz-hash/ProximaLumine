@@ -298,9 +298,9 @@
         <div id="sortable-sections" class="space-y-8">
         
         {{-- SEKCJA 1: ZMIANY W MAGAZYNIE --}}
-        <div id="section-changes" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" draggable="true" data-order="1">
+        <div id="section-changes" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="1">
         <div class="flex items-center gap-3 mb-4">
-            <div class="cursor-move text-gray-400 hover:text-gray-600" title="Przeciągnij, aby zmienić kolejność">
+            <div class="drag-handle cursor-move text-gray-400 hover:text-gray-600" draggable="true" title="Przeciągnij, aby zmienić kolejność">
                 <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
                 </svg>
@@ -383,10 +383,10 @@
     {{-- KONIEC SEKCJI 1: ZMIANY W MAGAZYNIE --}}
     
     {{-- SEKCJA 2: PODSUMOWANIE PRODUKTÓW --}}
-    <div id="section-summary" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" draggable="true" data-order="2">
+    <div id="section-summary" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="2">
         <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-3">
-                <div class="cursor-move text-gray-400 hover:text-gray-600" title="Przeciągnij, aby zmienić kolejność">
+                <div class="drag-handle cursor-move text-gray-400 hover:text-gray-600" draggable="true" title="Przeciągnij, aby zmienić kolejność">
                     <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
                     </svg>
@@ -465,9 +465,9 @@
     {{-- KONIEC SEKCJI 2 --}}
     
     {{-- SEKCJA 3: GANTT FRAPPE --}}
-    <div id="section-frappe" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" draggable="true" data-order="3">
+    <div id="section-frappe" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="3">
         <div class="flex items-center gap-3 mb-4">
-            <div class="cursor-move text-gray-400 hover:text-gray-600" title="Przeciągnij, aby zmienić kolejność">
+            <div class="drag-handle cursor-move text-gray-400 hover:text-gray-600" draggable="true" title="Przeciągnij, aby zmienić kolejność">
                 <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
                 </svg>
@@ -649,24 +649,35 @@
     const sortableContainer = document.getElementById('sortable-sections');
     let draggedElement = null;
 
-    // Obsługa przeciągania (drag & drop)
-    document.querySelectorAll('.sortable-section').forEach(section => {
-        section.addEventListener('dragstart', function(e) {
-            draggedElement = this;
-            this.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
+    // Obsługa przeciągania (drag & drop) - TYLKO przez drag-handle (ikona trzech kropek)
+    document.querySelectorAll('.drag-handle').forEach(handle => {
+        handle.addEventListener('dragstart', function(e) {
+            // Znajdź rodzica który jest sekcją sortable
+            draggedElement = this.closest('.sortable-section');
+            if (draggedElement) {
+                draggedElement.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/html', draggedElement.innerHTML);
+            }
         });
 
-        section.addEventListener('dragend', function() {
-            this.classList.remove('dragging');
-            saveSectionOrder();
+        handle.addEventListener('dragend', function() {
+            if (draggedElement) {
+                draggedElement.classList.remove('dragging');
+                saveSectionOrder();
+                draggedElement = null;
+            }
         });
+    });
+
+    // Obsługa dragover na sekcjach (gdzie można upuścić)
+    document.querySelectorAll('.sortable-section').forEach(section => {
 
         section.addEventListener('dragover', function(e) {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
             
-            if (this !== draggedElement) {
+            if (draggedElement && this !== draggedElement) {
                 const rect = this.getBoundingClientRect();
                 const midpoint = rect.top + rect.height / 2;
                 
@@ -843,12 +854,22 @@
     /* Style dla przeciąganych sekcji */
     .sortable-section {
         transition: all 0.3s ease;
-        cursor: move;
+        cursor: default; /* Sekcja sama nie jest przeciągalna */
     }
     
     .sortable-section:hover {
         border-color: #3b82f6 !important;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    
+    /* Tylko drag-handle (ikona trzech kropek) jest przeciągalny */
+    .drag-handle {
+        cursor: grab !important;
+        user-select: none;
+    }
+    
+    .drag-handle:active {
+        cursor: grabbing !important;
     }
     
     .sortable-section.dragging {
