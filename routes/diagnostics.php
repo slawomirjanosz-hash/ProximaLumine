@@ -502,3 +502,8 @@ Route::get('/diagnostics/qr-settings', function () {
     
     return $html;
 });
+
+// CRM Live Test - wykonuje INSERT/UPDATE na żywo i pokazuje dokładne błędy
+Route::get('/crm-live-test', function () {
+    return view('crm-live-test');
+})->name('diagnostics.crm-live-test');
