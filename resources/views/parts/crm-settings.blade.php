@@ -247,11 +247,12 @@
                     <span class="text-sm font-semibold">Aktywny</span>
                 </label>
             </div>
-            <div class="mb-4" id="stage-closed-field" style="display:none;">
+            <div class="mb-4" id="stage-closed-field">
                 <label class="flex items-center gap-2">
                     <input type="checkbox" name="is_closed" id="stage-is-closed" value="1" class="w-4 h-4">
                     <span class="text-sm font-semibold">Zakończenie Lejka</span>
                 </label>
+                <p class="text-xs text-gray-500 mt-1">Etapy oznaczone jako "Zakończenie Lejka" kończą proces sprzedaży (np. wygrana, przegrana, rezygnacja)</p>
             </div>
             
             <div class="flex gap-2 justify-end">
@@ -272,7 +273,9 @@ function showAddStageModal() {
     document.getElementById('stage-slug').readOnly = false;
     document.getElementById('stage-color').value = '#3b82f6';
     document.getElementById('stage-order').value = {{ $crmStages->max('order') + 1 }};
+    document.getElementById('stage-is-closed').checked = false;
     document.getElementById('stage-active-field').style.display = 'none';
+    document.getElementById('stage-closed-field').style.display = 'block';
     document.getElementById('stage-modal').classList.remove('hidden');
 }
 

@@ -5965,6 +5965,7 @@ class PartController extends Controller
             'slug' => 'required|string|max:255|unique:crm_stages',
             'color' => 'nullable|string|max:50',
             'order' => 'required|integer|min:0',
+            'is_closed' => 'nullable|boolean',
         ]);
         
         // Automatycznie przypisz unikalny kolor jeśli nie podano
@@ -5972,15 +5973,29 @@ class PartController extends Controller
             $validated['color'] = $this->getUniqueColorForStage();
         }
         
-        \DB::table('crm_stages')->insert([
-            'name' => $validated['name'],
-            'slug' => $validated['slug'],
-            'color' => $validated['color'],
-            'order' => $validated['order'],
-            'is_active' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        try {
+            \DB::table('crm_stages')->insert([
+                'name' => $validated['name'],
+                'slug' => $validated['slug'],
+                'color' => $validated['color'],
+                'order' => $validated['order'],
+                'is_active' => true,
+                'is_closed' => $request->has('is_closed') ? 1 : 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Exception $e) {
+            // Fallback if is_closed column doesn't exist yet
+            \DB::table('crm_stages')->insert([
+                'name' => $validated['name'],
+                'slug' => $validated['slug'],
+                'color' => $validated['color'],
+                'order' => $validated['order'],
+                'is_active' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
         
         return redirect()->route('crm.settings')->with('success', 'Etap został dodany.');
     }
@@ -5995,14 +6010,25 @@ class PartController extends Controller
             'is_closed' => 'nullable|boolean',
         ]);
 
-        \DB::table('crm_stages')->where('id', $id)->update([
-            'name' => $validated['name'],
-            'color' => $validated['color'],
-            'order' => $validated['order'],
-            'is_active' => $request->has('is_active') ? 1 : 0,
-            'is_closed' => $request->has('is_closed') ? 1 : 0,
-            'updated_at' => now(),
-        ]);
+        try {
+            \DB::table('crm_stages')->where('id', $id)->update([
+                'name' => $validated['name'],
+                'color' => $validated['color'],
+                'order' => $validated['order'],
+                'is_active' => $request->has('is_active') ? 1 : 0,
+                'is_closed' => $request->has('is_closed') ? 1 : 0,
+                'updated_at' => now(),
+            ]);
+        } catch (\Exception $e) {
+            // Fallback if is_closed column doesn't exist yet
+            \DB::table('crm_stages')->where('id', $id)->update([
+                'name' => $validated['name'],
+                'color' => $validated['color'],
+                'order' => $validated['order'],
+                'is_active' => $request->has('is_active') ? 1 : 0,
+                'updated_at' => now(),
+            ]);
+        }
 
         return redirect()->route('crm.settings')->with('success', 'Etap został zaktualizowany.');
     }
