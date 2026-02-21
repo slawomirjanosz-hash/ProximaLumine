@@ -390,6 +390,7 @@
                                     class="bg-green-100 hover:bg-green-200 px-2 py-1 rounded text-sm w-full receive-add-btn"
                                     data-part-id="{{ $p->id }}"
                                     data-part-name="{{ $p->name }}"
+                                    data-part-category-id="{{ $p->category_id }}"
                                     title="Przyjmij na magazyn">
                                     ➕
                                 </button>

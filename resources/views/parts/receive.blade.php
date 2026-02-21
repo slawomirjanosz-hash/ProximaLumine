@@ -48,15 +48,18 @@
 @endif
 
 <div class="max-w-6xl mx-auto bg-white p-6 rounded shadow mt-6">
-	{{-- PRZYCISK TRYBU SKANOWANIA I COFNIJ ZMIANY --}}
+	{{-- PRZYCISK TRYBU SKANOWANIA --}}
 	<div class="flex flex-col md:flex-row md:items-center gap-4 mb-6">
 		<button id="start-scanner-mode" class="px-4 py-2 bg-blue-600 text-white rounded text-lg font-semibold hover:bg-blue-700">
 			📱 Przyjmij na magazyn skanerem
 		</button>
-		<button id="undo-changes-btn" class="px-4 py-2 bg-yellow-600 text-white rounded text-lg font-semibold hover:bg-yellow-700 hidden">
-			↩️ Cofnij zmiany
-		</button>
 		<span id="scanner-status" class="text-green-700 font-bold hidden">✓ Tryb skanowania aktywny - skanuj kody</span>
+	</div>
+
+	{{-- LISTA PRZYJĘTYCH PRODUKTÓW --}}
+	<div id="received-products-container" class="mb-6 hidden">
+		<h3 class="text-lg font-bold mb-3 text-green-700">✓ Przyjęte produkty w tej sesji:</h3>
+		<div id="received-products-list" class="space-y-2"></div>
 	</div>
 
 	{{-- TABELA ZESKANOWANYCH PRODUKTÓW --}}
@@ -318,36 +321,112 @@ document.addEventListener('DOMContentLoaded', function() {
 	const modalQuantityInput = document.getElementById('modal-quantity-input');
 	const modalConfirmBtn = document.getElementById('modal-confirm-btn');
 	const modalCancelBtn = document.getElementById('modal-cancel-btn');
-	const undoChangesBtn = document.getElementById('undo-changes-btn');
 	
 	let currentPartId = null;
 	let currentPartName = null;
+	let currentPartCategoryId = null;
 	let receivedChanges = JSON.parse(localStorage.getItem('receiveChanges') || '[]');
 
-	// Pokaż/ukryj przycisk Cofnij zmiany
-	function updateUndoButton() {
-		if (receivedChanges.length > 0) {
-			undoChangesBtn.classList.remove('hidden');
-		} else {
-			undoChangesBtn.classList.add('hidden');
-		}
-	}
-
-	// Zapisz zmiany do localStorage
-	function saveChanges() {
-		localStorage.setItem('receiveChanges', JSON.stringify(receivedChanges));
-		updateUndoButton();
-	}
-
 	// Dodaj zmianę do listy
-	function addChange(partId, partName, quantity) {
-		receivedChanges.push({
+	function addChange(partId, partName, categoryId, quantity) {
+		const change = {
 			partId: partId,
 			partName: partName,
+			categoryId: categoryId,
 			quantity: quantity,
-			timestamp: Date.now()
+			timestamp: Date.now(),
+			id: Date.now() + '_' + Math.random() // unikalny ID
+		};
+		receivedChanges.push(change);
+		localStorage.setItem('receiveChanges', JSON.stringify(receivedChanges));
+		updateReceivedProductsList();
+	}
+
+	// Usuń pojedynczą zmianę
+	function removeChange(changeId) {
+		receivedChanges = receivedChanges.filter(c => c.id !== changeId);
+		localStorage.setItem('receiveChanges', JSON.stringify(receivedChanges));
+		updateReceivedProductsList();
+	}
+
+	// Aktualizuj listę przyjętych produktów
+	function updateReceivedProductsList() {
+		const container = document.getElementById('received-products-container');
+		const list = document.getElementById('received-products-list');
+		
+		if (receivedChanges.length === 0) {
+			container.classList.add('hidden');
+			return;
+		}
+		
+		container.classList.remove('hidden');
+		list.innerHTML = '';
+		
+		receivedChanges.forEach(change => {
+			const item = document.createElement('div');
+			item.className = 'flex items-center justify-between p-2 bg-gray-50 rounded';
+			item.innerHTML = `
+				<div class="flex-1">
+					<span class="font-medium">${change.partName}</span>
+					<span class="text-gray-600 ml-2">+${change.quantity} szt.</span>
+				</div>
+				<button type="button" 
+					class="undo-single-btn px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+					data-change-id="${change.id}"
+					data-part-name="${change.partName}"
+					data-quantity="${change.quantity}">
+					Cofnij
+				</button>
+			`;
+			list.appendChild(item);
 		});
-		saveChanges();
+		
+		// Dodaj event listenery do przycisków cofnij
+		document.querySelectorAll('.undo-single-btn').forEach(btn => {
+			btn.addEventListener('click', async function() {
+				const changeId = this.getAttribute('data-change-id');
+				const partName = this.getAttribute('data-part-name');
+				const quantity = this.getAttribute('data-quantity');
+				
+				if (!confirm(`Czy na pewno chcesz cofnąć przyjęcie ${quantity} szt. produktu "${partName}"?`)) {
+					return;
+				}
+				
+				// Wyślij żądanie do serwera
+				const formData = new FormData();
+				formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
+				formData.append('name', partName);
+				formData.append('quantity', quantity);
+				formData.append('redirect_to', 'receive');
+				
+				try {
+					const response = await fetch('{{ route("parts.remove") }}', {
+						method: 'POST',
+						body: formData
+					});
+					
+					if (response.ok) {
+						// Usuń zmianę z localStorage
+						removeChange(changeId);
+						
+						// Pokaż komunikat
+						const successDiv = document.createElement('div');
+						successDiv.className = 'max-w-6xl mx-auto mt-4 bg-yellow-100 text-yellow-800 p-2 rounded';
+						successDiv.textContent = `✓ Cofnięto ${quantity} szt. produktu "${partName}"`;
+						document.querySelector('.max-w-6xl').before(successDiv);
+						setTimeout(() => successDiv.remove(), 3000);
+						
+						// Odśwież stan magazynowy w tabeli
+						setTimeout(() => location.reload(), 500);
+					} else {
+						alert('Błąd podczas cofania produktu');
+					}
+				} catch (error) {
+					console.error('Błąd:', error);
+					alert('Błąd podczas cofania produktu');
+				}
+			});
+		});
 	}
 
 	// Obsługa kliknięcia na przycisk + w katalogu
@@ -356,6 +435,7 @@ document.addEventListener('DOMContentLoaded', function() {
 			const btn = e.target.classList.contains('receive-add-btn') ? e.target : e.target.closest('.receive-add-btn');
 			currentPartId = btn.dataset.partId;
 			currentPartName = btn.dataset.partName;
+			currentPartCategoryId = btn.dataset.partCategoryId; // Pobierz category_id
 			
 			modalPartName.textContent = currentPartName;
 			modalQuantityInput.value = 1;
@@ -385,6 +465,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		const formData = new FormData();
 		formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
 		formData.append('name', currentPartName);
+		formData.append('category_id', currentPartCategoryId); // Dodaj category_id!
 		formData.append('quantity', quantity);
 		formData.append('redirect_to', 'receive');
 
@@ -396,7 +477,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 			if (response.ok) {
 				// Zapisz zmianę lokalnie
-				addChange(currentPartId, currentPartName, quantity);
+				addChange(currentPartId, currentPartName, currentPartCategoryId, quantity);
 				
 				// Pokaż komunikat sukcesu
 				const successDiv = document.createElement('div');
@@ -440,41 +521,8 @@ document.addEventListener('DOMContentLoaded', function() {
 		}
 	});
 
-	// Cofnij zmiany
-	undoChangesBtn.addEventListener('click', async function() {
-		if (!confirm('Czy na pewno chcesz cofnąć wszystkie zmiany wprowadzone na tej stronie?')) {
-			return;
-		}
-
-		// Cofnij każdą zmianę
-		for (const change of receivedChanges.reverse()) {
-			const formData = new FormData();
-			formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
-			formData.append('name', change.partName);
-			formData.append('quantity', change.quantity);
-			formData.append('redirect_to', 'receive');
-
-			try {
-				await fetch('{{ route("parts.remove") }}', {
-					method: 'POST',
-					body: formData
-				});
-			} catch (error) {
-				console.error('Błąd podczas cofania zmiany:', error);
-			}
-		}
-
-		// Wyczyść localStorage
-		receivedChanges = [];
-		localStorage.removeItem('receiveChanges');
-		updateUndoButton();
-
-		// Odśwież stronę
-		location.reload();
-	});
-
-	// Pokaż przycisk Cofnij jeśli są zmiany
-	updateUndoButton();
+	// Wyświetl listę przyjętych produktów przy ładowaniu strony
+	updateReceivedProductsList();
 
 	// Obsługa wyjścia ze strony
 	let hasChanges = receivedChanges.length > 0;
