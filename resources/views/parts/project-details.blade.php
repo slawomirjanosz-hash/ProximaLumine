@@ -591,6 +591,35 @@
     </div>
     {{-- KONIEC SEKCJI 3 --}}
     
+    {{-- SEKCJA 4: HARMONOGRAM FINANSOWY --}}
+    <div id="section-finance" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="4">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="drag-handle cursor-move text-gray-400 hover:text-gray-600" draggable="true" title="Przeciągnij, aby zmienić kolejność">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                </svg>
+            </div>
+            <button type="button" id="toggle-finance-section" class="text-gray-400 hover:text-gray-600 focus:outline-none">
+                <span id="toggle-finance-arrow">▶</span>
+            </button>
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+                <span class="text-green-600">💰</span>
+                Harmonogram finansowy
+            </h3>
+        </div>
+        <div id="finance-section-content" class="hidden">
+            <p class="text-gray-600 text-sm mb-4">Planowane transze, płatności i etapy finansowe projektu:</p>
+            <div id="finance-schedule-list" class="space-y-2">
+                <!-- Wiersze transz będą dodawane dynamicznie -->
+            </div>
+            @if(!in_array($project->status, ['warranty','archived']))
+            <button type="button" id="add-finance-row" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 mt-3">➕ Dodaj transzę</button>
+            @endif
+            <p class="text-xs text-gray-500 mt-3">Przeciągnij wiersze, aby zmienić kolejność.</p>
+        </div>
+    </div>
+    {{-- KONIEC SEKCJI 4 --}}
+    
     </div>
     {{-- KONIEC KONTENERA PRZESUWANYCH SEKCJI --}}
     
@@ -782,6 +811,92 @@
                 frappeContent.classList.toggle('hidden');
                 frappeArrow.textContent = frappeContent.classList.contains('hidden') ? '▶' : '▼';
             });
+        }
+        
+        // Obsługa rozwijania sekcji Harmonogram finansowy
+        const financeToggleBtn = document.getElementById('toggle-finance-section');
+        const financeContent = document.getElementById('finance-section-content');
+        const financeArrow = document.getElementById('toggle-finance-arrow');
+        if (financeToggleBtn && financeContent && financeArrow) {
+            // Ustaw domyślnie zamknięte
+            financeContent.classList.add('hidden');
+            financeArrow.textContent = '▶';
+            financeToggleBtn.addEventListener('click', function() {
+                financeContent.classList.toggle('hidden');
+                financeArrow.textContent = financeContent.classList.contains('hidden') ? '▶' : '▼';
+            });
+        }
+        
+        // --- Harmonogram finansowy: dodawanie wierszy ---
+        let financeRowIndex = 0;
+        const financeList = document.getElementById('finance-schedule-list');
+        const addFinanceBtn = document.getElementById('add-finance-row');
+        
+        function addFinanceRow(name = '', amount = '', date = '') {
+            if (!financeList) return;
+            const row = document.createElement('div');
+            row.className = 'finance-row flex gap-2 items-center p-2 bg-gray-50 rounded border border-gray-200 cursor-move';
+            row.draggable = true;
+            row.innerHTML = `
+                <span class="drag-handle text-gray-400 hover:text-gray-600 cursor-grab text-xl" title="Przeciągnij">⋮⋮</span>
+                <input type="text" name="finance_schedule[${financeRowIndex}][name]" class="px-2 py-1 border rounded flex-1" placeholder="Nazwa transzy" value="${name}">
+                <input type="number" name="finance_schedule[${financeRowIndex}][amount]" class="px-2 py-1 border rounded w-32" placeholder="Kwota (PLN)" min="0" step="0.01" value="${amount}">
+                <input type="date" name="finance_schedule[${financeRowIndex}][date]" class="px-2 py-1 border rounded w-40" value="${date}">
+                <button type="button" class="remove-finance-row px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm">🗑️</button>`;
+            financeList.appendChild(row);
+            financeRowIndex++;
+            addFinanceDragListeners(row);
+        }
+        
+        if (addFinanceBtn) {
+            addFinanceBtn.addEventListener('click', () => addFinanceRow());
+        }
+        
+        if (financeList) {
+            financeList.addEventListener('click', e => {
+                if (e.target.closest('.remove-finance-row')) {
+                    e.target.closest('.finance-row')?.remove();
+                    reindexFinanceRows();
+                }
+            });
+        }
+        
+        // Drag & drop dla wierszy finansowych
+        let finDragged = null;
+        function addFinanceDragListeners(row) {
+            row.addEventListener('dragstart', function(e) {
+                finDragged = this;
+                this.classList.add('opacity-50');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            row.addEventListener('dragend', function() {
+                this.classList.remove('opacity-50');
+                finDragged = null;
+                reindexFinanceRows();
+            });
+            row.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                if (!finDragged || finDragged === this) return;
+                const rect = this.getBoundingClientRect();
+                const mid = rect.top + rect.height / 2;
+                if (e.clientY < mid) {
+                    this.parentNode.insertBefore(finDragged, this);
+                } else {
+                    this.parentNode.insertBefore(finDragged, this.nextSibling);
+                }
+            });
+        }
+        
+        function reindexFinanceRows() {
+            if (!financeList) return;
+            const rows = financeList.querySelectorAll('.finance-row');
+            rows.forEach((row, idx) => {
+                row.querySelectorAll('input').forEach(input => {
+                    const name = input.getAttribute('name');
+                    if (name) input.setAttribute('name', name.replace(/finance_schedule\[\d+\]/, `finance_schedule[${idx}]`));
+                });
+            });
+            financeRowIndex = rows.length;
         }
     });
 </script>
