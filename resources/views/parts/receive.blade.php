@@ -326,14 +326,13 @@ document.addEventListener('DOMContentLoaded', function() {
 	const modalConfirmBtn = document.getElementById('modal-confirm-btn');
 	const modalCancelBtn = document.getElementById('modal-cancel-btn');
 	const scannerBtn = document.getElementById('start-scanner-mode');
+	const saveChangesBtn = document.getElementById('save-changes-btn');
 	
 	let currentPartId = null;
 	let currentPartName = null;
 	let currentPartCategoryId = null;
 	let receivedChanges = JSON.parse(localStorage.getItem('receiveChanges') || '[]');
 	let isAutoReloading = false; // Flaga dla automatycznego odświeżania
-	
-	const scannerBtn = document.getElementById('start-scanner-mode');
 
 	// Dodaj zmianę do listy
 	function addChange(partId, partName, categoryId, quantity) {
@@ -360,12 +359,10 @@ document.addEventListener('DOMContentLoaded', function() {
 	// Aktualizuj stan przycisku skanera
 	function updateScannerButtonState() {
 		if (receivedChanges.length > 0) {
-			// Są niezapisane zmiany - zablokuj skaner
 			scannerBtn.disabled = true;
 			scannerBtn.classList.add('opacity-50', 'cursor-not-allowed');
 			scannerBtn.title = 'Zapisz najpierw zmiany aby odblokować skaner';
 		} else {
-			// Brak zmian - odblokuj skaner
 			scannerBtn.disabled = false;
 			scannerBtn.classList.remove('opacity-50', 'cursor-not-allowed');
 			scannerBtn.title = '';
@@ -455,6 +452,28 @@ document.addEventListener('DOMContentLoaded', function() {
 		
 		updateScannerButtonState();
 	}
+
+	// Obsługa przycisku "Zapisz zmiany"
+	saveChangesBtn.addEventListener('click', function() {
+		if (!confirm('Czy na pewno chcesz zatwierdzić wszystkie zmiany? Po zapisaniu nie będzie można ich cofnąć.')) {
+			return;
+		}
+		
+		// Wyczyść localStorage (zmiany już są zapisane w bazie)
+		receivedChanges = [];
+		localStorage.removeItem('receiveChanges');
+		
+		// Pokaż komunikat sukcesu
+		const successDiv = document.createElement('div');
+		successDiv.className = 'max-w-6xl mx-auto mt-4 bg-green-100 text-green-800 p-2 rounded';
+		successDiv.textContent = '✓ Zmiany zostały zatwierdzone';
+		document.querySelector('.max-w-6xl').before(successDiv);
+		setTimeout(() => successDiv.remove(), 3000);
+		
+		// Odśwież stronę
+		isAutoReloading = true;
+		setTimeout(() => location.reload(), 500);
+	});
 
 	// Obsługa kliknięcia na przycisk + w katalogu
 	document.addEventListener('click', function(e) {
@@ -551,28 +570,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 	// Wyświetl listę przyjętych produktów przy ładowaniu strony
 	updateReceivedProductsList();
-
-	// Obsługa przycisku "Zapisz zmiany"
-	document.getElementById('save-changes-btn').addEventListener('click', function() {
-		if (!confirm('Czy na pewno chcesz zatwierdzić wszystkie zmiany? Po zapisaniu nie będzie można ich cofnąć.')) {
-			return;
-		}
-		
-		// Wyczyść localStorage (zmiany już są zapisane w bazie)
-		receivedChanges = [];
-		localStorage.removeItem('receiveChanges');
-		
-		// Pokaż komunikat sukcesu
-		const successDiv = document.createElement('div');
-		successDiv.className = 'max-w-6xl mx-auto mt-4 bg-green-100 text-green-800 p-2 rounded';
-		successDiv.textContent = '✓ Zmiany zostały zatwierdzone';
-		document.querySelector('.max-w-6xl').before(successDiv);
-		setTimeout(() => successDiv.remove(), 3000);
-		
-		// Odśwież stronę
-		isAutoReloading = true;
-		setTimeout(() => location.reload(), 500);
-	});
+	updateScannerButtonState();
 
 	// Obsługa wyjścia ze strony
 	let hasChanges = receivedChanges.length > 0;
