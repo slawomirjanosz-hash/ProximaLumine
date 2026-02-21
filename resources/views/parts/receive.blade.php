@@ -48,10 +48,13 @@
 @endif
 
 <div class="max-w-6xl mx-auto bg-white p-6 rounded shadow mt-6">
-	{{-- PRZYCISK TRYBU SKANOWANIA --}}
+	{{-- PRZYCISK TRYBU SKANOWANIA I COFNIJ ZMIANY --}}
 	<div class="flex flex-col md:flex-row md:items-center gap-4 mb-6">
 		<button id="start-scanner-mode" class="px-4 py-2 bg-blue-600 text-white rounded text-lg font-semibold hover:bg-blue-700">
 			📱 Przyjmij na magazyn skanerem
+		</button>
+		<button id="undo-changes-btn" class="px-4 py-2 bg-yellow-600 text-white rounded text-lg font-semibold hover:bg-yellow-700 hidden">
+			↩️ Cofnij zmiany
 		</button>
 		<span id="scanner-status" class="text-green-700 font-bold hidden">✓ Tryb skanowania aktywny - skanuj kody</span>
 	</div>
@@ -73,6 +76,33 @@
 <audio id="error-sound" preload="none" muted>
 	<source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSyBzvLXijcIGWi77eeeTRAMUKfj8LZjHAY4ktfyzHksBSh+zPLckTsIEVyz6O2rVxMGQ5zd8sFmIgQpfs3y25A6CA9csujtq1cTBkOc3fLBZiIEKX7N8tuQOggPXLPo7atXEwZDnN3ywWYiBCl+zfLbkDoID1yz6O2rVxMGQ5zd8sFmIgQpfs3y25A6CA9csujtq1cTBkOc3fLBZiIEKX7N8tuQOggPXLLo7atXEwZDnN3ywWYiBCl+zfLbkDoID1yy6O2rVxMGQ5zd8sFmIgQpfs3y25A6CA9csujtq1cTBkOc3fLBZiIEKX7N8tuQOggPXLLo7atXEwZDnN3ywWYiBCl+zfLbkDoID1yy6O2rVxMGQ5zd8sFmIgQpfs3y25A6CA9csujtq1cTBkOc3fLBZiIEKX7N8tuQOggPXLLo7atXEwZDnN3ywWYiBCl+zfLbkDoID1yy6O2rVxMGQ5zd8sFmIgQpfs3y25A6CA9csujtq1cTBkOc3fLBZiIEKX7N8tuQOggPXLLo7atXEwZDnN3ywWYiBCl+zfLbkDoID1yy6O2rVxMGQ5zd8sFmIgQpfs3y25A6CA9csujtq1cTBkOc3fLBZiIEKX7N8tuQOggPXLLo7atXEwZDnN3ywWYiBCl+zfLbkDoID1yy6O2rVxMGQ5zd8sFmIgQpfs3y25A6CA9csujtq1cTBkOc3fLBZiIEKX7N8tuQOggPXLLo7atXEwZDnN3ywWYiBCl+zfLbkDoID1yy6O2rVxMGQ5zd8sFmIgQpfs3y25A6CA9csujtq1cTBkOc3fLBZiIEKX7N8tuQOggPXLLo7atXEwYAAAAA=" type="audio/wav">
 </audio>
+
+{{-- MODAL DO WPROWADZANIA ILOŚCI --}}
+<div id="quantity-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+	<div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+		<h3 class="text-xl font-bold mb-4">Przyjmij na magazyn</h3>
+		<p class="mb-2 text-gray-700">Produkt: <strong id="modal-part-name"></strong></p>
+		<div class="mb-4">
+			<label class="block text-sm font-medium text-gray-700 mb-2">Ilość do przyjęcia:</label>
+			<input 
+				type="number" 
+				id="modal-quantity-input" 
+				class="w-full px-3 py-2 border border-gray-300 rounded"
+				min="1"
+				value="1"
+				autofocus
+			>
+		</div>
+		<div class="flex gap-3">
+			<button id="modal-confirm-btn" class="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+				✓ Potwierdź
+			</button>
+			<button id="modal-cancel-btn" class="flex-1 px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500">
+				✕ Anuluj
+			</button>
+		</div>
+	</div>
+</div>
 
 <script>
 // TRYB SKANOWANIA
@@ -281,6 +311,199 @@ document.addEventListener('DOMContentLoaded', function() {
 	document.getElementById('csv-export-link')?.remove();
 	document.getElementById('view-selected-btn')?.remove();
 	document.getElementById('bulk-delete-form')?.remove();
+
+	// ===== OBSŁUGA PRZYJMOWANIA PRZEZ PRZYCISK + =====
+	const quantityModal = document.getElementById('quantity-modal');
+	const modalPartName = document.getElementById('modal-part-name');
+	const modalQuantityInput = document.getElementById('modal-quantity-input');
+	const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+	const modalCancelBtn = document.getElementById('modal-cancel-btn');
+	const undoChangesBtn = document.getElementById('undo-changes-btn');
+	
+	let currentPartId = null;
+	let currentPartName = null;
+	let receivedChanges = JSON.parse(localStorage.getItem('receiveChanges') || '[]');
+
+	// Pokaż/ukryj przycisk Cofnij zmiany
+	function updateUndoButton() {
+		if (receivedChanges.length > 0) {
+			undoChangesBtn.classList.remove('hidden');
+		} else {
+			undoChangesBtn.classList.add('hidden');
+		}
+	}
+
+	// Zapisz zmiany do localStorage
+	function saveChanges() {
+		localStorage.setItem('receiveChanges', JSON.stringify(receivedChanges));
+		updateUndoButton();
+	}
+
+	// Dodaj zmianę do listy
+	function addChange(partId, partName, quantity) {
+		receivedChanges.push({
+			partId: partId,
+			partName: partName,
+			quantity: quantity,
+			timestamp: Date.now()
+		});
+		saveChanges();
+	}
+
+	// Obsługa kliknięcia na przycisk + w katalogu
+	document.addEventListener('click', function(e) {
+		if (e.target.classList.contains('receive-add-btn') || e.target.closest('.receive-add-btn')) {
+			const btn = e.target.classList.contains('receive-add-btn') ? e.target : e.target.closest('.receive-add-btn');
+			currentPartId = btn.dataset.partId;
+			currentPartName = btn.dataset.partName;
+			
+			modalPartName.textContent = currentPartName;
+			modalQuantityInput.value = 1;
+			quantityModal.classList.remove('hidden');
+			
+			// Focus na input po małym opóźnieniu (żeby modal się wyrenderował)
+			setTimeout(() => modalQuantityInput.focus(), 100);
+		}
+	});
+
+	// Obsługa Enter w input
+	modalQuantityInput.addEventListener('keypress', function(e) {
+		if (e.key === 'Enter') {
+			modalConfirmBtn.click();
+		}
+	});
+
+	// Potwierdzenie przyjęcia
+	modalConfirmBtn.addEventListener('click', async function() {
+		const quantity = parseInt(modalQuantityInput.value);
+		if (!quantity || quantity < 1) {
+			alert('Podaj poprawną ilość (minimum 1)');
+			return;
+		}
+
+		// Wyślij żądanie do serwera
+		const formData = new FormData();
+		formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
+		formData.append('name', currentPartName);
+		formData.append('quantity', quantity);
+		formData.append('redirect_to', 'receive');
+
+		try {
+			const response = await fetch('{{ route("parts.add") }}', {
+				method: 'POST',
+				body: formData
+			});
+
+			if (response.ok) {
+				// Zapisz zmianę lokalnie
+				addChange(currentPartId, currentPartName, quantity);
+				
+				// Pokaż komunikat sukcesu
+				const successDiv = document.createElement('div');
+				successDiv.className = 'max-w-6xl mx-auto mt-4 bg-green-100 text-green-800 p-2 rounded';
+				successDiv.textContent = `✓ Przyjęto ${quantity} szt. produktu "${currentPartName}"`;
+				document.querySelector('.max-w-6xl').before(successDiv);
+				
+				// Ukryj komunikat po 3 sekundach
+				setTimeout(() => successDiv.remove(), 3000);
+				
+				// Zamknij modal
+				quantityModal.classList.add('hidden');
+				
+				// Odśwież stronę aby zaktualizować stan magazynu
+				setTimeout(() => location.reload(), 500);
+			} else {
+				alert('Błąd podczas przyjmowania produktu');
+			}
+		} catch (error) {
+			console.error('Błąd:', error);
+			alert('Błąd podczas przyjmowania produktu');
+		}
+	});
+
+	// Anulowanie
+	modalCancelBtn.addEventListener('click', function() {
+		quantityModal.classList.add('hidden');
+	});
+
+	// Zamknij modal po kliknięciu w tło
+	quantityModal.addEventListener('click', function(e) {
+		if (e.target === quantityModal) {
+			quantityModal.classList.add('hidden');
+		}
+	});
+
+	// Zamknij modal klawiszem Escape
+	document.addEventListener('keydown', function(e) {
+		if (e.key === 'Escape' && !quantityModal.classList.contains('hidden')) {
+			quantityModal.classList.add('hidden');
+		}
+	});
+
+	// Cofnij zmiany
+	undoChangesBtn.addEventListener('click', async function() {
+		if (!confirm('Czy na pewno chcesz cofnąć wszystkie zmiany wprowadzone na tej stronie?')) {
+			return;
+		}
+
+		// Cofnij każdą zmianę
+		for (const change of receivedChanges.reverse()) {
+			const formData = new FormData();
+			formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
+			formData.append('name', change.partName);
+			formData.append('quantity', change.quantity);
+			formData.append('redirect_to', 'receive');
+
+			try {
+				await fetch('{{ route("parts.remove") }}', {
+					method: 'POST',
+					body: formData
+				});
+			} catch (error) {
+				console.error('Błąd podczas cofania zmiany:', error);
+			}
+		}
+
+		// Wyczyść localStorage
+		receivedChanges = [];
+		localStorage.removeItem('receiveChanges');
+		updateUndoButton();
+
+		// Odśwież stronę
+		location.reload();
+	});
+
+	// Pokaż przycisk Cofnij jeśli są zmiany
+	updateUndoButton();
+
+	// Obsługa wyjścia ze strony
+	let hasChanges = receivedChanges.length > 0;
+	
+	window.addEventListener('beforeunload', function(e) {
+		const currentChanges = JSON.parse(localStorage.getItem('receiveChanges') || '[]');
+		if (currentChanges.length > 0) {
+			e.preventDefault();
+			e.returnValue = 'Czy wprowadziłeś wszystkie produkty poprawnie?';
+			return e.returnValue;
+		}
+	});
+
+	// Obsługa kliknięć w linki
+	document.addEventListener('click', function(e) {
+		const link = e.target.closest('a');
+		if (link && link.href && !link.href.includes('/przyjmij')) {
+			const currentChanges = JSON.parse(localStorage.getItem('receiveChanges') || '[]');
+			if (currentChanges.length > 0) {
+				e.preventDefault();
+				if (confirm('Czy wprowadziłeś wszystkie produkty poprawnie?')) {
+					// Wyczyść localStorage i przejdź
+					localStorage.removeItem('receiveChanges');
+					window.location.href = link.href;
+				}
+				// Jeśli NIE - pozostań na stronie
+			}
+		}
+	});
 });
 </script>
 

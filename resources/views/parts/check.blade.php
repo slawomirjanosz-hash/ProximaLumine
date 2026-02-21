@@ -383,6 +383,18 @@
                     @if($showActionColumn && $catalogSettings->show_actions)
                     {{-- AKCJE --}}
                         <td class="border p-0.5">
+                            @if(isset($isReceiveContext) && $isReceiveContext)
+                                {{-- Tylko przycisk + dla kontekstu "Przyjmij na magazyn" --}}
+                                <button 
+                                    type="button"
+                                    class="bg-green-100 hover:bg-green-200 px-2 py-1 rounded text-sm w-full receive-add-btn"
+                                    data-part-id="{{ $p->id }}"
+                                    data-part-name="{{ $p->name }}"
+                                    title="Przyjmij na magazyn">
+                                    ➕
+                                </button>
+                            @else
+                                {{-- Standardowe akcje dla katalogu --}}
                             <div class="grid grid-cols-2 gap-0.5">
                                 {{-- ➕ --}}
                                 <form method="POST" action="{{ route('parts.add') }}">
@@ -446,6 +458,7 @@
                                     </button>
                                 </form>
                             </div>
+                            @endif
                         </td>
                     @endif
                 </tr>
