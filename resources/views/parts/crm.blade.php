@@ -648,8 +648,9 @@ function showDealModal() {
                 </form>
             `;
                     <select name="stage" required class="w-full border rounded px-3 py-2">
+                        @php $defaultStage = $crmStages->where('is_active', 1)->sortBy('order')->first(); @endphp
                         @foreach($crmStages->where('is_active', 1)->sortBy('order') as $stage)
-                            <option value="{{ $stage->slug }}" @if(isset($deal) && $deal->stage === $stage->slug) selected @endif>{{ $stage->name }}</option>
+                            <option value="{{ $stage->slug }}" @if($stage->slug === $defaultStage->slug) selected @endif>{{ $stage->name }}</option>
                         @endforeach
                     </select>
                 </div>
