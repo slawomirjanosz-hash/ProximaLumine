@@ -59,7 +59,10 @@
 	{{-- LISTA PRZYJĘTYCH PRODUKTÓW --}}
 	<div id="received-products-container" class="mb-6 hidden">
 		<h3 class="text-lg font-bold mb-3 text-green-700">✓ Przyjęte produkty w tej sesji:</h3>
-		<div id="received-products-list" class="space-y-2"></div>
+		<div id="received-products-list" class="space-y-2 mb-4"></div>
+		<button id="save-changes-btn" class="px-4 py-2 bg-green-600 text-white rounded font-semibold hover:bg-green-700">
+			💾 Zapisz zmiany
+		</button>
 	</div>
 
 	{{-- TABELA ZESKANOWANYCH PRODUKTÓW --}}
@@ -322,12 +325,15 @@ document.addEventListener('DOMContentLoaded', function() {
 	const modalQuantityInput = document.getElementById('modal-quantity-input');
 	const modalConfirmBtn = document.getElementById('modal-confirm-btn');
 	const modalCancelBtn = document.getElementById('modal-cancel-btn');
+	const scannerBtn = document.getElementById('start-scanner-mode');
 	
 	let currentPartId = null;
 	let currentPartName = null;
 	let currentPartCategoryId = null;
 	let receivedChanges = JSON.parse(localStorage.getItem('receiveChanges') || '[]');
 	let isAutoReloading = false; // Flaga dla automatycznego odświeżania
+	
+	const scannerBtn = document.getElementById('start-scanner-mode');
 
 	// Dodaj zmianę do listy
 	function addChange(partId, partName, categoryId, quantity) {
@@ -351,6 +357,21 @@ document.addEventListener('DOMContentLoaded', function() {
 		updateReceivedProductsList();
 	}
 
+	// Aktualizuj stan przycisku skanera
+	function updateScannerButtonState() {
+		if (receivedChanges.length > 0) {
+			// Są niezapisane zmiany - zablokuj skaner
+			scannerBtn.disabled = true;
+			scannerBtn.classList.add('opacity-50', 'cursor-not-allowed');
+			scannerBtn.title = 'Zapisz najpierw zmiany aby odblokować skaner';
+		} else {
+			// Brak zmian - odblokuj skaner
+			scannerBtn.disabled = false;
+			scannerBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+			scannerBtn.title = '';
+		}
+	}
+
 	// Aktualizuj listę przyjętych produktów
 	function updateReceivedProductsList() {
 		const container = document.getElementById('received-products-container');
@@ -358,6 +379,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		
 		if (receivedChanges.length === 0) {
 			container.classList.add('hidden');
+			updateScannerButtonState();
 			return;
 		}
 		
@@ -418,7 +440,9 @@ document.addEventListener('DOMContentLoaded', function() {
 						document.querySelector('.max-w-6xl').before(successDiv);
 						setTimeout(() => successDiv.remove(), 3000);
 						
-						// Odśwież stan magazynowy w tabeli					isAutoReloading = true;						setTimeout(() => location.reload(), 500);
+						// Odśwież stan magazynowy w tabeli
+					isAutoReloading = true;
+					setTimeout(() => location.reload(), 500);
 					} else {
 						alert('Błąd podczas cofania produktu');
 					}
@@ -428,6 +452,8 @@ document.addEventListener('DOMContentLoaded', function() {
 				}
 			});
 		});
+		
+		updateScannerButtonState();
 	}
 
 	// Obsługa kliknięcia na przycisk + w katalogu
@@ -525,6 +551,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
 	// Wyświetl listę przyjętych produktów przy ładowaniu strony
 	updateReceivedProductsList();
+
+	// Obsługa przycisku "Zapisz zmiany"
+	document.getElementById('save-changes-btn').addEventListener('click', function() {
+		if (!confirm('Czy na pewno chcesz zatwierdzić wszystkie zmiany? Po zapisaniu nie będzie można ich cofnąć.')) {
+			return;
+		}
+		
+		// Wyczyść localStorage (zmiany już są zapisane w bazie)
+		receivedChanges = [];
+		localStorage.removeItem('receiveChanges');
+		
+		// Pokaż komunikat sukcesu
+		const successDiv = document.createElement('div');
+		successDiv.className = 'max-w-6xl mx-auto mt-4 bg-green-100 text-green-800 p-2 rounded';
+		successDiv.textContent = '✓ Zmiany zostały zatwierdzone';
+		document.querySelector('.max-w-6xl').before(successDiv);
+		setTimeout(() => successDiv.remove(), 3000);
+		
+		// Odśwież stronę
+		isAutoReloading = true;
+		setTimeout(() => location.reload(), 500);
+	});
 
 	// Obsługa wyjścia ze strony
 	let hasChanges = receivedChanges.length > 0;
