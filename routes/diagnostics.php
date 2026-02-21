@@ -512,3 +512,8 @@ Route::get('/crm-live-test', function () {
 Route::get('/crm-deal-test', function () {
     return view('crm-deal-test');
 })->name('diagnostics.crm-deal-test');
+
+// CRM Real Update Test - WYKONUJE PRAWDZIWY UPDATE na szansie i łapie błąd
+Route::get('/crm-real-update-test', function () {
+    return view('crm-real-update-test');
+})->name('diagnostics.crm-real-update-test');
