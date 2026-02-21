@@ -5333,8 +5333,13 @@ class PartController extends Controller
         $crmStages = \DB::table('crm_stages')->orderBy('order')->get();
         
         // Statystyki - tylko dla szans użytkownika
-        // Pobierz slugi etapów zamykających lejek
-        $closedStageSlugs = \DB::table('crm_stages')->where('is_closed', 1)->pluck('slug')->toArray();
+        // Pobierz slugi etapów zamykających lejek (z fallbackiem na stare nazwy)
+        try {
+            $closedStageSlugs = \DB::table('crm_stages')->where('is_closed', 1)->pluck('slug')->toArray();
+        } catch (\Exception $e) {
+            // Fallback if is_closed column doesn't exist yet
+            $closedStageSlugs = ['wygrana', 'przegrana'];
+        }
         $stats = [
             'total_companies' => \App\Models\CrmCompany::count(),
             'active_deals' => \App\Models\CrmDeal::whereNotIn('stage', $closedStageSlugs)
@@ -5763,8 +5768,13 @@ class PartController extends Controller
         $assignedUsers = $validated['assigned_users'] ?? [];
         unset($validated['assigned_users']);
         
-        // Pobierz slugi etapów zamykających lejek
-        $closedStageSlugs = \DB::table('crm_stages')->where('is_closed', 1)->pluck('slug')->toArray();
+        // Pobierz slugi etapów zamykających lejek (z fallbackiem na stare nazwy)
+        try {
+            $closedStageSlugs = \DB::table('crm_stages')->where('is_closed', 1)->pluck('slug')->toArray();
+        } catch (\Exception $e) {
+            // Fallback if is_closed column doesn't exist yet
+            $closedStageSlugs = ['wygrana', 'przegrana'];
+        }
         // Automatycznie ustaw actual_close_date gdy stage zmienia się na etap zamykający lejek
         if (in_array($validated['stage'], $closedStageSlugs) && 
             !in_array($deal->stage, $closedStageSlugs) && 

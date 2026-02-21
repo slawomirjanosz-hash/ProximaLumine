@@ -643,7 +643,7 @@ function showDealModal() {
                 <div><label class="block mb-1 font-semibold">Wartość (PLN) *</label><input type="number" step="0.01" name="value" required class="w-full border rounded px-3 py-2"></div>
                 <div><label class="block mb-1 font-semibold">Etap *</label>
                     <select name="stage" required class="w-full border rounded px-3 py-2">
-                        @foreach($crmStages->where('is_active', 1)->sortBy('order') as $stage)
+                        @foreach($crmStages->where('is_active', 1)->filter(function($s) { return !isset($s->is_closed) || !$s->is_closed; })->sortBy('order') as $stage)
                             <option value="{{ $stage->slug }}" @if(isset($deal) && $deal->stage === $stage->slug) selected @endif>{{ $stage->name }}</option>
                         @endforeach
                     </select>
@@ -998,8 +998,8 @@ function editDeal(id) {
                         <div><label class="block mb-1 font-semibold">Prawdopodobieństwo (%) *</label><input type="number" min="0" max="100" name="probability" value="${deal.probability || 50}" required class="w-full border rounded px-3 py-2"></div>
                         <div><label class="block mb-1 font-semibold">Etap *</label>
                             <select name="stage" required class="w-full border rounded px-3 py-2">
-                                @foreach($crmStages->where('is_active', 1)->sortBy('order') as $stage)
-                                    <option value="{{ $stage->slug }}" ${deal.stage === '{{ $stage->slug }}' ? 'selected' : ''}>{{ $stage->name }}</option>
+                                @foreach($crmStages->sortBy('order') as $stage)
+                                    <option value="{{ $stage->slug }}" ${deal.stage === '{{ $stage->slug }}' ? 'selected' : ''}>{{ $stage->name }}@if(isset($stage->is_closed) && $stage->is_closed) (Zamknięcie)@endif</option>
                                 @endforeach
                             </select>
                         </div>
