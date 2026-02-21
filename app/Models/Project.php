@@ -87,4 +87,52 @@ class Project extends Model
         }
         return url('/public/gantt/' . $this->public_gantt_token);
     }
+
+    /**
+     * Relacja do harmonogramu finansowego projektu
+     */
+    public function financeRecords()
+    {
+        return $this->hasMany(ProjectFinance::class)->ordered();
+    }
+
+    /**
+     * Pobierz tylko przychody
+     */
+    public function incomeRecords()
+    {
+        return $this->hasMany(ProjectFinance::class)->income()->ordered();
+    }
+
+    /**
+     * Pobierz tylko wydatki
+     */
+    public function expenseRecords()
+    {
+        return $this->hasMany(ProjectFinance::class)->expense()->ordered();
+    }
+
+    /**
+     * Oblicz całkowite przychody
+     */
+    public function getTotalIncome(): float
+    {
+        return $this->financeRecords()->income()->sum('amount');
+    }
+
+    /**
+     * Oblicz całkowite wydatki
+     */
+    public function getTotalExpenses(): float
+    {
+        return $this->financeRecords()->expense()->sum('amount');
+    }
+
+    /**
+     * Oblicz bilans finansowy
+     */
+    public function getFinanceBalance(): float
+    {
+        return $this->getTotalIncome() - $this->getTotalExpenses();
+    }
 }
