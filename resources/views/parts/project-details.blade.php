@@ -5,6 +5,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Szczegóły projektu - {{ $project->name }}</title>
     <link rel="icon" type="image/png" href="{{ asset('logo_proxima_male.png') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     @vite(['resources/css/app.css'])
 </head>
 <body class="bg-gray-100">
@@ -608,14 +609,71 @@
             </h3>
         </div>
         <div id="finance-section-content" class="hidden">
-            <p class="text-gray-600 text-sm mb-4">Planowane transze, płatności i etapy finansowe projektu:</p>
-            <div id="finance-schedule-list" class="space-y-2">
-                <!-- Wiersze transz będą dodawane dynamicznie -->
-            </div>
+            <p class="text-gray-600 text-sm mb-4">Zarządzaj przychodami i wydatkami projektu w czasie:</p>
+            
+            {{-- Przyciski dodawania --}}
             @if(!in_array($project->status, ['warranty','archived']))
-            <button type="button" id="add-finance-row" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 mt-3">➕ Dodaj transzę</button>
+            <div class="flex gap-2 mb-4">
+                <button type="button" id="add-income-row" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2">
+                    <span>📈</span> Dodaj przychód
+                </button>
+                <button type="button" id="add-expense-row" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2">
+                    <span>📉</span> Dodaj wydatek
+                </button>
+            </div>
             @endif
-            <p class="text-xs text-gray-500 mt-3">Przeciągnij wiersze, aby zmienić kolejność.</p>
+            
+            {{-- Lista transakcji finansowych --}}
+            <div id="finance-transactions-list" class="space-y-2 mb-4">
+                <!-- Wiersze transakcji będą dodawane dynamicznie -->
+            </div>
+            
+            {{-- Podsumowanie finansowe --}}
+            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4 mt-4">
+                <h4 class="font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                    <span>📊</span> Podsumowanie finansowe
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                    <div class="bg-white rounded p-3 border border-green-200">
+                        <div class="text-xs text-gray-500 uppercase mb-1">Przychody</div>
+                        <div id="total-income" class="text-xl font-bold text-green-600">0.00 zł</div>
+                    </div>
+                    <div class="bg-white rounded p-3 border border-red-200">
+                        <div class="text-xs text-gray-500 uppercase mb-1">Wydatki</div>
+                        <div id="total-expenses" class="text-xl font-bold text-red-600">0.00 zł</div>
+                    </div>
+                    <div class="bg-white rounded p-3 border border-blue-300">
+                        <div class="text-xs text-gray-500 uppercase mb-1">Bilans</div>
+                        <div id="balance" class="text-xl font-bold text-blue-600">0.00 zł</div>
+                    </div>
+                </div>
+                
+                {{-- Wykres czasowy --}}
+                <div class="bg-white rounded-lg p-4 border border-gray-200 mt-3">
+                    <h5 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                        <span>📈</span> Cash Flow w czasie
+                    </h5>
+                    <canvas id="cashflow-chart" style="max-height: 300px;"></canvas>
+                </div>
+                
+                {{-- Legenda statusów --}}
+                <div class="mt-3 flex flex-wrap gap-3 text-xs">
+                    <div class="flex items-center gap-1">
+                        <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                        <span class="text-gray-600">Zapłacone</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+                        <span class="text-gray-600">Zamówione</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="w-3 h-3 rounded-full bg-gray-400"></span>
+                        <span class="text-gray-600">Przewidziane</span>
+                    </div>
+                </div>
+            </div>
+            
+            <p class="text-xs text-gray-500 mt-3">💡 Przeciągnij wiersze, aby zmienić kolejność. Wydatki mogą być oznaczone jako zapłacone, zamówione lub przewidziane.</p>
         </div>
     </div>
     {{-- KONIEC SEKCJI 4 --}}
@@ -827,38 +885,100 @@
             });
         }
         
-        // --- Harmonogram finansowy: dodawanie wierszy ---
+        // --- Harmonogram finansowy: zarządzanie przychodami i wydatkami ---
         let financeRowIndex = 0;
-        const financeList = document.getElementById('finance-schedule-list');
-        const addFinanceBtn = document.getElementById('add-finance-row');
+        const financeList = document.getElementById('finance-transactions-list');
+        const addIncomeBtn = document.getElementById('add-income-row');
+        const addExpenseBtn = document.getElementById('add-expense-row');
+        let cashflowChart = null;
         
-        function addFinanceRow(name = '', amount = '', date = '') {
+        // Status badge helper
+        function getStatusBadge(status) {
+            const badges = {
+                'paid': '<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">✓ Zapłacone</span>',
+                'ordered': '<span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">⏳ Zamówione</span>',
+                'planned': '<span class="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-semibold">📅 Przewidziane</span>'
+            };
+            return badges[status] || '';
+        }
+        
+        // Dodaj przychód
+        function addIncomeRow(name = '', amount = '', date = '') {
             if (!financeList) return;
             const row = document.createElement('div');
-            row.className = 'finance-row flex gap-2 items-center p-2 bg-gray-50 rounded border border-gray-200 cursor-move';
+            row.className = 'finance-row flex gap-2 items-center p-3 bg-green-50 border-l-4 border-green-500 rounded shadow-sm cursor-move';
             row.draggable = true;
+            row.dataset.type = 'income';
             row.innerHTML = `
                 <span class="drag-handle text-gray-400 hover:text-gray-600 cursor-grab text-xl" title="Przeciągnij">⋮⋮</span>
-                <input type="text" name="finance_schedule[${financeRowIndex}][name]" class="px-2 py-1 border rounded flex-1" placeholder="Nazwa transzy" value="${name}">
-                <input type="number" name="finance_schedule[${financeRowIndex}][amount]" class="px-2 py-1 border rounded w-32" placeholder="Kwota (PLN)" min="0" step="0.01" value="${amount}">
-                <input type="date" name="finance_schedule[${financeRowIndex}][date]" class="px-2 py-1 border rounded w-40" value="${date}">
-                <button type="button" class="remove-finance-row px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm">🗑️</button>`;
+                <input type="hidden" name="finance[${financeRowIndex}][type]" value="income">
+                <div class="flex items-center gap-2 flex-1">
+                    <span class="text-green-600 font-bold text-lg">📈</span>
+                    <input type="text" name="finance[${financeRowIndex}][name]" class="px-3 py-2 border rounded flex-1" placeholder="Nazwa transzy / płatności" value="${name}" required>
+                </div>
+                <input type="number" name="finance[${financeRowIndex}][amount]" class="px-3 py-2 border rounded w-32 font-semibold text-green-700" placeholder="Kwota" min="0" step="0.01" value="${amount}" required>
+                <input type="date" name="finance[${financeRowIndex}][date]" class="px-3 py-2 border rounded w-40" value="${date}" required>
+                <button type="button" class="remove-finance-row px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-semibold">🗑️</button>`;
             financeList.appendChild(row);
             financeRowIndex++;
             addFinanceDragListeners(row);
+            updateFinancials();
         }
         
-        if (addFinanceBtn) {
-            addFinanceBtn.addEventListener('click', () => addFinanceRow());
+        // Dodaj wydatek
+        function addExpenseRow(category = 'materials', name = '', amount = '', date = '', status = 'planned') {
+            if (!financeList) return;
+            const row = document.createElement('div');
+            row.className = 'finance-row flex gap-2 items-center p-3 bg-red-50 border-l-4 border-red-500 rounded shadow-sm cursor-move';
+            row.draggable = true;
+            row.dataset.type = 'expense';
+            row.innerHTML = `
+                <span class="drag-handle text-gray-400 hover:text-gray-600 cursor-grab text-xl" title="Przeciągnij">⋮⋮</span>
+                <input type="hidden" name="finance[${financeRowIndex}][type]" value="expense">
+                <div class="flex items-center gap-2 flex-1">
+                    <span class="text-red-600 font-bold text-lg">📉</span>
+                    <select name="finance[${financeRowIndex}][category]" class="px-3 py-2 border rounded bg-white" required>
+                        <option value="materials" ${category === 'materials' ? 'selected' : ''}>🔧 Materiały</option>
+                        <option value="services" ${category === 'services' ? 'selected' : ''}>👷 Usługi</option>
+                    </select>
+                    <input type="text" name="finance[${financeRowIndex}][name]" class="px-3 py-2 border rounded flex-1" placeholder="Nazwa wydatku" value="${name}" required>
+                </div>
+                <input type="number" name="finance[${financeRowIndex}][amount]" class="px-3 py-2 border rounded w-32 font-semibold text-red-700" placeholder="Kwota" min="0" step="0.01" value="${amount}" required>
+                <input type="date" name="finance[${financeRowIndex}][date]" class="px-3 py-2 border rounded w-40" value="${date}" required>
+                <select name="finance[${financeRowIndex}][status]" class="px-3 py-2 border rounded bg-white status-select" data-status="${status}" required>
+                    <option value="paid" ${status === 'paid' ? 'selected' : ''}>✓ Zapłacone</option>
+                    <option value="ordered" ${status === 'ordered' ? 'selected' : ''}>⏳ Zamówione</option>
+                    <option value="planned" ${status === 'planned' ? 'selected' : ''}>📅 Przewidziane</option>
+                </select>
+                <button type="button" class="remove-finance-row px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-semibold">🗑️</button>`;
+            financeList.appendChild(row);
+            financeRowIndex++;
+            addFinanceDragListeners(row);
+            updateFinancials();
         }
         
+        // Event listeners dla przycisków
+        if (addIncomeBtn) {
+            addIncomeBtn.addEventListener('click', () => addIncomeRow());
+        }
+        
+        if (addExpenseBtn) {
+            addExpenseBtn.addEventListener('click', () => addExpenseRow());
+        }
+        
+        // Usuwanie wierszy
         if (financeList) {
             financeList.addEventListener('click', e => {
                 if (e.target.closest('.remove-finance-row')) {
                     e.target.closest('.finance-row')?.remove();
                     reindexFinanceRows();
+                    updateFinancials();
                 }
             });
+            
+            // Live update przy zmianie wartości
+            financeList.addEventListener('input', updateFinancials);
+            financeList.addEventListener('change', updateFinancials);
         }
         
         // Drag & drop dla wierszy finansowych
@@ -891,12 +1011,171 @@
             if (!financeList) return;
             const rows = financeList.querySelectorAll('.finance-row');
             rows.forEach((row, idx) => {
-                row.querySelectorAll('input').forEach(input => {
+                row.querySelectorAll('input, select').forEach(input => {
                     const name = input.getAttribute('name');
-                    if (name) input.setAttribute('name', name.replace(/finance_schedule\[\d+\]/, `finance_schedule[${idx}]`));
+                    if (name) input.setAttribute('name', name.replace(/finance\[\d+\]/, `finance[${idx}]`));
                 });
             });
             financeRowIndex = rows.length;
+        }
+        
+        // Funkcja przeliczająca finanse i aktualizująca wykres
+        function updateFinancials() {
+            if (!financeList) return;
+            
+            const rows = financeList.querySelectorAll('.finance-row');
+            let totalIncome = 0;
+            let totalExpenses = 0;
+            const transactions = [];
+            
+            rows.forEach(row => {
+                const type = row.dataset.type;
+                const amountInput = row.querySelector('input[name*="[amount]"]');
+                const dateInput = row.querySelector('input[name*="[date]"]');
+                const nameInput = row.querySelector('input[name*="[name]"]');
+                
+                const amount = parseFloat(amountInput?.value || 0);
+                const date = dateInput?.value || '';
+                const name = nameInput?.value || '';
+                
+                if (amount > 0 && date) {
+                    transactions.push({
+                        type: type,
+                        amount: amount,
+                        date: date,
+                        name: name
+                    });
+                    
+                    if (type === 'income') {
+                        totalIncome += amount;
+                    } else if (type === 'expense') {
+                        totalExpenses += amount;
+                    }
+                }
+            });
+            
+            const balance = totalIncome - totalExpenses;
+            
+            // Aktualizuj podsumowanie
+            const incomeEl = document.getElementById('total-income');
+            const expensesEl = document.getElementById('total-expenses');
+            const balanceEl = document.getElementById('balance');
+            
+            if (incomeEl) incomeEl.textContent = totalIncome.toFixed(2) + ' zł';
+            if (expensesEl) expensesEl.textContent = totalExpenses.toFixed(2) + ' zł';
+            if (balanceEl) {
+                balanceEl.textContent = balance.toFixed(2) + ' zł';
+                balanceEl.className = 'text-xl font-bold ' + (balance >= 0 ? 'text-green-600' : 'text-red-600');
+            }
+            
+            // Aktualizuj wykres
+            renderCashflowChart(transactions);
+        }
+        
+        // Renderowanie wykresu cash flow
+        function renderCashflowChart(transactions) {
+            const canvas = document.getElementById('cashflow-chart');
+            if (!canvas) return;
+            
+            // Sortuj transakcje po dacie
+            transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            // Przygotuj dane dla wykresu
+            const labels = [];
+            const incomeData = [];
+            const expenseData = [];
+            const balanceData = [];
+            let cumulativeBalance = 0;
+            
+            // Grupuj po datach
+            const dateMap = new Map();
+            transactions.forEach(t => {
+                if (!dateMap.has(t.date)) {
+                    dateMap.set(t.date, { income: 0, expense: 0 });
+                }
+                const entry = dateMap.get(t.date);
+                if (t.type === 'income') {
+                    entry.income += t.amount;
+                } else {
+                    entry.expense += t.amount;
+                }
+            });
+            
+            // Przekształć na tablice dla Chart.js
+            dateMap.forEach((value, date) => {
+                labels.push(new Date(date).toLocaleDateString('pl-PL'));
+                incomeData.push(value.income);
+                expenseData.push(value.expense);
+                cumulativeBalance += (value.income - value.expense);
+                balanceData.push(cumulativeBalance);
+            });
+            
+            // Zniszcz poprzedni wykres
+            if (cashflowChart) {
+                cashflowChart.destroy();
+            }
+            
+            // Utwórz nowy wykres
+            cashflowChart = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Przychody',
+                            data: incomeData,
+                            borderColor: 'rgb(34, 197, 94)',
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            borderWidth: 2,
+                            fill: true
+                        },
+                        {
+                            label: 'Wydatki',
+                            data: expenseData,
+                            borderColor: 'rgb(239, 68, 68)',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            fill: true
+                        },
+                        {
+                            label: 'Bilans narastająco',
+                            data: balanceData,
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' zł';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(0) + ' zł';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
         }
     });
 </script>
