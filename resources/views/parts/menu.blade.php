@@ -53,13 +53,17 @@
 <aside id="app-sidebar" class="fixed left-0 w-64 bg-gradient-to-b from-gray-800 to-gray-900 shadow-2xl flex flex-col justify-between overflow-y-auto z-40" style="top: 56px; bottom: 0;">
     <div>
         <nav class="py-4">
+        @php
+            $isSuperAdmin = auth()->check() && strtolower(auth()->user()->email) === 'proximalumine@gmail.com';
+            $isAdmin = auth()->check() && auth()->user()->is_admin;
+        @endphp
         <!-- Start -->
         <a href="{{ url('/') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->is('/') ? 'bg-gray-700 text-white border-l-4 border-blue-500' : '' }}">
             <span class="text-lg">🏠</span>
             <span class="font-medium">Start</span>
         </a>
 
-        @if(auth()->check() && auth()->user()->can_view_magazyn)
+        @if(auth()->check() && (auth()->user()->can_view_magazyn || $isAdmin || $isSuperAdmin))
         <!-- Magazyn (rozwijane) -->
         <div class="menu-group">
             <button onclick="toggleSubmenu('magazyn')" class="w-full flex items-center justify-between px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ (request()->routeIs('magazyn.add') || request()->routeIs('magazyn.remove') || request()->routeIs('magazyn.check') || request()->routeIs('magazyn.orders')) ? 'bg-gray-700 text-white' : '' }}">
@@ -72,13 +76,13 @@
                 </svg>
             </button>
             <div id="magazyn-submenu" class="bg-gray-900 {{ (request()->routeIs('magazyn.add') || request()->routeIs('magazyn.remove') || request()->routeIs('magazyn.check') || request()->routeIs('magazyn.orders')) ? '' : 'hidden' }}">
-                @if(auth()->user()->can_view_catalog)
+                @if($isAdmin || $isSuperAdmin || auth()->user()->can_view_catalog)
                 <a href="{{ route('magazyn.check') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.check') ? 'bg-gray-700 text-white border-l-4 border-blue-500' : '' }}">
                     <span>🔍</span>
                     <span>Katalog</span>
                 </a>
                 @endif
-                @if(auth()->user()->can_add)
+                @if($isAdmin || $isSuperAdmin || auth()->user()->can_add)
                 <a href="{{ route('magazyn.add') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.add') ? 'bg-gray-700 text-white border-l-4 border-green-500' : '' }}">
                     <span>➕</span>
                     <span>Dodaj</span>
@@ -88,13 +92,13 @@
                     <span>Przyjmij na magazyn</span>
                 </a>
                 @endif
-                @if(auth()->user()->can_remove)
+                @if($isAdmin || $isSuperAdmin || auth()->user()->can_remove)
                 <a href="{{ route('magazyn.remove') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.remove') ? 'bg-gray-700 text-white border-l-4 border-red-500' : '' }}">
                     <span>➖</span>
                     <span>Pobierz</span>
                 </a>
                 @endif
-                @if(auth()->user()->can_orders)
+                @if($isAdmin || $isSuperAdmin || auth()->user()->can_orders)
                 <a href="{{ route('magazyn.orders') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.orders') ? 'bg-gray-700 text-white border-l-4 border-yellow-500' : '' }}">
                     <span>📦</span>
                     <span>Zamówienia</span>
@@ -105,10 +109,6 @@
         @endif
 
         <!-- Projekty (rozwijane) -->
-        @php
-            $isSuperAdmin = auth()->check() && strtolower(auth()->user()->email) === 'proximalumine@gmail.com';
-            $isAdmin = auth()->check() && auth()->user()->is_admin;
-        @endphp
         @if(auth()->check() && (auth()->user()->can_view_projects || $isAdmin || $isSuperAdmin))
         <div class="menu-group">
             <button onclick="toggleSubmenu('projekty')" class="w-full flex items-center justify-between px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200">
@@ -156,7 +156,7 @@
         @endif
 
         <!-- CRM -->
-        @if(auth()->check() && auth()->user()->can_crm)
+        @if(auth()->check() && (auth()->user()->can_crm || $isAdmin || $isSuperAdmin))
         <a href="{{ route('crm') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('crm*') ? 'bg-gray-700 text-white border-l-4 border-teal-500' : '' }}">
             <span class="text-lg">👥</span>
             <span class="font-medium">CRM</span>
@@ -164,7 +164,7 @@
         @endif
 
         <!-- Oferty (rozwijane) -->
-        @if(auth()->check() && auth()->user()->can_view_offers)
+        @if(auth()->check() && (auth()->user()->can_view_offers || $isAdmin || $isSuperAdmin))
         <div class="menu-group">
             <button onclick="toggleSubmenu('oferty')" class="w-full flex items-center justify-between px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ (request()->routeIs('offers.new') || request()->routeIs('offers.portfolio') || request()->routeIs('offers.inprogress') || request()->routeIs('offers.archived') || request()->routeIs('offers.settings')) ? 'bg-gray-700 text-white' : '' }}">
                 <div class="flex items-center gap-3">
@@ -192,7 +192,7 @@
                     <span>🗄️</span>
                     <span>Oferty zarchiwizowane</span>
                 </a>
-                @if(auth()->user()->email === 'proximalumine@gmail.com' || auth()->user()->can_settings)
+                @if($isSuperAdmin || auth()->user()->can_settings)
                 <a href="{{ route('offers.settings') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('offers.settings') ? 'bg-gray-700 text-white border-l-4 border-purple-500' : '' }}">
                     <span>⚙️</span>
                     <span>Ustawienia ofert</span>
@@ -203,7 +203,7 @@
         @endif
 
         <!-- Receptury -->
-        @if(auth()->check() && (auth()->user()->email === 'proximalumine@gmail.com' || auth()->user()->can_view_recipes))
+        @if(auth()->check() && ($isSuperAdmin || auth()->user()->can_view_recipes))
         <a href="{{ route('receptury') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('receptury') ? 'bg-gray-700 text-white border-l-4 border-purple-500' : '' }}">
             <span class="text-lg">🧪</span>
             <span class="font-medium">Receptury</span>
@@ -211,7 +211,7 @@
         @endif
 
         <!-- Ustawienia -->
-        @if(auth()->check() && (auth()->user()->email === 'proximalumine@gmail.com' || auth()->user()->can_settings))
+        @if(auth()->check() && ($isSuperAdmin || auth()->user()->can_settings))
         <a href="{{ route('magazyn.settings') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.settings') ? 'bg-gray-700 text-white border-l-4 border-gray-400' : '' }}">
             <span class="text-lg">⚙️</span>
             <span class="font-medium">Ustawienia</span>
