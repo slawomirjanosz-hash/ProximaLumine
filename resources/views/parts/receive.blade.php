@@ -50,10 +50,13 @@
 <div class="max-w-6xl mx-auto bg-white p-6 rounded shadow mt-6">
 	{{-- PRZYCISK TRYBU SKANOWANIA --}}
 	<div class="flex flex-col md:flex-row md:items-center gap-4 mb-6">
-		<button id="start-scanner-mode" class="px-4 py-2 bg-blue-600 text-white rounded text-lg font-semibold hover:bg-blue-700">
-			📱 Przyjmij na magazyn skanerem
-		</button>
-		<span id="scanner-status" class="text-green-700 font-bold hidden">✓ Tryb skanowania aktywny - skanuj kody</span>
+		   <div class="relative" id="scanner-btn-wrapper">
+			   <button id="start-scanner-mode" class="px-4 py-2 bg-blue-600 text-white rounded text-lg font-semibold hover:bg-blue-700">
+				   📱 Przyjmij na magazyn skanerem
+			   </button>
+			   <span id="scanner-tooltip" class="absolute left-0 mt-1 w-max bg-black text-white text-xs rounded px-2 py-1 z-10" style="white-space:nowrap; display:none;">Zapisz zmiany</span>
+		   </div>
+		   <span id="scanner-status" class="text-green-700 font-bold hidden">✓ Tryb skanowania aktywny - skanuj kody</span>
 	</div>
 
 	{{-- LISTA PRZYJĘTYCH PRODUKTÓW --}}
@@ -67,6 +70,7 @@
 
 	{{-- TABELA ZESKANOWANYCH PRODUKTÓW --}}
 	<div id="scanner-table-container" class="mb-8"></div>
+	<div id="scanner-back-btn-container" class="mb-4"></div>
 
 	{{-- PRZYCISK ZAAKCEPTUJ --}}
 	<button id="accept-receive-btn" class="px-4 py-2 bg-green-600 text-white rounded text-lg font-semibold hidden hover:bg-green-700 mb-6">
@@ -124,28 +128,45 @@ document.addEventListener('DOMContentLoaded', function() {
 	let scanBuffer = '';
 	let scanTimeout = null;
 
-	scannerBtn.addEventListener('click', function() {
-		scannerMode = true;
-		scannerStatus.classList.remove('hidden');
-		scannerBtn.disabled = true;
-		scannerBtn.classList.add('opacity-50', 'cursor-not-allowed');
-		catalogContainer.classList.add('hidden');
-		scannerTableContainer.innerHTML = `
-			<h3 class="text-lg font-bold mb-3">Zeskanowane produkty:</h3>
-			<table class='w-full border border-collapse text-sm' id='scanner-table'>
-				<thead class="bg-gray-100">
-					<tr>
-						<th class="border p-2">Kod</th>
-						<th class="border p-2">Nazwa produktu</th>
-						<th class="border p-2">Ilość</th>
-						<th class="border p-2">Akcja</th>
-					</tr>
-				</thead>
-				<tbody></tbody>
-			</table>`;
-		acceptBtn.classList.remove('hidden');
-		document.body.focus();
-	});
+	   scannerBtn.addEventListener('click', function() {
+		   scannerMode = true;
+		   scannerStatus.classList.remove('hidden');
+		   scannerBtn.disabled = true;
+		   scannerBtn.classList.add('opacity-50', 'cursor-not-allowed');
+		   // Ukryj przycisk skanera
+		   document.getElementById('scanner-btn-wrapper').style.display = 'none';
+		   catalogContainer.classList.add('hidden');
+		   scannerTableContainer.innerHTML = `
+			   <h3 class="text-lg font-bold mb-3">Zeskanowane produkty:</h3>
+			   <table class='w-full border border-collapse text-sm' id='scanner-table'>
+				   <thead class="bg-gray-100">
+					   <tr>
+						   <th class="border p-2">Kod</th>
+						   <th class="border p-2">Nazwa produktu</th>
+						   <th class="border p-2">Ilość</th>
+						   <th class="border p-2">Akcja</th>
+					   </tr>
+				   </thead>
+				   <tbody></tbody>
+			   </table>`;
+		   acceptBtn.classList.remove('hidden');
+		   // Dodaj przycisk Powrót
+		   const backBtnContainer = document.getElementById('scanner-back-btn-container');
+		   backBtnContainer.innerHTML = `<button id=\"scanner-back-btn\" class=\"px-4 py-2 bg-gray-500 text-white rounded font-semibold hover:bg-gray-700\">← Powrót</button>`;
+		   document.getElementById('scanner-back-btn').addEventListener('click', function() {
+			   // Wyjdź z trybu skanowania: pokaż katalog, ukryj tabelę skanowania, pokaż przycisk skanera
+			   scannerMode = false;
+			   scannerStatus.classList.add('hidden');
+			   document.getElementById('scanner-btn-wrapper').style.display = '';
+			   catalogContainer.classList.remove('hidden');
+			   scannerTableContainer.innerHTML = '';
+			   backBtnContainer.innerHTML = '';
+			   acceptBtn.classList.add('hidden');
+			   // Przywróć stan przycisku skanera
+			   updateScannerButton();
+		   });
+		   document.body.focus();
+	   });
 
 	// Obsługa skanowania kodów (nasłuchiwanie na klawiaturę)
 	document.addEventListener('keypress', function(e) {
@@ -333,20 +354,39 @@ document.addEventListener('DOMContentLoaded', function() {
 	let isAutoReloading = false; // Flaga dla automatycznego odświeżania
 
 	// Aktualizuj stan przycisku skanera
-	function updateScannerButton() {
-		const scannerBtn = document.getElementById('start-scanner-mode');
-		if (receivedChanges.length > 0) {
-			// Są niezapisane zmiany - zablokuj skaner
-			scannerBtn.disabled = true;
-			scannerBtn.classList.add('opacity-50', 'cursor-not-allowed');
-			scannerBtn.title = 'Zapisz najpierw zmiany aby odblokować skaner';
-		} else {
-			// Brak zmian - odblokuj skaner
-			scannerBtn.disabled = false;
-			scannerBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-			scannerBtn.title = '';
-		}
-	}
+	   function updateScannerButton() {
+		   const scannerBtn = document.getElementById('start-scanner-mode');
+		   const tooltip = document.getElementById('scanner-tooltip');
+		   if (receivedChanges.length > 0) {
+			   // Są niezapisane zmiany - zablokuj skaner
+			   scannerBtn.disabled = true;
+			   scannerBtn.classList.add('opacity-50', 'cursor-not-allowed');
+			   if (tooltip) {
+				   tooltip.style.display = 'none';
+			   }
+			   // Pokaż tooltip tylko na hover
+			   scannerBtn.addEventListener('mouseenter', showScannerTooltip);
+			   scannerBtn.addEventListener('mouseleave', hideScannerTooltip);
+		   } else {
+			   // Brak zmian - odblokuj skaner
+			   scannerBtn.disabled = false;
+			   scannerBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+			   if (tooltip) {
+				   tooltip.style.display = 'none';
+			   }
+			   scannerBtn.removeEventListener('mouseenter', showScannerTooltip);
+			   scannerBtn.removeEventListener('mouseleave', hideScannerTooltip);
+		   }
+	   }
+
+	   function showScannerTooltip() {
+		   const tooltip = document.getElementById('scanner-tooltip');
+		   if (tooltip) tooltip.style.display = 'block';
+	   }
+	   function hideScannerTooltip() {
+		   const tooltip = document.getElementById('scanner-tooltip');
+		   if (tooltip) tooltip.style.display = 'none';
+	   }
 
 	// Dodaj zmianę do listy
 	function addChange(partId, partName, categoryId, quantity) {
