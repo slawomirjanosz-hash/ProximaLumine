@@ -84,7 +84,46 @@
                 </span>
             </div>
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        
+        {{-- PRZYCISKI AKCJI --}}
+        <div class="mt-4 flex gap-2 justify-end">
+            @if(!in_array($project->status, ['warranty','archived']))
+                <a href="{{ route('magazyn.editProject', $project->id) }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                    Edytuj projekt
+                </a>
+                @if($project->status === 'in_progress')
+                <button id="finish-project-btn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                    Zakończ projekt
+                </button>
+                @endif
+            @else
+                <span class="text-gray-400 text-sm">Projekt zamknięty – tylko podgląd</span>
+            @endif
+        </div>
+    </div>
+
+    {{-- KONTENER NA PRZESUWALNE SEKCJE --}}
+    <div id="sortable-sections" class="space-y-8">
+    
+    {{-- SEKCJA 0: POBIERANIE --}}
+    <div id="section-pickup" class="sortable-section bg-white border-2 border-indigo-200 rounded-lg p-4 shadow-sm" data-order="0">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="drag-handle cursor-move text-gray-400 hover:text-gray-600" draggable="true" title="Przeciągnij, aby zmienić kolejność">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                </svg>
+            </div>
+            <button type="button" id="toggle-pickup-section" class="text-gray-400 hover:text-gray-600 focus:outline-none">
+                <span id="toggle-pickup-arrow">▼</span>
+            </button>
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+                <span class="text-indigo-600">📦</span>
+                Pobieranie produktów
+            </h3>
+        </div>
+        <div id="pickup-section-content">
+            {{-- AUTORYZACJA POBRAŃ --}}
+            <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
                 <span class="text-sm font-semibold text-gray-600">Autoryzacja pobrań:</span>
                 @if($project->status === 'warranty' || $project->status === 'archived')
@@ -130,9 +169,9 @@
                     @endif
                 @endif
             </div>
-        </div>
-        
-        {{-- INFORMACJA O ZAŁADOWANYCH LISTACH --}}
+            </div>
+            
+            {{-- INFORMACJA O ZAŁADOWANYCH LISTACH --}}
         @if($loadedLists->count() > 0)
             <div class="mt-4 space-y-2">
                 <h4 class="text-sm font-bold text-gray-700">📋 Załadowane listy projektowe:</h4>
@@ -228,28 +267,23 @@
                 </div>
             </div>
         @endif
-        
-        <div class="mt-4 flex gap-2 justify-end">
-            @if($project->status !== 'warranty')
-                <button type="button" id="choose-list-btn" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
-                    📋 Wybierz listę projektową
-                </button>
-                <a href="{{ route('magazyn.projects.pickup', $project->id) }}" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
-                    ➖ Pobierz produkty do projektu
-                </a>
-                <a href="{{ route('magazyn.editProject', $project->id) }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                    Edytuj projekt
-                </a>
-                @if($project->status === 'in_progress')
-                <button id="finish-project-btn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                    Zakończ projekt
-                </button>
+            
+            {{-- PRZYCISKI POBIERANIA --}}
+            <div class="mt-4 flex gap-2 justify-end">
+                @if(!in_array($project->status, ['warranty','archived']))
+                    <button type="button" id="choose-list-btn" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+                        📋 Wybierz listę projektową
+                    </button>
+                    <a href="{{ route('magazyn.projects.pickup', $project->id) }}" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+                        ➖ Pobierz produkty do projektu
+                    </a>
+                @else
+                    <span class="text-gray-400 text-sm">Projekt zamknięty – brak możliwości pobierania produktów.</span>
                 @endif
-            @else
-                <span class="text-gray-400 text-sm">Projekt na gwarancji – tylko podgląd, bez możliwości edycji lub modyfikacji produktów.</span>
-            @endif
+            </div>
         </div>
     </div>
+    {{-- KONIEC SEKCJI 0 --}}
 
     {{-- TABELA PRODUKTÓW --}}
     <div class="mb-6">
@@ -314,11 +348,9 @@
         </div>
         @endif
         
-        {{-- KONTENER NA PRZESUWALNE SEKCJE --}}
-        <div id="sortable-sections" class="space-y-8">
         
         {{-- SEKCJA 1: ZMIANY W MAGAZYNIE --}}
-        <div id="section-changes" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="1">
+        <div id="section-changes" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="2">
         <div class="flex items-center gap-3 mb-4">
             <div class="drag-handle cursor-move text-gray-400 hover:text-gray-600" draggable="true" title="Przeciągnij, aby zmienić kolejność">
                 <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
@@ -405,7 +437,7 @@
     {{-- KONIEC SEKCJI 1: ZMIANY W MAGAZYNIE --}}
     
     {{-- SEKCJA 2: PODSUMOWANIE PRODUKTÓW --}}
-    <div id="section-summary" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="2">
+    <div id="section-summary" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="3">
         <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-3">
                 <div class="drag-handle cursor-move text-gray-400 hover:text-gray-600" draggable="true" title="Przeciągnij, aby zmienić kolejność">
@@ -489,7 +521,7 @@
     {{-- KONIEC SEKCJI 2 --}}
     
     {{-- SEKCJA 3: GANTT FRAPPE --}}
-    <div id="section-frappe" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="3">
+    <div id="section-frappe" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="4">
         <div class="flex items-center gap-3 mb-4">
             <div class="drag-handle cursor-move text-gray-400 hover:text-gray-600" draggable="true" title="Przeciągnij, aby zmienić kolejność">
                 <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
@@ -623,7 +655,7 @@
     {{-- KONIEC SEKCJI 3 --}}
     
     {{-- SEKCJA 4: HARMONOGRAM FINANSOWY --}}
-    <div id="section-finance" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="4">
+    <div id="section-finance" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="5">
         <div class="flex items-center gap-3 mb-4">
             <div class="drag-handle cursor-move text-gray-400 hover:text-gray-600" draggable="true" title="Przeciągnij, aby zmienić kolejność">
                 <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
@@ -859,6 +891,19 @@
     // Wczytaj zapisaną kolejność przy załadowaniu strony
     document.addEventListener('DOMContentLoaded', function() {
         loadSectionOrder();
+        
+        // Obsługa rozwijania sekcji Pobieranie
+        const pickupToggleBtn = document.getElementById('toggle-pickup-section');
+        const pickupContent = document.getElementById('pickup-section-content');
+        const pickupArrow = document.getElementById('toggle-pickup-arrow');
+        if (pickupToggleBtn && pickupContent && pickupArrow) {
+            // Domyślnie rozwinięta
+            pickupArrow.textContent = '▼';
+            pickupToggleBtn.addEventListener('click', function() {
+                pickupContent.classList.toggle('hidden');
+                pickupArrow.textContent = pickupContent.classList.contains('hidden') ? '▶' : '▼';
+            });
+        }
         
         // Obsługa rozwijania sekcji Zmiany w magazynie
         const toggleBtn = document.getElementById('toggle-changes-section');
