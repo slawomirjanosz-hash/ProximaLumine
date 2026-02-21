@@ -507,3 +507,8 @@ Route::get('/diagnostics/qr-settings', function () {
 Route::get('/crm-live-test', function () {
     return view('crm-live-test');
 })->name('diagnostics.crm-live-test');
+
+// CRM Deal Update Test - testuje walidację updateDeal() i pokazuje dostępne slugi
+Route::get('/crm-deal-test', function () {
+    return view('crm-deal-test');
+})->name('diagnostics.crm-deal-test');
