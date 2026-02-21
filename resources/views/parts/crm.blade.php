@@ -626,22 +626,27 @@ function showCompanyModal() {
 }
 
 function showDealModal() {
-    document.getElementById('modal-content').innerHTML = `
-        <h3 class="text-xl font-bold mb-4">Dodaj Szansę Sprzedażową</h3>
-        <form method="POST" action="{{ route('crm.deal.add') }}">
-            @csrf
-            <div class="grid grid-cols-2 gap-4">
-                <div class="col-span-2"><label class="block mb-1 font-semibold">Nazwa *</label><input type="text" name="name" required class="w-full border rounded px-3 py-2"></div>
-                <div><label class="block mb-1 font-semibold">Firma</label>
-                    <select name="company_id" class="w-full border rounded px-3 py-2">
-                        <option value="">Brak</option>
-                        @foreach($companies as $company)
-                            <option value="{{ $company->id }}">{{ $company->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div><label class="block mb-1 font-semibold">Wartość (PLN) *</label><input type="number" step="0.01" name="value" required class="w-full border rounded px-3 py-2"></div>
-                <div><label class="block mb-1 font-semibold">Etap *</label>
+            document.getElementById('modal-content').innerHTML = `
+                <h3 class="text-xl font-bold mb-4">Edytuj Szansę Sprzedażową</h3>
+                <form method="POST" action="/crm/deal/${id}">
+                    @csrf
+                    @method('PUT')
+                    <div class="grid grid-cols-2 gap-4">
+                        ...existing code...
+                    </div>
+                    <div class="mt-4 flex gap-2 justify-end">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Anuluj</button>
+                        ${deal.stage === 'wycena' && !hasOffers ? '<button type="button" onclick="createOfferFromDeal(' + id + ')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">📄 Stwórz ofertę</button>' : ''}
+                        ${deal.stage === 'wycena' && hasOffers ? '<button type="button" onclick="createOfferFromDeal(' + id + ')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">📄 Dodaj kolejną ofertę</button>' : ''}
+                        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Zapisz</button>
+                    </div>
+                </form>
+                <form method="POST" action="/crm/deal/${id}" class="mt-2">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700" onclick="return confirm('Czy na pewno chcesz usunąć tę szansę?')">Usuń</button>
+                </form>
+            `;
                     <select name="stage" required class="w-full border rounded px-3 py-2">
                         @foreach($crmStages->where('is_active', 1)->sortBy('order') as $stage)
                             <option value="{{ $stage->slug }}" @if(isset($deal) && $deal->stage === $stage->slug) selected @endif>{{ $stage->name }}</option>
