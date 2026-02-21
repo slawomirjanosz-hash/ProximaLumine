@@ -6030,11 +6030,17 @@ class PartController extends Controller
     public function deleteCrmStage($id)
     {
         $stage = \DB::table('crm_stages')->where('id', $id)->first();
-        
+        if (!$stage) {
+            return redirect()->route('crm.settings')->with('error', 'Etap nie istnieje.');
+        }
         if (in_array($stage->slug, ['wygrana', 'przegrana'])) {
             return redirect()->route('crm')->with('error', 'Nie można usunąć domyślnych etapów.');
         }
-        
+        // Sprawdź czy jakakolwiek szansa używa tego etapu
+        $dealCount = \DB::table('crm_deals')->where('stage', $stage->slug)->count();
+        if ($dealCount > 0) {
+            return redirect()->route('crm.settings')->with('error', 'Nie można usunąć etapu, który jest przypisany do jakiejkolwiek szansy sprzedażowej.');
+        }
         \DB::table('crm_stages')->where('id', $id)->delete();
         return redirect()->route('crm.settings')->with('success', 'Etap został usunięty.');
     }

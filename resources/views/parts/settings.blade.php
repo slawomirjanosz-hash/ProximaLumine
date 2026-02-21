@@ -1034,6 +1034,32 @@
         </button>
         <div id="other-settings-content" class="collapsible-content hidden p-6 border-t">
             <p class="text-gray-600 mb-4">Dodatkowe ustawienia systemu:</p>
+
+            <!-- Podsekcja: Diagnostyka (przyciski do stron diagnostycznych) -->
+            <div class="border rounded mb-4">
+                <button type="button" class="collapsible-btn w-full flex items-center gap-2 p-4 cursor-pointer hover:bg-gray-50 rounded" data-target="diagnostics-settings-content">
+                    <span class="toggle-arrow text-base">▶</span>
+                    <h4 class="font-semibold text-gray-800">Diagnostyka</h4>
+                </button>
+                <div id="diagnostics-settings-content" class="collapsible-content hidden p-4 border-t bg-gray-50">
+                    <p class="text-gray-600 text-sm mb-4 font-semibold">Dostępne narzędzia diagnostyczne:</p>
+                    <div class="flex flex-wrap gap-3 mb-2">
+                        <a href="/diagnostics" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Diagnostyka główna</a>
+                        <a href="/diagnostics/projects" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Diagnostyka projektów</a>
+                        <a href="/railway-diagnostics" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Diagnostyka Railway</a>
+                        <a href="/crm-diagnostics" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Diagnostyka CRM</a>
+                    </div>
+                    <div class="flex flex-wrap gap-3">
+                        <a href="/api/diagnostics/projects" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300" target="_blank">API: Projekty (JSON)</a>
+                        <a href="/api/diagnostics/full-projects" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300" target="_blank">API: Pełna diagnostyka projektów</a>
+                        <a href="/api/diagnostics/logs" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300" target="_blank">API: Logi</a>
+                        <a href="/api/diagnostics/database" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300" target="_blank">API: Baza danych</a>
+                        <a href="/api/diagnostics/migrations" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300" target="_blank">API: Migracje</a>
+                        <a href="/api/diagnostics/integrity" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300" target="_blank">API: Integralność danych</a>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-4">Kliknij wybrany przycisk, aby przejść do odpowiedniej strony diagnostycznej lub wywołać API.</p>
+                </div>
+            </div>
             
             <!-- Podsekcja: Ustawienia Zamówień (rozwijalna) -->
             <div class="border rounded mb-4">

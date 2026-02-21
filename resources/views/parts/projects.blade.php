@@ -181,12 +181,18 @@
                                     <td class="border p-2 text-center">
                                         <div class="flex items-center justify-center gap-2">
                                             <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline text-sm">Szczegóły</a>
-                                            @if(auth()->user()->is_admin)
-                                            <form action="{{ route('magazyn.deleteProject', $project->id) }}" method="POST" class="inline delete-project-form" data-project-name="{{ $project->name }}">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-semibold" title="Usuń projekt">🗑️</button>
-                                            </form>
+                                            @if(auth()->user()->email === 'proximalumine@gmail.com')
+                                                <form action="{{ route('magazyn.deleteProject', $project->id) }}" method="POST" class="inline delete-project-form" data-project-name="{{ $project->name }}">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-semibold" title="Usuń projekt">🗑️</button>
+                                                </form>
+                                            @elseif(auth()->user()->is_admin && !in_array($project->status, ['warranty','archived']))
+                                                <form action="{{ route('magazyn.deleteProject', $project->id) }}" method="POST" class="inline delete-project-form" data-project-name="{{ $project->name }}">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-semibold" title="Usuń projekt">🗑️</button>
+                                                </form>
                                             @endif
                                         </div>
                                     </td>

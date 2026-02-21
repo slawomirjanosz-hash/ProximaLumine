@@ -86,36 +86,17 @@
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <span class="text-sm font-semibold text-gray-600">Autoryzacja pobrań:</span>
-                @php
-                    $hasUnauthorized = \App\Models\ProjectRemoval::where('project_id', $project->id)->where('authorized', false)->exists();
-                @endphp
-                @if($hasUnauthorized)
-                    {{-- Zablokuj zmianę gdy są nieautoryzowane produkty --}}
+                @if($project->status === 'warranty')
                     <div class="flex items-center gap-2 mt-2">
-                        <input type="checkbox" disabled checked class="w-4 h-4 cursor-not-allowed opacity-50">
+                        <input type="checkbox" disabled {{ $project->requires_authorization ? 'checked' : '' }} class="w-4 h-4 cursor-not-allowed opacity-50">
                         <label class="text-sm font-medium text-gray-400">
                             Pobranie produktów wymaga autoryzacji przez skanowanie
                         </label>
                     </div>
-                    <p class="text-xs text-red-500 mt-1">⚠️ Nie można wyłączyć autoryzacji - masz produkty oczekujące na autoryzację. Najpierw zautoryzuj lub usuń te produkty.</p>
                     <span class="text-orange-600 font-semibold">✓ Wymagana</span>
+                    <p class="text-xs text-gray-400 mt-1">Projekt zamknięty – nie można zmienić autoryzacji.</p>
                 @else
-                    <form method="POST" action="{{ route('magazyn.projects.toggleAuthorization', $project->id) }}">
-                        @csrf
-                        <div class="flex items-center gap-2 mt-2">
-                            <input type="checkbox" name="requires_authorization" id="requires_authorization" value="1" class="w-4 h-4 cursor-pointer" {{ $project->requires_authorization ? 'checked' : '' }}>
-                            <label for="requires_authorization" class="text-sm font-medium cursor-pointer">
-                                Pobranie produktów wymaga autoryzacji przez skanowanie
-                            </label>
-                        </div>
-                        <button type="submit" class="mt-2 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Zapisz zmianę</button>
-                        @if($project->requires_authorization)
-                            <span class="ml-3 text-orange-600 font-semibold">✓ Wymagana</span>
-                        @else
-                            <span class="ml-3 text-gray-600">Nie wymagana</span>
-                        @endif
-                    </form>
-                    <p class="text-xs text-gray-500 mt-1">Jeśli zaznaczone, produkty pobrane do projektu nie zostaną odjęte ze stanu magazynu dopóki nie zostaną zeskanowane</p>
+                    ...existing code...
                 @endif
             </div>
         </div>
@@ -139,7 +120,7 @@
                                 <button type="button" class="ml-2 text-orange-600 hover:text-orange-800 font-bold text-xl" onclick="showMissingItems({{ $loadedListData->id }})" title="Kliknij aby zobaczyć czego brakuje">❗</button>
                             @endif
                             <span class="text-xs text-gray-500 ml-auto">{{ $loadedListData->created_at->format('d.m.Y H:i') }}</span>
-                            @if(auth()->user() && auth()->user()->is_admin)
+                            @if(auth()->user() && auth()->user()->is_admin && !in_array($project->status, ['warranty','archived']))
                             <button type="button" class="ml-2 px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-semibold remove-list-btn"
                                     data-loaded-list-id="{{ $loadedListData->id }}"
                                     data-list-name="{{ $list->name }}"
@@ -218,19 +199,23 @@
         @endif
         
         <div class="mt-4 flex gap-2 justify-end">
-            <button type="button" id="choose-list-btn" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
-                📋 Wybierz listę projektową
-            </button>
-            <a href="{{ route('magazyn.projects.pickup', $project->id) }}" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
-                ➖ Pobierz produkty do projektu
-            </a>
-            <a href="{{ route('magazyn.editProject', $project->id) }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                Edytuj projekt
-            </a>
-            @if($project->status === 'in_progress')
-            <button id="finish-project-btn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                Zakończ projekt
-            </button>
+            @if($project->status !== 'warranty')
+                <button type="button" id="choose-list-btn" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+                    📋 Wybierz listę projektową
+                </button>
+                <a href="{{ route('magazyn.projects.pickup', $project->id) }}" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+                    ➖ Pobierz produkty do projektu
+                </a>
+                <a href="{{ route('magazyn.editProject', $project->id) }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                    Edytuj projekt
+                </a>
+                @if($project->status === 'in_progress')
+                <button id="finish-project-btn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                    Zakończ projekt
+                </button>
+                @endif
+            @else
+                <span class="text-gray-400 text-sm">Projekt na gwarancji – tylko podgląd, bez możliwości edycji lub modyfikacji produktów.</span>
             @endif
         </div>
     </div>
@@ -281,11 +266,15 @@
                                 <span class="text-orange-600 font-semibold text-xs">⚠️ Nie odjęte ze stanu</span>
                             </td>
                             <td class="border p-2 text-center">
-                                <form method="POST" action="{{ route('magazyn.projects.removalDelete', [$project->id, $removal->id]) }}" onsubmit="return confirm('Czy na pewno chcesz usunąć/wycofać ten produkt z projektu? Operacja nie zmienia stanu magazynu.')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="px-3 py-1 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 text-xs">Usuń / Zwrot</button>
-                                </form>
+                                @if($project->status !== 'warranty')
+                                    <form method="POST" action="{{ route('magazyn.projects.removalDelete', [$project->id, $removal->id]) }}" onsubmit="return confirm('Czy na pewno chcesz usunąć/wycofać ten produkt z projektu? Operacja nie zmienia stanu magazynu.')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="px-3 py-1 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 text-xs">Usuń / Zwrot</button>
+                                    </form>
+                                @else
+                                    <span class="text-gray-400 text-xs">Projekt zamknięty – brak możliwości usuwania produktów</span>
+                                @endif
                             </td>
                         </tr>
                     @endforeach
@@ -359,13 +348,15 @@
                                 @endif
                             </td>
                             <td class="border p-2 text-center">
-                                @if($removal->status === 'added')
+                                @if($removal->status === 'added' && !in_array($project->status, ['warranty','archived']))
                                     <form action="{{ route('magazyn.returnProduct', ['project' => $project->id, 'removal' => $removal->id]) }}" method="POST" class="inline" onsubmit="return confirm('Czy na pewno chcesz zwrócić ten produkt do katalogu?');">
                                         @csrf
                                         <button type="submit" class="text-green-600 hover:underline text-xs font-semibold">
                                             Zwróć produkt
                                         </button>
                                     </form>
+                                @elseif(in_array($project->status, ['warranty','archived']))
+                                    <span class="text-gray-400 text-xs"></span>
                                 @else
                                     <span class="text-gray-400 text-xs">-</span>
                                 @endif
@@ -415,6 +406,7 @@
         @endphp
         
         @if(auth()->user() && auth()->user()->is_admin)
+        @if(auth()->user() && auth()->user()->is_admin && !in_array($project->status, ['warranty','archived']))
         <div class="mb-3 flex items-center gap-2">
             <button type="button" id="select-all-products" class="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm">
                 Zaznacz wszystkie
@@ -427,11 +419,12 @@
             </button>
         </div>
         @endif
+        @endif
         
         <table class="w-full border border-collapse text-sm bg-white">
             <thead class="bg-blue-100">
                 <tr>
-                    @if(auth()->user() && auth()->user()->is_admin)
+                    @if(auth()->user() && auth()->user()->is_admin && !in_array($project->status, ['warranty','archived']))
                     <th class="border p-3 text-center" style="width: 50px;">
                         <input type="checkbox" id="select-all-checkbox" class="w-4 h-4 cursor-pointer" title="Zaznacz wszystkie">
                     </th>
@@ -444,7 +437,7 @@
             <tbody>
                 @forelse($summary as $item)
                     <tr class="hover:bg-gray-50">
-                        @if(auth()->user() && auth()->user()->is_admin)
+                        @if(auth()->user() && auth()->user()->is_admin && !in_array($project->status, ['warranty','archived']))
                         <td class="border p-3 text-center">
                             <input type="checkbox" class="product-checkbox w-4 h-4 cursor-pointer" data-part-id="{{ $item['part']->id }}" data-part-name="{{ $item['part']->name }}">
                         </td>
@@ -482,22 +475,24 @@
         </div>
         <div id="frappe-section-content" class="hidden">
             <div class="mb-4 flex gap-2 items-center flex-wrap">
-                <button id="frappe-add-task" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm font-semibold">
-                    ➕ Dodaj zadanie
-                </button>
-                <button id="frappe-export-excel" class="bg-emerald-600 text-white px-3 py-1 rounded hover:bg-emerald-700 text-sm font-semibold">
-                    📊 Eksport Excel
-                </button>
-                <button id="frappe-share-link" class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 text-sm font-semibold">
-                    🔗 Udostępnij link
-                </button>
-                <button id="frappe-save-tasks" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm font-semibold">
-                    💾 Zapisz zmiany
-                </button>
-                @if(auth()->user() && auth()->user()->is_admin)
-                <button id="frappe-clear-all" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm font-semibold">
-                    🗑️ Wyczyść wszystko
-                </button>
+                @if(!in_array($project->status, ['warranty','archived']))
+                    <button id="frappe-add-task" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm font-semibold">
+                        ➕ Dodaj zadanie
+                    </button>
+                    <button id="frappe-export-excel" class="bg-emerald-600 text-white px-3 py-1 rounded hover:bg-emerald-700 text-sm font-semibold">
+                        📊 Eksport Excel
+                    </button>
+                    <button id="frappe-share-link" class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 text-sm font-semibold">
+                        🔗 Udostępnij link
+                    </button>
+                    <button id="frappe-save-tasks" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm font-semibold">
+                        💾 Zapisz zmiany
+                    </button>
+                    @if(auth()->user() && auth()->user()->is_admin)
+                    <button id="frappe-clear-all" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm font-semibold">
+                        🗑️ Wyczyść wszystko
+                    </button>
+                    @endif
                 @endif
             </div>
             
@@ -1106,20 +1101,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     return '<div style="padding: 10px;"><h5 style="margin: 0 0 10px 0; font-weight: bold;">' + (task.name || 'Brak') + '</h5><p style="margin: 5px 0;"><strong>Start:</strong> ' + start + '</p><p style="margin: 5px 0;"><strong>Koniec:</strong> ' + end + '</p><p style="margin: 5px 0;"><strong>Czas trwania:</strong> ' + duration + ' dni</p><p style="margin: 5px 0;"><strong>Postęp:</strong> ' + (task.progress ?? '-') + '%</p><p style="margin: 5px 0;"><strong>Zależność:</strong> ' + depText + '</p><p style="margin: 10px 0 0 0; font-size: 11px; color: #666;">💡 Kliknij dwukrotnie, aby edytować</p></div>';
                 },
                 on_date_change: function(task, start, end) {
+                    if (['warranty','archived'].includes('{{ $project->status }}')) {
+                        // Zablokuj przesuwanie zadań
+                        return;
+                    }
                     const taskIndex = frappeTasks.findIndex(t => t.id === task.id);
                     if (taskIndex !== -1) {
                         frappeTasks[taskIndex].start = start;
                         frappeTasks[taskIndex].end = end;
-                        // Zapisz zmianę do API
                         updateTaskInDB(task.id, { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] });
                         renderTaskList();
                     }
                 },
                 on_progress_change: function(task, progress) {
+                    if (['warranty','archived'].includes('{{ $project->status }}')) {
+                        // Zablokuj zmianę postępu
+                        return;
+                    }
                     const taskIndex = frappeTasks.findIndex(t => t.id === task.id);
                     if (taskIndex !== -1) {
                         frappeTasks[taskIndex].progress = progress;
-                        // Zapisz zmianę do API
                         updateTaskInDB(task.id, { progress: progress });
                         renderTaskList();
                     }
