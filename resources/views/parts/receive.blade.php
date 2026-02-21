@@ -268,6 +268,7 @@ document.addEventListener('DOMContentLoaded', function() {
 				catalogContainer.classList.remove('hidden');
 				
 				// Odśwież stronę po 2s
+				isAutoReloading = true;
 				setTimeout(() => location.reload(), 2000);
 			} else {
 				showAlert('error', data.message || 'Błąd podczas przyjmowania produktów');
@@ -326,6 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
 	let currentPartName = null;
 	let currentPartCategoryId = null;
 	let receivedChanges = JSON.parse(localStorage.getItem('receiveChanges') || '[]');
+	let isAutoReloading = false; // Flaga dla automatycznego odświeżania
 
 	// Dodaj zmianę do listy
 	function addChange(partId, partName, categoryId, quantity) {
@@ -416,8 +418,7 @@ document.addEventListener('DOMContentLoaded', function() {
 						document.querySelector('.max-w-6xl').before(successDiv);
 						setTimeout(() => successDiv.remove(), 3000);
 						
-						// Odśwież stan magazynowy w tabeli
-						setTimeout(() => location.reload(), 500);
+						// Odśwież stan magazynowy w tabeli					isAutoReloading = true;						setTimeout(() => location.reload(), 500);
 					} else {
 						alert('Błąd podczas cofania produktu');
 					}
@@ -492,6 +493,7 @@ document.addEventListener('DOMContentLoaded', function() {
 				quantityModal.classList.add('hidden');
 				
 				// Odśwież stronę aby zaktualizować stan magazynu
+				isAutoReloading = true;
 				setTimeout(() => location.reload(), 500);
 			} else {
 				alert('Błąd podczas przyjmowania produktu');
@@ -528,6 +530,9 @@ document.addEventListener('DOMContentLoaded', function() {
 	let hasChanges = receivedChanges.length > 0;
 	
 	window.addEventListener('beforeunload', function(e) {
+		// Nie pytaj przy automatycznym odświeżaniu
+		if (isAutoReloading) return;
+		
 		const currentChanges = JSON.parse(localStorage.getItem('receiveChanges') || '[]');
 		if (currentChanges.length > 0) {
 			e.preventDefault();
