@@ -341,19 +341,6 @@ document.addEventListener('DOMContentLoaded', function() {
 		updateReceivedProductsList();
 	}
 
-	// Aktualizuj stan przycisku skanera
-	function updateScannerButtonState() {
-		if (receivedChanges.length > 0) {
-			scannerBtn.disabled = true;
-			scannerBtn.classList.add('opacity-50', 'cursor-not-allowed');
-			scannerBtn.title = 'Zapisz najpierw zmiany aby odblokować skaner';
-		} else {
-			scannerBtn.disabled = false;
-			scannerBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-			scannerBtn.title = '';
-		}
-	}
-
 	// Aktualizuj listę przyjętych produktów
 	function updateReceivedProductsList() {
 		const container = document.getElementById('received-products-container');
@@ -361,7 +348,10 @@ document.addEventListener('DOMContentLoaded', function() {
 		
 		if (receivedChanges.length === 0) {
 			container.classList.add('hidden');
-			updateScannerButtonState();
+			// Odblokuj skaner
+			scannerBtn.disabled = false;
+			scannerBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+			scannerBtn.title = '';
 			return;
 		}
 		
@@ -435,7 +425,11 @@ document.addEventListener('DOMContentLoaded', function() {
 			});
 		});
 		
-		updateScannerButtonState();
+		// Zablokuj skaner jeśli są niezapisane zmiany
+		container.classList.remove('hidden');
+		scannerBtn.disabled = true;
+		scannerBtn.classList.add('opacity-50', 'cursor-not-allowed');
+		scannerBtn.title = 'Zapisz najpierw zmiany aby odblokować skaner';
 	}
 
 	// Obsługa przycisku "Zapisz zmiany"
@@ -555,7 +549,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 	// Wyświetl listę przyjętych produktów przy ładowaniu strony
 	updateReceivedProductsList();
-	updateScannerButtonState();
 
 	// Obsługa wyjścia ze strony
 	let hasChanges = receivedChanges.length > 0;
