@@ -40,9 +40,17 @@
 
 @php
     // Determine which show_action_column setting to use based on context
-    $showActionColumn = isset($isReceiveContext) && $isReceiveContext 
-        ? auth()->user()->show_action_column_receive 
-        : auth()->user()->show_action_column;
+    $isSuperAdmin = auth()->check() && strtolower(auth()->user()->email) === 'proximalumine@gmail.com';
+    $isAdmin = auth()->check() && auth()->user()->is_admin;
+    
+    // Admin i superadmin zawsze mają dostęp do kolumny akcji
+    if ($isSuperAdmin || $isAdmin) {
+        $showActionColumn = true;
+    } else {
+        $showActionColumn = isset($isReceiveContext) && $isReceiveContext 
+            ? auth()->user()->show_action_column_receive 
+            : auth()->user()->show_action_column;
+    }
 @endphp
 
     <h2 class="text-xl font-bold mb-4">Katalog produktów</h2>
