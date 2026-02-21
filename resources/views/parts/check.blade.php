@@ -1,3 +1,4 @@
+@if(!isset($isPartial) || !$isPartial)
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -35,6 +36,7 @@
 @endif
 
 <div class="max-w-6xl mx-auto bg-white p-6 rounded shadow mt-6">
+@endif
 
     <h2 class="text-xl font-bold mb-4">Katalog produktów</h2>
 
@@ -436,7 +438,9 @@
         </tbody>
     </table>
 
+@if(!isset($isPartial) || !$isPartial)
 </div>
+@endif
 
 <!-- Modal container for edit form (outside table) -->
 <div id="edit-modal-container"></div>
@@ -1150,5 +1154,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- Modal container for edit form (outside table) -->
 <div id="edit-modal-container"></div>
 
+@if(!isset($isPartial) || !$isPartial)
 </body>
 </html>
+@endif
