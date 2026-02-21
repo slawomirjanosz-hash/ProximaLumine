@@ -29,6 +29,12 @@
         @csrf
         @method('PUT')
 
+        @php
+            $isSuperAdmin = auth()->user()->email === 'proximalumine@gmail.com';
+            $isAdmin = auth()->user()->is_admin;
+            $canManageUsers = auth()->user()->can_settings_users;
+        @endphp
+
         <!-- Informacje o użytkowniku -->
         <div class="border-b pb-4">
             <h3 class="font-semibold mb-3">Dane użytkownika</h3>
@@ -120,14 +126,46 @@
             <p class="text-xs text-gray-500 mt-1">Pozostaw puste, jeśli nie chcesz zmieniać hasła</p>
         </div>
 
+        <!-- Utworzony przez (tylko dla superadmin/admin) -->
+        @if($isSuperAdmin || $isAdmin)
+        <div class="border-b pb-4">
+            <h3 class="font-semibold mb-3">Zarządzanie właścicielem</h3>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Utworzony przez
+                    <span class="text-xs text-gray-500 font-normal">(tylko ten użytkownik będzie mógł edytować tego użytkownika)</span>
+                </label>
+                <select 
+                    name="created_by" 
+                    class="w-full px-3 py-2 border border-gray-300 rounded @error('created_by') border-red-500 @enderror"
+                >
+                    <option value="">-- Brak (tylko admin/superadmin) --</option>
+                    @foreach(\App\Models\User::orderBy('name')->get() as $potentialCreator)
+                        <option value="{{ $potentialCreator->id }}" {{ $user->created_by == $potentialCreator->id ? 'selected' : '' }}>
+                            {{ $potentialCreator->name }} ({{ $potentialCreator->email }})
+                        </option>
+                    @endforeach
+                </select>
+                @error('created_by')
+                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                @enderror
+                @if($user->creator)
+                    <p class="text-xs text-gray-600 mt-1">
+                        Obecny właściciel: <strong>{{ $user->creator->name }}</strong>
+                    </p>
+                @else
+                    <p class="text-xs text-gray-600 mt-1">
+                        Brak właściciela - może edytować tylko admin/superadmin
+                    </p>
+                @endif
+            </div>
+        </div>
+        @endif
+
         <!-- Uprawnienia -->
         <div class="border-b pb-4">
             <h3 class="font-semibold mb-4">Dostęp do zakładek</h3>
             @php
-                $isSuperAdmin = auth()->user()->email === 'proximalumine@gmail.com';
-                $isAdmin = auth()->user()->is_admin;
-                $canManageUsers = auth()->user()->can_settings_users;
-                
                 // Funkcja sprawdzająca czy można nadać dane uprawnienie
                 $canGrant = function($permission) use ($isSuperAdmin, $isAdmin, $canManageUsers) {
                     if ($isSuperAdmin) return true;

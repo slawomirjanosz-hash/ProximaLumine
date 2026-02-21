@@ -2234,6 +2234,13 @@ class PartController extends Controller
             $user->password = Hash::make($request->password);
         }
 
+        // Zmiana właściciela (created_by) - tylko dla superadmin/admin
+        if (($isSuperAdmin || $isAdmin) && $request->has('created_by')) {
+            $createdBy = $request->input('created_by');
+            // Jeśli wartość jest pusta, ustaw na null
+            $user->created_by = $createdBy === '' ? null : $createdBy;
+        }
+
         // Sprawdzenie uprawnień do nadawania dostępów
         $isSuperAdmin = auth()->user()->email === 'proximalumine@gmail.com';
         $isAdmin = auth()->user()->is_admin;
