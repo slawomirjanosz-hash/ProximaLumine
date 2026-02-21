@@ -112,22 +112,29 @@
                         <p>Brak zakończonych szans</p>
                     </div>
                 @else
+                    @php
+                        $stageMap = collect($crmStages)->keyBy('slug');
+                    @endphp
                     <div class="space-y-2">
                         @foreach($stats['recent_won_deals']->take(3) as $deal)
-                            <div onclick="editDeal({{ $deal->id }})" class="flex justify-between items-center p-3 rounded border cursor-pointer hover:shadow-md transition {{ $deal->stage === 'wygrana' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' }}">
+                            @php $stage = $stageMap[$deal->stage] ?? null; @endphp
+                            <div onclick="editDeal({{ $deal->id }})" class="flex justify-between items-center p-3 rounded border cursor-pointer hover:shadow-md transition" style="background-color: {{ $stage?->color ?? '#f3f4f6' }}20; border-color: {{ $stage?->color ?? '#e5e7eb' }};">
                                 <div>
                                     <div class="flex items-center gap-2">
                                         <span class="font-semibold">{{ $deal->name }}</span>
-                                        <span class="text-xs px-2 py-0.5 rounded {{ $deal->stage === 'wygrana' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                                            {{ $deal->stage === 'wygrana' ? '✓ Wygrana' : '✗ Przegrana' }}
-                                        </span>
+                                        @if($stage)
+                                            <span class="text-xs px-2 py-0.5 rounded" style="background-color: {{ $stage->color }}20; color: {{ $stage->color }}; border: 1px solid {{ $stage->color }};">
+                                                {{ $stage->name }}
+                                            </span>
+                                        @else
+                                            <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-800">{{ $deal->stage }}</span>
+                                        @endif
                                     </div>
                                     <div class="text-sm text-gray-600">{{ $deal->company->name ?? 'Brak firmy' }} • {{ $deal->actual_close_date->format('d.m.Y') }}</div>
                                 </div>
-                                <div class="text-lg font-bold {{ $deal->stage === 'wygrana' ? 'text-green-700' : 'text-red-700' }}">{{ number_format($deal->value, 0, ',', ' ') }} zł</div>
+                                <div class="text-lg font-bold" style="color: {{ $stage?->color ?? '#222' }};">{{ number_format($deal->value, 0, ',', ' ') }} zł</div>
                             </div>
                         @endforeach
-                        
                         @if($stats['recent_won_deals']->count() > 3)
                             <details class="mt-2">
                                 <summary class="cursor-pointer text-blue-600 hover:text-blue-800 font-medium p-3 bg-gray-50 rounded border border-gray-200">
@@ -135,17 +142,22 @@
                                 </summary>
                                 <div class="space-y-2 mt-2">
                                     @foreach($stats['recent_won_deals']->slice(3) as $deal)
-                                        <div onclick="editDeal({{ $deal->id }})" class="flex justify-between items-center p-3 rounded border cursor-pointer hover:shadow-md transition {{ $deal->stage === 'wygrana' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' }}">
+                                        @php $stage = $stageMap[$deal->stage] ?? null; @endphp
+                                        <div onclick="editDeal({{ $deal->id }})" class="flex justify-between items-center p-3 rounded border cursor-pointer hover:shadow-md transition" style="background-color: {{ $stage?->color ?? '#f3f4f6' }}20; border-color: {{ $stage?->color ?? '#e5e7eb' }};">
                                             <div>
                                                 <div class="flex items-center gap-2">
                                                     <span class="font-semibold">{{ $deal->name }}</span>
-                                                    <span class="text-xs px-2 py-0.5 rounded {{ $deal->stage === 'wygrana' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                                                        {{ $deal->stage === 'wygrana' ? '✓ Wygrana' : '✗ Przegrana' }}
-                                                    </span>
+                                                    @if($stage)
+                                                        <span class="text-xs px-2 py-0.5 rounded" style="background-color: {{ $stage->color }}20; color: {{ $stage->color }}; border: 1px solid {{ $stage->color }};">
+                                                            {{ $stage->name }}
+                                                        </span>
+                                                    @else
+                                                        <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-800">{{ $deal->stage }}</span>
+                                                    @endif
                                                 </div>
                                                 <div class="text-sm text-gray-600">{{ $deal->company->name ?? 'Brak firmy' }} • {{ $deal->actual_close_date->format('d.m.Y') }}</div>
                                             </div>
-                                            <div class="text-lg font-bold {{ $deal->stage === 'wygrana' ? 'text-green-700' : 'text-red-700' }}">{{ number_format($deal->value, 0, ',', ' ') }} zł</div>
+                                            <div class="text-lg font-bold" style="color: {{ $stage?->color ?? '#222' }};">{{ number_format($deal->value, 0, ',', ' ') }} zł</div>
                                         </div>
                                     @endforeach
                                 </div>
@@ -631,12 +643,9 @@ function showDealModal() {
                 <div><label class="block mb-1 font-semibold">Wartość (PLN) *</label><input type="number" step="0.01" name="value" required class="w-full border rounded px-3 py-2"></div>
                 <div><label class="block mb-1 font-semibold">Etap *</label>
                     <select name="stage" required class="w-full border rounded px-3 py-2">
-                        <option value="nowy_lead">Nowy Lead</option>
-                        <option value="kontakt">Kontakt</option>
-                        <option value="wycena">Wycena</option>
-                        <option value="negocjacje">Negocjacje</option>
-                        <option value="wygrana">Wygrana</option>
-                        <option value="przegrana">Przegrana</option>
+                        @foreach($crmStages->where('is_active', 1)->sortBy('order') as $stage)
+                            <option value="{{ $stage->slug }}" @if(isset($deal) && $deal->stage === $stage->slug) selected @endif>{{ $stage->name }}</option>
+                        @endforeach
                     </select>
                 </div>
                 <div><label class="block mb-1 font-semibold">Prawdopodobieństwo (%) *</label><input type="number" min="0" max="100" name="probability" value="10" required class="w-full border rounded px-3 py-2"></div>
@@ -989,12 +998,9 @@ function editDeal(id) {
                         <div><label class="block mb-1 font-semibold">Prawdopodobieństwo (%) *</label><input type="number" min="0" max="100" name="probability" value="${deal.probability || 50}" required class="w-full border rounded px-3 py-2"></div>
                         <div><label class="block mb-1 font-semibold">Etap *</label>
                             <select name="stage" required class="w-full border rounded px-3 py-2">
-                                <option value="nowy_lead" ${deal.stage === 'nowy_lead' ? 'selected' : ''}>Nowy Lead</option>
-                                <option value="kontakt" ${deal.stage === 'kontakt' ? 'selected' : ''}>Kontakt</option>
-                                <option value="wycena" ${deal.stage === 'wycena' ? 'selected' : ''}>Wycena</option>
-                                <option value="negocjacje" ${deal.stage === 'negocjacje' ? 'selected' : ''}>Negocjacje</option>
-                                <option value="wygrana" ${deal.stage === 'wygrana' ? 'selected' : ''}>Wygrana</option>
-                                <option value="przegrana" ${deal.stage === 'przegrana' ? 'selected' : ''}>Przegrana</option>
+                                @foreach($crmStages->where('is_active', 1)->sortBy('order') as $stage)
+                                    <option value="{{ $stage->slug }}" ${deal.stage === '{{ $stage->slug }}' ? 'selected' : ''}>{{ $stage->name }}</option>
+                                @endforeach
                             </select>
                         </div>
                         <div><label class="block mb-1 font-semibold">Przewidywane zamknięcie</label><input type="date" name="expected_close_date" value="${deal.expected_close_date ? deal.expected_close_date.split('T')[0] : ''}" class="w-full border rounded px-3 py-2"></div>
