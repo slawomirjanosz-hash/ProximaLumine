@@ -312,7 +312,20 @@ document.addEventListener('DOMContentLoaded', function() {
 		}
 	}
 
+	// Ukryj przyciski eksportu
+	document.getElementById('btn-download-xlsx')?.remove();
+	document.getElementById('btn-download-word')?.remove();
+	document.getElementById('csv-export-link')?.remove();
+	document.getElementById('view-selected-btn')?.remove();
+	document.getElementById('bulk-delete-form')?.remove();
 
+	// ===== OBSŁUGA PRZYJMOWANIA PRZEZ PRZYCISK + =====
+	const quantityModal = document.getElementById('quantity-modal');
+	const modalPartName = document.getElementById('modal-part-name');
+	const modalQuantityInput = document.getElementById('modal-quantity-input');
+	const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+	const modalCancelBtn = document.getElementById('modal-cancel-btn');
+	
 	let currentPartId = null;
 	let currentPartName = null;
 	let currentPartCategoryId = null;
@@ -348,10 +361,6 @@ document.addEventListener('DOMContentLoaded', function() {
 		
 		if (receivedChanges.length === 0) {
 			container.classList.add('hidden');
-			// Odblokuj skaner
-			scannerBtn.disabled = false;
-			scannerBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-			scannerBtn.title = '';
 			return;
 		}
 		
@@ -413,8 +422,8 @@ document.addEventListener('DOMContentLoaded', function() {
 						setTimeout(() => successDiv.remove(), 3000);
 						
 						// Odśwież stan magazynowy w tabeli
-					isAutoReloading = true;
-					setTimeout(() => location.reload(), 500);
+						isAutoReloading = true;
+						setTimeout(() => location.reload(), 500);
 					} else {
 						alert('Błąd podczas cofania produktu');
 					}
@@ -424,12 +433,6 @@ document.addEventListener('DOMContentLoaded', function() {
 				}
 			});
 		});
-		
-		// Zablokuj skaner jeśli są niezapisane zmiany
-		container.classList.remove('hidden');
-		scannerBtn.disabled = true;
-		scannerBtn.classList.add('opacity-50', 'cursor-not-allowed');
-		scannerBtn.title = 'Zapisz najpierw zmiany aby odblokować skaner';
 	}
 
 	// Obsługa przycisku "Zapisz zmiany"
