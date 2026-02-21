@@ -1070,10 +1070,6 @@ Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Requ
     \Log::info('Services RAW:', $request->input('services', []));
     \Log::info('Works RAW:', $request->input('works', []));
     \Log::info('Materials RAW:', $request->input('materials', []));
-    \Log::info('🏷️ Section Names FROM REQUEST:');
-    \Log::info('  services_name: ' . $request->input('services_name', 'BRAK'));
-    \Log::info('  works_name: ' . $request->input('works_name', 'BRAK'));
-    \Log::info('  materials_name: ' . $request->input('materials_name', 'BRAK'));
     
     // Oblicz całkowitą cenę
     $totalPrice = 0;
@@ -1147,11 +1143,6 @@ Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Requ
         'customer_phone' => $request->input('customer_phone'),
         'customer_email' => $request->input('customer_email')
     ]);
-    
-    \Log::info('✅ ZAPISANO custom_sections:', $offer->custom_sections);
-    \Log::info('   services_name: ' . ($offer->custom_sections['services_name'] ?? 'BRAK'));
-    \Log::info('   works_name: ' . ($offer->custom_sections['works_name'] ?? 'BRAK'));
-    \Log::info('   materials_name: ' . ($offer->custom_sections['materials_name'] ?? 'BRAK'));
     
     $destination = $request->input('destination');
     $routeName = $destination === 'portfolio' ? 'offers.portfolio' : 'offers.inprogress';

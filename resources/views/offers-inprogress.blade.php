@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Oferty w toku</title>
     <link rel="icon" type="image/png" href="{{ asset('logo_proxima_male.png') }}">
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite(['resources/css/app.css'])
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col">
     <header class="bg-white shadow">

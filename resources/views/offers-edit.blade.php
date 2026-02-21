@@ -6,7 +6,7 @@
     <title>Edytuj Ofertę</title>
     <link rel="icon" type="image/png" href="{{ asset('logo_proxima_male.png') }}">
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite(['resources/css/app.css'])
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col">
     <header class="bg-white shadow">
@@ -426,8 +426,8 @@
                                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                     </button>
                                 </div>
-                                <input type="hidden" id="custom{{ $sectionIndex + 1 }}-name-input" name="custom_sections[{{ $sectionIndex + 1 }}][name]" value="{{ $customSection['name'] ?? '' }}">
                                 <div id="custom{{ $sectionIndex + 1 }}-content" class="p-4 hidden">
+                                    <input type="hidden" name="custom_sections[{{ $sectionIndex + 1 }}][name]" value="{{ $customSection['name'] ?? '' }}">
                                     <table class="w-full mb-4 text-xs">
                                         <thead>
                                             <tr class="bg-gray-100">
@@ -665,17 +665,6 @@
             customSections.forEach(sectionNum => {
                 calculateTotal(`custom${sectionNum}`);
             });
-            
-            // Loguj wartości nazw sekcji przed wysłaniem formularza
-            const form = document.querySelector('form[action*="offers"]');
-            if (form) {
-                form.addEventListener('submit', function(e) {
-                    console.log('📤 Wysyłanie formularza oferty...');
-                    console.log('Nazwa sekcji Services:', document.getElementById('services-name-input')?.value);
-                    console.log('Nazwa sekcji Works:', document.getElementById('works-name-input')?.value);
-                    console.log('Nazwa sekcji Materials:', document.getElementById('materials-name-input')?.value);
-                });
-            }
         });
 
         // ===========================================
@@ -1042,8 +1031,8 @@
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                 </div>
-                <input type="hidden" id="${sectionId}-name-input" name="custom_sections[${customSectionCounter}][name]" value="${escapeHtml(sectionName.trim())}">
                 <div id="${sectionId}-content" class="p-4 hidden">
+                    <input type="hidden" id="${sectionId}-name-input" name="custom_sections[${customSectionCounter}][name]" value="${escapeHtml(sectionName.trim())}">
                     <table class="w-full mb-4 text-xs">
                         <thead>
                             <tr class="bg-gray-100">
@@ -1092,24 +1081,15 @@
 
         function editSectionName(sectionId, sectionNumber) {
             const label = document.getElementById(`${sectionId}-name-label`);
-            if (!label) {
-                console.error('❌ Nie znaleziono labela dla sekcji:', sectionId);
-                return;
-            }
+            if (!label) return;
             const current = label.textContent;
             const newName = prompt('Edytuj nazwę sekcji:', current);
             if (newName && newName.trim() !== '') {
                 label.textContent = newName.trim();
-                // Update hidden input (for both main and custom sections)
+                // For custom sections, update hidden input
                 const inputId = `${sectionId}-name-input`;
                 const input = document.getElementById(inputId);
-                if (input) {
-                    input.value = newName.trim();
-                    console.log('✅ Zaktualizowano nazwę sekcji:', sectionId, '→', newName.trim());
-                    console.log('   Hidden input value:', input.value);
-                } else {
-                    console.error('❌ Nie znaleziono hidden inputu:', inputId);
-                }
+                if (input) input.value = newName.trim();
             }
         }
 
