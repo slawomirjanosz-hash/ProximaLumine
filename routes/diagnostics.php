@@ -517,3 +517,8 @@ Route::get('/crm-deal-test', function () {
 Route::get('/crm-real-update-test', function () {
     return view('crm-real-update-test');
 })->name('diagnostics.crm-real-update-test');
+
+// CRM Deals Structure - sprawdza typ kolumny 'stage' w crm_deals
+Route::get('/crm-deals-structure', function () {
+    return view('crm-deals-structure');
+})->name('diagnostics.crm-deals-structure');
