@@ -5334,9 +5334,9 @@ class PartController extends Controller
         
         // Statystyki - tylko dla szans użytkownika
         // Pobierz slugi etapów zamykających lejek (z fallbackiem na stare nazwy)
-        try {
+        if (\Schema::hasColumn('crm_stages', 'is_closed')) {
             $closedStageSlugs = \DB::table('crm_stages')->where('is_closed', 1)->pluck('slug')->toArray();
-        } catch (\Exception $e) {
+        } else {
             // Fallback if is_closed column doesn't exist yet
             $closedStageSlugs = ['wygrana', 'przegrana'];
         }
@@ -5769,9 +5769,9 @@ class PartController extends Controller
         unset($validated['assigned_users']);
         
         // Pobierz slugi etapów zamykających lejek (z fallbackiem na stare nazwy)
-        try {
+        if (\Schema::hasColumn('crm_stages', 'is_closed')) {
             $closedStageSlugs = \DB::table('crm_stages')->where('is_closed', 1)->pluck('slug')->toArray();
-        } catch (\Exception $e) {
+        } else {
             // Fallback if is_closed column doesn't exist yet
             $closedStageSlugs = ['wygrana', 'przegrana'];
         }
@@ -5973,29 +5973,22 @@ class PartController extends Controller
             $validated['color'] = $this->getUniqueColorForStage();
         }
         
-        try {
-            \DB::table('crm_stages')->insert([
-                'name' => $validated['name'],
-                'slug' => $validated['slug'],
-                'color' => $validated['color'],
-                'order' => $validated['order'],
-                'is_active' => true,
-                'is_closed' => $request->has('is_closed') ? 1 : 0,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        } catch (\Exception $e) {
-            // Fallback if is_closed column doesn't exist yet
-            \DB::table('crm_stages')->insert([
-                'name' => $validated['name'],
-                'slug' => $validated['slug'],
-                'color' => $validated['color'],
-                'order' => $validated['order'],
-                'is_active' => true,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+        $insertData = [
+            'name' => $validated['name'],
+            'slug' => $validated['slug'],
+            'color' => $validated['color'],
+            'order' => $validated['order'],
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+        
+        // Dodaj is_closed tylko jeśli kolumna istnieje
+        if (\Schema::hasColumn('crm_stages', 'is_closed')) {
+            $insertData['is_closed'] = $request->has('is_closed') ? 1 : 0;
         }
+        
+        \DB::table('crm_stages')->insert($insertData);
         
         return redirect()->route('crm.settings')->with('success', 'Etap został dodany.');
     }
@@ -6010,25 +6003,20 @@ class PartController extends Controller
             'is_closed' => 'nullable|boolean',
         ]);
 
-        try {
-            \DB::table('crm_stages')->where('id', $id)->update([
-                'name' => $validated['name'],
-                'color' => $validated['color'],
-                'order' => $validated['order'],
-                'is_active' => $request->has('is_active') ? 1 : 0,
-                'is_closed' => $request->has('is_closed') ? 1 : 0,
-                'updated_at' => now(),
-            ]);
-        } catch (\Exception $e) {
-            // Fallback if is_closed column doesn't exist yet
-            \DB::table('crm_stages')->where('id', $id)->update([
-                'name' => $validated['name'],
-                'color' => $validated['color'],
-                'order' => $validated['order'],
-                'is_active' => $request->has('is_active') ? 1 : 0,
-                'updated_at' => now(),
-            ]);
+        $updateData = [
+            'name' => $validated['name'],
+            'color' => $validated['color'],
+            'order' => $validated['order'],
+            'is_active' => $request->has('is_active') ? 1 : 0,
+            'updated_at' => now(),
+        ];
+        
+        // Dodaj is_closed tylko jeśli kolumna istnieje
+        if (\Schema::hasColumn('crm_stages', 'is_closed')) {
+            $updateData['is_closed'] = $request->has('is_closed') ? 1 : 0;
         }
+        
+        \DB::table('crm_stages')->where('id', $id)->update($updateData);
 
         return redirect()->route('crm.settings')->with('success', 'Etap został zaktualizowany.');
     }
