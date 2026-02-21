@@ -312,22 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		}
 	}
 
-	// Ukryj przyciski eksportu
-	document.getElementById('btn-download-xlsx')?.remove();
-	document.getElementById('btn-download-word')?.remove();
-	document.getElementById('csv-export-link')?.remove();
-	document.getElementById('view-selected-btn')?.remove();
-	document.getElementById('bulk-delete-form')?.remove();
 
-	// ===== OBSŁUGA PRZYJMOWANIA PRZEZ PRZYCISK + =====
-	const quantityModal = document.getElementById('quantity-modal');
-	const modalPartName = document.getElementById('modal-part-name');
-	const modalQuantityInput = document.getElementById('modal-quantity-input');
-	const modalConfirmBtn = document.getElementById('modal-confirm-btn');
-	const modalCancelBtn = document.getElementById('modal-cancel-btn');
-	const scannerBtn = document.getElementById('start-scanner-mode');
-	const saveChangesBtn = document.getElementById('save-changes-btn');
-	
 	let currentPartId = null;
 	let currentPartName = null;
 	let currentPartCategoryId = null;
@@ -454,7 +439,7 @@ document.addEventListener('DOMContentLoaded', function() {
 	}
 
 	// Obsługa przycisku "Zapisz zmiany"
-	saveChangesBtn.addEventListener('click', function() {
+	document.getElementById('save-changes-btn').addEventListener('click', function() {
 		if (!confirm('Czy na pewno chcesz zatwierdzić wszystkie zmiany? Po zapisaniu nie będzie można ich cofnąć.')) {
 			return;
 		}

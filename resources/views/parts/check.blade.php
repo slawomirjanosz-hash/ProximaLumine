@@ -84,6 +84,7 @@
             </button>
         </div>
 
+        @if(!isset($isReceiveContext) || !$isReceiveContext)
         <div class="flex gap-2">
 
             <button type="button"
@@ -108,9 +109,11 @@
                 Eksportuj CSV
             </a>
         </div>
+        @endif
     </div>
 
     {{-- BULK ACTION BUTTONS --}}
+    @if(!isset($isReceiveContext) || !$isReceiveContext)
     <div id="bulk-actions" class="mt-4 hidden flex gap-2">
         <button type="button" id="view-selected-btn" class="px-3 py-2 bg-blue-300 text-gray-800 rounded text-xl" title="Wyświetl zaznaczone">
             👁️
@@ -123,6 +126,7 @@
             </button>
         </form>
     </div>
+    @endif
 
     {{-- JS ALERT CONTAINER (dla pobierania) --}}
     <div id="js-alert-container" class="max-w-6xl mx-auto mt-4"></div>
