@@ -1356,6 +1356,9 @@ Route::middleware('auth')->group(function () {
         
         // CRM Stages
         Route::get('/crm/stage/{id}/edit', [PartController::class, 'getCrmStage'])->name('crm.stage.edit');
+        Route::get('/crm/stage/{id}', function($id) {
+            return redirect()->route('crm.settings');
+        });
         Route::post('/crm/stage', [PartController::class, 'addCrmStage'])->name('crm.stage.add');
         Route::put('/crm/stage/{id}', [PartController::class, 'updateCrmStage'])->name('crm.stage.update');
         Route::delete('/crm/stage/{id}', [PartController::class, 'deleteCrmStage'])->name('crm.stage.delete');

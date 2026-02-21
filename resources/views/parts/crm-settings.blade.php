@@ -152,6 +152,7 @@
                     <th class="border p-2 text-left">Slug</th>
                     <th class="border p-2 text-left">Kolor</th>
                     <th class="border p-2 text-center">Aktywny</th>
+                    <th class="border p-2 text-center">Zakończenie Lejka</th>
                     <th class="border p-2">Akcje</th>
                 </tr>
             </thead>
@@ -169,6 +170,13 @@
                                 <span class="text-green-600">✓ Tak</span>
                             @else
                                 <span class="text-red-600">✗ Nie</span>
+                            @endif
+                        </td>
+                        <td class="border p-2 text-center">
+                            @if($stage->is_closed ?? false)
+                                <span class="text-green-600">✓ Tak</span>
+                            @else
+                                <span class="text-gray-600">✗ Nie</span>
                             @endif
                         </td>
                         <td class="border p-2 text-center">
@@ -239,6 +247,12 @@
                     <span class="text-sm font-semibold">Aktywny</span>
                 </label>
             </div>
+            <div class="mb-4" id="stage-closed-field" style="display:none;">
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" name="is_closed" id="stage-is-closed" value="1" class="w-4 h-4">
+                    <span class="text-sm font-semibold">Zakończenie Lejka</span>
+                </label>
+            </div>
             
             <div class="flex gap-2 justify-end">
                 <button type="button" onclick="closeStageModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Anuluj</button>
@@ -276,6 +290,8 @@ function editStage(id) {
             document.getElementById('stage-order').value = stage.order;
             document.getElementById('stage-is-active').checked = stage.is_active == 1;
             document.getElementById('stage-active-field').style.display = 'block';
+            document.getElementById('stage-is-closed').checked = stage.is_closed == 1;
+            document.getElementById('stage-closed-field').style.display = 'block';
             document.getElementById('stage-modal').classList.remove('hidden');
         });
 }

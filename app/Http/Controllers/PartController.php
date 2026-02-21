@@ -5333,9 +5333,11 @@ class PartController extends Controller
         $crmStages = \DB::table('crm_stages')->orderBy('order')->get();
         
         // Statystyki - tylko dla szans użytkownika
+        // Pobierz slugi etapów zamykających lejek
+        $closedStageSlugs = \DB::table('crm_stages')->where('is_closed', 1)->pluck('slug')->toArray();
         $stats = [
             'total_companies' => \App\Models\CrmCompany::count(),
-            'active_deals' => \App\Models\CrmDeal::whereNotIn('stage', ['wygrana', 'przegrana'])
+            'active_deals' => \App\Models\CrmDeal::whereNotIn('stage', $closedStageSlugs)
                 ->where(function($query) use ($userId) {
                     $query->where('user_id', $userId)
                           ->orWhereHas('assignedUsers', function($q) use ($userId) {
@@ -5343,7 +5345,7 @@ class PartController extends Controller
                           });
                 })
                 ->count(),
-            'total_pipeline_value' => \App\Models\CrmDeal::whereNotIn('stage', ['wygrana', 'przegrana'])
+            'total_pipeline_value' => \App\Models\CrmDeal::whereNotIn('stage', $closedStageSlugs)
                 ->where(function($query) use ($userId) {
                     $query->where('user_id', $userId)
                           ->orWhereHas('assignedUsers', function($q) use ($userId) {
@@ -5355,7 +5357,7 @@ class PartController extends Controller
                 ->where('due_date', '<', now())
                 ->count(),
             'deals_by_stage' => \App\Models\CrmDeal::with(['company'])
-                ->whereNotIn('stage', ['wygrana', 'przegrana'])
+                ->whereNotIn('stage', $closedStageSlugs)
                 ->where(function($query) use ($userId) {
                     $query->where('user_id', $userId)
                           ->orWhereHas('assignedUsers', function($q) use ($userId) {
@@ -5364,7 +5366,7 @@ class PartController extends Controller
                 })
                 ->get()
                 ->groupBy('stage'),
-            'recent_won_deals' => \App\Models\CrmDeal::whereIn('stage', ['wygrana', 'przegrana'])
+            'recent_won_deals' => \App\Models\CrmDeal::whereIn('stage', $closedStageSlugs)
                 ->whereNotNull('actual_close_date')
                 ->where(function($query) use ($userId) {
                     $query->where('user_id', $userId)
@@ -5703,7 +5705,7 @@ class PartController extends Controller
             'company_id' => 'nullable|exists:crm_companies,id',
             'value' => 'required|numeric|min:0',
             'currency' => 'nullable|string|max:10',
-            'stage' => 'required|in:nowy_lead,kontakt,wycena,negocjacje,wygrana,przegrana',
+            'stage' => 'required|exists:crm_stages,slug',
             'probability' => 'required|integer|min:0|max:100',
             'expected_close_date' => 'nullable|date',
             'owner_id' => 'nullable|exists:users,id',
@@ -5747,7 +5749,7 @@ class PartController extends Controller
             'company_id' => 'nullable|exists:crm_companies,id',
             'value' => 'required|numeric|min:0',
             'currency' => 'nullable|string|max:10',
-            'stage' => 'required|in:nowy_lead,kontakt,wycena,negocjacje,wygrana,przegrana',
+            'stage' => 'required|exists:crm_stages,slug',
             'probability' => 'required|integer|min:0|max:100',
             'expected_close_date' => 'nullable|date',
             'actual_close_date' => 'nullable|date',
@@ -5761,11 +5763,17 @@ class PartController extends Controller
         $assignedUsers = $validated['assigned_users'] ?? [];
         unset($validated['assigned_users']);
         
-        // Automatycznie ustaw actual_close_date gdy stage zmienia się na "wygrana" lub "przegrana"
-        if (in_array($validated['stage'], ['wygrana', 'przegrana']) && 
-            !in_array($deal->stage, ['wygrana', 'przegrana']) && 
+        // Pobierz slugi etapów zamykających lejek
+        $closedStageSlugs = \DB::table('crm_stages')->where('is_closed', 1)->pluck('slug')->toArray();
+        // Automatycznie ustaw actual_close_date gdy stage zmienia się na etap zamykający lejek
+        if (in_array($validated['stage'], $closedStageSlugs) && 
+            !in_array($deal->stage, $closedStageSlugs) && 
             empty($validated['actual_close_date'])) {
             $validated['actual_close_date'] = now();
+        }
+        // Jeśli zmieniamy z etapu zamykającego na otwarty, wyczyść actual_close_date
+        if (!in_array($validated['stage'], $closedStageSlugs) && in_array($deal->stage, $closedStageSlugs)) {
+            $validated['actual_close_date'] = null;
         }
 
         $deal->update($validated);
@@ -5974,16 +5982,18 @@ class PartController extends Controller
             'color' => 'required|string|max:50',
             'order' => 'required|integer|min:0',
             'is_active' => 'nullable|boolean',
+            'is_closed' => 'nullable|boolean',
         ]);
-        
+
         \DB::table('crm_stages')->where('id', $id)->update([
             'name' => $validated['name'],
             'color' => $validated['color'],
             'order' => $validated['order'],
             'is_active' => $request->has('is_active') ? 1 : 0,
+            'is_closed' => $request->has('is_closed') ? 1 : 0,
             'updated_at' => now(),
         ]);
-        
+
         return redirect()->route('crm.settings')->with('success', 'Etap został zaktualizowany.');
     }
     
