@@ -87,7 +87,7 @@
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <span class="text-sm font-semibold text-gray-600">Autoryzacja pobrań:</span>
-                @if($project->status === 'warranty')
+                @if($project->status === 'warranty' || $project->status === 'archived')
                     <div class="flex items-center gap-2 mt-2">
                         <input type="checkbox" disabled {{ $project->requires_authorization ? 'checked' : '' }} class="w-4 h-4 cursor-not-allowed opacity-50">
                         <label class="text-sm font-medium text-gray-400">
@@ -97,7 +97,37 @@
                     <span class="text-orange-600 font-semibold">✓ Wymagana</span>
                     <p class="text-xs text-gray-400 mt-1">Projekt zamknięty – nie można zmienić autoryzacji.</p>
                 @else
-                    ...existing code...
+                    @php
+                        $hasUnauthorized = \App\Models\ProjectRemoval::where('project_id', $project->id)->where('authorized', false)->exists();
+                    @endphp
+                    @if($hasUnauthorized)
+                        {{-- Zablokuj zmianę gdy są nieautoryzowane produkty --}}
+                        <div class="flex items-center gap-2 mt-2">
+                            <input type="checkbox" disabled checked class="w-4 h-4 cursor-not-allowed opacity-50">
+                            <label class="text-sm font-medium text-gray-400">
+                                Pobranie produktów wymaga autoryzacji przez skanowanie
+                            </label>
+                        </div>
+                        <p class="text-xs text-red-500 mt-1">⚠️ Nie można wyłączyć autoryzacji - masz produkty oczekujące na autoryzację. Najpierw zautoryzuj lub usuń te produkty.</p>
+                        <span class="text-orange-600 font-semibold">✓ Wymagana</span>
+                    @else
+                        <form method="POST" action="{{ route('magazyn.projects.toggleAuthorization', $project->id) }}">
+                            @csrf
+                            <div class="flex items-center gap-2 mt-2">
+                                <input type="checkbox" name="requires_authorization" id="requires_authorization" value="1" class="w-4 h-4 cursor-pointer" {{ $project->requires_authorization ? 'checked' : '' }}>
+                                <label for="requires_authorization" class="text-sm font-medium cursor-pointer">
+                                    Pobranie produktów wymaga autoryzacji przez skanowanie
+                                </label>
+                            </div>
+                            <button type="submit" class="mt-2 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Zapisz zmianę</button>
+                            @if($project->requires_authorization)
+                                <span class="ml-3 text-orange-600 font-semibold">✓ Wymagana</span>
+                            @else
+                                <span class="ml-3 text-gray-600">Nie wymagana</span>
+                            @endif
+                        </form>
+                        <p class="text-xs text-gray-500 mt-1">Jeśli zaznaczone, produkty pobrane do projektu nie zostaną odjęte ze stanu magazynu dopóki nie zostaną zeskanowane</p>
+                    @endif
                 @endif
             </div>
         </div>
