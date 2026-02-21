@@ -38,6 +38,13 @@
 <div class="max-w-6xl mx-auto bg-white p-6 rounded shadow mt-6">
 @endif
 
+@php
+    // Determine which show_action_column setting to use based on context
+    $showActionColumn = isset($isReceiveContext) && $isReceiveContext 
+        ? auth()->user()->show_action_column_receive 
+        : auth()->user()->show_action_column;
+@endphp
+
     <h2 class="text-xl font-bold mb-4">Katalog produktów</h2>
 
     {{-- FILTRY --}}
@@ -212,7 +219,7 @@
                 @if($catalogSettings->show_qr_description)
                 <th class="border p-1 text-center text-xs whitespace-nowrap" style="width: 10rem;">Opis kodu</th>
                 @endif
-                @if(auth()->user()->show_action_column && $catalogSettings->show_actions)
+                @if($showActionColumn && $catalogSettings->show_actions)
                     <th class="border p-1 text-center text-xs whitespace-nowrap" style="width: 3.5rem;">Akcja</th>
                 @endif
             </tr>
@@ -365,7 +372,7 @@
                     </td>
                     @endif
 
-                    @if(auth()->user()->show_action_column && $catalogSettings->show_actions)
+                    @if($showActionColumn && $catalogSettings->show_actions)
                     {{-- AKCJE --}}
                         <td class="border p-0.5">
                             <div class="grid grid-cols-2 gap-0.5">

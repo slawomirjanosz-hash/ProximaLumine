@@ -2301,6 +2301,10 @@ class PartController extends Controller
             $user->can_add = (int) $request->has('can_add');
         }
         
+        if ($canGrant('can_receive')) {
+            $user->can_receive = (int) $request->has('can_receive');
+        }
+        
         if ($canGrant('can_remove')) {
             $user->can_remove = (int) $request->has('can_remove');
         }
@@ -2315,6 +2319,10 @@ class PartController extends Controller
         
         if ($canGrant('show_action_column')) {
             $user->show_action_column = (int) $request->has('show_action_column');
+        }
+        
+        if ($canGrant('show_action_column_receive')) {
+            $user->show_action_column_receive = (int) $request->has('show_action_column_receive');
         }
         
         // Ustawienia

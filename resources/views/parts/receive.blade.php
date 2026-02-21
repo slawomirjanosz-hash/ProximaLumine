@@ -66,7 +66,7 @@
 
 	{{-- KATALOG PRODUKTÓW (ukryty w trybie skanowania) --}}
 	<div id="catalog-container">
-		@include('parts.check', ['bulkActions' => false, 'showExport' => false, 'isPartial' => true])
+		@include('parts.check', ['bulkActions' => false, 'showExport' => false, 'isPartial' => true, 'isReceiveContext' => true])
 	</div>
 </div>
 

@@ -137,7 +137,7 @@
             @endphp
             <div class="space-y-2">
                 {{-- MAGAZYN --}}
-                @if($canGrant('can_view_magazyn') || $canGrant('can_view_catalog') || $canGrant('can_add') || $canGrant('can_remove') || $canGrant('can_orders') || $canGrant('can_delete_orders') || $canGrant('show_action_column'))
+                @if($canGrant('can_view_magazyn') || $canGrant('can_view_catalog') || $canGrant('can_add') || $canGrant('can_receive') || $canGrant('can_remove') || $canGrant('can_orders') || $canGrant('can_delete_orders') || $canGrant('show_action_column') || $canGrant('show_action_column_receive'))
                 <div class="border rounded">
                     <label class="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer">
                         <input 
@@ -219,6 +219,52 @@
                             <span class="text-sm text-gray-500">➕ Dodaj (tylko do odczytu)</span>
                         </div>
                         <input type="hidden" name="can_add" value="1">
+                        @endif
+                        
+                        {{-- Przyjmij na magazyn z poddrzewem --}}
+                        @if($canGrant('can_receive'))
+                        <div class="border rounded">
+                            <label class="flex items-center gap-3 p-2 hover:bg-gray-50 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    name="can_receive" 
+                                    id="can_receive_checkbox"
+                                    class="w-4 h-4 child-checkbox parent-checkbox"
+                                    data-parent="can_view_magazyn_checkbox"
+                                    data-target="receive_tree"
+                                    {{ $user->can_receive ? 'checked' : '' }}
+                                >
+                                <span class="toggle-arrow text-xs">{{ $user->can_receive ? '▼' : '▶' }}</span>
+                                <span class="text-sm flex-1"><strong>📥 Przyjmij na magazyn</strong></span>
+                            </label>
+                            
+                            <div id="receive_tree" class="ml-8 mr-2 mb-2 space-y-1 {{ $user->can_receive ? '' : 'hidden' }}">
+                                @if($canGrant('show_action_column_receive'))
+                                <label class="flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        name="show_action_column_receive" 
+                                        class="w-4 h-4 child-checkbox"
+                                        data-parent="can_receive_checkbox"
+                                        {{ $user->show_action_column_receive ? 'checked' : '' }}
+                                    >
+                                    <span class="text-xs">👁️ Pokaż kolumnę akcja w Przyjmij na magazyn</span>
+                                </label>
+                                @elseif($user->show_action_column_receive)
+                                <div class="flex items-center gap-2 p-2 bg-gray-50">
+                                    <input type="checkbox" class="w-4 h-4" checked disabled>
+                                    <span class="text-xs text-gray-500">👁️ Pokaż kolumnę akcja w Przyjmij na magazyn (tylko do odczytu)</span>
+                                </div>
+                                <input type="hidden" name="show_action_column_receive" value="1">
+                                @endif
+                            </div>
+                        </div>
+                        @elseif($user->can_receive)
+                        <div class="flex items-center gap-2 p-2 border rounded bg-gray-50">
+                            <input type="checkbox" class="w-4 h-4" checked disabled>
+                            <span class="text-sm text-gray-500">📥 Przyjmij na magazyn (tylko do odczytu)</span>
+                        </div>
+                        <input type="hidden" name="can_receive" value="1">
                         @endif
                         
                         {{-- Pobierz --}}

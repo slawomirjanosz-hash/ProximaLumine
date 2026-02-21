@@ -87,6 +87,8 @@
                     <span>➕</span>
                     <span>Dodaj</span>
                 </a>
+                @endif
+                @if($isAdmin || $isSuperAdmin || auth()->user()->can_receive)
                 <a href="{{ route('magazyn.receive') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.receive') ? 'bg-gray-700 text-white border-l-4 border-green-400' : '' }}">
                     <span>📥</span>
                     <span>Przyjmij na magazyn</span>

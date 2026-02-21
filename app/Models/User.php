@@ -37,6 +37,7 @@ class User extends Authenticatable
         'can_view_recipes',
         'can_view_catalog',
         'can_add',
+        'can_receive',
         'can_remove',
         'can_orders',
         'can_settings',
@@ -49,6 +50,7 @@ class User extends Authenticatable
         'can_delete_orders',
         'can_crm',
         'show_action_column',
+        'show_action_column_receive',
         'created_by',
     ];
 
@@ -83,6 +85,7 @@ class User extends Authenticatable
             'can_view_recipes' => 'boolean',
             'can_view_catalog' => 'boolean',
             'can_add' => 'boolean',
+            'can_receive' => 'boolean',
             'can_remove' => 'boolean',
             'can_orders' => 'boolean',
             'can_settings' => 'boolean',
