@@ -30,6 +30,9 @@
                 </a>
                 <h1 class="text-3xl font-bold text-gray-800">⚙️ Ustawienia CRM</h1>
             </div>
+            <a href="{{ route('crm.diagnostics') }}" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition" title="Diagnostyka bazy danych CRM">
+                🔧 Diagnostyka
+            </a>
         </div>
     </div>
 

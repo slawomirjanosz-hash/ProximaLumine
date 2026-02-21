@@ -41,9 +41,14 @@
     <div class="bg-white p-6 rounded-lg shadow mb-6">
         <div class="flex items-center justify-between">
             <h1 class="text-3xl font-bold text-gray-800">👥 CRM - System Zarządzania Relacjami z Klientami</h1>
-            <a href="{{ route('crm.settings') }}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
-                ⚙️ Ustawienia CRM
-            </a>
+            <div class="flex gap-2">
+                <a href="{{ route('crm.diagnostics') }}" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition" title="Diagnostyka bazy danych">
+                    🔧 Diagnostyka
+                </a>
+                <a href="{{ route('crm.settings') }}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+                    ⚙️ Ustawienia CRM
+                </a>
+            </div>
         </div>
     </div>
 

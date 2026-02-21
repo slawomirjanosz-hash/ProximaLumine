@@ -499,6 +499,11 @@ Route::get('/railway-diagnostics', function () {
     return view('railway-diagnostics');
 });
 
+// CRM diagnostics page - kompleksowa diagnostyka tabeli crm_stages
+Route::get('/crm-diagnostics', function () {
+    return view('crm-diagnostics');
+})->name('crm.diagnostics');
+
 // Test offers page
 Route::get('/test-offers', function () {
     return view('test-offers');
