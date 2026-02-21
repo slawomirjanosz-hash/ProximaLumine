@@ -332,6 +332,22 @@ document.addEventListener('DOMContentLoaded', function() {
 	let receivedChanges = JSON.parse(localStorage.getItem('receiveChanges') || '[]');
 	let isAutoReloading = false; // Flaga dla automatycznego odświeżania
 
+	// Aktualizuj stan przycisku skanera
+	function updateScannerButton() {
+		const scannerBtn = document.getElementById('start-scanner-mode');
+		if (receivedChanges.length > 0) {
+			// Są niezapisane zmiany - zablokuj skaner
+			scannerBtn.disabled = true;
+			scannerBtn.classList.add('opacity-50', 'cursor-not-allowed');
+			scannerBtn.title = 'Zapisz najpierw zmiany aby odblokować skaner';
+		} else {
+			// Brak zmian - odblokuj skaner
+			scannerBtn.disabled = false;
+			scannerBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+			scannerBtn.title = '';
+		}
+	}
+
 	// Dodaj zmianę do listy
 	function addChange(partId, partName, categoryId, quantity) {
 		const change = {
@@ -345,6 +361,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		receivedChanges.push(change);
 		localStorage.setItem('receiveChanges', JSON.stringify(receivedChanges));
 		updateReceivedProductsList();
+		updateScannerButton();
 	}
 
 	// Usuń pojedynczą zmianę
@@ -352,6 +369,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		receivedChanges = receivedChanges.filter(c => c.id !== changeId);
 		localStorage.setItem('receiveChanges', JSON.stringify(receivedChanges));
 		updateReceivedProductsList();
+		updateScannerButton();
 	}
 
 	// Aktualizuj listę przyjętych produktów
@@ -552,6 +570,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 	// Wyświetl listę przyjętych produktów przy ładowaniu strony
 	updateReceivedProductsList();
+	updateScannerButton();
 
 	// Obsługa wyjścia ze strony
 	let hasChanges = receivedChanges.length > 0;
