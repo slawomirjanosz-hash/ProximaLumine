@@ -252,21 +252,22 @@
                             <tbody>
                                 @foreach($completedTasks as $task)
                                     @php
-                                        // Oblicz różnicę między terminem a datą zakończenia
+                                        // Oblicz różnicę między terminem a datą zakończenia, zaokrąglając w dół do całości
                                         $dueDate = $task->due_date;
                                         $completedDate = $task->updated_at;
                                         $daysDiff = null;
                                         $status = null;
-                                        
                                         if ($dueDate && $completedDate) {
-                                            $daysDiff = $completedDate->diffInDays($dueDate, false);
-                                            if ($daysDiff > 0) {
+                                            $diffInSeconds = $completedDate->getTimestamp() - $dueDate->getTimestamp();
+                                            $rawDays = $diffInSeconds / 86400;
+                                            if ($rawDays < 0) {
                                                 // Zakończone przed terminem
                                                 $status = 'before';
-                                            } elseif ($daysDiff < 0) {
+                                                $daysDiff = floor(abs($rawDays));
+                                            } elseif ($rawDays > 0) {
                                                 // Zakończone po terminie (opóźnienie)
                                                 $status = 'late';
-                                                $daysDiff = abs($daysDiff);
+                                                $daysDiff = floor($rawDays);
                                             } else {
                                                 // Zakończone w terminie (ten sam dzień)
                                                 $status = 'ontime';
