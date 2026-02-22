@@ -227,6 +227,64 @@
                         @endforelse
                     </tbody>
                 </table>
+                
+                {{-- SEKCJA ZAKOŃCZONYCH ZADAŃ --}}
+                @if($completedTasks->count() > 0)
+                <div class="mt-6 border-t pt-4">
+                    <button type="button" id="toggle-completed-tasks" class="w-full flex items-center gap-2 p-3 bg-gray-50 hover:bg-gray-100 rounded cursor-pointer mb-3">
+                        <span id="completed-tasks-arrow" class="text-gray-600 transition-transform">▶</span>
+                        <h4 class="text-lg font-semibold text-gray-700">✅ Zadania zakończone ({{ $completedTasks->count() }})</h4>
+                    </button>
+                    
+                    <div id="completed-tasks-content" class="hidden">
+                        <table class="w-full border-collapse text-xs">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="border p-2 text-left">Zadanie</th>
+                                    <th class="border p-2 text-left">Typ</th>
+                                    <th class="border p-2 text-left">Priorytet</th>
+                                    <th class="border p-2 text-left">Zakończono</th>
+                                    <th class="border p-2 text-left">Przypisane do</th>
+                                    <th class="border p-2">Akcje</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($completedTasks as $task)
+                                    <tr class="hover:bg-gray-50 bg-green-50">
+                                        <td class="border p-2">
+                                            <div class="font-semibold text-gray-600">{{ $task->title }}</div>
+                                            <div class="text-sm text-gray-500">{{ $task->company->name ?? '' }} {{ $task->deal ? '• ' . $task->deal->name : '' }}</div>
+                                        </td>
+                                        <td class="border p-2">{{ ucfirst(str_replace('_', ' ', $task->type)) }}</td>
+                                        <td class="border p-2">
+                                            <span class="stage-badge 
+                                                {{ $task->priority === 'pilna' ? 'bg-red-100 text-red-800' : '' }}
+                                                {{ $task->priority === 'wysoka' ? 'bg-orange-100 text-orange-800' : '' }}
+                                                {{ $task->priority === 'normalna' ? 'bg-blue-100 text-blue-800' : '' }}
+                                                {{ $task->priority === 'niska' ? 'bg-gray-100 text-gray-800' : '' }}
+                                            ">
+                                                {{ ucfirst($task->priority) }}
+                                            </span>
+                                        </td>
+                                        <td class="border p-2">
+                                            <span class="text-green-600 font-semibold">✓ Zakończone</span>
+                                            <div class="text-xs text-gray-500">{{ $task->updated_at->format('d.m.Y H:i') }}</div>
+                                        </td>
+                                        <td class="border p-2">{{ $task->assignedTo->name ?? 'Nie przypisane' }}</td>
+                                        <td class="border p-2 text-center">
+                                            <button onclick="editTask({{ $task->id }})" class="text-blue-600 hover:underline">✏️</button>
+                                            <form action="{{ route('crm.task.delete', $task->id) }}" method="POST" class="inline" onsubmit="return confirm('Usunąć zadanie?')">
+                                                @csrf @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:underline">🗑️</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                @endif
             </div>
         </div>
 
@@ -1216,6 +1274,21 @@ document.addEventListener('input', function(e) {
 document.addEventListener('change', function(e) {
     if (e.target.type === 'date' || e.target.type === 'datetime-local') {
         setTimeout(() => e.target.blur(), 100);
+    }
+});
+
+// Obsługa rozwijania/zwijania sekcji zakończonych zadań
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('toggle-completed-tasks');
+    const content = document.getElementById('completed-tasks-content');
+    const arrow = document.getElementById('completed-tasks-arrow');
+    
+    if (toggleBtn && content && arrow) {
+        toggleBtn.addEventListener('click', function() {
+            content.classList.toggle('hidden');
+            arrow.classList.toggle('rotate-90');
+            arrow.textContent = content.classList.contains('hidden') ? '▶' : '▼';
+        });
     }
 });
 

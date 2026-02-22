@@ -5324,6 +5324,13 @@ class PartController extends Controller
             ->where('status', '!=', 'zakonczone')
             ->orderBy('due_date', 'asc')
             ->get();
+            
+        $completedTasks = \App\Models\CrmTask::with(['assignedTo', 'company', 'deal'])
+            ->where('status', 'zakonczone')
+            ->orderBy('updated_at', 'desc')
+            ->limit(50)
+            ->get();
+            
         $activities = \App\Models\CrmActivity::with(['user', 'company', 'deal'])
             ->orderBy('activity_date', 'desc')
             ->limit(50)
@@ -5395,7 +5402,7 @@ class PartController extends Controller
         // Typy klientów z kolorami
         $customerTypes = CrmCustomerType::all();
         
-        return view('parts.crm', compact('companies', 'deals', 'tasks', 'activities', 'stats', 'users', 'crmStages', 'availableSuppliers', 'customerTypes'));
+        return view('parts.crm', compact('companies', 'deals', 'tasks', 'completedTasks', 'activities', 'stats', 'users', 'crmStages', 'availableSuppliers', 'customerTypes'));
     }
 
     public function crmSettingsView()
