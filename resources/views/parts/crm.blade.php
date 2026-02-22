@@ -213,7 +213,7 @@
                                 <td class="border p-2 {{ $task->isOverdue() ? 'text-red-600 font-bold' : '' }}">
                                     {{ $task->due_date ? $task->due_date->format('d.m.Y H:i') : '-' }}
                                 </td>
-                                <td class="border p-2">{{ $task->assignedTo->name ?? 'Nie przypisane' }}</td>
+                                <td class="border p-2">{{ $task->assignedTo->short_name ?? $task->assignedTo->name ?? 'Nie przypisane' }}</td>
                                 <td class="border p-2 text-center">
                                     <button onclick="editTask({{ $task->id }})" class="text-blue-600 hover:underline">✏️</button>
                                     <form action="{{ route('crm.task.delete', $task->id) }}" method="POST" class="inline" onsubmit="return confirm('Usunąć zadanie?')">
@@ -244,12 +244,35 @@
                                     <th class="border p-2 text-left">Typ</th>
                                     <th class="border p-2 text-left">Priorytet</th>
                                     <th class="border p-2 text-left">Zakończono</th>
+                                    <th class="border p-2 text-left">Realizacja</th>
                                     <th class="border p-2 text-left">Przypisane do</th>
                                     <th class="border p-2">Akcje</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($completedTasks as $task)
+                                    @php
+                                        // Oblicz różnicę między terminem a datą zakończenia
+                                        $dueDate = $task->due_date;
+                                        $completedDate = $task->updated_at;
+                                        $daysDiff = null;
+                                        $status = null;
+                                        
+                                        if ($dueDate && $completedDate) {
+                                            $daysDiff = $completedDate->diffInDays($dueDate, false);
+                                            if ($daysDiff > 0) {
+                                                // Zakończone przed terminem
+                                                $status = 'before';
+                                            } elseif ($daysDiff < 0) {
+                                                // Zakończone po terminie (opóźnienie)
+                                                $status = 'late';
+                                                $daysDiff = abs($daysDiff);
+                                            } else {
+                                                // Zakończone w terminie (ten sam dzień)
+                                                $status = 'ontime';
+                                            }
+                                        }
+                                    @endphp
                                     <tr class="hover:bg-gray-50 bg-green-50">
                                         <td class="border p-2">
                                             <div class="font-semibold text-gray-600">{{ $task->title }}</div>
@@ -270,7 +293,27 @@
                                             <span class="text-green-600 font-semibold">✓ Zakończone</span>
                                             <div class="text-xs text-gray-500">{{ $task->updated_at->format('d.m.Y H:i') }}</div>
                                         </td>
-                                        <td class="border p-2">{{ $task->assignedTo->name ?? 'Nie przypisane' }}</td>
+                                        <td class="border p-2">
+                                            @if($status === 'before')
+                                                <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold">
+                                                    ✓ {{ $daysDiff }} {{ $daysDiff == 1 ? 'dzień' : ($daysDiff < 5 ? 'dni' : 'dni') }} przed terminem
+                                                </span>
+                                            @elseif($status === 'late')
+                                                <span class="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-semibold">
+                                                    ⚠ {{ $daysDiff }} {{ $daysDiff == 1 ? 'dzień' : ($daysDiff < 5 ? 'dni' : 'dni') }} opóźnienia
+                                                </span>
+                                            @elseif($status === 'ontime')
+                                                <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-semibold">
+                                                    ✓ W terminie
+                                                </span>
+                                            @else
+                                                <span class="text-gray-400 text-xs">Brak terminu</span>
+                                            @endif
+                                            @if($dueDate)
+                                                <div class="text-xs text-gray-500 mt-1">Termin: {{ $dueDate->format('d.m.Y H:i') }}</div>
+                                            @endif
+                                        </td>
+                                        <td class="border p-2">{{ $task->assignedTo->short_name ?? $task->assignedTo->name ?? 'Nie przypisane' }}</td>
                                         <td class="border p-2 text-center">
                                             <button onclick="editTask({{ $task->id }})" class="text-blue-600 hover:underline">✏️</button>
                                             <form action="{{ route('crm.task.delete', $task->id) }}" method="POST" class="inline" onsubmit="return confirm('Usunąć zadanie?')">
