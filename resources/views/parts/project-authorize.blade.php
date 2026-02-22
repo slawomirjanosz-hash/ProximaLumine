@@ -20,6 +20,9 @@
         <h2 class="text-2xl font-bold">🔍 Autoryzacja produktów przez skanowanie</h2>
         <div class="mt-2 text-sm text-gray-600">
             <p><strong>Projekt:</strong> {{ $project->project_number }} - {{ $project->name }}</p>
+            @if(isset($loadedList) && $loadedList)
+            <p class="mt-1"><strong>Lista:</strong> {{ $loadedList->projectList->name ?? 'Nieznana' }} <span class="text-orange-600 font-semibold">(Autoryzacja tylko produktów z tej listy)</span></p>
+            @endif
         </div>
     </div>
 

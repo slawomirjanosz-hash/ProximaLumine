@@ -1340,3 +1340,201 @@ document.addEventListener('DOMContentLoaded', function() {
 
 </body>
 </html>
+</body>
+
+<div class="max-w-7xl mx-auto mt-12 mb-12">
+    <h2 class="text-xl font-bold mb-4">Wprowadzane zmiany w CRM</h2>
+    <button id="toggle-changes-btn" class="px-4 py-2 bg-blue-600 text-white rounded mb-4">Pokaż/Ukryj ostatnie zmiany</button>
+    <div id="changes-section" class="overflow-x-auto bg-white rounded shadow p-4 hidden">
+        <table class="min-w-full text-sm">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="border p-2 text-left">Data zmiany</th>
+                    <th class="border p-2 text-left">Typ zmiany</th>
+                    <th class="border p-2 text-left">Element</th>
+                    <th class="border p-2 text-left">Szczegóły</th>
+                    <th class="border p-2 text-left">Użytkownik</th>
+                </tr>
+            </thead>
+            <tbody>
+                @php $latestChanges = $taskChanges->take(10); @endphp
+                @forelse($latestChanges as $change)
+                    @php
+                        $details = json_decode($change->change_details, true);
+                        $entityType = $change->entity_type ?? 'task';
+                        $entityName = '';
+                        if ($entityType === 'task') {
+                            $entityName = $change->task->title ?? '-';
+                        } elseif ($entityType === 'company') {
+                            $entityName = $details['name'] ?? 'Firma';
+                        } elseif ($entityType === 'deal') {
+                            $entityName = $details['name'] ?? 'Szansa';
+                        } elseif ($entityType === 'activity') {
+                            $entityName = $details['subject'] ?? 'Aktywność';
+                        }
+                        $changeTypeLabel = '';
+                        if ($change->change_type === 'created') {
+                            $changeTypeLabel = 'Utworzono';
+                        } elseif ($change->change_type === 'updated') {
+                            $changeTypeLabel = 'Zaktualizowano';
+                        } elseif ($change->change_type === 'deleted') {
+                            $changeTypeLabel = 'Usunięto';
+                        }
+                        $entityTypeLabel = '';
+                        if ($entityType === 'task') {
+                            $entityTypeLabel = 'zadanie';
+                        } elseif ($entityType === 'company') {
+                            $entityTypeLabel = 'firmę';
+                        } elseif ($entityType === 'deal') {
+                            $entityTypeLabel = 'szansę';
+                        } elseif ($entityType === 'activity') {
+                            $entityTypeLabel = 'aktywność';
+                        }
+                    @endphp
+                    <tr class="hover:bg-gray-50">
+                        <td class="border p-2 whitespace-nowrap">{{ $change->created_at ? \Carbon\Carbon::parse($change->created_at)->format('d.m.Y') : '' }}</td>
+                        <td class="border p-2">{{ $changeTypeLabel }} {{ $entityTypeLabel }}</td>
+                        <td class="border p-2">{{ $entityName }}</td>
+                        <td class="border p-2">
+                            @if($change->change_type === 'updated' && isset($details['changes']))
+                                <ul class="list-disc pl-4">
+                                    @foreach($details['changes'] as $field => $diff)
+                                        @if($field === 'due_date' || $field === 'expected_close_date')
+                                            @continue
+                                        @endif
+                                        @if(is_array($diff) && isset($diff['old']) && isset($diff['new']))
+                                            <li><span class="font-semibold">{{ $field }}:</span> <span class="text-gray-600">{{ $diff['old'] ?? '-' }}</span> → <span class="text-green-700">{{ $diff['new'] ?? '-' }}</span></li>
+                                        @endif
+                                    @endforeach
+                                </ul>
+                            @elseif($change->change_type === 'created')
+                                @if($entityType === 'deal' && isset($details['stage']))
+                                    Etap: {{ $details['stage'] }}
+                                @elseif($entityType === 'activity' && isset($details['type']))
+                                    Typ: {{ $details['type'] }}
+                                @else
+                                    -
+                                @endif
+                            @else
+                                -
+                            @endif
+                        </td>
+                        <td class="border p-2">{{ $change->user->short_name ?? $change->user->name ?? '-' }}</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="5" class="text-center text-gray-400 p-4">Brak zmian</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+        <button id="show-history-btn" class="mt-4 px-4 py-2 bg-gray-600 text-white rounded">Dane historyczne</button>
+    </div>
+    <div id="history-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded shadow-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">Wszystkie zmiany w CRM</h3>
+                <button id="close-history-btn" class="text-red-600 text-lg font-bold">✖</button>
+            </div>
+            <table class="min-w-full text-sm">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="border p-2 text-left">Data zmiany</th>
+                        <th class="border p-2 text-left">Typ zmiany</th>
+                        <th class="border p-2 text-left">Element</th>
+                        <th class="border p-2 text-left">Szczegóły</th>
+                        <th class="border p-2 text-left">Użytkownik</th>
+                        @if(auth()->user() && auth()->user()->role === 'superadmin')
+                            <th class="border p-2 text-left">Usuń</th>
+                        @endif
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($taskChanges as $change)
+                        @php
+                            $details = json_decode($change->change_details, true);
+                            $entityType = $change->entity_type ?? 'task';
+                            $entityName = '';
+                            if ($entityType === 'task') {
+                                $entityName = $change->task->title ?? '-';
+                            } elseif ($entityType === 'company') {
+                                $entityName = $details['name'] ?? 'Firma';
+                            } elseif ($entityType === 'deal') {
+                                $entityName = $details['name'] ?? 'Szansa';
+                            } elseif ($entityType === 'activity') {
+                                $entityName = $details['subject'] ?? 'Aktywność';
+                            }
+                            $changeTypeLabel = '';
+                            if ($change->change_type === 'created') {
+                                $changeTypeLabel = 'Utworzono';
+                            } elseif ($change->change_type === 'updated') {
+                                $changeTypeLabel = 'Zaktualizowano';
+                            } elseif ($change->change_type === 'deleted') {
+                                $changeTypeLabel = 'Usunięto';
+                            }
+                            $entityTypeLabel = '';
+                            if ($entityType === 'task') {
+                                $entityTypeLabel = 'zadanie';
+                            } elseif ($entityType === 'company') {
+                                $entityTypeLabel = 'firmę';
+                            } elseif ($entityType === 'deal') {
+                                $entityTypeLabel = 'szansę';
+                            } elseif ($entityType === 'activity') {
+                                $entityTypeLabel = 'aktywność';
+                            }
+                        @endphp
+                        <tr class="hover:bg-gray-50">
+                            <td class="border p-2 whitespace-nowrap">{{ $change->created_at ? \Carbon\Carbon::parse($change->created_at)->format('d.m.Y') : '' }}</td>
+                            <td class="border p-2">{{ $changeTypeLabel }} {{ $entityTypeLabel }}</td>
+                            <td class="border p-2">{{ $entityName }}</td>
+                            <td class="border p-2">
+                                @if($change->change_type === 'updated' && isset($details['changes']))
+                                    <ul class="list-disc pl-4">
+                                        @foreach($details['changes'] as $field => $diff)
+                                            @if($field === 'due_date' || $field === 'expected_close_date')
+                                                @continue
+                                            @endif
+                                            @if(is_array($diff) && isset($diff['old']) && isset($diff['new']))
+                                                <li><span class="font-semibold">{{ $field }}:</span> <span class="text-gray-600">{{ $diff['old'] ?? '-' }}</span> → <span class="text-green-700">{{ $diff['new'] ?? '-' }}</span></li>
+                                            @endif
+                                        @endforeach
+                                    </ul>
+                                @elseif($change->change_type === 'created')
+                                    @if($entityType === 'deal' && isset($details['stage']))
+                                        Etap: {{ $details['stage'] }}
+                                    @elseif($entityType === 'activity' && isset($details['type']))
+                                        Typ: {{ $details['type'] }}
+                                    @else
+                                        -
+                                    @endif
+                                @else
+                                    -
+                                @endif
+                            </td>
+                            <td class="border p-2">{{ $change->user->short_name ?? $change->user->name ?? '-' }}</td>
+                            @if(auth()->user() && auth()->user()->role === 'superadmin')
+                                <td class="border p-2">
+                                    <form method="POST" action="{{ route('crm.change.delete', $change->id) }}" onsubmit="return confirm('Usunąć zmianę?')">
+                                        @csrf @method('DELETE')
+                                        <button type="submit" class="text-red-600 hover:underline">Usuń</button>
+                                    </form>
+                                </td>
+                            @endif
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('toggle-changes-btn').addEventListener('click', function() {
+    const section = document.getElementById('changes-section');
+    section.classList.toggle('hidden');
+});
+document.getElementById('show-history-btn').addEventListener('click', function() {
+    document.getElementById('history-modal').classList.remove('hidden');
+});
+document.getElementById('close-history-btn').addEventListener('click', function() {
+    document.getElementById('history-modal').classList.add('hidden');
+});
+</script>

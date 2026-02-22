@@ -183,11 +183,23 @@
                         <div class="flex items-center gap-2">
                             <span class="text-sm font-semibold">{{ $list->name }}</span>
                             <span class="text-xs text-gray-600">({{ $loadedListData->added_count }} z {{ $loadedListData->total_count }})</span>
-                            @if($loadedListData->is_complete)
-                                <span class="ml-2 px-2 py-0.5 bg-green-200 text-green-800 text-xs rounded-full font-semibold">✓ Kompletna</span>
+                            @php
+                                // Lista jest kompletna tylko jeśli nie ma braków i WSZYSTKIE produkty są zautoryzowane
+                                $isFullyAuthorized = $loadedListData->is_complete && (!isset($loadedListData->unauthorized_count) || $loadedListData->unauthorized_count == 0);
+                            @endphp
+                            @if($isFullyAuthorized)
+                                <span class="ml-2 px-2 py-0.5 bg-green-200 text-green-800 text-xs rounded-full font-semibold">✓ Kompletna i w pełni zautoryzowana</span>
                             @else
-                                <span class="ml-2 px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs rounded-full font-semibold">⚠ Niekompletna</span>
+                                <span class="ml-2 px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs rounded-full font-semibold">⚠ Niekompletna lub nie w pełni zautoryzowana</span>
                                 <button type="button" class="ml-2 text-orange-600 hover:text-orange-800 font-bold text-xl" onclick="showMissingItems({{ $loadedListData->id }})" title="Kliknij aby zobaczyć czego brakuje">❗</button>
+                                @if(auth()->user() && auth()->user()->is_admin && !in_array($project->status, ['warranty','archived']))
+                                <form method="POST" action="{{ route('magazyn.projects.authorizeList', [$project->id, $loadedListData->id]) }}" class="ml-2" onsubmit="this.method='POST';">
+                                    @csrf
+                                    <button type="submit" class="px-2 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 text-xs font-semibold" title="Przejdź do autoryzacji przez skanowanie tej listy">
+                                        📱 Skanuj produkty z listy
+                                    </button>
+                                </form>
+                                @endif
                             @endif
                             <span class="text-xs text-gray-500 ml-auto">{{ $loadedListData->created_at->format('d.m.Y H:i') }}</span>
                             @if(auth()->user() && auth()->user()->is_admin && !in_array($project->status, ['warranty','archived']))
@@ -454,7 +466,7 @@
         <div id="summary-section-content">
         @php
             // Grupowanie produktów i sumowanie ilości
-            $summary = $removals->where('status', 'added')->groupBy('part_id')->map(function($group) {
+            $summary = $removals->where('status', 'added')->where('authorized', true)->groupBy('part_id')->map(function($group) {
                 $firstRemoval = $group->first();
                 if (!$firstRemoval->part) {
                     return null; // Pomiń jeśli produkt został usunięty

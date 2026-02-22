@@ -1271,6 +1271,8 @@ Route::get('/railway/session-test', function () {
 
 // MAGAZYN - CHRONIONE TRASAMI
 Route::middleware('auth')->group(function () {
+        // Autoryzacja pojedynczej listy projektowej
+        Route::match(['get', 'post'], '/magazyn/projects/{project}/authorize-list/{loadedList}', [PartController::class, 'authorizeList'])->name('magazyn.projects.authorizeList')->middleware('permission:remove');
     Route::get('/magazyn/dodaj', [PartController::class, 'addView'])->name('magazyn.add')->middleware('permission:add');
     Route::get('/magazyn/przyjmij', [PartController::class, 'receiveView'])->name('magazyn.receive')->middleware('permission:add');
     Route::get('/magazyn/pobierz', [PartController::class, 'removeView'])->name('magazyn.remove')->middleware('permission:remove');
@@ -1368,6 +1370,8 @@ Route::middleware('auth')->group(function () {
         Route::put('/crm/stage/{id}', [PartController::class, 'updateCrmStage'])->name('crm.stage.update');
         Route::delete('/crm/stage/{id}', [PartController::class, 'deleteCrmStage'])->name('crm.stage.delete');
         
+        // CRM Change History Delete (Superadmin only)
+        Route::delete('/crm/change-history/{id}', [PartController::class, 'deleteCrmChange'])->name('crm.change.delete')->middleware('auth');
         // CRM Customer Types
         Route::get('/crm/customer-types/{id}', [\App\Http\Controllers\CrmCustomerTypeController::class, 'show'])->name('crm.customer-types.show');
         Route::post('/crm/customer-types', [\App\Http\Controllers\CrmCustomerTypeController::class, 'store'])->name('crm.customer-types.store');

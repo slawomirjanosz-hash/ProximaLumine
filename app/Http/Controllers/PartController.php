@@ -16,6 +16,35 @@ use Illuminate\Support\Str;
 
 class PartController extends Controller
 {
+    /**
+     * Przekierowanie do autoryzacji produktów z wybranej listy projektowej przez skanowanie
+     */
+    public function authorizeList($projectId, $loadedListId)
+    {
+        $project = \App\Models\Project::findOrFail($projectId);
+        $loadedList = \App\Models\ProjectLoadedList::with('projectList.items')->findOrFail($loadedListId);
+        $listItems = $loadedList->projectList->items ?? collect();
+        if ($listItems->isEmpty()) {
+            return redirect()->back()->with('error', 'Lista nie zawiera produktów do autoryzacji.');
+        }
+
+        // Przekieruj do widoku autoryzacji przez skanowanie z parametrem listy
+        return redirect()->route('magazyn.projects.authorize', ['project' => $project->id, 'list' => $loadedListId]);
+    }
+    // Usuwanie zmian CRM przez superadmina
+    public function deleteCrmChange($id)
+    {
+        $user = auth()->user();
+        if (!$user || $user->role !== 'superadmin') {
+            abort(403, 'Brak uprawnień do usuwania zmian historycznych.');
+        }
+        $change = \App\Models\CrmTaskChange::find($id);
+        if (!$change) {
+            return redirect()->back()->with('error', 'Zmiana nie istnieje.');
+        }
+        $change->delete();
+        return redirect()->back()->with('success', 'Zmiana została usunięta.');
+    }
     /* ===================== WIDOKI ===================== */
 
     // PRZYJMIJ NA MAGAZYN
@@ -43,7 +72,6 @@ class PartController extends Controller
         ]);
     }
 
-    // POBIERZ
     public function removeView()
     {
         return view('parts.remove', [
@@ -242,7 +270,7 @@ class PartController extends Controller
             $projectLists = \App\Models\ProjectList::with('items')->orderBy('name')->get();
 
             // Pobierz produkty dodane do projektu
-            $projectProductIds = $removals->where('status', 'added')->pluck('part_id')->unique();
+            $projectProductIds = $removals->where('status', 'added')->where('authorized', true)->pluck('part_id')->unique();
 
             // Pobierz produkty ze wszystkich list (wszystkie, nie tylko dodane)
             $listProductIds = collect();
@@ -251,7 +279,7 @@ class PartController extends Controller
             foreach ($loadedLists as $loadedList) {
                 $listItems = $loadedList->projectList->items ?? collect();
                 $listProductIds = $listProductIds->merge($listItems->pluck('part_id'));
-                
+
                 // Dodaj brakujące produkty
                 if ($loadedList->missing_items) {
                     foreach ($loadedList->missing_items as $missing) {
@@ -260,6 +288,16 @@ class PartController extends Controller
                         }
                     }
                 }
+
+                // Dodaj unauthorized_count do loadedList
+                $unauthorizedCount = 0;
+                if ($listItems->count() > 0) {
+                    $unauthorizedCount = \App\Models\ProjectRemoval::where('project_id', $project->id)
+                        ->whereIn('part_id', $listItems->pluck('part_id'))
+                        ->where('authorized', false)
+                        ->count();
+                }
+                $loadedList->unauthorized_count = $unauthorizedCount;
             }
             $listProductIds = $listProductIds->unique();
             $missingProductIds = $missingProductIds->unique();
@@ -415,21 +453,34 @@ class PartController extends Controller
         return redirect()->back()->with('error', 'Nie udało się pobrać żadnych produktów: ' . implode(', ', $errors));
     }
 
-    public function authorizeProducts(\App\Models\Project $project)
+    public function authorizeProducts(\App\Models\Project $project, Request $request)
     {
         if (!$project->requires_authorization) {
             return redirect()->route('magazyn.projects.show', $project->id)
                 ->with('error', 'Ten projekt nie wymaga autoryzacji produktów.');
         }
 
-        $unauthorizedRemovals = \App\Models\ProjectRemoval::where('project_id', $project->id)
+        $query = \App\Models\ProjectRemoval::where('project_id', $project->id)
             ->where('authorized', false)
-            ->with('part')
-            ->get();
+            ->with('part');
+
+        $loadedList = null;
+        // Jeśli podano parametr list, filtruj tylko produkty z tej listy
+        if ($request->has('list')) {
+            $loadedListId = $request->get('list');
+            $loadedList = \App\Models\ProjectLoadedList::with('projectList.items')->findOrFail($loadedListId);
+            $listItems = $loadedList->projectList->items ?? collect();
+            if ($listItems->isNotEmpty()) {
+                $query->whereIn('part_id', $listItems->pluck('part_id'));
+            }
+        }
+
+        $unauthorizedRemovals = $query->get();
 
         return view('parts.project-authorize', [
             'project' => $project,
             'removals' => $unauthorizedRemovals,
+            'loadedList' => $loadedList,
         ]);
     }
 
@@ -5402,7 +5453,10 @@ class PartController extends Controller
         // Typy klientów z kolorami
         $customerTypes = CrmCustomerType::all();
         
-        return view('parts.crm', compact('companies', 'deals', 'tasks', 'completedTasks', 'activities', 'stats', 'users', 'crmStages', 'availableSuppliers', 'customerTypes'));
+        $taskChanges = \App\Models\CrmTaskChange::with(['user', 'task'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+        return view('parts.crm', compact('companies', 'deals', 'tasks', 'completedTasks', 'activities', 'stats', 'users', 'crmStages', 'availableSuppliers', 'customerTypes', 'taskChanges'));
     }
 
     public function crmSettingsView()
@@ -5667,7 +5721,16 @@ class PartController extends Controller
         // Set added_by to current user
         $validated['added_by'] = auth()->id();
 
-        \App\Models\CrmCompany::create($validated);
+        $company = \App\Models\CrmCompany::create($validated);
+        \App\Models\CrmTaskChange::create([
+            'task_id' => null,
+            'entity_type' => 'company',
+            'entity_id' => $company->id,
+            'user_id' => auth()->id(),
+            'change_type' => 'created',
+            'change_details' => json_encode(['name' => $company->name], JSON_UNESCAPED_UNICODE),
+            'created_at' => now(),
+        ]);
         return redirect()->route('crm')->with('success', 'Firma została dodana.');
     }
 
@@ -5698,14 +5761,42 @@ class PartController extends Controller
             'owner_id' => 'nullable|exists:users,id',
         ]);
 
+        $old = $company->getOriginal();
         $company->update($validated);
+        $changes = [];
+        foreach ($validated as $key => $value) {
+            if (isset($old[$key]) && $old[$key] != $value) {
+                $changes[$key] = ['old' => $old[$key], 'new' => $value];
+            }
+        }
+        if (!empty($changes)) {
+            \App\Models\CrmTaskChange::create([
+                'task_id' => null,
+                'entity_type' => 'company',
+                'entity_id' => $company->id,
+                'user_id' => auth()->id(),
+                'change_type' => 'updated',
+                'change_details' => json_encode(['name' => $company->name, 'changes' => $changes], JSON_UNESCAPED_UNICODE),
+                'created_at' => now(),
+            ]);
+        }
         return redirect()->route('crm')->with('success', 'Firma została zaktualizowana.');
     }
 
     public function deleteCompany($id)
     {
         $company = \App\Models\CrmCompany::findOrFail($id);
+        $companyName = $company->name;
         $company->delete();
+        \App\Models\CrmTaskChange::create([
+            'task_id' => null,
+            'entity_type' => 'company',
+            'entity_id' => $id,
+            'user_id' => auth()->id(),
+            'change_type' => 'deleted',
+            'change_details' => json_encode(['name' => $companyName], JSON_UNESCAPED_UNICODE),
+            'created_at' => now(),
+        ]);
         return redirect()->route('crm')->with('success', 'Firma została usunięta.');
     }
 
@@ -5743,6 +5834,15 @@ class PartController extends Controller
             $deal->assignedUsers()->attach($assignedUsers);
         }
         
+        \App\Models\CrmTaskChange::create([
+            'task_id' => null,
+            'entity_type' => 'deal',
+            'entity_id' => $deal->id,
+            'user_id' => auth()->id(),
+            'change_type' => 'created',
+            'change_details' => json_encode(['name' => $deal->name, 'stage' => $deal->stage], JSON_UNESCAPED_UNICODE),
+            'created_at' => now(),
+        ]);
         return redirect()->route('crm')->with('success', 'Szansa sprzedażowa została dodana.');
     }
 
@@ -5793,10 +5893,30 @@ class PartController extends Controller
             $validated['actual_close_date'] = null;
         }
 
+        $old = $deal->getOriginal();
         $deal->update($validated);
         
         // Sync assigned users
         $deal->assignedUsers()->sync($assignedUsers);
+        
+        // Log all changes
+        $changes = [];
+        foreach ($validated as $key => $value) {
+            if (isset($old[$key]) && $old[$key] != $value) {
+                $changes[$key] = ['old' => $old[$key], 'new' => $value];
+            }
+        }
+        if (!empty($changes)) {
+            \App\Models\CrmTaskChange::create([
+                'task_id' => null,
+                'entity_type' => 'deal',
+                'entity_id' => $deal->id,
+                'user_id' => auth()->id(),
+                'change_type' => 'updated',
+                'change_details' => json_encode(['name' => $deal->name, 'changes' => $changes], JSON_UNESCAPED_UNICODE),
+                'created_at' => now(),
+            ]);
+        }
         
         return redirect()->route('crm')->with('success', 'Szansa sprzedażowa została zaktualizowana.');
     }
@@ -5804,7 +5924,17 @@ class PartController extends Controller
     public function deleteDeal($id)
     {
         $deal = \App\Models\CrmDeal::findOrFail($id);
+        $dealName = $deal->name;
         $deal->delete();
+        \App\Models\CrmTaskChange::create([
+            'task_id' => null,
+            'entity_type' => 'deal',
+            'entity_id' => $id,
+            'user_id' => auth()->id(),
+            'change_type' => 'deleted',
+            'change_details' => json_encode(['name' => $dealName], JSON_UNESCAPED_UNICODE),
+            'created_at' => now(),
+        ]);
         return redirect()->route('crm')->with('success', 'Szansa sprzedażowa została usunięta.');
     }
 
@@ -5825,7 +5955,16 @@ class PartController extends Controller
 
         $validated['created_by'] = auth()->id();
 
-        \App\Models\CrmTask::create($validated);
+        $task = \App\Models\CrmTask::create($validated);
+        \App\Models\CrmTaskChange::create([
+            'task_id' => $task->id,
+            'entity_type' => 'task',
+            'entity_id' => $task->id,
+            'user_id' => auth()->id(),
+            'change_type' => 'created',
+            'change_details' => json_encode(['title' => $task->title], JSON_UNESCAPED_UNICODE),
+            'created_at' => now(),
+        ]);
         return redirect()->route('crm')->with('success', 'Zadanie zostało dodane.');
     }
 
@@ -5856,14 +5995,42 @@ class PartController extends Controller
             $validated['completed_at'] = now();
         }
 
+        $old = $task->getOriginal();
         $task->update($validated);
+        $changes = [];
+        foreach ($validated as $key => $value) {
+            if (isset($old[$key]) && $old[$key] != $value) {
+                $changes[$key] = ['old' => $old[$key], 'new' => $value];
+            }
+        }
+        if (!empty($changes)) {
+            \App\Models\CrmTaskChange::create([
+                'task_id' => $task->id,
+                'entity_type' => 'task',
+                'entity_id' => $task->id,
+                'user_id' => auth()->id(),
+                'change_type' => 'updated',
+                'change_details' => json_encode(['title' => $task->title, 'changes' => $changes], JSON_UNESCAPED_UNICODE),
+                'created_at' => now(),
+            ]);
+        }
         return redirect()->route('crm')->with('success', 'Zadanie zostało zaktualizowane.');
     }
 
     public function deleteTask($id)
     {
         $task = \App\Models\CrmTask::findOrFail($id);
+        $taskTitle = $task->title;
         $task->delete();
+        \App\Models\CrmTaskChange::create([
+            'task_id' => $id,
+            'entity_type' => 'task',
+            'entity_id' => $id,
+            'user_id' => auth()->id(),
+            'change_type' => 'deleted',
+            'change_details' => json_encode(['title' => $taskTitle], JSON_UNESCAPED_UNICODE),
+            'created_at' => now(),
+        ]);
         return redirect()->route('crm')->with('success', 'Zadanie zostało usunięte.');
     }
 
@@ -5883,7 +6050,16 @@ class PartController extends Controller
 
         $validated['user_id'] = auth()->id();
 
-        \App\Models\CrmActivity::create($validated);
+        $activity = \App\Models\CrmActivity::create($validated);
+        \App\Models\CrmTaskChange::create([
+            'task_id' => null,
+            'entity_type' => 'activity',
+            'entity_id' => $activity->id,
+            'user_id' => auth()->id(),
+            'change_type' => 'created',
+            'change_details' => json_encode(['subject' => $activity->subject, 'type' => $activity->type], JSON_UNESCAPED_UNICODE),
+            'created_at' => now(),
+        ]);
         return redirect()->route('crm')->with('success', 'Aktywność została dodana.');
     }
 
@@ -5908,14 +6084,42 @@ class PartController extends Controller
             'deal_id' => 'nullable|exists:crm_deals,id',
         ]);
 
+        $old = $activity->getOriginal();
         $activity->update($validated);
+        $changes = [];
+        foreach ($validated as $key => $value) {
+            if (isset($old[$key]) && $old[$key] != $value) {
+                $changes[$key] = ['old' => $old[$key], 'new' => $value];
+            }
+        }
+        if (!empty($changes)) {
+            \App\Models\CrmTaskChange::create([
+                'task_id' => null,
+                'entity_type' => 'activity',
+                'entity_id' => $activity->id,
+                'user_id' => auth()->id(),
+                'change_type' => 'updated',
+                'change_details' => json_encode(['subject' => $activity->subject, 'changes' => $changes], JSON_UNESCAPED_UNICODE),
+                'created_at' => now(),
+            ]);
+        }
         return redirect()->route('crm')->with('success', 'Aktywność została zaktualizowana.');
     }
 
     public function deleteActivity($id)
     {
         $activity = \App\Models\CrmActivity::findOrFail($id);
+        $activitySubject = $activity->subject;
         $activity->delete();
+        \App\Models\CrmTaskChange::create([
+            'task_id' => null,
+            'entity_type' => 'activity',
+            'entity_id' => $id,
+            'user_id' => auth()->id(),
+            'change_type' => 'deleted',
+            'change_details' => json_encode(['subject' => $activitySubject], JSON_UNESCAPED_UNICODE),
+            'created_at' => now(),
+        ]);
         return redirect()->route('crm')->with('success', 'Aktywność została usunięta.');
     }
 
