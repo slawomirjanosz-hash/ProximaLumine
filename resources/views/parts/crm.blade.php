@@ -818,7 +818,7 @@ function showTaskModal() {
                         <option value="zakonczone">Zakończone</option>
                     </select>
                 </div>
-                <div><label class="block mb-1 font-semibold">Termin</label><input type="datetime-local" name="due_date" class="w-full border rounded px-3 py-2"></div>
+                <div><label class="block mb-1 font-semibold">Termin</label><input type="date" name="due_date" class="w-full border rounded px-3 py-2"></div>
                 <div><label class="block mb-1 font-semibold">Przypisz do</label>
                     <select name="assigned_to" class="w-full border rounded px-3 py-2">
                         <option value="">Nie przypisane</option>
@@ -1146,16 +1146,14 @@ function editTask(id) {
     fetch(`/crm/task/${id}/edit`)
         .then(response => response.json())
         .then(task => {
-            // Konwersja daty do formatu datetime-local (YYYY-MM-DDTHH:MM)
+            // Konwersja daty do formatu date (YYYY-MM-DD)
             let formattedDueDate = '';
             if (task.due_date) {
                 const date = new Date(task.due_date);
                 const year = date.getFullYear();
                 const month = String(date.getMonth() + 1).padStart(2, '0');
                 const day = String(date.getDate()).padStart(2, '0');
-                const hours = String(date.getHours()).padStart(2, '0');
-                const minutes = String(date.getMinutes()).padStart(2, '0');
-                formattedDueDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+                formattedDueDate = `${year}-${month}-${day}`;
             }
             
             document.getElementById('modal-content').innerHTML = `
@@ -1189,7 +1187,7 @@ function editTask(id) {
                                 <option value="zakonczone" ${task.status === 'zakonczone' ? 'selected' : ''}>Zakończone</option>
                             </select>
                         </div>
-                        <div><label class="block mb-1 font-semibold">Termin</label><input type="datetime-local" name="due_date" value="${formattedDueDate}" class="w-full border rounded px-3 py-2"></div>
+                        <div><label class="block mb-1 font-semibold">Termin</label><input type="date" name="due_date" value="${formattedDueDate}" class="w-full border rounded px-3 py-2"></div>
                         <div><label class="block mb-1 font-semibold">Przypisz do</label>
                             <select name="assigned_to" class="w-full border rounded px-3 py-2">
                                 <option value="">Nie przypisane</option>
@@ -1197,7 +1195,7 @@ function editTask(id) {
                                     <option value="{{ $user->id }}" ${task.assigned_to == {{ $user->id }} ? 'selected' : ''}>{{ $user->name }}</option>
                                 @endforeach
                             </select>
-                        </div>
+                        </div
                         <div><label class="block mb-1 font-semibold">Firma</label>
                             <select name="company_id" class="w-full border rounded px-3 py-2">
                                 <option value="">Brak</option>
@@ -1296,10 +1294,7 @@ function createOfferFromDeal(dealId) {
 
 // Automatyczne zamykanie kalendarza po wyborze daty
 document.addEventListener('input', function(e) {
-    if (e.target.type === 'date') {
-        // Dla type="date" zamknij od razu po wyborze daty
-        setTimeout(() => e.target.blur(), 100);
-    } else if (e.target.type === 'datetime-local') {
+    if (e.target.type === 'datetime-local') {
         // Dla datetime-local sprawdź czy wybrano już datę
         const value = e.target.value;
         if (value && value.length >= 10) { // Ma datę (YYYY-MM-DD)
@@ -1316,7 +1311,7 @@ document.addEventListener('input', function(e) {
 
 // Dodatkowy listener dla change jako backup
 document.addEventListener('change', function(e) {
-    if (e.target.type === 'date' || e.target.type === 'datetime-local') {
+    if (e.target.type === 'datetime-local') {
         setTimeout(() => e.target.blur(), 100);
     }
 });
