@@ -8,42 +8,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col">
     <header class="bg-white shadow">
-        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-    @include('parts.menu')
-                @php
-                    try {
-                        $companySettings = \App\Models\CompanySetting::first();
-                        if ($companySettings && $companySettings->logo) {
-                            if (str_starts_with($companySettings->logo, 'data:image')) {
-                                $logoPath = $companySettings->logo;
-                            } else {
-                                $logoPath = asset('storage/' . $companySettings->logo);
-                            }
-                        } else {
-                            $logoPath = '/logo.png';
-                        }
-                        $companyName = $companySettings && $companySettings->name ? $companySettings->name : 'Moja Firma';
-                    } catch (\Exception $e) {
-                        $logoPath = '/logo.png';
-                        $companyName = 'Moja Firma';
-                    }
-                @endphp
-                <img src="{{ $logoPath }}" alt="{{ $companyName }}" class="h-10">
-                <span class="text-xl font-bold">{{ $companyName }}</span>
-                <span id="datetime" class="ml-4 px-3 py-2 text-sm bg-white-200 text-gray-400 rounded whitespace-nowrap"></span>
-            </div>
-            <nav class="flex gap-2 items-center">
-                @auth
-                    <span class="text-gray-700 text-sm">{{ Auth::user()->name }}</span>
-                    <form action="{{ route('logout') }}" method="POST" class="inline">
-                        @csrf
-                        <button type="submit" class="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition whitespace-nowrap">
-                            Wyloguj
-                        </button>
-                    </form>
-                @endauth
-            </nav>
-        </div>
+        @include('parts.menu')
     </header>
     
     <main class="flex-1">

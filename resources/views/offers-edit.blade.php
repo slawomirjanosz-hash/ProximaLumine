@@ -508,6 +508,13 @@
                 </div>
 
                 <!-- Przycisk Zapisz -->
+                <!-- Podsumowanie dostawców -->
+                <div class="bg-blue-50 border border-blue-300 rounded p-4 mb-6">
+                    <h3 class="text-lg font-semibold mb-2 text-blue-900">Podsumowanie dostawców</h3>
+                    <div id="suppliers-summary">
+                        <!-- Tu pojawi się podsumowanie JS -->
+                    </div>
+                </div>
                 <div class="text-center">
                     <button type="submit" class="px-8 py-3 bg-green-600 text-white rounded-lg text-lg font-semibold hover:bg-green-700 transition">
                         Zapisz zmiany
@@ -519,6 +526,66 @@
                 </button>
             </form>
         </div>
+<script>
+function getSupplierSummary() {
+    // Zbierz wszystkie sekcje z usług, prac własnych i sekcji custom
+    const supplierTotals = {};
+    // Usługi
+    document.querySelectorAll('#services-table tr').forEach(row => {
+        const supplier = row.querySelector('select[name*="[supplier]"]')?.value || 'Inne';
+        const value = parseFloat(row.querySelector('input[name*="[value]"]')?.value || '0');
+        if (!supplierTotals[supplier]) supplierTotals[supplier] = 0;
+        supplierTotals[supplier] += value;
+    });
+    // Prace własne
+    document.querySelectorAll('#works-table tr').forEach(row => {
+        const supplier = row.querySelector('select[name*="[supplier]"]')?.value || 'Inne';
+        const value = parseFloat(row.querySelector('input[name*="[value]"]')?.value || '0');
+        if (!supplierTotals[supplier]) supplierTotals[supplier] = 0;
+        supplierTotals[supplier] += value;
+    });
+    // Sekcje custom
+    document.querySelectorAll('table[id^="custom"][id$="-table"]').forEach(table => {
+        table.querySelectorAll('tr').forEach(row => {
+            const supplier = row.querySelector('select[name*="[supplier]"]')?.value || 'Inne';
+            const value = parseFloat(row.querySelector('input[name*="[value]"]')?.value || '0');
+            if (!supplierTotals[supplier]) supplierTotals[supplier] = 0;
+            supplierTotals[supplier] += value;
+        });
+    });
+    return supplierTotals;
+}
+
+function renderSupplierSummary() {
+    const summary = getSupplierSummary();
+    const container = document.getElementById('suppliers-summary');
+    container.innerHTML = '';
+    const keys = Object.keys(summary);
+    if (keys.length === 0) {
+        container.innerHTML = '<span class="text-gray-500">Brak pozycji do podsumowania.</span>';
+        return;
+    }
+    const table = document.createElement('table');
+    table.className = 'w-full text-sm';
+    table.innerHTML = '<thead><tr><th class="text-left p-1">Dostawca</th><th class="text-right p-1">Suma (zł)</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    keys.forEach(supplier => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td class="p-1">${supplier}</td><td class="p-1 text-right font-semibold">${summary[supplier].toFixed(2)} zł</td>`;
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    container.appendChild(table);
+}
+
+// Odśwież podsumowanie po każdej zmianie
+document.addEventListener('input', function(e) {
+    if (e.target.matches('select[name*="[supplier]"]') || e.target.matches('input[name*="[value]"]')) {
+        renderSupplierSummary();
+    }
+});
+document.addEventListener('DOMContentLoaded', renderSupplierSummary);
+</script>
     </main>
 
     <!-- Modal katalogu części -->

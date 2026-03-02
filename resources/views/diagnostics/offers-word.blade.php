@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Diagnostyka Word ofert</title>
     <link rel="icon" type="image/png" href="{{ asset('logo_proxima_male.png') }}">
     @vite(['resources/css/app.css'])
@@ -21,6 +22,7 @@
                     <input id="offer-id" type="number" min="1" value="{{ $defaultOfferId }}" class="border border-gray-300 rounded px-3 py-2 w-40">
                 </div>
                 <button id="run-diagnostics" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Uruchom diagnostykę</button>
+                <button id="run-full-test" class="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">Test pełnej generacji (pokaż błąd)</button>
                 <a id="open-generate-link" href="#" target="_blank" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">Otwórz generate-word</a>
             </div>
 
@@ -79,8 +81,50 @@
             }
         }
 
+        async function runFullGenerationTest() {
+            const offerId = getOfferId();
+            if (!offerId || offerId < 1) {
+                statusEl.textContent = 'Status: podaj poprawne ID oferty';
+                return;
+            }
+
+            statusEl.textContent = 'Status: trwa pełny test generacji...';
+            outputEl.textContent = 'Ładowanie...';
+
+            try {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                const response = await fetch(`/wyceny/${offerId}/generate-word`, {
+                    headers: {
+                        'Accept': 'application/json, */*',
+                        'X-CSRF-TOKEN': csrfToken,
+                    },
+                    credentials: 'same-origin'
+                });
+
+                const contentType = response.headers.get('Content-Type') || '';
+
+                if (contentType.includes('application/json')) {
+                    // Błąd zwrócony jako JSON
+                    const data = await response.json();
+                    outputEl.textContent = `HTTP ${response.status}\n\n` + JSON.stringify(data, null, 2);
+                    statusEl.textContent = `Status: BŁĄD ${response.status} - sprawdź output`;
+                } else if (contentType.includes('application/vnd') || contentType.includes('octet-stream')) {
+                    outputEl.textContent = `Sukces! Dokument Word został wygenerowany (HTTP ${response.status}).\nContent-Type: ${contentType}`;
+                    statusEl.textContent = 'Status: generacja zakończona sukcesem!';
+                } else {
+                    const text = await response.text();
+                    outputEl.textContent = `HTTP ${response.status}\nContent-Type: ${contentType}\n\n${text.substring(0, 3000)}`;
+                    statusEl.textContent = `Status: odpowiedź HTTP ${response.status}`;
+                }
+            } catch (error) {
+                statusEl.textContent = 'Status: błąd żądania fetch';
+                outputEl.textContent = String(error);
+            }
+        }
+
         offerIdInput.addEventListener('input', updateGenerateLink);
         runButton.addEventListener('click', runDiagnostics);
+        document.getElementById('run-full-test').addEventListener('click', runFullGenerationTest);
         updateGenerateLink();
     </script>
 </body>

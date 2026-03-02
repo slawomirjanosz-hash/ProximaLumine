@@ -4997,7 +4997,8 @@ class PartController extends Controller
         
         // Data w prawym górnym rogu
         $companyCity = $companySettings && $companySettings->city ? $companySettings->city : 'Warszawa';
-        $dateText = $companyCity . ', ' . $offer->offer_date->format('d.m.Y');
+        $offerDateFormatted = $offer->offer_date ? $offer->offer_date->format('d.m.Y') : now()->format('d.m.Y');
+        $dateText = $companyCity . ', ' . $offerDateFormatted;
         $section->addText(
             $dateText,
             ['size' => 10],
@@ -5235,7 +5236,7 @@ class PartController extends Controller
         // Zwróć plik do pobrania
         return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
         
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             \Log::error('Błąd podczas generowania dokumentu Word dla oferty', [
                 'offer_id' => $offerId,
                 'error' => $e->getMessage(),
@@ -5248,11 +5249,13 @@ class PartController extends Controller
             return response()->json([
                 'error' => 'Nie udało się wygenerować dokumentu Word',
                 'message' => $e->getMessage(),
+                'exception_class' => get_class($e),
                 'debug' => [
                     'exception_class' => get_class($e),
                     'file' => $e->getFile(),
                     'line' => $e->getLine(),
                     'environment' => app()->environment(),
+                    'trace_short' => array_slice(explode("\n", $e->getTraceAsString()), 0, 10),
                 ],
             ], 500);
         }
@@ -5355,7 +5358,7 @@ class PartController extends Controller
 
         return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
         
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             \Log::error('Błąd podczas generowania dokumentu Word z szablonu dla oferty', [
                 'offer_id' => $offer->id,
                 'template_path' => $templatePath,
@@ -5368,6 +5371,7 @@ class PartController extends Controller
             return response()->json([
                 'error' => 'Nie udało się wygenerować dokumentu Word z szablonu',
                 'message' => $e->getMessage(),
+                'exception_class' => get_class($e),
                 'debug' => [
                     'exception_class' => get_class($e),
                     'file' => $e->getFile(),
