@@ -4830,13 +4830,17 @@ class PartController extends Controller
     public function generateOfferWord($offerId)
     {
         try {
-            // Sprawdź wymagane rozszerzenia PHP
-            $requiredExtensions = ['zip', 'xml', 'gd'];
+            // Sprawdź wymagane rozszerzenia PHP (gd traktujemy jako opcjonalne)
+            $requiredExtensions = ['zip', 'xml'];
             $missingExtensions = [];
             foreach ($requiredExtensions as $ext) {
                 if (!extension_loaded($ext)) {
                     $missingExtensions[] = $ext;
                 }
+            }
+
+            if (!class_exists(\PhpOffice\PhpWord\PhpWord::class)) {
+                throw new \Exception('Brak biblioteki phpoffice/phpword na serwerze');
             }
             
             if (!empty($missingExtensions)) {
@@ -4844,6 +4848,10 @@ class PartController extends Controller
                     'missing_extensions' => $missingExtensions,
                 ]);
                 throw new \Exception('Brakujące rozszerzenia PHP: ' . implode(', ', $missingExtensions));
+            }
+
+            if (!extension_loaded('gd')) {
+                \Log::warning('Rozszerzenie gd nie jest dostępne - generowanie Word będzie kontynuowane bez twardego faila');
             }
             
             // Sprawdź dostępność katalogu temp
@@ -4859,6 +4867,10 @@ class PartController extends Controller
                 $tempDir = storage_path('app/temp');
                 if (!is_dir($tempDir)) {
                     mkdir($tempDir, 0755, true);
+                }
+
+                if (!is_writable($tempDir)) {
+                    throw new \Exception('Katalog tymczasowy storage/app/temp nie jest zapisywalny: ' . $tempDir);
                 }
             }
             
@@ -5189,6 +5201,9 @@ class PartController extends Controller
         ]);
         
         $tempFile = tempnam($tempDir, 'offer_');
+        if ($tempFile === false) {
+            throw new \Exception('Nie udało się utworzyć pliku tymczasowego w katalogu: ' . $tempDir);
+        }
         \Log::info('Utworzono plik tymczasowy', [
             'offer_id' => $offerId,
             'temp_file' => $tempFile,
@@ -5247,12 +5262,20 @@ class PartController extends Controller
     protected function generateOfferWordFromTemplate($offer, $templatePath, $companySettings)
     {
         try {
+            if (!class_exists(\PhpOffice\PhpWord\TemplateProcessor::class)) {
+                throw new \Exception('Brak klasy TemplateProcessor (phpoffice/phpword)');
+            }
+
             // Sprawdź dostępność katalogu temp
             $tempDir = sys_get_temp_dir();
             if (!is_dir($tempDir) || !is_writable($tempDir)) {
                 $tempDir = storage_path('app/temp');
                 if (!is_dir($tempDir)) {
                     mkdir($tempDir, 0755, true);
+                }
+
+                if (!is_writable($tempDir)) {
+                    throw new \Exception('Katalog tymczasowy storage/app/temp nie jest zapisywalny: ' . $tempDir);
                 }
             }
             
@@ -5316,7 +5339,11 @@ class PartController extends Controller
         $fileName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $fileName) . '.docx';
 
         // Zapisz do pliku tymczasowego
-        $tempFile = tempnam($tempDir, 'offer_template_') . '.docx';
+        $tempTempFile = tempnam($tempDir, 'offer_template_');
+        if ($tempTempFile === false) {
+            throw new \Exception('Nie udało się utworzyć pliku tymczasowego dla szablonu w katalogu: ' . $tempDir);
+        }
+        $tempFile = $tempTempFile . '.docx';
         $templateProcessor->saveAs($tempFile);
         
         \Log::info('Dokument Word z szablonu wygenerowany pomyślnie', [

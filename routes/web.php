@@ -1715,6 +1715,143 @@ Route::middleware('auth')->group(function () {
             ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         }
     })->name('api.diagnostics.test-word');
+
+    // Strona diagnostyczna dla generowania ofert Word
+    Route::get('/diagnostics/offers-word', function (\Illuminate\Http\Request $request) {
+        $defaultOfferId = $request->integer('offer_id');
+        if (!$defaultOfferId) {
+            $defaultOfferId = \App\Models\Offer::query()->latest('id')->value('id');
+        }
+
+        return view('diagnostics.offers-word', [
+            'defaultOfferId' => $defaultOfferId,
+        ]);
+    })->name('diagnostics.offers-word');
+
+    // API diagnostyczne dla /wyceny/{offer}/generate-word
+    Route::get('/api/diagnostics/offers-word/{offer}', function (\App\Models\Offer $offer) {
+        $checks = [
+            'timestamp' => now()->toDateTimeString(),
+            'offer' => [
+                'id' => $offer->id,
+                'offer_number' => $offer->offer_number,
+                'offer_title' => $offer->offer_title,
+            ],
+            'environment' => app()->environment(),
+            'php_version' => PHP_VERSION,
+            'extensions' => [
+                'zip' => extension_loaded('zip'),
+                'xml' => extension_loaded('xml'),
+                'gd' => extension_loaded('gd'),
+                'dom' => extension_loaded('dom'),
+                'libxml' => extension_loaded('libxml'),
+            ],
+            'phpword' => [
+                'phpword_class' => class_exists(\PhpOffice\PhpWord\PhpWord::class),
+                'template_processor_class' => class_exists(\PhpOffice\PhpWord\TemplateProcessor::class),
+            ],
+            'temp' => [],
+            'template' => [],
+            'word_write_test' => [],
+            'probable_causes' => [],
+        ];
+
+        $sysTemp = sys_get_temp_dir();
+        $storageTemp = storage_path('app/temp');
+        if (!is_dir($storageTemp)) {
+            @mkdir($storageTemp, 0755, true);
+        }
+
+        $checks['temp']['sys_get_temp_dir'] = [
+            'path' => $sysTemp,
+            'exists' => is_dir($sysTemp),
+            'writable' => is_writable($sysTemp),
+        ];
+
+        $checks['temp']['storage_app_temp'] = [
+            'path' => $storageTemp,
+            'exists' => is_dir($storageTemp),
+            'writable' => is_writable($storageTemp),
+        ];
+
+        $offerSettings = \DB::table('offer_settings')->first();
+        $templateRelPath = $offerSettings->offer_template_path ?? null;
+        $templateFullPath = $templateRelPath ? storage_path('app/' . $templateRelPath) : null;
+        $checks['template'] = [
+            'configured' => !empty($templateRelPath),
+            'relative_path' => $templateRelPath,
+            'full_path' => $templateFullPath,
+            'exists' => $templateFullPath ? file_exists($templateFullPath) : false,
+            'readable' => $templateFullPath ? is_readable($templateFullPath) : false,
+        ];
+
+        $effectiveTempDir = is_dir($sysTemp) && is_writable($sysTemp) ? $sysTemp : $storageTemp;
+
+        try {
+            if (!class_exists(\PhpOffice\PhpWord\PhpWord::class)) {
+                throw new \RuntimeException('Brak klasy PhpOffice\\PhpWord\\PhpWord');
+            }
+
+            $phpWord = new \PhpOffice\PhpWord\PhpWord();
+            $section = $phpWord->addSection();
+            $section->addText('Offer Word diagnostics');
+            $section->addText('Offer ID: ' . $offer->id);
+            $section->addText('Timestamp: ' . now()->toDateTimeString());
+
+            $tmpFile = tempnam($effectiveTempDir, 'offer_diag_');
+            if ($tmpFile === false) {
+                throw new \RuntimeException('tempnam() zwrócił false dla: ' . $effectiveTempDir);
+            }
+
+            $writer = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+            $writer->save($tmpFile);
+
+            $checks['word_write_test'] = [
+                'success' => true,
+                'temp_dir' => $effectiveTempDir,
+                'temp_file' => $tmpFile,
+                'file_exists' => file_exists($tmpFile),
+                'file_size' => file_exists($tmpFile) ? filesize($tmpFile) : 0,
+            ];
+
+            @unlink($tmpFile);
+        } catch (\Throwable $e) {
+            $checks['word_write_test'] = [
+                'success' => false,
+                'temp_dir' => $effectiveTempDir,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ];
+        }
+
+        if (!$checks['extensions']['zip']) {
+            $checks['probable_causes'][] = 'Brak rozszerzenia PHP zip (wymagane do DOCX).';
+        }
+        if (!$checks['extensions']['xml']) {
+            $checks['probable_causes'][] = 'Brak rozszerzenia PHP xml (wymagane przez PhpWord).';
+        }
+        if (!$checks['phpword']['phpword_class']) {
+            $checks['probable_causes'][] = 'Brak biblioteki phpoffice/phpword na Railway.';
+        }
+        if (!$checks['temp']['sys_get_temp_dir']['writable'] && !$checks['temp']['storage_app_temp']['writable']) {
+            $checks['probable_causes'][] = 'Brak zapisywalnego katalogu tymczasowego (sys temp i storage/app/temp).';
+        }
+        if ($checks['template']['configured'] && !$checks['template']['exists']) {
+            $checks['probable_causes'][] = 'W bazie ustawiony jest szablon ofert, ale plik nie istnieje na serwerze Railway.';
+        }
+        if ($checks['template']['configured'] && !$checks['template']['readable']) {
+            $checks['probable_causes'][] = 'Plik szablonu ofert istnieje, ale nie jest czytelny.';
+        }
+        if (!$checks['word_write_test']['success']) {
+            $checks['probable_causes'][] = 'Test zapisu DOCX zakończył się błędem - szczegóły w word_write_test.error.';
+        }
+        if (!$checks['extensions']['gd']) {
+            $checks['probable_causes'][] = 'Brak gd (opcjonalne): logo/obrazy mogą być pominięte, ale dokument powinien się wygenerować.';
+        }
+
+        return response()->json($checks, 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    })->name('api.diagnostics.offers-word');
 });
 
 // Publiczny widok Gantt (bez auth)

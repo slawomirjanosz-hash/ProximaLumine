@@ -1,5 +1,14 @@
 @import 'tailwindcss';
 
+#app-sidebar {
+    font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    background: linear-gradient(180deg, #0F295F 0%, #23272F 100%);
+}
+
+#app-sidebar a:hover, #app-sidebar button:hover {
+    color: #fff !important;
+}
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';

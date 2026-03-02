@@ -1,3 +1,47 @@
+<style>
+    html {
+        overflow-y: scroll;
+        background-color: #f3f4f6;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        padding-left: 16rem;
+        padding-top: 56px;
+        background-color: #f3f4f6;
+    }
+
+    #app-topbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 50;
+        background: linear-gradient(90deg, #0F295F 0%, #23272F 100%);
+    }
+
+    #app-sidebar {
+        position: fixed;
+        top: 56px;
+        bottom: 0;
+        left: 0;
+        width: 16rem;
+        z-index: 40;
+        background: linear-gradient(180deg, #0F295F 0%, #23272F 100%);
+        overflow-y: auto;
+    }
+
+    #app-sidebar .submenu-panel {
+        display: none;
+    }
+
+    #app-sidebar .submenu-panel.is-open {
+        display: block;
+    }
+</style>
+
 <!-- Top Bar -->
 <div id="app-topbar" class="bg-gradient-to-r from-gray-800 to-gray-900 shadow-lg fixed top-0 left-0 right-0 z-50">
     <div class="px-6 py-3 flex items-center justify-between">
@@ -18,7 +62,7 @@
             @endphp
             <img src="{{ $logoPath }}" alt="{{ $companyName }}" class="h-8">
             <div>
-                <span class="text-white text-lg font-semibold tracking-wide">{{ $companyName }}</span>
+                <span class="text-white text-lg tracking-wide">{{ $companyName }}</span>
                 @if(!$companySettings || !$companySettings->name)
                     <span class="block text-xs text-gray-400">(Ustaw dane firmy w Ustawieniach)</span>
                 @endif
@@ -50,58 +94,71 @@
 </div>
 
 <!-- Sidebar -->
-<aside id="app-sidebar" class="fixed left-0 w-64 bg-gradient-to-b from-gray-800 to-gray-900 shadow-2xl flex flex-col justify-between overflow-y-auto z-40" style="top: 56px; bottom: 0;">
+<aside id="app-sidebar" class="fixed left-0 w-64 bg-gradient-to-b from-gray-800 to-gray-900 shadow-2xl flex flex-col justify-between overflow-y-auto z-40 font-[Instrument Sans]" style="top: 56px; bottom: 0;">
     <div>
         <nav class="py-4">
         @php
             $isSuperAdmin = auth()->check() && strtolower(auth()->user()->email) === 'proximalumine@gmail.com';
             $isAdmin = auth()->check() && auth()->user()->is_admin;
+            $isMagazynMenuActive = request()->routeIs('magazyn.add')
+                || request()->routeIs('magazyn.remove')
+                || request()->routeIs('magazyn.check')
+                || request()->routeIs('magazyn.check.*')
+                || request()->routeIs('magazyn.orders')
+                || request()->routeIs('magazyn.receive');
+            $isProjektyMenuActive = request()->routeIs('magazyn.projects')
+                || request()->routeIs('magazyn.projects.*')
+                || request()->get('add')
+                || request()->get('status');
+            $isOfertyMenuActive = request()->routeIs('offers.*');
         @endphp
         <!-- Start -->
-        <a href="{{ url('/') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->is('/') ? 'bg-gray-700 text-white border-l-4 border-blue-500' : '' }}">
+        <a href="{{ url('/') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white transition-all duration-200 {{ request()->is('/') ? 'text-white border-l-4 border-[#0F295F]' : '' }}">
             <span class="text-lg">🏠</span>
-            <span class="font-medium">Start</span>
+            <span class="menu-main-label {{ request()->is('/') ? 'is-active' : '' }}">Start</span>
         </a>
 
         @if(auth()->check() && (auth()->user()->can_view_magazyn || $isAdmin || $isSuperAdmin))
         <!-- Magazyn (rozwijane) -->
         <div class="menu-group">
-            <button onclick="toggleSubmenu('magazyn')" class="w-full flex items-center justify-between px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ (request()->routeIs('magazyn.add') || request()->routeIs('magazyn.remove') || request()->routeIs('magazyn.check') || request()->routeIs('magazyn.orders')) ? 'bg-gray-700 text-white' : '' }}">
-                <div class="flex items-center gap-3">
+            <button onclick="toggleSubmenu('magazyn')" class="w-full flex items-center px-4 py-3 text-gray-300 hover:text-white transition-all duration-200 {{ $isMagazynMenuActive ? 'text-white' : '' }}">
+                <div class="flex items-center gap-3 flex-1">
                     <span class="text-lg">📦</span>
-                    <span class="font-medium">Magazyn</span>
+                    <span class="menu-main-label {{ $isMagazynMenuActive ? 'is-active' : '' }}">Magazyn</span>
                 </div>
-                <svg class="w-4 h-4 transition-transform duration-200 {{ (request()->routeIs('magazyn.add') || request()->routeIs('magazyn.remove') || request()->routeIs('magazyn.check') || request()->routeIs('magazyn.orders')) ? 'rotate-180' : '' }}" id="magazyn-arrow" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                </svg>
+                <div class="flex flex-col items-end">
+                    <svg class="w-4 h-4 transition-transform duration-200 {{ $isMagazynMenuActive ? 'rotate-180' : '' }}" id="magazyn-arrow" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
             </button>
-            <div id="magazyn-submenu" class="bg-gray-900 {{ (request()->routeIs('magazyn.add') || request()->routeIs('magazyn.remove') || request()->routeIs('magazyn.check') || request()->routeIs('magazyn.orders')) ? '' : 'hidden' }}">
+            <div id="magazyn-submenu" class="bg-gray-900 submenu-panel {{ $isMagazynMenuActive ? 'is-open' : '' }}">
                 @if($isAdmin || $isSuperAdmin || auth()->user()->can_view_catalog)
-                <a href="{{ route('magazyn.check') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.check') ? 'bg-gray-700 text-white border-l-4 border-blue-500' : '' }}">
+                <a href="{{ route('magazyn.check') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.check') ? 'text-white border-l-4 border-blue-500' : '' }}">
                     <span>🔍</span>
                     <span>Katalog</span>
                 </a>
                 @endif
                 @if($isAdmin || $isSuperAdmin || auth()->user()->can_add)
-                <a href="{{ route('magazyn.add') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.add') ? 'bg-gray-700 text-white border-l-4 border-green-500' : '' }}">
+                <a href="{{ route('magazyn.add') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.add') ? 'text-white border-l-4 border-green-500' : '' }}">
                     <span>➕</span>
                     <span>Dodaj</span>
                 </a>
                 @endif
                 @if($isAdmin || $isSuperAdmin || auth()->user()->can_receive)
-                <a href="{{ route('magazyn.receive') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.receive') ? 'bg-gray-700 text-white border-l-4 border-green-400' : '' }}">
+                <a href="{{ route('magazyn.receive') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.receive') ? 'text-white border-l-4 border-green-400' : '' }}">
                     <span>📥</span>
                     <span>Przyjmij na magazyn</span>
                 </a>
                 @endif
                 @if($isAdmin || $isSuperAdmin || auth()->user()->can_remove)
-                <a href="{{ route('magazyn.remove') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.remove') ? 'bg-gray-700 text-white border-l-4 border-red-500' : '' }}">
+                <a href="{{ route('magazyn.remove') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.remove') ? 'text-white border-l-4 border-red-500' : '' }}">
                     <span>➖</span>
                     <span>Pobierz</span>
                 </a>
                 @endif
                 @if($isAdmin || $isSuperAdmin || auth()->user()->can_orders)
-                <a href="{{ route('magazyn.orders') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.orders') ? 'bg-gray-700 text-white border-l-4 border-yellow-500' : '' }}">
+                <a href="{{ route('magazyn.orders') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.orders') ? 'text-white border-l-4 border-yellow-500' : '' }}">
                     <span>📦</span>
                     <span>Zamówienia</span>
                 </a>
@@ -113,36 +170,38 @@
         <!-- Projekty (rozwijane) -->
         @if(auth()->check() && (auth()->user()->can_view_projects || $isAdmin || $isSuperAdmin))
         <div class="menu-group">
-            <button onclick="toggleSubmenu('projekty')" class="w-full flex items-center justify-between px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200">
-                <div class="flex items-center gap-3">
+            <button onclick="toggleSubmenu('projekty')" class="w-full flex items-center px-4 py-3 text-gray-300 hover:text-white transition-all duration-200 {{ $isProjektyMenuActive ? 'text-white' : '' }}">
+                <div class="flex items-center gap-3 flex-1">
                     <span class="text-lg">🏗️</span>
-                    <span class="font-medium">Projekty</span>
+                    <span class="menu-main-label {{ $isProjektyMenuActive ? 'is-active' : '' }}">Projekty</span>
                 </div>
-                <svg class="w-4 h-4 transition-transform duration-200" id="projekty-arrow" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                </svg>
+                <div class="flex flex-col items-end">
+                    <svg class="w-4 h-4 transition-transform duration-200 {{ $isProjektyMenuActive ? 'rotate-180' : '' }}" id="projekty-arrow" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
             </button>
-            <div id="projekty-submenu" class="bg-gray-900 hidden">
+            <div id="projekty-submenu" class="bg-gray-900 submenu-panel {{ $isProjektyMenuActive ? 'is-open' : '' }}">
                 @if($isAdmin || $isSuperAdmin || auth()->user()->can_projects_add)
-                <a href="{{ route('magazyn.projects') }}?add=1" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->get('add') == '1' ? 'bg-gray-700 text-white border-l-4 border-green-500' : '' }}">
+                <a href="{{ route('magazyn.projects') }}?add=1" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->get('add') == '1' ? 'text-white border-l-4 border-green-500' : '' }}">
                     <span>➕</span>
                     <span>Dodaj projekt</span>
                 </a>
                 @endif
                 @if($isAdmin || $isSuperAdmin || auth()->user()->can_projects_in_progress)
-                <a href="{{ route('magazyn.projects') }}?status=in_progress" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->get('status') == 'in_progress' ? 'bg-gray-700 text-white border-l-4 border-yellow-500' : '' }}">
+                <a href="{{ route('magazyn.projects') }}?status=in_progress" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->get('status') == 'in_progress' ? 'text-white border-l-4 border-yellow-500' : '' }}">
                     <span>⏳</span>
                     <span>Projekty w toku</span>
                 </a>
                 @endif
                 @if($isAdmin || $isSuperAdmin || auth()->user()->can_projects_warranty)
-                <a href="{{ route('magazyn.projects') }}?status=warranty" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->get('status') == 'warranty' ? 'bg-gray-700 text-white border-l-4 border-blue-500' : '' }}">
+                <a href="{{ route('magazyn.projects') }}?status=warranty" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->get('status') == 'warranty' ? 'text-white border-l-4 border-blue-500' : '' }}">
                     <span>🛡️</span>
                     <span>Projekty na gwarancji</span>
                 </a>
                 @endif
                 @if($isAdmin || $isSuperAdmin || auth()->user()->can_projects_archived)
-                <a href="{{ route('magazyn.projects') }}?status=archived" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->get('status') == 'archived' ? 'bg-gray-700 text-white border-l-4 border-gray-500' : '' }}">
+                <a href="{{ route('magazyn.projects') }}?status=archived" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->get('status') == 'archived' ? 'text-white border-l-4 border-gray-500' : '' }}">
                     <span>📦</span>
                     <span>Projekty archiwalne</span>
                 </a>
@@ -159,43 +218,45 @@
 
         <!-- CRM -->
         @if(auth()->check() && (auth()->user()->can_crm || $isAdmin || $isSuperAdmin))
-        <a href="{{ route('crm') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('crm*') ? 'bg-gray-700 text-white border-l-4 border-teal-500' : '' }}">
+        <a href="{{ route('crm') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white transition-all duration-200 {{ request()->routeIs('crm*') ? 'bg-gray-700 text-white border-l-4 border-[#0F295F]' : '' }}">
             <span class="text-lg">👥</span>
-            <span class="font-medium">CRM</span>
+            <span class="menu-main-label {{ request()->routeIs('crm*') ? 'is-active' : '' }}">CRM</span>
         </a>
         @endif
 
         <!-- Oferty (rozwijane) -->
         @if(auth()->check() && (auth()->user()->can_view_offers || $isAdmin || $isSuperAdmin))
         <div class="menu-group">
-            <button onclick="toggleSubmenu('oferty')" class="w-full flex items-center justify-between px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ (request()->routeIs('offers.new') || request()->routeIs('offers.portfolio') || request()->routeIs('offers.inprogress') || request()->routeIs('offers.archived') || request()->routeIs('offers.settings')) ? 'bg-gray-700 text-white' : '' }}">
-                <div class="flex items-center gap-3">
+            <button onclick="toggleSubmenu('oferty')" class="w-full flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ $isOfertyMenuActive ? 'bg-gray-700 text-white' : '' }}">
+                <div class="flex items-center gap-3 flex-1">
                     <span class="text-lg">📄</span>
-                    <span class="font-medium">Oferty</span>
+                    <span class="menu-main-label {{ $isOfertyMenuActive ? 'is-active' : '' }}">Oferty</span>
                 </div>
-                <svg class="w-4 h-4 transition-transform duration-200 {{ (request()->routeIs('offers.new') || request()->routeIs('offers.portfolio') || request()->routeIs('offers.inprogress') || request()->routeIs('offers.archived') || request()->routeIs('offers.settings')) ? 'rotate-180' : '' }}" id="oferty-arrow" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                </svg>
+                <div class="flex flex-col items-end">
+                    <svg class="w-4 h-4 transition-transform duration-200 {{ $isOfertyMenuActive ? 'rotate-180' : '' }}" id="oferty-arrow" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
             </button>
-            <div id="oferty-submenu" class="bg-gray-900 {{ (request()->routeIs('offers.new') || request()->routeIs('offers.portfolio') || request()->routeIs('offers.inprogress') || request()->routeIs('offers.archived') || request()->routeIs('offers.settings')) ? '' : 'hidden' }}">
-                <a href="{{ route('offers.new') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('offers.new') ? 'bg-gray-700 text-white border-l-4 border-green-500' : '' }}">
+            <div id="oferty-submenu" class="bg-gray-900 submenu-panel {{ $isOfertyMenuActive ? 'is-open' : '' }}">
+                <a href="{{ route('offers.new') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('offers.new') ? 'text-white border-l-4 border-green-500' : '' }}">
                     <span>➕</span>
                     <span>Zrób ofertę</span>
                 </a>
-                <a href="{{ route('offers.portfolio') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('offers.portfolio') ? 'bg-gray-700 text-white border-l-4 border-blue-500' : '' }}">
+                <a href="{{ route('offers.portfolio') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('offers.portfolio') ? 'text-white border-l-4 border-blue-500' : '' }}">
                     <span>📂</span>
                     <span>Portfolio</span>
                 </a>
-                <a href="{{ route('offers.inprogress') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('offers.inprogress') ? 'bg-gray-700 text-white border-l-4 border-yellow-500' : '' }}">
+                <a href="{{ route('offers.inprogress') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('offers.inprogress') ? 'text-white border-l-4 border-yellow-500' : '' }}">
                     <span>⏳</span>
                     <span>Oferty w toku</span>
                 </a>
-                <a href="{{ route('offers.archived') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('offers.archived') ? 'bg-gray-700 text-white border-l-4 border-gray-500' : '' }}">
+                <a href="{{ route('offers.archived') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('offers.archived') ? 'text-white border-l-4 border-gray-500' : '' }}">
                     <span>🗄️</span>
                     <span>Oferty zarchiwizowane</span>
                 </a>
                 @if($isSuperAdmin || auth()->user()->can_settings)
-                <a href="{{ route('offers.settings') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('offers.settings') ? 'bg-gray-700 text-white border-l-4 border-purple-500' : '' }}">
+                <a href="{{ route('offers.settings') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('offers.settings') ? 'text-white border-l-4 border-purple-500' : '' }}">
                     <span>⚙️</span>
                     <span>Ustawienia ofert</span>
                 </a>
@@ -206,17 +267,17 @@
 
         <!-- Receptury -->
         @if(auth()->check() && ($isSuperAdmin || auth()->user()->can_view_recipes))
-        <a href="{{ route('receptury') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('receptury') ? 'bg-gray-700 text-white border-l-4 border-purple-500' : '' }}">
+        <a href="{{ route('receptury') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white transition-all duration-200 {{ request()->routeIs('receptury') ? 'text-white border-l-4 border-purple-500' : '' }}">
             <span class="text-lg">🧪</span>
-            <span class="font-medium">Receptury</span>
+            <span class="menu-main-label {{ request()->routeIs('receptury') ? 'is-active' : '' }}">Receptury</span>
         </a>
         @endif
 
         <!-- Ustawienia -->
         @if(auth()->check() && ($isSuperAdmin || auth()->user()->can_settings))
-        <a href="{{ route('magazyn.settings') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.settings') ? 'bg-gray-700 text-white border-l-4 border-gray-400' : '' }}">
+        <a href="{{ route('magazyn.settings') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.settings') ? 'text-white border-l-4 border-gray-400' : '' }}">
             <span class="text-lg">⚙️</span>
-            <span class="font-medium">Ustawienia</span>
+            <span class="menu-main-label {{ request()->routeIs('magazyn.settings') ? 'is-active' : '' }}">Ustawienia</span>
         </a>
         @endif
         </nav>
@@ -246,38 +307,13 @@ updateDateTime();
 function toggleSubmenu(id) {
     const submenu = document.getElementById(id + '-submenu');
     const arrow = document.getElementById(id + '-arrow');
-    const isOpen = !submenu.classList.contains('hidden');
-    submenu.classList.toggle('hidden');
-    arrow.classList.toggle('rotate-180');
-    // Zapamiętaj stan w localStorage
-    let menuState = {};
-    try {
-        menuState = JSON.parse(localStorage.getItem('sidebarMenuState')) || {};
-    } catch (e) { menuState = {}; }
-    menuState[id] = !isOpen;
-    localStorage.setItem('sidebarMenuState', JSON.stringify(menuState));
-}
-
-// Przy ładowaniu strony odtwórz stan menu
-document.addEventListener('DOMContentLoaded', function() {
-    let menuState = {};
-    try {
-        menuState = JSON.parse(localStorage.getItem('sidebarMenuState')) || {};
-    } catch (e) { menuState = {}; }
-    for (const id in menuState) {
-        const submenu = document.getElementById(id + '-submenu');
-        const arrow = document.getElementById(id + '-arrow');
-        if (submenu && arrow) {
-            if (menuState[id]) {
-                submenu.classList.remove('hidden');
-                arrow.classList.add('rotate-180');
-            } else {
-                submenu.classList.add('hidden');
-                arrow.classList.remove('rotate-180');
-            }
-        }
+    if (!submenu || !arrow) {
+        return;
     }
-});
+
+    submenu.classList.toggle('is-open');
+    arrow.classList.toggle('rotate-180');
+}
 </script>
 
 <!-- Style dla layoutu z sidebar -->
@@ -287,6 +323,11 @@ document.addEventListener('DOMContentLoaded', function() {
         margin: 0 !important;
         padding: 0 !important;
         min-height: 100vh;
+    }
+
+    html {
+        overflow-y: scroll !important;
+        background-color: #f3f4f6 !important;
     }
     
     /* Dodaj padding dla contentu */
@@ -314,10 +355,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     #app-sidebar {
         z-index: 40 !important;
-        background: linear-gradient(to bottom, #1f2937, #111827) !important;
+        background: linear-gradient(180deg, #0F295F 0%, #23272F 100%) !important;
         position: fixed !important;
         left: 0 !important;
         width: 16rem !important;
+        overflow-y: auto !important;
+    }
+
+    #app-topbar {
+        background: linear-gradient(90deg, #0F295F 0%, #23272F 100%) !important;
     }
     
     /* Wymuszaj dokładne style dla wszystkich linków i przycisków w sidebar */
@@ -329,11 +375,13 @@ document.addEventListener('DOMContentLoaded', function() {
         padding: 0.75rem 1rem !important; /* py-3 px-4 */
         color: #d1d5db !important; /* text-gray-300 */
         font-size: 1rem !important;
-        font-weight: 500 !important;
+        font-weight: normal !important;
         line-height: 1.5 !important;
-        transition: all 0.2s !important;
+        transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease !important;
         text-decoration: none !important;
-        border: none !important;
+        border: 0 !important;
+        border-left: 4px solid transparent !important;
+        box-sizing: border-box !important;
         background-color: transparent !important;
         width: 100% !important;
         text-align: left !important;
@@ -374,20 +422,29 @@ document.addEventListener('DOMContentLoaded', function() {
     #app-sidebar > nav > a span:not(:first-child),
     #app-sidebar .menu-group > button span:not(:first-child) {
         font-size: 1rem !important;
-        font-weight: 500 !important;
+        font-weight: normal !important;
         line-height: 1.5 !important;
+    }
+
+    #app-sidebar > div > nav > a span.menu-main-label.is-active,
+    #app-sidebar .menu-group > button span.menu-main-label.is-active {
+        font-weight: 700 !important;
+    }
+
+    #app-sidebar .menu-group > div[id$='-submenu'] a.text-white span:last-child {
+        font-weight: 700 !important;
     }
     
     #app-sidebar a:hover,
     #app-sidebar button:hover {
-        background-color: #374151 !important; /* gray-700 */
+        background-color: transparent !important;
         color: #ffffff !important;
     }
     
     #app-sidebar a.bg-gray-700,
     #app-sidebar a.text-white,
     #app-sidebar button.bg-gray-700 {
-        background-color: #374151 !important;
+        background-color: transparent !important;
         color: #ffffff !important;
     }
     
@@ -399,16 +456,11 @@ document.addEventListener('DOMContentLoaded', function() {
     /* Wymuszaj kolor tła dla submenu - UNIWERSALNY DLA WSZYSTKICH */
     #app-sidebar .menu-group > div[id$='-submenu'] {
         background-color: #111827 !important; /* gray-900 */
-        transition: none !important; /* usuń animację dla natychmiastowego wyświetlania */
+        display: none;
     }
-    
-    /* Zapobiegaj FOUC (Flash of Unstyled Content) - UNIWERSALNY */
-    #app-sidebar .menu-group > div[id$='-submenu'].hidden {
-        display: none !important;
-    }
-    
-    #app-sidebar .menu-group > div[id$='-submenu']:not(.hidden) {
-        display: block !important;
+
+    #app-sidebar .menu-group > div[id$='-submenu'].is-open {
+        display: block;
     }
     
     #app-sidebar .menu-group > div[id$='-submenu'] a {
@@ -422,7 +474,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     #app-sidebar .menu-group > div[id$='-submenu'] a:hover {
-        background-color: #374151 !important; /* gray-700 */
+        background-color: transparent !important;
         color: #ffffff !important;
     }
     
