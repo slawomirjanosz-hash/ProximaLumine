@@ -4854,23 +4854,20 @@ class PartController extends Controller
                 \Log::warning('Rozszerzenie gd nie jest dostępne - generowanie Word będzie kontynuowane bez twardego faila');
             }
             
-            // Sprawdź dostępność katalogu temp
-            $tempDir = sys_get_temp_dir();
-            if (!is_dir($tempDir) || !is_writable($tempDir)) {
-                \Log::error('Katalog tymczasowy nie jest dostępny lub zapisywalny', [
-                    'temp_dir' => $tempDir,
-                    'exists' => is_dir($tempDir),
-                    'writable' => is_writable($tempDir),
-                ]);
-                
-                // Spróbuj użyć storage/app/temp jako fallback
-                $tempDir = storage_path('app/temp');
-                if (!is_dir($tempDir)) {
-                    mkdir($tempDir, 0755, true);
-                }
+            // Używaj stabilnego katalogu tymczasowego aplikacji (bez zależności od /tmp środowiska)
+            $tempDir = storage_path('app/temp');
+            if (!is_dir($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
 
-                if (!is_writable($tempDir)) {
-                    throw new \Exception('Katalog tymczasowy storage/app/temp nie jest zapisywalny: ' . $tempDir);
+            if (!is_writable($tempDir)) {
+                throw new \Exception('Katalog tymczasowy storage/app/temp nie jest zapisywalny: ' . $tempDir);
+            }
+
+            // Delikatne czyszczenie starych plików tymczasowych (>24h)
+            foreach (glob($tempDir . DIRECTORY_SEPARATOR . 'offer_*') ?: [] as $oldFile) {
+                if (is_file($oldFile) && @filemtime($oldFile) < (time() - 86400)) {
+                    @unlink($oldFile);
                 }
             }
             
@@ -5201,10 +5198,11 @@ class PartController extends Controller
             'file_name' => $fileName,
         ]);
         
-        $tempFile = tempnam($tempDir, 'offer_');
-        if ($tempFile === false) {
+        $tempTempFile = tempnam($tempDir, 'offer_');
+        if ($tempTempFile === false) {
             throw new \Exception('Nie udało się utworzyć pliku tymczasowego w katalogu: ' . $tempDir);
         }
+        $tempFile = $tempTempFile . '.docx';
         \Log::info('Utworzono plik tymczasowy', [
             'offer_id' => $offerId,
             'temp_file' => $tempFile,
@@ -5234,7 +5232,14 @@ class PartController extends Controller
         ]);
 
         // Zwróć plik do pobrania
-        return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
+        @unlink($tempTempFile);
+
+        return response()->download($tempFile, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ])->deleteFileAfterSend(false);
         
         } catch (\Throwable $e) {
             \Log::error('Błąd podczas generowania dokumentu Word dla oferty', [
@@ -5269,16 +5274,19 @@ class PartController extends Controller
                 throw new \Exception('Brak klasy TemplateProcessor (phpoffice/phpword)');
             }
 
-            // Sprawdź dostępność katalogu temp
-            $tempDir = sys_get_temp_dir();
-            if (!is_dir($tempDir) || !is_writable($tempDir)) {
-                $tempDir = storage_path('app/temp');
-                if (!is_dir($tempDir)) {
-                    mkdir($tempDir, 0755, true);
-                }
+            // Używaj stabilnego katalogu tymczasowego aplikacji
+            $tempDir = storage_path('app/temp');
+            if (!is_dir($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
 
-                if (!is_writable($tempDir)) {
-                    throw new \Exception('Katalog tymczasowy storage/app/temp nie jest zapisywalny: ' . $tempDir);
+            if (!is_writable($tempDir)) {
+                throw new \Exception('Katalog tymczasowy storage/app/temp nie jest zapisywalny: ' . $tempDir);
+            }
+
+            foreach (glob($tempDir . DIRECTORY_SEPARATOR . 'offer_template_*') ?: [] as $oldFile) {
+                if (is_file($oldFile) && @filemtime($oldFile) < (time() - 86400)) {
+                    @unlink($oldFile);
                 }
             }
             
@@ -5356,7 +5364,14 @@ class PartController extends Controller
             'file_size' => filesize($tempFile),
         ]);
 
-        return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
+        @unlink($tempTempFile);
+
+        return response()->download($tempFile, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ])->deleteFileAfterSend(false);
         
         } catch (\Throwable $e) {
             \Log::error('Błąd podczas generowania dokumentu Word z szablonu dla oferty', [

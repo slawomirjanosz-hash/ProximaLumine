@@ -431,7 +431,7 @@
                                                                                                             <select name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
                                                                                                                 <option value="">-- brak --</option>
                                                                                                                 @foreach($suppliers as $supplier)
-                                                                                                                    <option value="{{ $supplier->name }}" @if(($item['supplier'] ?? '') == $supplier->name) selected @endif>{{ $supplier->name }}</option>
+                                                                                                                    <option value="{{ $supplier->name }}" @if(($item['supplier'] ?? '') == $supplier->name) selected @endif>{{ $supplier->short_name ?: $supplier->name }}</option>
                                                                                                                 @endforeach
                                                                                                             </select>
                                                                                                         </td>
@@ -450,7 +450,7 @@
                                                                                                             <select name="custom_sections[{{ $sectionIndex + 1 }}][items][0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
                                                                                                                 <option value="">-- brak --</option>
                                                                                                                 @foreach($suppliers as $supplier)
-                                                                                                                    <option value="{{ $supplier->name }}">{{ $supplier->name }}</option>
+                                                                                                                    <option value="{{ $supplier->name }}">{{ $supplier->short_name ?: $supplier->name }}</option>
                                                                                                                 @endforeach
                                                                                                             </select>
                                                                                                         </td>
@@ -528,31 +528,24 @@
         </div>
 <script>
 function getSupplierSummary() {
-    // Zbierz wszystkie sekcje z usług, prac własnych i sekcji custom
     const supplierTotals = {};
-    // Usługi
-    document.querySelectorAll('#services-table tr').forEach(row => {
-        const supplier = row.querySelector('select[name*="[supplier]"]')?.value || 'Inne';
-        const value = parseFloat(row.querySelector('input[name*="[value]"]')?.value || '0');
-        if (!supplierTotals[supplier]) supplierTotals[supplier] = 0;
-        supplierTotals[supplier] += value;
+    const supplierFields = document.querySelectorAll('#offer-form select[name$="[supplier]"]');
+
+    supplierFields.forEach((supplierField) => {
+        const row = supplierField.closest('tr');
+        if (!row) return;
+
+        const valueField = row.querySelector('input[name$="[value]"]');
+        const supplierName = (supplierField.value || '').trim() || 'Inne';
+        const value = parseFloat(valueField?.value || '0') || 0;
+
+        if (!supplierTotals[supplierName]) {
+            supplierTotals[supplierName] = 0;
+        }
+
+        supplierTotals[supplierName] += value;
     });
-    // Prace własne
-    document.querySelectorAll('#works-table tr').forEach(row => {
-        const supplier = row.querySelector('select[name*="[supplier]"]')?.value || 'Inne';
-        const value = parseFloat(row.querySelector('input[name*="[value]"]')?.value || '0');
-        if (!supplierTotals[supplier]) supplierTotals[supplier] = 0;
-        supplierTotals[supplier] += value;
-    });
-    // Sekcje custom
-    document.querySelectorAll('table[id^="custom"][id$="-table"]').forEach(table => {
-        table.querySelectorAll('tr').forEach(row => {
-            const supplier = row.querySelector('select[name*="[supplier]"]')?.value || 'Inne';
-            const value = parseFloat(row.querySelector('input[name*="[value]"]')?.value || '0');
-            if (!supplierTotals[supplier]) supplierTotals[supplier] = 0;
-            supplierTotals[supplier] += value;
-        });
-    });
+
     return supplierTotals;
 }
 
@@ -581,6 +574,11 @@ function renderSupplierSummary() {
 // Odśwież podsumowanie po każdej zmianie
 document.addEventListener('input', function(e) {
     if (e.target.matches('select[name*="[supplier]"]') || e.target.matches('input[name*="[value]"]')) {
+        renderSupplierSummary();
+    }
+});
+document.addEventListener('change', function(e) {
+    if (e.target.matches('select[name*="[supplier]"]') || e.target.matches('input[name*="[value]"]') || e.target.matches('input[name*="[price]"]') || e.target.matches('input[name*="[quantity]"]')) {
         renderSupplierSummary();
     }
 });
@@ -974,7 +972,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             const row = document.createElement('tr');
             let supplierOptions = `<option value="">-- brak --</option>`;
             @foreach($suppliers as $supplier)
-                supplierOptions += `<option value="{{ addslashes($supplier->name) }}">{{ addslashes($supplier->name) }}</option>`;
+                supplierOptions += `<option value=\"{{ addslashes($supplier->name) }}\">{{ addslashes($supplier->short_name ?: $supplier->name) }}<\/option>`;
             @endforeach
             row.innerHTML = `
                 <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="${rowCount + 1}" readonly></td>
@@ -995,6 +993,9 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             button.closest('tr').remove();
             updateRowNumbers(section);
             calculateTotal(section);
+            if (typeof renderSupplierSummary === 'function') {
+                renderSupplierSummary();
+            }
         }
 
         function updateRowNumbers(section) {
@@ -1018,6 +1019,9 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             
             document.getElementById(section + '-total').textContent = total.toFixed(2) + ' zł';
             calculateGrandTotal();
+            if (typeof renderSupplierSummary === 'function') {
+                renderSupplierSummary();
+            }
         }
 
         function calculateGrandTotal() {
@@ -1066,7 +1070,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             sectionDiv.id = `section-${sectionId}`;
             let supplierOptions = `<option value="">-- brak --</option>`;
             @foreach($suppliers as $supplier)
-                supplierOptions += `<option value="{{ addslashes($supplier->name) }}">{{ addslashes($supplier->name) }}</option>`;
+                supplierOptions += `<option value=\"{{ addslashes($supplier->name) }}\">{{ addslashes($supplier->short_name ?: $supplier->name) }}<\/option>`;
             @endforeach
             sectionDiv.innerHTML = `
                 <div class="flex items-center justify-between p-4 bg-gray-50">
@@ -1169,6 +1173,9 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 enabledInput.value = '0';
             }
             calculateGrandTotal();
+            if (typeof renderSupplierSummary === 'function') {
+                renderSupplierSummary();
+            }
             _formChanged = true;
             _updateSaveBtn();
         }
@@ -1188,6 +1195,9 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 }
                 delete rowCounters[sectionId];
                 calculateGrandTotal();
+                if (typeof renderSupplierSummary === 'function') {
+                    renderSupplierSummary();
+                }
                 _formChanged = true;
                 _updateSaveBtn();
             }
@@ -1198,7 +1208,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             const rowCount = rowCounters[sectionId];
             let supplierOptions = `<option value="">-- brak --</option>`;
             @foreach($suppliers as $supplier)
-                supplierOptions += `<option value="{{ addslashes($supplier->name) }}">{{ addslashes($supplier->name) }}</option>`;
+                supplierOptions += `<option value=\"{{ addslashes($supplier->name) }}\">{{ addslashes($supplier->short_name ?: $supplier->name) }}<\/option>`;
             @endforeach
             const row = document.createElement('tr');
             row.innerHTML = `
