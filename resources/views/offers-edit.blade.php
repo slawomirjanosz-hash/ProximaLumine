@@ -38,14 +38,14 @@
     </header>
     <main class="flex-1 p-6">
         <div class="max-w-5xl mx-auto bg-white rounded shadow p-6 relative">
-            <a href="javascript:history.back()" class="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 shadow rounded-full text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition z-10">
+            <a href="javascript:void(0)" onclick="handleBack()" class="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 shadow rounded-full text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition z-10">
                 <svg xmlns='http://www.w3.org/2000/svg' class='h-5 w-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 19l-7-7 7-7' /></svg>
                 Powrót
             </a>
             
             <h1 class="text-3xl font-bold mb-6 text-center mt-12">Edycja oferty</h1>
             
-            <form action="{{ route('offers.update', $offer) }}" method="POST" class="space-y-6" onkeydown="return event.key != 'Enter';">
+            <form id="offer-form" action="{{ route('offers.update', $offer) }}" method="POST" class="space-y-6" onkeydown="return event.key != 'Enter';" onsubmit="prepareSaveAndStay()">
                 @csrf
                 @method('PUT')
                 
@@ -156,7 +156,7 @@
                 </div>
 
                 <!-- Sekcja Usługi -->
-                <div class="border border-gray-300 rounded">
+                <div id="section-services" class="border border-gray-300 rounded" @if(!$servicesEnabled) style="display:none;" @endif>
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('services')">
                             <span class="font-semibold text-lg section-name" id="services-name-label">{{ $servicesName }}</span>
@@ -170,6 +170,7 @@
                         </button>
                     </div>
                         <input type="hidden" id="services-name-input" name="services_name" value="{{ $servicesName }}">
+                        <input type="hidden" id="services-enabled-input" name="services_enabled" value="{{ $servicesEnabled ? '1' : '0' }}">
                     <div id="services-content" class="p-4 hidden">
                         <table class="w-full mb-4 text-xs">
                             <thead>
@@ -238,7 +239,7 @@
                 </div>
 
                 <!-- Sekcja Prace własne -->
-                <div class="border border-gray-300 rounded">
+                <div id="section-works" class="border border-gray-300 rounded" @if(!$worksEnabled) style="display:none;" @endif>
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('works')">
                             <span class="font-semibold text-lg section-name" id="works-name-label">{{ $worksName }}</span>
@@ -252,6 +253,7 @@
                         </button>
                     </div>
                         <input type="hidden" id="works-name-input" name="works_name" value="{{ $worksName }}">
+                        <input type="hidden" id="works-enabled-input" name="works_enabled" value="{{ $worksEnabled ? '1' : '0' }}">
                     <div id="works-content" class="p-4 hidden">
                         <table class="w-full mb-4 text-xs">
                             <thead>
@@ -320,7 +322,7 @@
                 </div>
 
                 <!-- Sekcja Materiały -->
-                <div class="border border-gray-300 rounded">
+                <div id="section-materials" class="border border-gray-300 rounded" @if(!$materialsEnabled) style="display:none;" @endif>
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('materials')">
                             <span class="font-semibold text-lg section-name" id="materials-name-label">{{ $materialsName }}</span>
@@ -334,6 +336,7 @@
                         </button>
                     </div>
                         <input type="hidden" id="materials-name-input" name="materials_name" value="{{ $materialsName }}">
+                        <input type="hidden" id="materials-enabled-input" name="materials_enabled" value="{{ $materialsEnabled ? '1' : '0' }}">
                     <div id="materials-content" class="p-4 hidden">
                         <table class="w-full mb-4 text-xs">
                             <thead>
@@ -427,7 +430,7 @@
                                     </button>
                                 </div>
                                 <div id="custom{{ $sectionIndex + 1 }}-content" class="p-4 hidden">
-                                    <input type="hidden" name="custom_sections[{{ $sectionIndex + 1 }}][name]" value="{{ $customSection['name'] ?? '' }}">
+                                    <input type="hidden" id="custom{{ $sectionIndex + 1 }}-name-input" name="custom_sections[{{ $sectionIndex + 1 }}][name]" value="{{ $customSection['name'] ?? '' }}">
                                     <table class="w-full mb-4 text-xs">
                                         <thead>
                                             <tr class="bg-gray-100">
@@ -534,6 +537,10 @@
                         Zapisz zmiany
                     </button>
                 </div>
+                <!-- Pływający przycisk submit -->
+                <button id="float-save-btn" type="submit" style="position:fixed; bottom:28px; right:28px; z-index:99999; padding:16px 28px; border:none; border-radius:50px; font-size:17px; font-weight:bold; color:#fff; background:#16a34a; box-shadow:0 6px 20px rgba(0,0,0,0.3); cursor:pointer; transition:background 0.2s;">
+                    💾 Zapisz zmiany
+                </button>
             </form>
         </div>
     </main>
@@ -924,7 +931,7 @@
             const row = document.createElement('tr');
             let supplierOptions = `<option value="">-- brak --</option>`;
             @foreach($suppliers as $supplier)
-                supplierOptions += `<option value="{{ addslashes($supplier->name) }}">{{ addslashes($supplier->short_name ?: $supplier->name) }}</option>`;
+                supplierOptions += `<option value="{{ addslashes($supplier->name) }}">{{ addslashes($supplier->name) }}</option>`;
             @endforeach
             row.innerHTML = `
                 <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="${rowCount + 1}" readonly></td>
@@ -933,7 +940,7 @@
                 <td class="p-1"><input type="number" min="1" value="1" name="${section}[${rowCount}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                 <td class="p-1"><select name="${section}[${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                 <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
-                <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
+                <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][value]" value="{{ ($work['quantity'] ?? 1) * ($work['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
                 <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, '${section}')" class="text-red-600 hover:text-red-800 text-xs">✕</button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
             `;
             table.appendChild(row);
@@ -1090,6 +1097,8 @@
                 const inputId = `${sectionId}-name-input`;
                 const input = document.getElementById(inputId);
                 if (input) input.value = newName.trim();
+                _formChanged = true;
+                _updateSaveBtn();
             }
         }
 
@@ -1112,7 +1121,13 @@
             if (total) {
                 total.textContent = '0.00 zł';
             }
+            const enabledInput = document.getElementById(`${sectionId}-enabled-input`);
+            if (enabledInput) {
+                enabledInput.value = '0';
+            }
             calculateGrandTotal();
+            _formChanged = true;
+            _updateSaveBtn();
         }
         
         function removeCustomSection(sectionId) {
@@ -1130,6 +1145,8 @@
                 }
                 delete rowCounters[sectionId];
                 calculateGrandTotal();
+                _formChanged = true;
+                _updateSaveBtn();
             }
         }
         
@@ -1301,5 +1318,31 @@ function updateDateTime() {
 }
 setInterval(updateDateTime, 1000);
 updateDateTime();
+</script>
+<script>
+var _formChanged = false;
+var _isSaving = false;
+function _updateSaveBtn() {
+    var btn = document.getElementById('float-save-btn');
+    if (!btn) return;
+    btn.style.background = _formChanged ? '#dc2626' : '#16a34a';
+}
+function prepareSaveAndStay() {
+    _isSaving = true;
+    _formChanged = false;
+    _updateSaveBtn();
+}
+document.addEventListener('input',  function(e) { if (e.target.closest('form')) { _formChanged = true; _updateSaveBtn(); } });
+document.addEventListener('change', function(e) { if (e.target.closest('form')) { _formChanged = true; _updateSaveBtn(); } });
+function handleBack() {
+    if (!_formChanged) { history.back(); return; }
+    if (confirm('Czy na pewno chcesz wyjść bez zapisywania?')) {
+        _formChanged = false;
+        history.back();
+    }
+}
+window.addEventListener('beforeunload', function(e) {
+    if (_formChanged && !_isSaving) { e.preventDefault(); e.returnValue = ''; }
+});
 </script>
 </html>

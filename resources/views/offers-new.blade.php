@@ -212,7 +212,7 @@
                 </div>
 
                 <!-- Sekcja Usługi -->
-                <div class="border border-gray-300 rounded">
+                <div id="section-services" class="border border-gray-300 rounded">
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('services')">
                             <span class="font-semibold text-lg section-name" id="services-name-label">Usługi</span>
@@ -226,6 +226,7 @@
                         </button>
                     </div>
                         <input type="hidden" id="services-name-input" name="services_name" value="Usługi">
+                        <input type="hidden" id="services-enabled-input" name="services_enabled" value="1">
                     <div id="services-content" class="p-4 hidden">
                         <table class="w-full mb-4 text-xs">
                             <thead>
@@ -273,7 +274,7 @@
                 </div>
 
                 <!-- Sekcja Prace własne -->
-                <div class="border border-gray-300 rounded">
+                <div id="section-works" class="border border-gray-300 rounded">
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('works')">
                             <span class="font-semibold text-lg section-name" id="works-name-label">Prace własne</span>
@@ -287,6 +288,7 @@
                         </button>
                     </div>
                         <input type="hidden" id="works-name-input" name="works_name" value="Prace własne">
+                        <input type="hidden" id="works-enabled-input" name="works_enabled" value="1">
                     <div id="works-content" class="p-4 hidden">
                         <table class="w-full mb-4 text-xs">
                             <thead>
@@ -334,7 +336,7 @@
                 </div>
 
                 <!-- Sekcja Materiały -->
-                <div class="border border-gray-300 rounded">
+                <div id="section-materials" class="border border-gray-300 rounded">
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('materials')">
                             <span class="font-semibold text-lg section-name" id="materials-name-label">Materiały</span>
@@ -348,6 +350,7 @@
                         </button>
                     </div>
                         <input type="hidden" id="materials-name-input" name="materials_name" value="Materiały">
+                        <input type="hidden" id="materials-enabled-input" name="materials_enabled" value="1">
                     <div id="materials-content" class="p-4 hidden">
                         <table class="w-full mb-4 text-xs">
                             <thead>
@@ -834,6 +837,10 @@
             const total = document.getElementById(`${sectionId}-total`);
             if (total) {
                 total.textContent = '0.00 zł';
+            }
+            const enabledInput = document.getElementById(`${sectionId}-enabled-input`);
+            if (enabledInput) {
+                enabledInput.value = '0';
             }
             calculateGrandTotal();
         }

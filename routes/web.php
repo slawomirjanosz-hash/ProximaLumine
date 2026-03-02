@@ -881,7 +881,29 @@ Route::middleware('auth')->post('/wyceny/nowa', function (Illuminate\Http\Reques
             $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
             return $item;
         })->toArray();
-    $customSections = $request->input('custom_sections', []);
+    $customSections = collect($request->input('custom_sections', []))
+        ->filter(function ($section) {
+            return is_array($section);
+        })
+        ->map(function ($section) {
+            $section['name'] = trim((string)($section['name'] ?? ''));
+            $section['items'] = collect($section['items'] ?? [])
+                ->filter(function ($item) {
+                    return is_array($item);
+                })
+                ->values()
+                ->map(function ($item) {
+                    $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
+                    return $item;
+                })->toArray();
+
+            return $section;
+        })
+        ->filter(function ($section) {
+            return ($section['name'] ?? '') !== '' || !empty($section['items'] ?? []);
+        })
+        ->values()
+        ->toArray();
     
     foreach ($services as $item) {
         $totalPrice += (floatval($item['price'] ?? 0)) * (intval($item['quantity'] ?? 1));
@@ -916,6 +938,9 @@ Route::middleware('auth')->post('/wyceny/nowa', function (Illuminate\Http\Reques
             'services_name' => $request->input('services_name', 'Usługi'),
             'works_name' => $request->input('works_name', 'Prace własne'),
             'materials_name' => $request->input('materials_name', 'Materiały'),
+            'services_enabled' => $request->input('services_enabled', '1') === '1',
+            'works_enabled' => $request->input('works_enabled', '1') === '1',
+            'materials_enabled' => $request->input('materials_enabled', '1') === '1',
         ]),
         'total_price' => $totalPrice,
         'status' => $request->input('destination'),
@@ -1065,8 +1090,11 @@ Route::middleware('auth')->get('/wyceny/{offer}/edit', function (\App\Models\Off
     $servicesName = $customSections['services_name'] ?? 'Usługi';
     $worksName = $customSections['works_name'] ?? 'Prace własne';
     $materialsName = $customSections['materials_name'] ?? 'Materiały';
+    $servicesEnabled = array_key_exists('services_enabled', $customSections) ? (bool)$customSections['services_enabled'] : true;
+    $worksEnabled = array_key_exists('works_enabled', $customSections) ? (bool)$customSections['works_enabled'] : true;
+    $materialsEnabled = array_key_exists('materials_enabled', $customSections) ? (bool)$customSections['materials_enabled'] : true;
 
-    return view('offers-edit', compact('offer', 'companies', 'suppliers', 'deals', 'servicesName', 'worksName', 'materialsName'));
+    return view('offers-edit', compact('offer', 'companies', 'suppliers', 'deals', 'servicesName', 'worksName', 'materialsName', 'servicesEnabled', 'worksEnabled', 'materialsEnabled'));
 })->name('offers.edit');
 
 Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Request $request, \App\Models\Offer $offer) {
@@ -1101,7 +1129,29 @@ Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Requ
             $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
             return $item;
         })->toArray();
-    $customSections = $request->input('custom_sections', []);
+    $customSections = collect($request->input('custom_sections', []))
+        ->filter(function ($section) {
+            return is_array($section);
+        })
+        ->map(function ($section) {
+            $section['name'] = trim((string)($section['name'] ?? ''));
+            $section['items'] = collect($section['items'] ?? [])
+                ->filter(function ($item) {
+                    return is_array($item);
+                })
+                ->values()
+                ->map(function ($item) {
+                    $item['quantity'] = isset($item['quantity']) && $item['quantity'] !== '' ? (int)$item['quantity'] : 1;
+                    return $item;
+                })->toArray();
+
+            return $section;
+        })
+        ->filter(function ($section) {
+            return ($section['name'] ?? '') !== '' || !empty($section['items'] ?? []);
+        })
+        ->values()
+        ->toArray();
     
     foreach ($services as $item) {
         $totalPrice += (floatval($item['price'] ?? 0)) * (intval($item['quantity'] ?? 1));
@@ -1136,6 +1186,9 @@ Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Requ
             'services_name' => $request->input('services_name', 'Usługi'),
             'works_name' => $request->input('works_name', 'Prace własne'),
             'materials_name' => $request->input('materials_name', 'Materiały'),
+            'services_enabled' => $request->input('services_enabled', '1') === '1',
+            'works_enabled' => $request->input('works_enabled', '1') === '1',
+            'materials_enabled' => $request->input('materials_enabled', '1') === '1',
         ]),
         'total_price' => $totalPrice,
         'status' => $request->input('destination'),
@@ -1149,10 +1202,7 @@ Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Requ
         'customer_email' => $request->input('customer_email')
     ]);
     
-    $destination = $request->input('destination');
-    $routeName = $destination === 'portfolio' ? 'offers.portfolio' : 'offers.inprogress';
-    
-    return redirect()->route($routeName)->with('success', 'Oferta została zaktualizowana pomyślnie!');
+    return redirect()->route('offers.edit', $offer)->with('success', 'Oferta została zapisana pomyślnie!');
 })->name('offers.update');
 
 // WYCENY I OFERTY
@@ -1415,6 +1465,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/projekty/{project}/add-missing-product', [PartController::class, 'addMissingProductToProject'])->name('magazyn.projects.addMissingProduct')->middleware('auth');
     Route::delete('/projekty/{project}/remove-list/{loadedList}', [PartController::class, 'removeListFromProject'])->name('magazyn.projects.removeList')->middleware('auth');
     Route::post('/projekty/{project}/delete-products', [PartController::class, 'deleteProductsFromProject'])->name('magazyn.projects.deleteProducts')->middleware('auth');
+    Route::post('/projekty/{project}/return-products', [PartController::class, 'returnProductsToStock'])->name('magazyn.projects.returnProducts')->middleware('auth');
     
     // Ustawienia projektów
     Route::get('/projekty-ustawienia', [PartController::class, 'projectSettings'])->name('magazyn.projects.settings')->middleware('auth');

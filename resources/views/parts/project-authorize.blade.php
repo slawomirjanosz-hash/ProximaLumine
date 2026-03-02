@@ -232,6 +232,54 @@ document.addEventListener('DOMContentLoaded', function() {
         document.addEventListener('keypress', handleKeyPress);
     }
 
+    function playCompletionSound(callback) {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Funkcja do odtworzenia pojedynczego dźwięku
+            const playTone = (frequency, duration, delay) => {
+                return new Promise((resolve) => {
+                    setTimeout(() => {
+                        const oscillator = audioContext.createOscillator();
+                        const gainNode = audioContext.createGain();
+                        
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioContext.destination);
+                        
+                        oscillator.frequency.value = frequency;
+                        oscillator.type = 'sine';
+                        
+                        // Envelope dla płynniejszego dźwięku
+                        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
+                        gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + duration - 0.1);
+                        gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + duration);
+                        
+                        oscillator.start(audioContext.currentTime);
+                        oscillator.stop(audioContext.currentTime + duration);
+                        
+                        setTimeout(() => resolve(), duration * 1000);
+                    }, delay);
+                });
+            };
+            
+            // Odtwórz dwa dźwięki po 2 sekundy każdy
+            playTone(550, 2.0, 0) // Pierwszy dźwięk (550 Hz - C#5)
+                .then(() => playTone(550, 2.0, 200)) // Drugi dźwięk z małą przerwą (200ms)
+                .then(() => {
+                    if (callback) {
+                        setTimeout(callback, 500);
+                    }
+                });
+        } catch (error) {
+            console.error('Nie udało się odtworzyć dźwięku:', error);
+            // Jeśli błąd, wykonaj callback od razu
+            if (callback) {
+                setTimeout(callback, 1000);
+            }
+        }
+    }
+
     function stopScanning() {
         isScanning = false;
         startBtn.classList.remove('hidden');
@@ -353,11 +401,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Jeśli wszystko autoryzowane, pokaż komunikat
                 if (unauthorizedCount === 0) {
                     stopScanning();
-                    setTimeout(() => {
+                    
+                    // Pokaż komunikat o zakończeniu
+                    scanStatus.className = 'mb-6 p-4 rounded bg-green-100 border-2 border-green-400';
+                    scanStatus.classList.remove('hidden');
+                    scanStatus.querySelector('p').innerHTML = '🎉 <strong>AUTORYZACJA ZAKOŃCZONA!</strong> 🎉';
+                    
+                    playCompletionSound(() => {
                         if (confirm('Wszystkie produkty zostały autoryzowane! Czy chcesz wrócić do projektu?')) {
                             window.location.href = '{{ route("magazyn.projects.show", $project->id) }}';
                         }
-                    }, 1000);
+                    });
                 } else {
                     // Kontynuuj skanowanie
                     setTimeout(() => {

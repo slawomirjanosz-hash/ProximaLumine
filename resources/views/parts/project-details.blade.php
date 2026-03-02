@@ -489,8 +489,8 @@
             <button type="button" id="deselect-all-products" class="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm">
                 Odznacz wszystkie
             </button>
-            <button type="button" id="delete-selected-products" class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-semibold" disabled>
-                🗑️ Usuń zaznaczone (<span id="selected-count">0</span>)
+            <button type="button" id="delete-selected-products" class="px-3 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 text-sm font-semibold" disabled>
+                ↩️ Zwróć do magazynu (<span id="selected-count">0</span>)
             </button>
         </div>
         @endif
@@ -2208,7 +2208,7 @@ document.addEventListener('click', function(e) {
         const loadedListId = btn.dataset.loadedListId;
         const listName = btn.dataset.listName;
         
-        if (!confirm(`Czy na pewno chcesz usunąć listę "${listName}" z tego projektu?\n\nUWAGA: Lista zostanie tylko odrzeżona od projektu. Produkty już dodane do projektu z tej listy POZOSTANĄ w projekcie.`)) {
+        if (!confirm(`Czy na pewno chcesz odłączyć listę "${listName}" od tego projektu?\n\nUWAGA: Produkty które zostały dodane do projektu z tej listy POZOSTANĄ w projekcie.`)) {
             return;
         }
         
@@ -2373,39 +2373,63 @@ document.getElementById('confirm-list-load').addEventListener('click', function(
     
     const btn = this;
     btn.disabled = true;
-    btn.textContent = 'Dodawanie...';
+    btn.textContent = 'Sprawdzanie...';
     
-    // Wyślij żądanie dodania produktów z listy
-    fetch(`/projekty/{{ $project->id }}/load-list`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-        },
-        body: JSON.stringify({
-            list_id: selectedListId
+    // Funkcja do ładowania listy
+    function loadList(linkExisting = false) {
+        btn.disabled = true;
+        btn.textContent = linkExisting ? 'Podpinanie...' : 'Dodawanie...';
+        
+        fetch(`/projekty/{{ $project->id }}/load-list`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                list_id: selectedListId,
+                link_existing: linkExisting
+            })
         })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            let message = data.message;
-            if (!data.is_complete && data.missing_count > 0) {
-                message += `\n\n⚠ Uwaga: ${data.missing_count} produktów nie zostało dodanych (brak na magazynie).`;
+        .then(response => response.json())
+        .then(data => {
+            if (data.requires_confirmation) {
+                // Produkty już są w projekcie - pytaj użytkownika
+                const productList = data.existing_products.join('\n• ');
+                const confirmed = confirm(data.message + '\n\nProdukty już w projekcie:\n• ' + productList + '\n\nKliknij OK aby podpiąć istniejące produkty pod tę listę (nie dodając nowych).\nKliknij Anuluj aby zrezygnować.');
+                
+                if (confirmed) {
+                    // Wyślij ponownie z parametrem link_existing=true
+                    loadList(true);
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = 'Dodaj produkty do projektu';
+                }
+                return;
             }
-            alert(message);
-            window.location.reload();
-        } else {
-            alert('Błąd: ' + (data.message || 'Nie udało się dodać produktów'));
+            
+            if (data.success) {
+                let message = data.message;
+                if (!data.is_complete && data.missing_count > 0) {
+                    message += `\n\n⚠ Uwaga: ${data.missing_count} produktów nie zostało dodanych (brak na magazynie).`;
+                }
+                alert(message);
+                window.location.reload();
+            } else {
+                alert('Błąd: ' + (data.message || 'Nie udało się dodać produktów'));
+                btn.disabled = false;
+                btn.textContent = 'Dodaj produkty do projektu';
+            }
+        })
+        .catch(error => {
+            alert('Błąd połączenia: ' + error.message);
             btn.disabled = false;
             btn.textContent = 'Dodaj produkty do projektu';
-        }
-    })
-    .catch(error => {
-        alert('Błąd połączenia: ' + error.message);
-        btn.disabled = false;
-        btn.textContent = 'Dodaj produkty do projektu';
-    });
+        });
+    }
+    
+    // Rozpocznij ładowanie
+    loadList(false);
 });
 
 // ===== OBSŁUGA CHECKBOXÓW I USUWANIA PRODUKTÓW =====
@@ -2466,7 +2490,7 @@ if (deselectAllBtn) {
     });
 }
 
-// Przycisk "Usuń zaznaczone"
+// Przycisk "Zwróć do magazynu"
 if (deleteBtn) {
     deleteBtn.addEventListener('click', function() {
         const checkedBoxes = document.querySelectorAll('.product-checkbox:checked');
@@ -2478,14 +2502,14 @@ if (deleteBtn) {
         const partIds = Array.from(checkedBoxes).map(cb => cb.dataset.partId);
         const partNames = Array.from(checkedBoxes).map(cb => cb.dataset.partName).join(', ');
         
-        if (!confirm(`Czy na pewno chcesz usunąć ${checkedBoxes.length} zaznaczonych produktów z projektu?\n\nProdukty: ${partNames}\n\nUWAGA: Usunięte zostaną WSZYSTKIE pobrania tych produktów w tym projekcie!`)) {
+        if (!confirm(`Czy na pewno chcesz zwrócić ${checkedBoxes.length} zaznaczonych produktów do magazynu?\n\nProdukty: ${partNames}\n\nUWAGA: Produkty zostaną zwrócone do magazynu i usunięte z projektu!`)) {
             return;
         }
         
         deleteBtn.disabled = true;
-        deleteBtn.textContent = 'Usuwanie...';
+        deleteBtn.textContent = 'Zwracanie...';
         
-        fetch(`/projekty/{{ $project->id }}/delete-products`, {
+        fetch(`/projekty/{{ $project->id }}/return-products`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -2501,15 +2525,15 @@ if (deleteBtn) {
                 alert(data.message);
                 window.location.reload();
             } else {
-                alert('Błąd: ' + (data.message || 'Nie udało się usunąć produktów'));
+                alert('Błąd: ' + (data.message || 'Nie udało się zwrócić produktów'));
                 deleteBtn.disabled = false;
-                deleteBtn.innerHTML = '🗑️ Usuń zaznaczone (<span id="selected-count">' + checkedBoxes.length + '</span>)';
+                deleteBtn.innerHTML = '↩️ Zwróć do magazynu (<span id="selected-count">' + checkedBoxes.length + '</span>)';
             }
         })
         .catch(error => {
             alert('Błąd połączenia: ' + error.message);
             deleteBtn.disabled = false;
-            deleteBtn.innerHTML = '🗑️ Usuń zaznaczone (<span id="selected-count">' + checkedBoxes.length + '</span>)';
+            deleteBtn.innerHTML = '↩️ Zwróć do magazynu (<span id="selected-count">' + checkedBoxes.length + '</span>)';
         });
     });
 }

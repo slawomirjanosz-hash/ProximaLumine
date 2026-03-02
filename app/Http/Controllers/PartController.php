@@ -6381,6 +6381,7 @@ class PartController extends Controller
     {
         $request->validate([
             'list_id' => 'required|exists:project_lists,id',
+            'link_existing' => 'nullable|boolean', // Czy podpiąć istniejące produkty
         ]);
 
         $list = \App\Models\ProjectList::with('items.part')->findOrFail($request->list_id);
@@ -6404,10 +6405,34 @@ class PartController extends Controller
             ], 400);
         }
 
+        // Sprawdź czy produkty z listy już są w projekcie
+        $existingProducts = [];
+        $listPartIds = $list->items->pluck('part_id')->toArray();
+        
+        $existingRemovals = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->whereIn('part_id', $listPartIds)
+            ->where('status', 'added')
+            ->get();
+        
+        if ($existingRemovals->isNotEmpty() && !$request->has('link_existing')) {
+            // Produkty już są w projekcie - pytaj użytkownika co zrobić
+            $existingProductNames = $existingRemovals->map(function($removal) {
+                return $removal->part ? $removal->part->name : 'Nieznany';
+            })->unique()->values()->toArray();
+            
+            return response()->json([
+                'success' => false,
+                'requires_confirmation' => true,
+                'existing_products' => $existingProductNames,
+                'message' => 'Niektóre produkty z tej listy są już w projekcie. Czy chcesz podpiąć je pod tę listę (nie dodając nowych)?'
+            ], 200);
+        }
+
         $added = 0;
         $skipped = 0;
         $missing = [];
         $totalCount = 0;
+        $linked = 0;
         
         foreach ($list->items as $item) {
             $totalCount++;
@@ -6421,6 +6446,22 @@ class PartController extends Controller
                     'available' => 0,
                     'reason' => 'Produkt nie istnieje'
                 ];
+                continue;
+            }
+
+            // Sprawdź czy produkt już jest w projekcie
+            $existingRemoval = $existingRemovals->firstWhere('part_id', $item->part_id);
+            
+            if ($existingRemoval && $request->input('link_existing', false)) {
+                // Produkt już jest - tylko zlicz jako dodany
+                $linked++;
+                $added++;
+                continue;
+            }
+            
+            if ($existingRemoval && !$request->input('link_existing', false)) {
+                // Produkt już jest ale nie chcemy go dodawać ponownie
+                $skipped++;
                 continue;
             }
 
@@ -6465,13 +6506,19 @@ class PartController extends Controller
             'total_count' => $totalCount,
         ]);
 
-        // Usuń stare pole loaded_list_id (już nie używane)
-        // $project->loaded_list_id = $list->id;
-        // $project->save();
-
-        $message = "Załadowano {$added} z {$totalCount} produktów z listy \"{$list->name}\".";
+        $message = "Załadowano listę \"{$list->name}\".";
+        
+        if ($linked > 0) {
+            $message .= " Podpięto {$linked} istniejących produktów pod listę.";
+        }
+        
+        $newlyAdded = $added - $linked;
+        if ($newlyAdded > 0) {
+            $message .= " Dodano {$newlyAdded} nowych produktów.";
+        }
+        
         if ($skipped > 0) {
-            $message .= " Pominięto {$skipped} produktów (brak na magazynie lub usunięte).";
+            $message .= " Pominięto {$skipped} produktów (brak na magazynie lub już dodane).";
         }
         
         if ($project->requires_authorization) {
@@ -6589,18 +6636,18 @@ class PartController extends Controller
 
         $listName = $loadedList->projectList->name ?? 'Lista';
         
-        // Usuń powiązanie listy z projektem
-        // UWAGA: Produkty już dodane do projektu pozostają
+        // Usuń tylko powiązanie listy z projektem
+        // Produkty które zostały dodane do projektu pozostaną
         $loadedList->delete();
 
         return response()->json([
             'success' => true,
-            'message' => "Lista \"{$listName}\" została usunięta z projektu. Produkty już dodane do projektu pozostały."
+            'message' => "Lista \"{$listName}\" została odłączona od projektu. Produkty które zostały dodane do projektu pozostały."
         ]);
     }
 
-    // USUWANIE WIELU PRODUKTÓW Z PROJEKTU (tylko dla super admina)
-    public function deleteProductsFromProject(Request $request, \App\Models\Project $project)
+    // ZWRACANIE WIELU PRODUKTÓW DO MAGAZYNU (tylko dla super admina)
+    public function returnProductsToStock(Request $request, \App\Models\Project $project)
     {
         // Sprawdź czy użytkownik to super admin
         if (!auth()->user() || !auth()->user()->is_admin) {
@@ -6617,81 +6664,47 @@ class PartController extends Controller
 
         $partIds = $request->part_ids;
         
-        // Pobierz wszystkie pobrania do usunięcia
-        $removalsToDelete = \App\Models\ProjectRemoval::where('project_id', $project->id)
+        // Pobierz wszystkie pobrania do zwrócenia
+        $removalsToReturn = \App\Models\ProjectRemoval::where('project_id', $project->id)
             ->whereIn('part_id', $partIds)
             ->where('status', 'added')
             ->get();
 
-        if ($removalsToDelete->isEmpty()) {
+        if ($removalsToReturn->isEmpty()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Nie znaleziono produktów do usunięcia.'
+                'message' => 'Nie znaleziono produktów do zwrócenia.'
             ], 404);
         }
 
-        $deletedCount = 0;
+        $returnedCount = 0;
+        $returnedProducts = [];
         
-        foreach ($removalsToDelete as $removal) {
-            // Jeśli pobranie było autoryzowane (odebrano ze stanu), zwróć na stan
-            if ($removal->authorized && !$project->requires_authorization) {
-                $removal->part->increment('quantity', $removal->quantity);
+        foreach ($removalsToReturn as $removal) {
+            $part = \App\Models\Part::find($removal->part_id);
+            
+            if ($part) {
+                // Zwiększ stan magazynu
+                $part->increment('quantity', $removal->quantity);
+                $returnedProducts[] = $part->name . ' (x' . $removal->quantity . ')';
             }
             
+            // Usuń z projektu
             $removal->delete();
-            $deletedCount++;
-        }
-
-        // Zaktualizuj missing_items w załadowanych listach
-        $loadedLists = \App\Models\ProjectLoadedList::where('project_id', $project->id)->get();
-        
-        foreach ($loadedLists as $loadedList) {
-            $listItems = $loadedList->projectList->items ?? collect();
-            $missingItems = $loadedList->missing_items ?? [];
-            $updated = false;
-            
-            foreach ($partIds as $partId) {
-                // Sprawdź czy produkt był w liście
-                $listItem = $listItems->firstWhere('part_id', $partId);
-                
-                if ($listItem) {
-                    // Sprawdź czy już jest w missing_items
-                    $existsInMissing = false;
-                    foreach ($missingItems as &$missing) {
-                        if (isset($missing['part_id']) && $missing['part_id'] == $partId) {
-                            $existsInMissing = true;
-                            break;
-                        }
-                    }
-                    
-                    // Jeśli nie ma w missing, dodaj
-                    if (!$existsInMissing) {
-                        $part = \App\Models\Part::find($partId);
-                        if ($part) {
-                            $missingItems[] = [
-                                'part_id' => $partId,
-                                'name' => $part->name,
-                                'quantity' => $listItem->quantity,
-                                'available' => $part->quantity,
-                                'reason' => 'Produkt usunięty z projektu'
-                            ];
-                            $updated = true;
-                        }
-                    }
-                }
-            }
-            
-            if ($updated) {
-                $loadedList->missing_items = count($missingItems) > 0 ? $missingItems : null;
-                $loadedList->is_complete = count($missingItems) === 0;
-                $loadedList->save();
-            }
+            $returnedCount++;
         }
 
         return response()->json([
             'success' => true,
-            'message' => "Usunięto {$deletedCount} pobrań produktów z projektu."
+            'message' => "Zwrócono {$returnedCount} produktów do magazynu: " . implode(', ', $returnedProducts)
         ]);
+    }
+
+    // USUWANIE WIELU PRODUKTÓW Z PROJEKTU (tylko dla super admina) - DEPRECATED, użyj returnProductsToStock
+    public function deleteProductsFromProject(Request $request, \App\Models\Project $project)
+    {
+        // Ta metoda jest zdeprecjonowana - przekieruj do returnProductsToStock
+        return $this->returnProductsToStock($request, $project);
     }
 
     // POMOCNICZA FUNKCJA: Zaktualizuj brakujące pozycje w listach
