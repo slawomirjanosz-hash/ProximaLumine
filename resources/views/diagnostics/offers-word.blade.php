@@ -93,7 +93,7 @@
 
             try {
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-                const response = await fetch(`/wyceny/${offerId}/generate-word`, {
+                const response = await fetch(`/api/diagnostics/offers-word/${offerId}/full-test`, {
                     headers: {
                         'Accept': 'application/json, */*',
                         'X-CSRF-TOKEN': csrfToken,

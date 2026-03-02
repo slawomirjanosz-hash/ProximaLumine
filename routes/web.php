@@ -1852,6 +1852,56 @@ Route::middleware('auth')->group(function () {
 
         return response()->json($checks, 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     })->name('api.diagnostics.offers-word');
+
+    Route::get('/api/diagnostics/offers-word/{offer}/full-test', function (\App\Models\Offer $offer) {
+        try {
+            $controller = app(\App\Http\Controllers\PartController::class);
+            $response = $controller->generateOfferWord($offer->id);
+
+            if ($response instanceof \Illuminate\Http\JsonResponse) {
+                $data = $response->getData(true);
+                return response()->json([
+                    'ok' => false,
+                    'source' => 'generateOfferWord-json-error',
+                    'status' => $response->getStatusCode(),
+                    'offer_id' => $offer->id,
+                    'payload' => $data,
+                ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }
+
+            if ($response instanceof \Symfony\Component\HttpFoundation\BinaryFileResponse) {
+                $file = $response->getFile();
+
+                return response()->json([
+                    'ok' => true,
+                    'source' => 'generateOfferWord-binary-success',
+                    'status' => $response->getStatusCode(),
+                    'offer_id' => $offer->id,
+                    'file_path' => $file ? $file->getPathname() : null,
+                    'file_exists' => $file ? file_exists($file->getPathname()) : false,
+                    'file_size' => $file && file_exists($file->getPathname()) ? filesize($file->getPathname()) : null,
+                ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }
+
+            return response()->json([
+                'ok' => true,
+                'source' => 'generateOfferWord-unknown-response',
+                'response_class' => get_class($response),
+                'offer_id' => $offer->id,
+            ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'ok' => false,
+                'source' => 'full-test-route-catch',
+                'offer_id' => $offer->id,
+                'error' => $e->getMessage(),
+                'exception_class' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace_head' => array_slice(explode("\n", $e->getTraceAsString()), 0, 20),
+            ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        }
+    })->name('api.diagnostics.offers-word.full-test');
 });
 
 // Publiczny widok Gantt (bez auth)
