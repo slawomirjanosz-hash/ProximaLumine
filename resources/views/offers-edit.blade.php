@@ -14,6 +14,16 @@
     </header>
     <main class="flex-1 p-6">
         <div class="max-w-5xl mx-auto bg-white rounded shadow p-6 relative">
+                        @if(auth()->user() && (auth()->user()->is_admin || strtolower(auth()->user()->email) === 'admin@admin.com'))
+                        <form method="POST" action="{{ route('offers.destroy', $offer) }}" onsubmit="return confirm('Czy na pewno chcesz usunąć tę ofertę?');" class="absolute top-4 right-4">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="flex items-center gap-2 px-4 py-2 bg-red-600 text-white border border-red-700 shadow rounded-full hover:bg-red-700 transition">
+                                <svg xmlns='http://www.w3.org/2000/svg' class='h-5 w-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12' /></svg>
+                                Usuń ofertę
+                            </button>
+                        </form>
+                        @endif
             <a href="javascript:void(0)" onclick="handleBack()" class="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 shadow rounded-full text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition z-10">
                 <svg xmlns='http://www.w3.org/2000/svg' class='h-5 w-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 19l-7-7 7-7' /></svg>
                 Powrót

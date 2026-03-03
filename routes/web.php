@@ -1,3 +1,12 @@
+// Usuwanie oferty tylko dla admina/super admina
+Route::middleware('auth')->delete('/wyceny/{offer}', function (Illuminate\Http\Request $request, \App\Models\Offer $offer) {
+    $user = auth()->user();
+    if (!$user || (!$user->is_admin && strtolower($user->email) !== 'admin@admin.com')) {
+        abort(403, 'Brak uprawnień do usuwania ofert');
+    }
+    $offer->delete();
+    return redirect()->route('offers.inprogress')->with('success', 'Oferta została usunięta.');
+})->name('offers.destroy');
 <?php
 
 // Diagnostyka bazy danych
