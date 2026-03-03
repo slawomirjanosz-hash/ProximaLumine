@@ -18,7 +18,7 @@
                         <form method="POST" action="{{ route('offers.destroy', $offer) }}" onsubmit="return confirm('Czy na pewno chcesz usunąć tę ofertę?');" class="absolute top-4 right-4">
                             @csrf
                             @method('DELETE')
-                            <button type="submit" class="flex items-center gap-2 px-4 py-2 bg-red-600 text-white border border-red-700 shadow rounded-full hover:bg-red-700 transition">
+                            <button type="submit" class="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 border border-red-300 shadow rounded-full hover:bg-red-200 hover:text-red-800 transition">
                                 <svg xmlns='http://www.w3.org/2000/svg' class='h-5 w-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12' /></svg>
                                 Usuń ofertę
                             </button>

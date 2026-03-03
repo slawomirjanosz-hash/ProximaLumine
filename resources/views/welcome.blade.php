@@ -28,13 +28,10 @@
         }
     @endphp
 
-    <h1 class="text-4xl font-bold mb-4">
-        Magazyn {{ $companyName }}
-    </h1>
-
-    <p class="text-gray-600 mb-8">
-        System zarządzania
-    </p>
+    <div class="flex flex-col items-center mb-4">
+        <img src="/logo.png" alt="Logo firmy" class="h-[20px] mb-2">
+        <p class="text-gray-600 mb-8">System zarządzania</p>
+    </div>
 
     @auth
         <div class="flex flex-col gap-4 justify-center items-center">

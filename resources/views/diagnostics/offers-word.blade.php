@@ -104,10 +104,15 @@
                 const contentType = response.headers.get('Content-Type') || '';
 
                 if (contentType.includes('application/json')) {
-                    // Błąd zwrócony jako JSON
                     const data = await response.json();
                     outputEl.textContent = `HTTP ${response.status}\n\n` + JSON.stringify(data, null, 2);
-                    statusEl.textContent = `Status: BŁĄD ${response.status} - sprawdź output`;
+
+                    if (response.ok && data && data.ok === true) {
+                        statusEl.textContent = `Status: sukces (${data.source || 'full-test'})`;
+                    } else {
+                        const source = data && data.source ? data.source : 'full-test';
+                        statusEl.textContent = `Status: błąd (${source})`;
+                    }
                 } else if (contentType.includes('application/vnd') || contentType.includes('octet-stream')) {
                     outputEl.textContent = `Sukces! Dokument Word został wygenerowany (HTTP ${response.status}).\nContent-Type: ${contentType}`;
                     statusEl.textContent = 'Status: generacja zakończona sukcesem!';

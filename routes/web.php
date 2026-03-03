@@ -1839,7 +1839,7 @@ Route::middleware('auth')->group(function () {
             $checks['probable_causes'][] = 'Brak rozszerzenia PHP zip (wymagane do DOCX).';
         }
         if (!$checks['extensions']['xml']) {
-            $checks['probable_causes'][] = 'Brak rozszerzenia PHP xml (wymagane przez PhpWord).';
+            $checks['probable_causes'][] = 'Brak rozszerzenia PHP xml (opcjonalne ostrzeżenie): część funkcji HTML może działać inaczej.';
         }
         if (!$checks['phpword']['phpword_class']) {
             $checks['probable_causes'][] = 'Brak biblioteki phpoffice/phpword na Railway.';
@@ -1890,6 +1890,45 @@ Route::middleware('auth')->group(function () {
                     'file_path' => $file ? $file->getPathname() : null,
                     'file_exists' => $file ? file_exists($file->getPathname()) : false,
                     'file_size' => $file && file_exists($file->getPathname()) ? filesize($file->getPathname()) : null,
+                ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }
+
+            if ($response instanceof \Symfony\Component\HttpFoundation\StreamedResponse) {
+                $streamTest = [
+                    'executed' => false,
+                    'bytes' => null,
+                    'error' => null,
+                ];
+
+                try {
+                    ob_start();
+                    $response->sendContent();
+                    $content = ob_get_clean();
+
+                    $streamTest['executed'] = true;
+                    $streamTest['bytes'] = is_string($content) ? strlen($content) : 0;
+                } catch (\Throwable $streamError) {
+                    while (ob_get_level() > 0) {
+                        @ob_end_clean();
+                    }
+
+                    $streamTest['error'] = [
+                        'message' => $streamError->getMessage(),
+                        'exception_class' => get_class($streamError),
+                        'file' => $streamError->getFile(),
+                        'line' => $streamError->getLine(),
+                        'trace_head' => array_slice(explode("\n", $streamError->getTraceAsString()), 0, 12),
+                    ];
+                }
+
+                return response()->json([
+                    'ok' => $streamTest['error'] === null,
+                    'source' => 'generateOfferWord-streamed-response',
+                    'status' => $response->getStatusCode(),
+                    'offer_id' => $offer->id,
+                    'response_class' => get_class($response),
+                    'headers' => $response->headers->all(),
+                    'stream_test' => $streamTest,
                 ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
             }
 
