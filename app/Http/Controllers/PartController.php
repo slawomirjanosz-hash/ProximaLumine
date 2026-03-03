@@ -5034,124 +5034,91 @@ class PartController extends Controller
             $section->addTextBreak(1);
         }
         
-        // Tabela z usługami
-        if (!empty($services) && count($services) > 0) {
-            $section->addText('Usługi:', ['bold' => true, 'size' => 11], ['spaceAfter' => 100]);
-            
+        $customSectionsRaw = is_array($offer->custom_sections) ? $offer->custom_sections : [];
+        $servicesName = trim((string)($customSectionsRaw['services_name'] ?? 'Usługi')) ?: 'Usługi';
+        $worksName = trim((string)($customSectionsRaw['works_name'] ?? 'Prace własne')) ?: 'Prace własne';
+        $materialsName = trim((string)($customSectionsRaw['materials_name'] ?? 'Materiały')) ?: 'Materiały';
+        $servicesEnabled = array_key_exists('services_enabled', $customSectionsRaw) ? (bool)$customSectionsRaw['services_enabled'] : true;
+        $worksEnabled = array_key_exists('works_enabled', $customSectionsRaw) ? (bool)$customSectionsRaw['works_enabled'] : true;
+        $materialsEnabled = array_key_exists('materials_enabled', $customSectionsRaw) ? (bool)$customSectionsRaw['materials_enabled'] : true;
+
+        $renderSectionTable = function (string $sectionTitle, array $items) use ($section) {
+            $items = collect($items)
+                ->filter(function ($item) {
+                    return is_array($item);
+                })
+                ->filter(function ($item) {
+                    return trim((string)($item['name'] ?? '')) !== ''
+                        || trim((string)($item['type'] ?? '')) !== ''
+                        || ((float)($item['price'] ?? 0)) > 0
+                        || ((float)($item['quantity'] ?? 0)) > 0;
+                })
+                ->values()
+                ->all();
+
+            if (empty($items)) {
+                return;
+            }
+
+            $section->addText($sectionTitle . ':', ['bold' => true, 'size' => 11], ['spaceAfter' => 100]);
             $table = $section->addTable([
                 'borderSize' => 6,
                 'borderColor' => 'CCCCCC',
                 'cellMargin' => 40,
                 'alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::CENTER,
             ]);
-            
             $table->addRow();
             $cellStyleHeader = ['bgColor' => 'E0E0E0', 'valign' => 'center'];
-            $table->addCell(6000, $cellStyleHeader)->addText('Nazwa usługi', ['bold' => true, 'size' => 9]);
-            $table->addCell(2000, $cellStyleHeader)->addText('Cena netto', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-            
+            $table->addCell(3000, $cellStyleHeader)->addText('Nazwa', ['bold' => true, 'size' => 9]);
+            $table->addCell(2500, $cellStyleHeader)->addText('Opis', ['bold' => true, 'size' => 9]);
+            $table->addCell(1000, $cellStyleHeader)->addText('Ilość', ['bold' => true, 'size' => 9]);
+            $table->addCell(1500, $cellStyleHeader)->addText('Dostawca', ['bold' => true, 'size' => 9]);
+            $table->addCell(1200, $cellStyleHeader)->addText('Cena netto', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            $table->addCell(1200, $cellStyleHeader)->addText('Wartość', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+
             $rowIndex = 0;
-            foreach ($services as $service) {
+            foreach ($items as $item) {
                 $rowIndex++;
-                $table->addRow();
-                $cellStyle = ($rowIndex % 2 === 0) ? ['bgColor' => 'F5F5F5', 'valign' => 'center'] : ['valign' => 'center'];
-                
-                $table->addCell(6000, $cellStyle)->addText($service['name'] ?? '', ['size' => 9]);
-                $table->addCell(2000, $cellStyle)->addText(number_format($service['price'] ?? 0, 2, ',', ' ') . ' zł', ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-            }
-            
-            $section->addTextBreak(1);
-        }
-        
-        // Tabela z pracami
-        if (!empty($works) && count($works) > 0) {
-            $section->addText('Prace:', ['bold' => true, 'size' => 11], ['spaceAfter' => 100]);
-            
-            $table = $section->addTable([
-                'borderSize' => 6,
-                'borderColor' => 'CCCCCC',
-                'cellMargin' => 40,
-                'alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::CENTER,
-            ]);
-            
-            $table->addRow();
-            $cellStyleHeader = ['bgColor' => 'E0E0E0', 'valign' => 'center'];
-            $table->addCell(6000, $cellStyleHeader)->addText('Nazwa pracy', ['bold' => true, 'size' => 9]);
-            $table->addCell(2000, $cellStyleHeader)->addText('Cena netto', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-            
-            $rowIndex = 0;
-            foreach ($works as $work) {
-                $rowIndex++;
-                $table->addRow();
-                $cellStyle = ($rowIndex % 2 === 0) ? ['bgColor' => 'F5F5F5', 'valign' => 'center'] : ['valign' => 'center'];
-                
-                $table->addCell(6000, $cellStyle)->addText($work['name'] ?? '', ['size' => 9]);
-                $table->addCell(2000, $cellStyle)->addText(number_format($work['price'] ?? 0, 2, ',', ' ') . ' zł', ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-            }
-            
-            $section->addTextBreak(1);
-        }
-        
-        // Tabela z materiałami
-        if (!empty($materials) && count($materials) > 0) {
-            $section->addText('Materiały:', ['bold' => true, 'size' => 11], ['spaceAfter' => 100]);
-            
-            $table = $section->addTable([
-                'borderSize' => 6,
-                'borderColor' => 'CCCCCC',
-                'cellMargin' => 40,
-                'alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::CENTER,
-            ]);
-            
-            $table->addRow();
-            $cellStyleHeader = ['bgColor' => 'E0E0E0', 'valign' => 'center'];
-            $table->addCell(6000, $cellStyleHeader)->addText('Nazwa materiału', ['bold' => true, 'size' => 9]);
-            $table->addCell(2000, $cellStyleHeader)->addText('Cena netto', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-            
-            $rowIndex = 0;
-            foreach ($materials as $material) {
-                $rowIndex++;
-                $table->addRow();
-                $cellStyle = ($rowIndex % 2 === 0) ? ['bgColor' => 'F5F5F5', 'valign' => 'center'] : ['valign' => 'center'];
-                
-                $table->addCell(6000, $cellStyle)->addText($material['name'] ?? '', ['size' => 9]);
-                $table->addCell(2000, $cellStyle)->addText(number_format($material['price'] ?? 0, 2, ',', ' ') . ' zł', ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-            }
-            
-            $section->addTextBreak(1);
-        }
-        
-        // Dodaj sekcje niestandardowe (custom_sections)
-        if (!empty($offer->custom_sections) && is_array($offer->custom_sections)) {
-            foreach ($offer->custom_sections as $customSection) {
-                if (empty($customSection['items']) || !is_array($customSection['items'])) continue;
-                $section->addText($customSection['name'] ?? 'Sekcja', ['bold' => true, 'size' => 11], ['spaceAfter' => 100]);
-                $table = $section->addTable([
-                    'borderSize' => 6,
-                    'borderColor' => 'CCCCCC',
-                    'cellMargin' => 40,
-                    'alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::CENTER,
-                ]);
-                $table->addRow();
-                $cellStyleHeader = ['bgColor' => 'E0E0E0', 'valign' => 'center'];
-                $table->addCell(4000, $cellStyleHeader)->addText('Nazwa', ['bold' => true, 'size' => 9]);
-                $table->addCell(1500, $cellStyleHeader)->addText('Ilość', ['bold' => true, 'size' => 9]);
-                $table->addCell(2000, $cellStyleHeader)->addText('Dostawca', ['bold' => true, 'size' => 9]);
-                $table->addCell(1500, $cellStyleHeader)->addText('Cena netto', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-                $table->addCell(1500, $cellStyleHeader)->addText('Wartość', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-                $rowIndex = 0;
-                foreach ($customSection['items'] as $item) {
-                    $rowIndex++;
-                    $table->addRow();
-                    $cellStyle = ($rowIndex % 2 === 0) ? ['bgColor' => 'F5F5F5', 'valign' => 'center'] : ['valign' => 'center'];
-                    $table->addCell(4000, $cellStyle)->addText($item['name'] ?? '', ['size' => 9]);
-                    $table->addCell(1500, $cellStyle)->addText((string)($item['quantity'] ?? ''), ['size' => 9]);
-                    $table->addCell(2000, $cellStyle)->addText($item['supplier'] ?? '', ['size' => 9]);
-                    $table->addCell(1500, $cellStyle)->addText(number_format($item['price'] ?? 0, 2, ',', ' ') . ' zł', ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-                    $table->addCell(1500, $cellStyle)->addText(number_format(($item['quantity'] ?? 1) * ($item['price'] ?? 0), 2, ',', ' ') . ' zł', ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+                $quantity = (float)($item['quantity'] ?? 1);
+                if ($quantity <= 0) {
+                    $quantity = 1;
                 }
-                $section->addTextBreak(1);
+                $price = (float)($item['price'] ?? 0);
+                $value = $quantity * $price;
+
+                $table->addRow();
+                $cellStyle = ($rowIndex % 2 === 0) ? ['bgColor' => 'F5F5F5', 'valign' => 'center'] : ['valign' => 'center'];
+                $table->addCell(3000, $cellStyle)->addText((string)($item['name'] ?? ''), ['size' => 9]);
+                $table->addCell(2500, $cellStyle)->addText((string)($item['type'] ?? ''), ['size' => 9]);
+                $table->addCell(1000, $cellStyle)->addText((string)$quantity, ['size' => 9]);
+                $table->addCell(1500, $cellStyle)->addText((string)($item['supplier'] ?? ''), ['size' => 9]);
+                $table->addCell(1200, $cellStyle)->addText(number_format($price, 2, ',', ' ') . ' zł', ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+                $table->addCell(1200, $cellStyle)->addText(number_format($value, 2, ',', ' ') . ' zł', ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
             }
+
+            $section->addTextBreak(1);
+        };
+
+        if ($servicesEnabled) {
+            $renderSectionTable($servicesName, is_array($services) ? $services : []);
+        }
+        if ($worksEnabled) {
+            $renderSectionTable($worksName, is_array($works) ? $works : []);
+        }
+        if ($materialsEnabled) {
+            $renderSectionTable($materialsName, is_array($materials) ? $materials : []);
+        }
+
+        foreach ($customSectionsRaw as $customSection) {
+            if (!is_array($customSection)) {
+                continue;
+            }
+            $items = $customSection['items'] ?? null;
+            if (!is_array($items)) {
+                continue;
+            }
+            $customSectionName = trim((string)($customSection['name'] ?? 'Sekcja')) ?: 'Sekcja';
+            $renderSectionTable($customSectionName, $items);
         }
 
         // Suma końcowa
