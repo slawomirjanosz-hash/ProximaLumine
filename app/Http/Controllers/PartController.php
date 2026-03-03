@@ -5196,26 +5196,45 @@ class PartController extends Controller
 
         $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
         \Log::info('Utworzono writer Word2007', ['offer_id' => $offerId]);
-        
+
+        $tempBase = tempnam($tempDir, 'offer_resp_');
+        if ($tempBase === false) {
+            throw new \Exception('Nie udało się utworzyć pliku tymczasowego odpowiedzi w katalogu: ' . $tempDir);
+        }
+        $tempFile = $tempBase . '.docx';
+        @unlink($tempBase);
+
+        $objWriter->save($tempFile);
+
+        if (!file_exists($tempFile) || filesize($tempFile) <= 0) {
+            throw new \Exception('Wygenerowany plik DOCX jest pusty lub nie istnieje.');
+        }
+
+        $binaryContent = @file_get_contents($tempFile);
+        @unlink($tempFile);
+
+        if ($binaryContent === false || $binaryContent === '') {
+            throw new \Exception('Nie udało się odczytać wygenerowanego pliku DOCX.');
+        }
+
+        foreach ($tempFilesToDelete as $tempFilePath) {
+            @unlink($tempFilePath);
+        }
+
         \Log::info('Dokument Word dla oferty wygenerowany pomyślnie', [
             'offer_id' => $offerId,
             'file_name' => $fileName,
-            'delivery_mode' => 'streamDownload',
+            'delivery_mode' => 'binary-response',
+            'content_length' => strlen($binaryContent),
         ]);
 
-        return response()->streamDownload(function () use ($objWriter, $tempFilesToDelete) {
-            try {
-                $objWriter->save('php://output');
-            } finally {
-                foreach ($tempFilesToDelete as $tempFilePath) {
-                    @unlink($tempFilePath);
-                }
-            }
-        }, $fileName, [
+        return response($binaryContent, 200, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
             'Pragma' => 'no-cache',
             'Expires' => '0',
+            'Content-Length' => (string) strlen($binaryContent),
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
         ]);
         
         } catch (\Throwable $e) {
@@ -5335,18 +5354,24 @@ class PartController extends Controller
 
         @unlink($tempTempFile);
 
-        return response()->streamDownload(function () use ($tempFile) {
-            $handle = @fopen($tempFile, 'rb');
-            if ($handle) {
-                fpassthru($handle);
-                fclose($handle);
-            }
-            @unlink($tempFile);
-        }, $fileName, [
+        if (!file_exists($tempFile) || filesize($tempFile) <= 0) {
+            throw new \Exception('Wygenerowany plik DOCX z szablonu jest pusty lub nie istnieje.');
+        }
+
+        $binaryContent = @file_get_contents($tempFile);
+        @unlink($tempFile);
+
+        if ($binaryContent === false || $binaryContent === '') {
+            throw new \Exception('Nie udało się odczytać wygenerowanego pliku DOCX z szablonu.');
+        }
+
+        return response($binaryContent, 200, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
             'Pragma' => 'no-cache',
             'Expires' => '0',
+            'Content-Length' => (string) strlen($binaryContent),
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
         ]);
         
         } catch (\Throwable $e) {

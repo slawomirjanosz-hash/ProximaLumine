@@ -1932,6 +1932,22 @@ Route::middleware('auth')->group(function () {
                 ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
             }
 
+            if ($response instanceof \Symfony\Component\HttpFoundation\Response) {
+                $content = $response->getContent();
+                $contentLength = is_string($content) ? strlen($content) : 0;
+
+                return response()->json([
+                    'ok' => $response->getStatusCode() >= 200 && $response->getStatusCode() < 300,
+                    'source' => 'generateOfferWord-standard-response',
+                    'status' => $response->getStatusCode(),
+                    'offer_id' => $offer->id,
+                    'response_class' => get_class($response),
+                    'headers' => $response->headers->all(),
+                    'content_length' => $contentLength,
+                    'content_starts_with_zip_signature' => is_string($content) ? str_starts_with($content, 'PK') : false,
+                ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }
+
             return response()->json([
                 'ok' => true,
                 'source' => 'generateOfferWord-unknown-response',
