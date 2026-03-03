@@ -842,6 +842,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                             class="part-checkbox" 
                             data-id="${part.id}"
                             data-name="${escapeHtml(part.name)}"
+                            data-description="${escapeHtml(part.description || '')}"
                             data-supplier="${escapeHtml(part.supplier || '')}"
                             data-price="${part.net_price || 0}"
                             onchange="updateSelectedCount()">
@@ -910,8 +911,12 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             
             selected.forEach(checkbox => {
                 const name = checkbox.dataset.name;
+                const description = checkbox.dataset.description || '';
                 const supplier = checkbox.dataset.supplier;
                 const price = checkbox.dataset.price;
+                const safeName = escapeHtml(name || '');
+                const safeDescription = escapeHtml(description || '');
+                const safeSupplier = escapeHtml(supplier || '');
                 
                 // Pobierz tabelę dla odpowiedniej sekcji
                 const table = document.getElementById(`${section}-table`);
@@ -929,10 +934,10 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="${rowCount + 1}" readonly></td>
-                    <td class="p-1"><input type="text" name="${fieldPrefix}[name]" value="${name}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                    <td class="p-1"><input type="text" name="${fieldPrefix}[type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                    <td class="p-1"><input type="text" name="${fieldPrefix}[name]" value="${safeName}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                    <td class="p-1"><input type="text" name="${fieldPrefix}[type]" value="${safeDescription}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                     <td class="p-1"><input type="number" min="1" value="1" name="${fieldPrefix}[quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
-                    <td class="p-1"><input type="text" name="${fieldPrefix}[supplier]" value="${supplier}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                    <td class="p-1"><input type="text" name="${fieldPrefix}[supplier]" value="${safeSupplier}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                     <td class="p-1"><input type="number" step="0.01" name="${fieldPrefix}[price]" value="${price}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                     <td class="p-1"><input type="number" step="0.01" name="${fieldPrefix}[value]" value="${price}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
                     <td class="p-1"><button type="button" onclick="removeRow(this, '${section}')" class="text-red-600 hover:text-red-800">✕</button></td>
