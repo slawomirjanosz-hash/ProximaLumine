@@ -626,9 +626,9 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                         <thead class="bg-gray-100 sticky top-0">
                             <tr>
                                 <th class="p-2 text-left w-10"></th>
-                                <th class="p-2 text-left">Nazwa</th>
-                                <th class="p-2 text-left">Opis</th>
-                                <th class="p-2 text-left">Dostawca</th>
+                                <th class="p-2 text-left w-[34%]">Nazwa</th>
+                                <th class="p-2 text-left w-[34%]">Opis</th>
+                                <th class="p-2 text-left w-[17%]">Dostawca</th>
                                 <th class="p-2 text-left w-20">Ilość</th>
                                 <th class="p-2 text-left w-24">Cena netto</th>
                             </tr>
@@ -847,9 +847,9 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                             data-price="${part.net_price || 0}"
                             onchange="updateSelectedCount()">
                     </td>
-                    <td class="p-2 font-medium">${escapeHtml(part.name)}</td>
-                    <td class="p-2 text-gray-600">${escapeHtml(part.description || '-')}</td>
-                    <td class="p-2">${escapeHtml(part.supplier || '-')}</td>
+                    <td class="p-2 font-medium"><div class="break-words" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${escapeHtml(part.name)}</div></td>
+                    <td class="p-2 text-gray-600"><div class="break-words" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${escapeHtml(part.description || '-')}</div></td>
+                    <td class="p-2"><div class="break-words" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${escapeHtml(part.supplier || '-')}</div></td>
                     <td class="p-2">${part.quantity || 0}</td>
                     <td class="p-2 font-medium">${parseFloat(part.net_price || 0).toFixed(2)} zł</td>
                 </tr>
