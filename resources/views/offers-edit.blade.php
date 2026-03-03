@@ -158,14 +158,14 @@
                         <input type="hidden" id="services-name-input" name="services_name" value="{{ $servicesName }}">
                         <input type="hidden" id="services-enabled-input" name="services_enabled" value="{{ $servicesEnabled ? '1' : '0' }}">
                     <div id="services-content" class="p-4 hidden">
-                        <table class="w-full mb-4 text-xs">
+                        <table class="w-full mb-4 text-xs table-fixed">
                             <thead>
                                 <tr class="bg-gray-100">
                                     <th class="p-1 text-left w-10">Nr</th>
-                                    <th class="p-1 text-left">Nazwa</th>
-                                    <th class="p-1 text-left w-48">Opis</th>
+                                    <th class="p-1 text-left w-[28%]">Nazwa</th>
+                                    <th class="p-1 text-left w-[28%]">Opis</th>
                                     <th class="p-1 text-left w-16">Ilość</th>
-                                    <th class="p-1 text-left">Dostawca</th>
+                                    <th class="p-1 text-left w-[14%]">Dostawca</th>
                                     <th class="p-1 text-left w-24">Cena (zł)</th>
                                     <th class="p-1 text-left w-24">Wartość (zł)</th>
                                     <th class="p-1 w-10"></th>
@@ -175,8 +175,8 @@
                                 @forelse($offer->services ?? [] as $index => $service)
                                 <tr>
                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="{{ $index + 1 }}" readonly></td>
-                                    <td class="p-1"><input type="text" name="services[{{ $index }}][name]" value="{{ $service['name'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                                    <td class="p-1"><input type="text" name="services[{{ $index }}][type]" value="{{ $service['type'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                    <td class="p-1"><textarea name="services[{{ $index }}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $service['name'] ?? '' }}</textarea></td>
+                                    <td class="p-1"><textarea name="services[{{ $index }}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $service['type'] ?? '' }}</textarea></td>
                                     <td class="p-1"><input type="number" min="1" value="{{ $service['quantity'] ?? 1 }}" name="services[{{ $index }}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="services" onchange="calculateRowValue(this)"></td>
                                                                 <td class="p-1">
                                                                     <select name="services[{{ $index }}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -194,8 +194,8 @@
                                 @empty
                                 <tr>
                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="1" readonly></td>
-                                    <td class="p-1"><input type="text" name="services[0][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                                    <td class="p-1"><input type="text" name="services[0][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                    <td class="p-1"><textarea name="services[0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
+                                    <td class="p-1"><textarea name="services[0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
                                     <td class="p-1"><input type="number" min="1" value="1" name="services[0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="services" onchange="calculateRowValue(this)"></td>
                                                                 <td class="p-1">
                                                                     <select name="services[0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -241,14 +241,14 @@
                         <input type="hidden" id="works-name-input" name="works_name" value="{{ $worksName }}">
                         <input type="hidden" id="works-enabled-input" name="works_enabled" value="{{ $worksEnabled ? '1' : '0' }}">
                     <div id="works-content" class="p-4 hidden">
-                        <table class="w-full mb-4 text-xs">
+                        <table class="w-full mb-4 text-xs table-fixed">
                             <thead>
                                 <tr class="bg-gray-100">
                                     <th class="p-1 text-left w-10">Nr</th>
-                                    <th class="p-1 text-left">Nazwa</th>
-                                    <th class="p-1 text-left w-48">Opis</th>
+                                    <th class="p-1 text-left w-[28%]">Nazwa</th>
+                                    <th class="p-1 text-left w-[28%]">Opis</th>
                                     <th class="p-1 text-left w-16">Ilość</th>
-                                    <th class="p-1 text-left">Dostawca</th>
+                                    <th class="p-1 text-left w-[14%]">Dostawca</th>
                                     <th class="p-1 text-left w-24">Cena (zł)</th>
                                     <th class="p-1 text-left w-24">Wartość (zł)</th>
                                     <th class="p-1 w-10"></th>
@@ -258,8 +258,8 @@
                                 @forelse($offer->works ?? [] as $index => $work)
                                 <tr>
                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="{{ $index + 1 }}" readonly></td>
-                                    <td class="p-1"><input type="text" name="works[{{ $index }}][name]" value="{{ $work['name'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                                    <td class="p-1"><input type="text" name="works[{{ $index }}][type]" value="{{ $work['type'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                    <td class="p-1"><textarea name="works[{{ $index }}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $work['name'] ?? '' }}</textarea></td>
+                                    <td class="p-1"><textarea name="works[{{ $index }}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $work['type'] ?? '' }}</textarea></td>
                                     <td class="p-1"><input type="number" min="1" value="{{ $work['quantity'] ?? 1 }}" name="works[{{ $index }}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="works" onchange="calculateRowValue(this)"></td>
                                                                 <td class="p-1">
                                                                     <select name="works[{{ $index }}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -277,8 +277,8 @@
                                 @empty
                                 <tr>
                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="1" readonly></td>
-                                    <td class="p-1"><input type="text" name="works[0][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                                    <td class="p-1"><input type="text" name="works[0][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                    <td class="p-1"><textarea name="works[0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
+                                    <td class="p-1"><textarea name="works[0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
                                     <td class="p-1"><input type="number" min="1" value="1" name="works[0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="works" onchange="calculateRowValue(this)"></td>
                                                                 <td class="p-1">
                                                                     <select name="works[0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -324,14 +324,14 @@
                         <input type="hidden" id="materials-name-input" name="materials_name" value="{{ $materialsName }}">
                         <input type="hidden" id="materials-enabled-input" name="materials_enabled" value="{{ $materialsEnabled ? '1' : '0' }}">
                     <div id="materials-content" class="p-4 hidden">
-                        <table class="w-full mb-4 text-xs">
+                        <table class="w-full mb-4 text-xs table-fixed">
                             <thead>
                                 <tr class="bg-gray-100">
                                     <th class="p-1 text-left w-10">Nr</th>
-                                    <th class="p-1 text-left">Nazwa</th>
-                                    <th class="p-1 text-left w-48">Opis</th>
+                                    <th class="p-1 text-left w-[28%]">Nazwa</th>
+                                    <th class="p-1 text-left w-[28%]">Opis</th>
                                     <th class="p-1 text-left w-16">Ilość</th>
-                                    <th class="p-1 text-left">Dostawca</th>
+                                    <th class="p-1 text-left w-[14%]">Dostawca</th>
                                     <th class="p-1 text-left w-24">Cena (zł)</th>
                                     <th class="p-1 text-left w-24">Wartość (zł)</th>
                                     <th class="p-1 w-10"></th>
@@ -341,8 +341,8 @@
                                 @forelse($offer->materials ?? [] as $index => $material)
                                 <tr>
                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="{{ $index + 1 }}" readonly></td>
-                                    <td class="p-1"><input type="text" name="materials[{{ $index }}][name]" value="{{ $material['name'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                                    <td class="p-1"><input type="text" name="materials[{{ $index }}][type]" value="{{ $material['type'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                    <td class="p-1"><textarea name="materials[{{ $index }}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $material['name'] ?? '' }}</textarea></td>
+                                    <td class="p-1"><textarea name="materials[{{ $index }}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $material['type'] ?? '' }}</textarea></td>
                                     <td class="p-1"><input type="number" min="1" value="{{ $material['quantity'] ?? 1 }}" name="materials[{{ $index }}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="materials" onchange="calculateRowValue(this)"></td>
                                                                 <td class="p-1">
                                                                     <select name="materials[{{ $index }}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -360,8 +360,8 @@
                                 @empty
                                 <tr>
                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="1" readonly></td>
-                                    <td class="p-1"><input type="text" name="materials[0][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                                    <td class="p-1"><input type="text" name="materials[0][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                    <td class="p-1"><textarea name="materials[0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
+                                    <td class="p-1"><textarea name="materials[0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
                                     <td class="p-1"><input type="number" min="1" value="1" name="materials[0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="materials" onchange="calculateRowValue(this)"></td>
                                                                 <td class="p-1">
                                                                     <select name="materials[0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -417,14 +417,14 @@
                                 </div>
                                 <div id="custom{{ $sectionIndex + 1 }}-content" class="p-4 hidden">
                                     <input type="hidden" id="custom{{ $sectionIndex + 1 }}-name-input" name="custom_sections[{{ $sectionIndex + 1 }}][name]" value="{{ $customSection['name'] ?? '' }}">
-                                    <table class="w-full mb-4 text-xs">
+                                    <table class="w-full mb-4 text-xs table-fixed">
                                         <thead>
                                             <tr class="bg-gray-100">
                                                 <th class="p-1 text-left w-10">Nr</th>
-                                                <th class="p-1 text-left">Nazwa</th>
-                                                <th class="p-1 text-left w-48">Opis</th>
+                                                <th class="p-1 text-left w-[28%]">Nazwa</th>
+                                                <th class="p-1 text-left w-[28%]">Opis</th>
                                                 <th class="p-1 text-left w-16">Ilość</th>
-                                                <th class="p-1 text-left">Dostawca</th>
+                                                <th class="p-1 text-left w-[14%]">Dostawca</th>
                                                 <th class="p-1 text-left w-24">Cena (zł)</th>
                                                 <th class="p-1 text-left w-24">Wartość (zł)</th>
                                                 <th class="p-1 w-10"></th>
@@ -434,8 +434,8 @@
                                             @forelse($customSection['items'] ?? [] as $itemIndex => $item)
                                                 <tr>
                                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="{{ $itemIndex + 1 }}" readonly></td>
-                                                    <td class="p-1"><input type="text" name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][name]" value="{{ $item['name'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                                                    <td class="p-1"><input type="text" name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][type]" value="{{ $item['type'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                                    <td class="p-1"><textarea name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $item['name'] ?? '' }}</textarea></td>
+                                                    <td class="p-1"><textarea name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $item['type'] ?? '' }}</textarea></td>
                                                     <td class="p-1"><input type="number" min="1" value="{{ $item['quantity'] ?? 1 }}" name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="custom{{ $sectionIndex + 1 }}" onchange="calculateRowValue(this)"></td>
                                                                                                         <td class="p-1">
                                                                                                             <select name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -453,8 +453,8 @@
                                             @empty
                                                 <tr>
                                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="1" readonly></td>
-                                                    <td class="p-1"><input type="text" name="custom_sections[{{ $sectionIndex + 1 }}][items][0][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                                                    <td class="p-1"><input type="text" name="custom_sections[{{ $sectionIndex + 1 }}][items][0][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                                    <td class="p-1"><textarea name="custom_sections[{{ $sectionIndex + 1 }}][items][0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
+                                                    <td class="p-1"><textarea name="custom_sections[{{ $sectionIndex + 1 }}][items][0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
                                                     <td class="p-1"><input type="number" min="1" value="1" name="custom_sections[{{ $sectionIndex + 1 }}][items][0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="custom{{ $sectionIndex + 1 }}" onchange="calculateRowValue(this)"></td>
                                                                                                         <td class="p-1">
                                                                                                             <select name="custom_sections[{{ $sectionIndex + 1 }}][items][0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -991,8 +991,8 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             @endforeach
             row.innerHTML = `
                 <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="${rowCount + 1}" readonly></td>
-                <td class="p-1"><input type="text" name="${section}[${rowCount}][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                <td class="p-1"><input type="text" name="${section}[${rowCount}][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                <td class="p-1"><textarea name="${section}[${rowCount}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
+                <td class="p-1"><textarea name="${section}[${rowCount}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
                 <td class="p-1"><input type="number" min="1" value="1" name="${section}[${rowCount}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                 <td class="p-1"><select name="${section}[${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                 <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
@@ -1102,14 +1102,14 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 </div>
                 <div id="${sectionId}-content" class="p-4 hidden">
                     <input type="hidden" id="${sectionId}-name-input" name="custom_sections[${customSectionCounter}][name]" value="${escapeHtml(sectionName.trim())}">
-                    <table class="w-full mb-4 text-xs">
+                    <table class="w-full mb-4 text-xs table-fixed">
                         <thead>
                             <tr class="bg-gray-100">
                                 <th class="p-1 text-left w-10">Nr</th>
-                                <th class="p-1 text-left">Nazwa</th>
-                                <th class="p-1 text-left w-48">Opis</th>
+                                <th class="p-1 text-left w-[28%]">Nazwa</th>
+                                <th class="p-1 text-left w-[28%]">Opis</th>
                                 <th class="p-1 text-left w-16">Ilość</th>
-                                <th class="p-1 text-left">Dostawca</th>
+                                <th class="p-1 text-left w-[14%]">Dostawca</th>
                                 <th class="p-1 text-left w-24">Cena (zł)</th>
                                 <th class="p-1 text-left w-24">Wartość (zł)</th>
                                 <th class="p-1 w-10"></th>
@@ -1118,8 +1118,8 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                         <tbody id="${sectionId}-table">
                             <tr>
                                 <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="1" readonly></td>
-                                <td class="p-1"><input type="text" name="custom_sections[${customSectionCounter}][items][0][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                                <td class="p-1"><input type="text" name="custom_sections[${customSectionCounter}][items][0][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                                <td class="p-1"><textarea name="custom_sections[${customSectionCounter}][items][0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
+                                <td class="p-1"><textarea name="custom_sections[${customSectionCounter}][items][0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
                                 <td class="p-1"><input type="number" min="1" value="1" name="custom_sections[${customSectionCounter}][items][0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                                 <td class="p-1"><select name="custom_sections[${customSectionCounter}][items][0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
@@ -1228,8 +1228,8 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="${rowCount + 1}" readonly></td>
-                <td class="p-1"><input type="text" name="custom_sections[${sectionNumber}][items][${rowCount}][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                <td class="p-1"><input type="text" name="custom_sections[${sectionNumber}][items][${rowCount}][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                <td class="p-1"><textarea name="custom_sections[${sectionNumber}][items][${rowCount}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
+                <td class="p-1"><textarea name="custom_sections[${sectionNumber}][items][${rowCount}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
                 <td class="p-1"><input type="number" min="1" value="1" name="custom_sections[${sectionNumber}][items][${rowCount}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                 <td class="p-1"><select name="custom_sections[${sectionNumber}][items][${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
