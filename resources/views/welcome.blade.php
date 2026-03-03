@@ -31,7 +31,7 @@
     @endphp
 
     <div class="flex flex-col items-center mb-4">
-        <img src="{{ $companyLogo }}" alt="Logo firmy" class="w-auto object-contain mb-2" style="height: 20px !important; max-height: 20px !important; width: auto;">
+        <img src="{{ $companyLogo }}" alt="Logo firmy" class="w-full max-w-[220px] h-auto object-contain mb-2" style="max-height: 110px;">
         <p class="text-gray-600 mb-8">System zarządzania</p>
     </div>
 
