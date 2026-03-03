@@ -1059,6 +1059,7 @@ function editDeal(id) {
         .then(response => response.json())
         .then(deal => {
             const assignedUserIds = deal.assigned_users ? deal.assigned_users.map(u => u.id) : [];
+            const currentOwnerId = deal.owner_id ?? deal.user_id ?? '';
             const hasOffers = deal.offers && deal.offers.length > 0;
             
             // Generuj listę ofert jeśli istnieją
@@ -1111,6 +1112,14 @@ function editDeal(id) {
                             </select>
                         </div>
                         <div><label class="block mb-1 font-semibold">Przewidywane zamknięcie</label><input type="date" name="expected_close_date" value="${deal.expected_close_date ? deal.expected_close_date.split('T')[0] : ''}" class="w-full border rounded px-3 py-2"></div>
+                        <div><label class="block mb-1 font-semibold">Opiekun</label>
+                            <select name="owner_id" class="w-full border rounded px-3 py-2">
+                                <option value="">Brak</option>
+                                @foreach($users as $user)
+                                    <option value="{{ $user->id }}" ${currentOwnerId == {{ $user->id }} ? 'selected' : ''}>{{ $user->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                         <div><label class="block mb-1 font-semibold">Rzeczywiste zamknięcie</label><input type="date" name="actual_close_date" value="${deal.actual_close_date ? deal.actual_close_date.split('T')[0] : ''}" class="w-full border rounded px-3 py-2"></div>
                         ${offersHtml}
                         <div class="col-span-2">
