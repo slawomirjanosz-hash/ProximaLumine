@@ -23,13 +23,15 @@
         try {
             $companySettings = \App\Models\CompanySetting::first();
             $companyName = $companySettings && $companySettings->name ? $companySettings->name : 'Moja Firma';
+            $companyLogo = $companySettings && !empty($companySettings->logo) ? $companySettings->logo : '/logo.png';
         } catch (\Exception $e) {
             $companyName = 'Moja Firma';
+            $companyLogo = '/logo.png';
         }
     @endphp
 
     <div class="flex flex-col items-center mb-4">
-        <img src="/logo.png" alt="Logo firmy" class="h-[20px] mb-2">
+        <img src="{{ $companyLogo }}" alt="Logo firmy" class="h-[60px] w-auto object-contain mb-2">
         <p class="text-gray-600 mb-8">System zarządzania</p>
     </div>
 
