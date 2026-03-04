@@ -111,6 +111,8 @@
                 || request()->get('add')
                 || request()->get('status');
             $isOfertyMenuActive = request()->routeIs('offers.*');
+            $isAudytyMenuActive = request()->routeIs('audits');
+            $auditTab = request()->get('tab', 'new-audit');
         @endphp
         <!-- Start -->
         <a href="{{ url('/') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white transition-all duration-200 {{ request()->is('/') ? 'text-white border-l-4 border-[#0F295F]' : '' }}">
@@ -271,6 +273,37 @@
             <span class="text-lg">🧪</span>
             <span class="menu-main-label {{ request()->routeIs('receptury') ? 'is-active' : '' }}">Receptury</span>
         </a>
+        @endif
+
+        <!-- Audyty (rozwijane) -->
+        @if(auth()->check() && ($isSuperAdmin || $isAdmin || auth()->user()->can_audits))
+        <div class="menu-group">
+            <button onclick="toggleSubmenu('audyty')" class="w-full flex items-center px-4 py-3 text-gray-300 hover:text-white transition-all duration-200 {{ $isAudytyMenuActive ? 'text-white' : '' }}">
+                <div class="flex items-center gap-3 flex-1">
+                    <span class="text-lg">📝</span>
+                    <span class="menu-main-label {{ $isAudytyMenuActive ? 'is-active' : '' }}">Audyty</span>
+                </div>
+                <div class="flex flex-col items-end">
+                    <svg class="w-4 h-4 transition-transform duration-200 {{ $isAudytyMenuActive ? 'rotate-180' : '' }}" id="audyty-arrow" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+            </button>
+            <div id="audyty-submenu" class="bg-gray-900 submenu-panel {{ $isAudytyMenuActive ? 'is-open' : '' }}">
+                <a href="{{ route('audits', ['tab' => 'new-audit']) }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ $isAudytyMenuActive && $auditTab === 'new-audit' ? 'text-white border-l-4 border-green-500' : '' }}">
+                    <span>➕</span>
+                    <span>Nowy audyt</span>
+                </a>
+                <a href="{{ route('audits', ['tab' => 'in-progress']) }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ $isAudytyMenuActive && $auditTab === 'in-progress' ? 'text-white border-l-4 border-yellow-500' : '' }}">
+                    <span>⏳</span>
+                    <span>Audyty w toku</span>
+                </a>
+                <a href="{{ route('audits', ['tab' => 'completed']) }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ $isAudytyMenuActive && $auditTab === 'completed' ? 'text-white border-l-4 border-blue-500' : '' }}">
+                    <span>✅</span>
+                    <span>Audyty zakończone</span>
+                </a>
+            </div>
+        </div>
         @endif
 
         <!-- Ustawienia -->

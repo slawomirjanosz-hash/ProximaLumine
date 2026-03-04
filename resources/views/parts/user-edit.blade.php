@@ -591,6 +591,31 @@
                     @endif
                 @endif
 
+                {{-- AUDYTY --}}
+                @if($canGrant('can_audits'))
+                <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        name="can_audits"
+                        class="w-4 h-4"
+                        {{ $user->can_audits ? 'checked' : '' }}
+                    >
+                    <span class="text-sm">
+                        <strong>📝 Audyty</strong>
+                    </span>
+                </label>
+                @else
+                    @if($user->can_audits)
+                    <div class="flex items-center gap-3 p-3 border rounded bg-gray-50">
+                        <input type="checkbox" class="w-4 h-4" checked disabled>
+                        <span class="text-sm text-gray-500">
+                            <strong>📝 Audyty</strong> (tylko do odczytu)
+                        </span>
+                    </div>
+                    <input type="hidden" name="can_audits" value="1">
+                    @endif
+                @endif
+
                 {{-- USTAWIENIA --}}
                 @if($canGrant('can_settings') || $canGrant('can_settings_categories') || $canGrant('can_settings_suppliers') || $canGrant('can_settings_company') || $canGrant('can_settings_users') || $canGrant('can_settings_export') || $canGrant('can_settings_other'))
                 <div class="border rounded">

@@ -1264,6 +1264,7 @@ Route::middleware('auth')->get('/processes/{process}/execute', [\App\Http\Contro
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PartController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AuditController;
 
 // Generowanie dokumentów dla ofert
 Route::middleware('auth')->get('/wyceny/{offer}/generate-word', [PartController::class, 'generateOfferWord'])->name('offers.generateWord');
@@ -1282,6 +1283,12 @@ Route::get('/test', function () {
 // STRONA STARTOWA
 Route::get('/', function () {
     return view('welcome');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::get('/audits', [AuditController::class, 'index'])->name('audits');
+    Route::post('/audits', [AuditController::class, 'store'])->name('audits.store');
+    Route::patch('/audits/{audit}/status', [AuditController::class, 'updateStatus'])->name('audits.status');
 });
 
 // LOGOWANIE

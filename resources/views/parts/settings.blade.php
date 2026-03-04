@@ -915,13 +915,16 @@
                                         @if($user->can_crm)
                                             <span class="text-lg" title="Dostęp do CRM">👥</span>
                                         @endif
+                                        @if($user->can_audits)
+                                            <span class="text-lg" title="Dostęp do Audytów">📝</span>
+                                        @endif
                                         @if($user->can_settings)
                                             <span class="text-lg" title="Dostęp do Ustawienia">⚙️</span>
                                         @endif
                                         @if($user->can_delete_orders)
                                             <span class="text-lg" title="Może usuwać zamówienia">🗑️</span>
                                         @endif
-                                        @if(!$user->can_view_magazyn && !$user->can_view_projects && !$user->can_view_offers && !$user->can_view_recipes && !$user->can_view_catalog && !$user->can_add && !$user->can_remove && !$user->can_orders && !$user->can_settings)
+                                        @if(!$user->can_view_magazyn && !$user->can_view_projects && !$user->can_view_offers && !$user->can_view_recipes && !$user->can_crm && !$user->can_audits && !$user->can_view_catalog && !$user->can_add && !$user->can_remove && !$user->can_orders && !$user->can_settings)
                                             <span class="text-gray-400 text-xs italic">Brak uprawnień</span>
                                         @endif
                                     @endif

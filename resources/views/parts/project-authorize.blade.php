@@ -93,7 +93,7 @@
     {{-- STATYSTYKI --}}
     <div class="grid grid-cols-3 gap-4 mb-6">
         <div class="bg-red-50 border border-red-200 rounded p-4 text-center">
-            <p class="text-3xl font-bold text-red-600" id="stat-unauthorized">{{ $removals->sum('quantity') }}</p>
+            <p class="text-3xl font-bold text-red-600" id="stat-unauthorized">{{ $unauthorizedTotal ?? $removals->sum('quantity') }}</p>
             <p class="text-sm text-gray-600">Oczekuje na autoryzację</p>
         </div>
         <div class="bg-green-50 border border-green-200 rounded p-4 text-center">
@@ -119,44 +119,6 @@
                 </tr>
             </thead>
             <tbody id="products-table">
-                @php
-                    $groupedProducts = [];
-                    foreach($removals as $removal) {
-                        $partId = $removal->part_id;
-                        if (!isset($groupedProducts[$partId])) {
-                            $groupedProducts[$partId] = [
-                                'part' => $removal->part,
-                                'unauthorized' => 0,
-                                'authorized' => 0,
-                            ];
-                        }
-                        if ($removal->authorized) {
-                            $groupedProducts[$partId]['authorized'] += $removal->quantity;
-                        } else {
-                            $groupedProducts[$partId]['unauthorized'] += $removal->quantity;
-                        }
-                    }
-                    
-                    // Dodaj również autoryzowane produkty z tego projektu
-                    $authorizedRemovals = \App\Models\ProjectRemoval::where('project_id', $project->id)
-                        ->where('authorized', true)
-                        ->with('part')
-                        ->get();
-                    
-                    foreach($authorizedRemovals as $removal) {
-                        $partId = $removal->part_id;
-                        if (!isset($groupedProducts[$partId])) {
-                            $groupedProducts[$partId] = [
-                                'part' => $removal->part,
-                                'unauthorized' => 0,
-                                'authorized' => $removal->quantity,
-                            ];
-                        } else {
-                            $groupedProducts[$partId]['authorized'] += $removal->quantity;
-                        }
-                    }
-                @endphp
-                
                 @foreach($groupedProducts as $partId => $data)
                     <tr data-part-id="{{ $partId }}" data-qr="{{ $data['part']->qr_code }}">
                         <td class="border p-2">{{ $data['part']->name }}</td>
@@ -194,7 +156,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let scansCount = 0;
     let authorizedCount = 0;
-    let unauthorizedCount = {{ $removals->sum('quantity') }};
+    let unauthorizedCount = {{ $unauthorizedTotal ?? $removals->sum('quantity') }};
+    const loadedListId = {{ isset($loadedList) && $loadedList ? (int) $loadedList->id : 'null' }};
     let isScanning = false;
     let scanBuffer = '';
     let scanTimeout = null;
@@ -346,7 +309,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest' // For Railway compatibility
                 },
-                body: JSON.stringify({ qr_code: qrCode }),
+                body: JSON.stringify({ qr_code: qrCode, loaded_list_id: loadedListId }),
+            
                 credentials: 'same-origin' // Ensure cookies are sent on Railway
             });
 

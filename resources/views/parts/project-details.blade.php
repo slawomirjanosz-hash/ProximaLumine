@@ -184,14 +184,25 @@
                             <span class="text-sm font-semibold">{{ $list->name }}</span>
                             <span class="text-xs text-gray-600">({{ $loadedListData->added_count }} z {{ $loadedListData->total_count }})</span>
                             @php
-                                // Lista jest kompletna tylko jeśli nie ma braków i WSZYSTKIE produkty są zautoryzowane
-                                $isFullyAuthorized = $loadedListData->is_complete && (!isset($loadedListData->unauthorized_count) || $loadedListData->unauthorized_count == 0);
+                                $hasMissingItems = !$loadedListData->is_complete && !empty($loadedListData->missing_items);
+                                $hasUnauthorizedItems = isset($loadedListData->unauthorized_count) && $loadedListData->unauthorized_count > 0;
+                                $isFullyAuthorized = !$hasMissingItems && !$hasUnauthorizedItems;
                             @endphp
                             @if($isFullyAuthorized)
                                 <span class="ml-2 px-2 py-0.5 bg-green-200 text-green-800 text-xs rounded-full font-semibold">✓ Kompletna i w pełni zautoryzowana</span>
-                            @else
-                                <span class="ml-2 px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs rounded-full font-semibold">⚠ Niekompletna lub nie w pełni zautoryzowana</span>
+                            @elseif($hasMissingItems)
+                                <span class="ml-2 px-2 py-0.5 bg-red-200 text-red-800 text-xs rounded-full font-semibold">⚠ Lista niekompletna</span>
                                 <button type="button" class="ml-2 text-orange-600 hover:text-orange-800 font-bold text-xl" onclick="showMissingItems({{ $loadedListData->id }})" title="Kliknij aby zobaczyć czego brakuje">❗</button>
+                                @if(auth()->user() && auth()->user()->is_admin && !in_array($project->status, ['warranty','archived']))
+                                <form method="POST" action="{{ route('magazyn.projects.authorizeList', [$project->id, $loadedListData->id]) }}" class="ml-2" onsubmit="this.method='POST';">
+                                    @csrf
+                                    <button type="submit" class="px-2 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 text-xs font-semibold" title="Autoryzuj tylko brakujące produkty, które są dostępne na magazynie">
+                                        🔐 Autoryzuj
+                                    </button>
+                                </form>
+                                @endif
+                            @else
+                                <span class="ml-2 px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs rounded-full font-semibold">⚠ Kompletna, ale nie w pełni zautoryzowana</span>
                                 @if(auth()->user() && auth()->user()->is_admin && !in_array($project->status, ['warranty','archived']))
                                 <form method="POST" action="{{ route('magazyn.projects.authorizeList', [$project->id, $loadedListData->id]) }}" class="ml-2" onsubmit="this.method='POST';">
                                     @csrf
@@ -212,7 +223,7 @@
                             @endif
                         </div>
                         @if(!$loadedListData->is_complete && $loadedListData->missing_items)
-                            <div id="missing-items-{{ $loadedListData->id }}" class="hidden mt-2 p-2 bg-white border border-yellow-300 rounded text-xs">
+                            <div id="missing-items-{{ $loadedListData->id }}" class="mt-2 p-2 bg-white border border-yellow-300 rounded text-xs">
                                 <strong class="text-red-600">Produkty nie dodane do projektu:</strong>
                                 <div class="mt-2 space-y-2">
                                     @foreach($loadedListData->missing_items as $index => $missing)
@@ -227,29 +238,9 @@
                                                 <br>
                                                 <span class="text-gray-600 text-xs">{{ $missing['reason'] }}</span>
                                             </div>
-                                            @if($part && $part->quantity >= $missing['quantity'])
-                                                <button type="button" 
-                                                        class="ml-2 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-semibold add-missing-btn"
-                                                        data-loaded-list-id="{{ $loadedListData->id }}"
-                                                        data-part-id="{{ $missing['part_id'] }}"
-                                                        data-quantity="{{ $missing['quantity'] }}"
-                                                        data-part-name="{{ $missing['name'] }}">
-                                                    ✓ Dostępny - Dodaj
-                                                </button>
-                                            @elseif($part && $part->quantity > 0)
-                                                <button type="button" 
-                                                        class="ml-2 px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-xs font-semibold add-missing-btn"
-                                                        data-loaded-list-id="{{ $loadedListData->id }}"
-                                                        data-part-id="{{ $missing['part_id'] }}"
-                                                        data-quantity="{{ $part->quantity }}"
-                                                        data-part-name="{{ $missing['name'] }}">
-                                                    ⚠ Dodaj {{ $part->quantity }}
-                                                </button>
-                                            @else
-                                                <span class="ml-2 px-3 py-1 bg-red-200 text-red-800 rounded text-xs font-semibold">
-                                                    ✗ Brak na magazynie
-                                                </span>
-                                            @endif
+                                            <span class="ml-2 px-3 py-1 {{ $currentStock > 0 ? 'bg-yellow-200 text-yellow-900' : 'bg-red-200 text-red-800' }} rounded text-xs font-semibold">
+                                                {{ $currentStock > 0 ? 'Dostępny częściowo — użyj przycisku Autoryzuj przy liście' : '✗ Brak na magazynie' }}
+                                            </span>
                                         </div>
                                     @endforeach
                                 </div>
@@ -2155,53 +2146,7 @@ function showOutsideProducts() {
     }
 }
 
-// Obsługa dodawania brakujących produktów
 document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('add-missing-btn')) {
-        const btn = e.target;
-        const loadedListId = btn.dataset.loadedListId;
-        const partId = btn.dataset.partId;
-        const quantity = btn.dataset.quantity;
-        const partName = btn.dataset.partName;
-        
-        if (!confirm(`Czy na pewno chcesz dodać produkt "${partName}" (ilość: ${quantity}) do projektu?`)) {
-            return;
-        }
-        
-        btn.disabled = true;
-        const originalText = btn.textContent;
-        btn.textContent = 'Dodawanie...';
-        
-        fetch(`/projekty/{{ $project->id }}/add-missing-product`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({
-                loaded_list_id: loadedListId,
-                part_id: partId,
-                quantity: quantity
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                window.location.reload();
-            } else {
-                alert('Błąd: ' + (data.message || 'Nie udało się dodać produktu'));
-                btn.disabled = false;
-                btn.textContent = originalText;
-            }
-        })
-        .catch(error => {
-            alert('Błąd połączenia: ' + error.message);
-            btn.disabled = false;
-            btn.textContent = originalText;
-        });
-    }
-    
     // Obsługa usuwania listy z projektu
     if (e.target.classList.contains('remove-list-btn')) {
         const btn = e.target;
@@ -2411,7 +2356,15 @@ document.getElementById('confirm-list-load').addEventListener('click', function(
             if (data.success) {
                 let message = data.message;
                 if (!data.is_complete && data.missing_count > 0) {
-                    message += `\n\n⚠ Uwaga: ${data.missing_count} produktów nie zostało dodanych (brak na magazynie).`;
+                    message += `\n\n⚠ Uwaga: ${data.missing_count} pozycji zostało dodanych niekompletnie lub pominiętych.`;
+                    if (Array.isArray(data.missing_items) && data.missing_items.length > 0) {
+                        message += '\n\nBraki:';
+                        data.missing_items.forEach(item => {
+                            const missingQty = item.quantity ?? 0;
+                            const availableQty = item.available ?? 0;
+                            message += `\n• ${item.name}: brakuje ${missingQty} (dostępne teraz: ${availableQty})`;
+                        });
+                    }
                 }
                 alert(message);
                 window.location.reload();

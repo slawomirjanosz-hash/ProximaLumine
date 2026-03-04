@@ -28,8 +28,97 @@ class PartController extends Controller
             return redirect()->back()->with('error', 'Lista nie zawiera produktów do autoryzacji.');
         }
 
+        // Przelicz brakujące pozycje od zera wg aktualnego stanu projektu
+        $this->recalculateLoadedListMissingItems($project, $loadedList);
+
+        $addedFromMissing = $this->queueAvailableMissingItemsForAuthorization($project, $loadedList);
+
         // Przekieruj do widoku autoryzacji przez skanowanie z parametrem listy
-        return redirect()->route('magazyn.projects.authorize', ['project' => $project->id, 'list' => $loadedListId]);
+        $redirect = redirect()->route('magazyn.projects.authorize', ['project' => $project->id, 'list' => $loadedListId]);
+
+        if ($addedFromMissing > 0) {
+            $redirect = $redirect->with('success', "Uzupełniono listę o {$addedFromMissing} szt. z magazynu. Możesz dokończyć autoryzację skanowaniem.");
+        }
+
+        return $redirect;
+    }
+
+    private function queueAvailableMissingItemsForAuthorization(\App\Models\Project $project, \App\Models\ProjectLoadedList $loadedList): int
+    {
+        if (!$project->requires_authorization) {
+            return 0;
+        }
+
+        $missingItems = $loadedList->missing_items ?? [];
+        if (empty($missingItems) || !is_array($missingItems)) {
+            return 0;
+        }
+
+        $addedQuantity = 0;
+
+        foreach ($missingItems as $index => $missingItem) {
+            $partId = (int) ($missingItem['part_id'] ?? 0);
+            $missingQty = (int) ($missingItem['quantity'] ?? 0);
+
+            if ($partId <= 0 || $missingQty <= 0) {
+                continue;
+            }
+
+            $part = \App\Models\Part::find($partId);
+            $availableQty = $part ? max(0, (int) $part->quantity) : 0;
+
+            if ($availableQty <= 0) {
+                $missingItems[$index]['available'] = 0;
+                continue;
+            }
+
+            $quantityToQueue = min($missingQty, $availableQty);
+            if ($quantityToQueue <= 0) {
+                continue;
+            }
+
+            $existingUnauthorized = \App\Models\ProjectRemoval::where('project_id', $project->id)
+                ->where('part_id', $partId)
+                ->where('status', 'added')
+                ->where('authorized', false)
+                ->first();
+
+            if ($existingUnauthorized) {
+                $existingUnauthorized->quantity += $quantityToQueue;
+                $existingUnauthorized->save();
+            } else {
+                \App\Models\ProjectRemoval::create([
+                    'project_id' => $project->id,
+                    'part_id' => $partId,
+                    'user_id' => auth()->id(),
+                    'quantity' => $quantityToQueue,
+                    'status' => 'added',
+                    'authorized' => false,
+                ]);
+            }
+
+            $remainingMissingQty = $missingQty - $quantityToQueue;
+            $missingItems[$index]['quantity'] = $remainingMissingQty;
+            $missingItems[$index]['available'] = $availableQty;
+            $missingItems[$index]['reason'] = $remainingMissingQty > 0
+                ? 'Dodano częściowo do autoryzacji, pozostała ilość nadal niedostępna'
+                : 'Dodano do autoryzacji po uzupełnieniu magazynu';
+
+            $addedQuantity += $quantityToQueue;
+        }
+
+        $remainingMissingItems = array_values(array_filter($missingItems, function ($item) {
+            return (int) ($item['quantity'] ?? 0) > 0;
+        }));
+
+        if ($addedQuantity > 0) {
+            $loadedList->missing_items = !empty($remainingMissingItems) ? $remainingMissingItems : null;
+            $loadedList->is_complete = empty($remainingMissingItems);
+            $loadedList->added_count = (int) $loadedList->added_count + $addedQuantity;
+            $loadedList->save();
+        }
+
+        return $addedQuantity;
     }
     // Usuwanie zmian CRM przez superadmina
     public function deleteCrmChange($id)
@@ -277,6 +366,8 @@ class PartController extends Controller
             $missingProductIds = collect(); // Produkty które brakują w listach
             
             foreach ($loadedLists as $loadedList) {
+                $this->recalculateLoadedListMissingItems($project, $loadedList);
+
                 $listItems = $loadedList->projectList->items ?? collect();
                 $listProductIds = $listProductIds->merge($listItems->pluck('part_id'));
 
@@ -384,14 +475,23 @@ class PartController extends Controller
                 continue;
             }
 
-            if ($productData['quantity'] > $part->quantity) {
-                $errors[] = "{$part->name}: Za mało w magazynie (dostępne: {$part->quantity})";
+            $requestedQuantity = (int) $productData['quantity'];
+            $availableQuantity = max(0, (int) $part->quantity);
+            $quantityToAdd = min($requestedQuantity, $availableQuantity);
+
+            if ($quantityToAdd <= 0) {
+                $errors[] = "{$part->name}: Brak na magazynie (wymagane: {$requestedQuantity}, dostępne: {$availableQuantity})";
                 continue;
+            }
+
+            if ($quantityToAdd < $requestedQuantity) {
+                $missingQty = $requestedQuantity - $quantityToAdd;
+                $errors[] = "{$part->name}: Dodano {$quantityToAdd} z {$requestedQuantity}, brakuje {$missingQty}";
             }
 
             // Jeśli projekt NIE wymaga autoryzacji - odejmij od razu
             if (!$requiresAuth) {
-                $part->quantity -= $productData['quantity'];
+                $part->quantity -= $quantityToAdd;
                 $part->last_modified_by = auth()->id();
                 $part->save();
 
@@ -401,7 +501,7 @@ class PartController extends Controller
                     'part_id' => $part->id,
                     'part_name' => $part->name,
                     'description' => $part->description,
-                    'quantity' => $productData['quantity'],
+                    'quantity' => $quantityToAdd,
                     'price' => $part->price ?? null,
                     'currency' => $part->currency ?? 'PLN',
                     'stock_after' => $part->quantity,
@@ -413,12 +513,12 @@ class PartController extends Controller
                 'project_id' => $project->id,
                 'part_id' => $part->id,
                 'user_id' => auth()->id(),
-                'quantity' => $productData['quantity'],
+                'quantity' => $quantityToAdd,
                 'authorized' => !$requiresAuth, // true jeśli nie wymaga autoryzacji
             ]);
 
             // Sprawdź czy ten produkt jest w brakujących pozycjach którejś listy
-            $this->updateMissingItemsForPart($project->id, $part->id, $productData['quantity']);
+            $this->updateMissingItemsForPart($project->id, $part->id, $quantityToAdd);
 
             $successCount++;
         }
@@ -461,26 +561,71 @@ class PartController extends Controller
         }
 
         $query = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->where(function ($statusQuery) {
+                $statusQuery->where('status', 'added')->orWhereNull('status');
+            })
             ->where('authorized', false)
             ->with('part');
 
         $loadedList = null;
+        $listPartIds = collect();
         // Jeśli podano parametr list, filtruj tylko produkty z tej listy
         if ($request->has('list')) {
             $loadedListId = $request->get('list');
             $loadedList = \App\Models\ProjectLoadedList::with('projectList.items')->findOrFail($loadedListId);
             $listItems = $loadedList->projectList->items ?? collect();
             if ($listItems->isNotEmpty()) {
-                $query->whereIn('part_id', $listItems->pluck('part_id'));
+                $listPartIds = $listItems->pluck('part_id')->unique()->values();
+                $query->whereIn('part_id', $listPartIds);
             }
         }
 
         $unauthorizedRemovals = $query->get();
 
+        $groupedProducts = [];
+        foreach ($unauthorizedRemovals as $removal) {
+            if (!$removal->part) {
+                continue;
+            }
+
+            $partId = $removal->part_id;
+            if (!isset($groupedProducts[$partId])) {
+                $groupedProducts[$partId] = [
+                    'part' => $removal->part,
+                    'unauthorized' => 0,
+                    'authorized' => 0,
+                ];
+            }
+
+            $groupedProducts[$partId]['unauthorized'] += (int) $removal->quantity;
+        }
+
+        if (!empty($groupedProducts)) {
+            $partIdsInScope = collect(array_keys($groupedProducts));
+
+            $authorizedSums = \App\Models\ProjectRemoval::where('project_id', $project->id)
+                ->where(function ($statusQuery) {
+                    $statusQuery->where('status', 'added')->orWhereNull('status');
+                })
+                ->where('authorized', true)
+                ->whereIn('part_id', $partIdsInScope)
+                ->selectRaw('part_id, SUM(quantity) as total_quantity')
+                ->groupBy('part_id')
+                ->pluck('total_quantity', 'part_id');
+
+            foreach ($groupedProducts as $partId => $data) {
+                $groupedProducts[$partId]['authorized'] = (int) ($authorizedSums[$partId] ?? 0);
+            }
+        }
+
+        $unauthorizedTotal = collect($groupedProducts)->sum('unauthorized');
+
         return view('parts.project-authorize', [
             'project' => $project,
             'removals' => $unauthorizedRemovals,
             'loadedList' => $loadedList,
+            'groupedProducts' => $groupedProducts,
+            'unauthorizedTotal' => $unauthorizedTotal,
         ]);
     }
 
@@ -498,6 +643,7 @@ class PartController extends Controller
         
         $data = $request->validate([
             'qr_code' => 'required|string',
+            'loaded_list_id' => 'nullable|exists:project_loaded_lists,id',
         ]);
 
         $qrCode = $data['qr_code'];
@@ -517,12 +663,39 @@ class PartController extends Controller
             ], 404);
         }
 
-        // Znajdź nieautoryzowane pobranie tego produktu w tym projekcie
-        $removal = \App\Models\ProjectRemoval::where('project_id', $project->id)
+        $removalQuery = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->where(function ($statusQuery) {
+                $statusQuery->where('status', 'added')->orWhereNull('status');
+            })
             ->where('part_id', $part->id)
             ->where('authorized', false)
-            ->where('quantity', '>', 0)
-            ->first();
+            ->where('quantity', '>', 0);
+
+        if (!empty($data['loaded_list_id'])) {
+            $loadedList = \App\Models\ProjectLoadedList::with('projectList.items')->findOrFail($data['loaded_list_id']);
+
+            if ($loadedList->project_id !== $project->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Wybrana lista nie należy do tego projektu.'
+                ], 403);
+            }
+
+            $listPartIds = ($loadedList->projectList->items ?? collect())->pluck('part_id')->unique();
+            if ($listPartIds->isNotEmpty() && !$listPartIds->contains($part->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ten produkt nie należy do wybranej listy autoryzacji.'
+                ], 404);
+            }
+
+            if ($listPartIds->isNotEmpty()) {
+                $removalQuery->whereIn('part_id', $listPartIds);
+            }
+        }
+
+        // Znajdź nieautoryzowane pobranie tego produktu w tym projekcie
+        $removal = $removalQuery->first();
 
         if (!$removal) {
             \Log::warning('No unauthorized removal found during authorization', [
@@ -538,6 +711,20 @@ class PartController extends Controller
             ], 404);
         }
 
+        if ((int) $part->quantity <= 0) {
+            \Log::warning('Authorization blocked due to no stock', [
+                'part_id' => $part->id,
+                'part_name' => $part->name,
+                'project_id' => $project->id,
+                'user_id' => auth()->id(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Brak produktu "' . $part->name . '" na magazynie. Uzupełnij stan, aby kontynuować autoryzację.'
+            ], 409);
+        }
+
         // Odejmij 1 sztukę z nieautoryzowanego
         $removal->quantity -= 1;
 
@@ -549,6 +736,9 @@ class PartController extends Controller
 
         // Utwórz lub zaktualizuj autoryzowane pobranie
         $authorizedRemoval = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->where(function ($statusQuery) {
+                $statusQuery->where('status', 'added')->orWhereNull('status');
+            })
             ->where('part_id', $part->id)
             ->where('authorized', true)
             ->first();
@@ -562,6 +752,7 @@ class PartController extends Controller
                 'part_id' => $part->id,
                 'user_id' => auth()->id(),
                 'quantity' => 1,
+                'status' => 'added',
                 'authorized' => true,
             ]);
         }
@@ -2348,6 +2539,10 @@ class PartController extends Controller
         
         if ($canGrant('can_crm')) {
             $user->can_crm = (int) $request->has('can_crm');
+        }
+
+        if ($canGrant('can_audits')) {
+            $user->can_audits = (int) $request->has('can_audits');
         }
         
         // Poduprawnienia magazynu
@@ -6498,24 +6693,38 @@ class PartController extends Controller
                 continue;
             }
 
-            // Sprawdź dostępność na magazynie
-            if ($item->part->quantity < $item->quantity) {
+            $requestedQty = (int) $item->quantity;
+            $availableQty = max(0, (int) $item->part->quantity);
+            $quantityToAdd = min($requestedQty, $availableQty);
+
+            if ($quantityToAdd <= 0) {
                 $missing[] = [
                     'part_id' => $item->part_id,
                     'name' => $item->part->name,
-                    'quantity' => $item->quantity,
-                    'available' => $item->part->quantity,
-                    'reason' => 'Niewystarczająca ilość na magazynie'
+                    'quantity' => $requestedQty,
+                    'available' => $availableQty,
+                    'reason' => 'Brak na magazynie'
                 ];
                 $skipped++;
                 continue;
+            }
+
+            $missingQty = $requestedQty - $quantityToAdd;
+            if ($missingQty > 0) {
+                $missing[] = [
+                    'part_id' => $item->part_id,
+                    'name' => $item->part->name,
+                    'quantity' => $missingQty,
+                    'available' => $availableQty,
+                    'reason' => 'Dodano częściowo - brak pełnej ilości na magazynie'
+                ];
             }
 
             // Dodaj produkt do projektu
             \App\Models\ProjectRemoval::create([
                 'project_id' => $project->id,
                 'part_id' => $item->part_id,
-                'quantity' => $item->quantity,
+                'quantity' => $quantityToAdd,
                 'user_id' => auth()->id(),
                 'status' => 'added',
                 'authorized' => !$project->requires_authorization,
@@ -6523,7 +6732,7 @@ class PartController extends Controller
 
             // Jeśli nie wymaga autoryzacji, odejmij ze stanu magazynu
             if (!$project->requires_authorization) {
-                $item->part->decrement('quantity', $item->quantity);
+                $item->part->decrement('quantity', $quantityToAdd);
             }
 
             $added++;
@@ -6562,7 +6771,8 @@ class PartController extends Controller
             'success' => true,
             'message' => $message,
             'is_complete' => count($missing) === 0,
-            'missing_count' => count($missing)
+            'missing_count' => count($missing),
+            'missing_items' => $missing,
         ]);
     }
 
@@ -6598,12 +6808,17 @@ class PartController extends Controller
         }
 
         $part = \App\Models\Part::findOrFail($request->part_id);
-        
-        // Sprawdź dostępność
-        if ($part->quantity < $request->quantity) {
+        $missingItem = $missingItems[$missingIndex];
+
+        $requestedQty = (int) $request->quantity;
+        $availableQty = max(0, (int) $part->quantity);
+        $missingQty = max(0, (int) ($missingItem['quantity'] ?? 0));
+        $quantityToAdd = min($requestedQty, $availableQty, $missingQty);
+
+        if ($quantityToAdd <= 0) {
             return response()->json([
                 'success' => false,
-                'message' => 'Niewystarczająca ilość na magazynie. Dostępne: ' . $part->quantity
+                'message' => 'Brak produktu na magazynie lub brak już uzupełniony. Dostępne: ' . $availableQty
             ], 400);
         }
 
@@ -6611,7 +6826,7 @@ class PartController extends Controller
         \App\Models\ProjectRemoval::create([
             'project_id' => $project->id,
             'part_id' => $request->part_id,
-            'quantity' => $request->quantity,
+            'quantity' => $quantityToAdd,
             'user_id' => auth()->id(),
             'status' => 'added',
             'authorized' => !$project->requires_authorization,
@@ -6619,31 +6834,38 @@ class PartController extends Controller
 
         // Jeśli nie wymaga autoryzacji, odejmij ze stanu magazynu
         if (!$project->requires_authorization) {
-            $part->decrement('quantity', $request->quantity);
+            $part->decrement('quantity', $quantityToAdd);
         }
 
         // Zaktualizuj missing_items w loadedList
-        $missingItem = $missingItems[$missingIndex];
-        
-        if ($request->quantity >= $missingItem['quantity']) {
+        if ($quantityToAdd >= $missingQty) {
             // Usunąć pozycję - w pełni uzupełniona
             unset($missingItems[$missingIndex]);
             $missingItems = array_values($missingItems); // Przeindeksuj
         } else {
             // Zmniejsz ilość brakującą
-            $missingItems[$missingIndex]['quantity'] -= $request->quantity;
+            $missingItems[$missingIndex]['quantity'] -= $quantityToAdd;
             $missingItems[$missingIndex]['available'] = max(0, $part->quantity);
         }
         
         // Zaktualizuj loadedList
         $loadedList->missing_items = count($missingItems) > 0 ? $missingItems : null;
         $loadedList->is_complete = count($missingItems) === 0;
-        $loadedList->added_count += $request->quantity;
+        $loadedList->added_count += $quantityToAdd;
         $loadedList->save();
+
+        $remainingQty = max(0, $missingQty - $quantityToAdd);
+        $message = $project->requires_authorization
+            ? "Dodano do autoryzacji {$quantityToAdd} szt."
+            : "Dodano {$quantityToAdd} szt. do projektu.";
+
+        if ($remainingQty > 0) {
+            $message .= " Nadal brakuje {$remainingQty} szt.";
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Produkt został dodany do projektu.' . ($project->requires_authorization ? ' Oczekuje na autoryzację.' : ''),
+            'message' => $message,
             'is_complete' => $loadedList->is_complete
         ]);
     }
@@ -6778,6 +7000,51 @@ class PartController extends Controller
                 $loadedList->save();
             }
         }
+    }
+
+    // POMOCNICZA FUNKCJA: Przelicz kompletność listy względem aktualnych produktów w projekcie
+    private function recalculateLoadedListMissingItems(\App\Models\Project $project, \App\Models\ProjectLoadedList $loadedList): void
+    {
+        $listItems = $loadedList->projectList->items ?? collect();
+        if ($listItems->isEmpty()) {
+            $loadedList->missing_items = null;
+            $loadedList->is_complete = true;
+            return;
+        }
+
+        $partIds = $listItems->pluck('part_id')->unique()->values();
+
+        $currentQuantities = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->where('status', 'added')
+            ->whereIn('part_id', $partIds)
+            ->selectRaw('part_id, SUM(quantity) as total_quantity')
+            ->groupBy('part_id')
+            ->pluck('total_quantity', 'part_id');
+
+        $missingItems = [];
+
+        foreach ($listItems as $item) {
+            $requiredQty = (int) $item->quantity;
+            $projectQty = (int) ($currentQuantities[$item->part_id] ?? 0);
+
+            if ($projectQty >= $requiredQty) {
+                continue;
+            }
+
+            $missingQty = $requiredQty - $projectQty;
+            $part = $item->part;
+
+            $missingItems[] = [
+                'part_id' => $item->part_id,
+                'name' => $part ? $part->name : 'Produkt usunięty (ID: ' . $item->part_id . ')',
+                'quantity' => $missingQty,
+                'available' => $part ? (int) $part->quantity : 0,
+                'reason' => 'Brak w projekcie względem listy projektowej',
+            ];
+        }
+
+        $loadedList->missing_items = count($missingItems) > 0 ? $missingItems : null;
+        $loadedList->is_complete = count($missingItems) === 0;
     }
 
     // ========== GANTT CHART METHODS ==========
