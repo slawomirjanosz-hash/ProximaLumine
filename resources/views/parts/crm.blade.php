@@ -93,7 +93,7 @@
                                         </div>
                                         <div class="flex-1 flex flex-wrap gap-3 justify-center">
                                             @foreach($stageDeals as $deal)
-                                                <div onclick="editDeal({{ $deal->id }})" class="flex-shrink-0 bg-white border border-gray-300 rounded p-3 shadow-sm min-w-[200px] max-w-[250px] cursor-pointer hover:shadow-md transition">
+                                                <div onclick="showDealPreview({{ $deal->id }})" class="flex-shrink-0 bg-white border border-gray-300 rounded p-3 shadow-sm min-w-[200px] max-w-[250px] cursor-pointer hover:shadow-md transition">
                                                     <div class="font-semibold text-sm mb-1 truncate" title="{{ $deal->name }}">{{ $deal->name }}</div>
                                                     <div class="text-xs text-gray-600 mb-1 truncate" title="{{ $deal->company->name ?? 'Brak firmy' }}">🏢 {{ $deal->company->name ?? 'Brak firmy' }}</div>
                                                     <div class="text-xs text-gray-500">📅 {{ $deal->expected_close_date ? $deal->expected_close_date->format('d.m.Y') : 'Brak daty' }}</div>
@@ -123,7 +123,7 @@
                     <div class="space-y-2">
                         @foreach($stats['recent_won_deals']->take(3) as $deal)
                             @php $stage = $stageMap[$deal->stage] ?? null; @endphp
-                            <div onclick="editDeal({{ $deal->id }})" class="flex justify-between items-center p-3 rounded border cursor-pointer hover:shadow-md transition" style="background-color: {{ $stage?->color ?? '#f3f4f6' }}20; border-color: {{ $stage?->color ?? '#e5e7eb' }};">
+                            <div onclick="showDealPreview({{ $deal->id }})" class="flex justify-between items-center p-3 rounded border cursor-pointer hover:shadow-md transition" style="background-color: {{ $stage?->color ?? '#f3f4f6' }}20; border-color: {{ $stage?->color ?? '#e5e7eb' }};">
                                 <div>
                                     <div class="flex items-center gap-2">
                                         <span class="font-semibold">{{ $deal->name }}</span>
@@ -148,7 +148,7 @@
                                 <div class="space-y-2 mt-2">
                                     @foreach($stats['recent_won_deals']->slice(3) as $deal)
                                         @php $stage = $stageMap[$deal->stage] ?? null; @endphp
-                                        <div onclick="editDeal({{ $deal->id }})" class="flex justify-between items-center p-3 rounded border cursor-pointer hover:shadow-md transition" style="background-color: {{ $stage?->color ?? '#f3f4f6' }}20; border-color: {{ $stage?->color ?? '#e5e7eb' }};">
+                                        <div onclick="showDealPreview({{ $deal->id }})" class="flex justify-between items-center p-3 rounded border cursor-pointer hover:shadow-md transition" style="background-color: {{ $stage?->color ?? '#f3f4f6' }}20; border-color: {{ $stage?->color ?? '#e5e7eb' }};">
                                             <div>
                                                 <div class="flex items-center gap-2">
                                                     <span class="font-semibold">{{ $deal->name }}</span>
@@ -638,7 +638,7 @@
 </div>
 
 <!-- MODALS -->
-<div id="modal-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onclick="closeModal()">
+<div id="modal-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onclick="closeModal(event)">
     <div class="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
         <div id="modal-content"></div>
     </div>
@@ -854,7 +854,8 @@ function showTaskModal() {
     document.getElementById('modal-overlay').classList.remove('hidden');
 }
 
-function showActivityModal() {
+function showActivityModal(preselectedDealId = null) {
+    window.modalCloseOnlyByX = false;
     document.getElementById('modal-content').innerHTML = `
         <h3 class="text-xl font-bold mb-4">Dodaj Aktywność</h3>
         <form method="POST" action="{{ route('crm.activity.add') }}">
@@ -894,10 +895,10 @@ function showActivityModal() {
                     </select>
                 </div>
                 <div><label class="block mb-1 font-semibold">Szansa</label>
-                    <select name="deal_id" class="w-full border rounded px-3 py-2">
+                    <select name="deal_id" onchange="syncActivityCompanyFromDeal(this)" class="w-full border rounded px-3 py-2">
                         <option value="">Brak</option>
                         @foreach($deals as $deal)
-                            <option value="{{ $deal->id }}">{{ $deal->name }}</option>
+                            <option value="{{ $deal->id }}" data-company-id="{{ $deal->company_id }}" ${preselectedDealId == {{ $deal->id }} ? 'selected' : ''}>{{ $deal->name }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -909,11 +910,163 @@ function showActivityModal() {
             </div>
         </form>
     `;
+    const dealSelect = document.querySelector('#modal-content select[name="deal_id"]');
+    syncActivityCompanyFromDeal(dealSelect);
     document.getElementById('modal-overlay').classList.remove('hidden');
 }
 
-function closeModal() {
+function closeModal(event = null) {
+    if (event && window.modalCloseOnlyByX && event.target && event.target.id === 'modal-overlay') {
+        return;
+    }
+    window.modalCloseOnlyByX = false;
     document.getElementById('modal-overlay').classList.add('hidden');
+}
+
+function showDealPreview(id) {
+    fetch(`/crm/deal/${id}/edit`)
+        .then(response => response.json())
+        .then(deal => {
+            const assignedUserIds = deal.assigned_users ? deal.assigned_users.map(u => u.id) : [];
+            const currentOwnerId = deal.owner_id ?? deal.user_id ?? '';
+            const hasOffers = deal.offers && deal.offers.length > 0;
+            const hasTasks = deal.tasks && deal.tasks.length > 0;
+            const hasActivities = deal.activities && deal.activities.length > 0;
+
+            let offersHtml = '';
+            if (hasOffers) {
+                offersHtml = `
+                    <div class="col-span-2 mt-2 mb-2">
+                        <label class="block mb-2 font-semibold text-gray-700">📄 Powiązane oferty</label>
+                        <div class="border rounded bg-gray-50 p-3 space-y-2">
+                            ${deal.offers.map(offer => `
+                                <div class="flex items-center justify-between bg-white p-3 rounded border border-gray-200">
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-gray-800">${offer.offer_number} - ${offer.offer_title}</div>
+                                        <div class="text-sm text-gray-600">
+                                            Data: ${offer.offer_date} • Wartość: ${parseFloat(offer.total_price).toLocaleString('pl-PL', {minimumFractionDigits: 2, maximumFractionDigits: 2})} zł
+                                        </div>
+                                    </div>
+                                    <a href="/wyceny/${offer.id}/edit" class="ml-3 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                                        ✏️ Edytuj ofertę
+                                    </a>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            let tasksHtml = '';
+            if (hasTasks) {
+                tasksHtml = `
+                    <div class="col-span-2 mt-2 mb-2">
+                        <label class="block mb-2 font-semibold text-gray-700">✅ Powiązane zadania</label>
+                        <div class="border rounded bg-gray-50 p-3 space-y-2">
+                            ${deal.tasks.map(task => `
+                                <div onclick="editTask(${task.id})" class="bg-white p-3 rounded border border-gray-200 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition" title="Kliknij, aby otworzyć zadanie">
+                                    <div class="font-semibold text-gray-800">${task.title || 'Bez tytułu'}</div>
+                                    <div class="text-sm text-gray-600 mt-1">
+                                        Status: ${task.status ? String(task.status).replaceAll('_', ' ') : '-'}
+                                        • Priorytet: ${task.priority || '-'}
+                                        • Termin: ${task.due_date ? task.due_date.split('T')[0] : '-'}
+                                    </div>
+                                    <div class="text-sm text-gray-600">
+                                        Przypisane do: ${task.assigned_to && task.assigned_to.name ? task.assigned_to.name : 'Nie przypisano'}
+                                    </div>
+                                    <div class="text-xs text-blue-700 mt-1">→ Otwórz zadanie</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            let activitiesHtml = '';
+            if (hasActivities) {
+                activitiesHtml = `
+                    <div class="col-span-2 mt-2 mb-2">
+                        <label class="block mb-2 font-semibold text-gray-700">📝 Powiązane aktywności</label>
+                        <div class="border rounded bg-gray-50 p-3 space-y-2">
+                            ${deal.activities.map(activity => `
+                                <div onclick="editActivity(${activity.id})" class="bg-white p-3 rounded border border-gray-200 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition" title="Kliknij, aby otworzyć aktywność">
+                                    <div class="font-semibold text-gray-800">${activity.subject || 'Bez tematu'}</div>
+                                    <div class="text-sm text-gray-600 mt-1">
+                                        Typ: ${activity.type || '-'}
+                                        • Data: ${activity.activity_date ? activity.activity_date.replace('T', ' ').slice(0, 16) : '-'}
+                                        • Wynik: ${activity.outcome ? String(activity.outcome).replaceAll('_', ' ') : '-'}
+                                    </div>
+                                    <div class="text-xs text-indigo-700 mt-1">→ Otwórz aktywność</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('modal-content').innerHTML = `
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold">Podgląd Szansy Sprzedażowej</h3>
+                    <button type="button" onclick="closeModal()" class="text-gray-500 hover:text-gray-700 text-3xl leading-none">&times;</button>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2"><label class="block mb-1 font-semibold">Nazwa</label><input type="text" value="${deal.name || ''}" disabled class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-700"></div>
+                    <div><label class="block mb-1 font-semibold">Firma</label>
+                        <select disabled class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-700">
+                            <option value="">Brak</option>
+                            @foreach($companies as $company)
+                                <option value="{{ $company->id }}" ${deal.company_id == {{ $company->id }} ? 'selected' : ''}>{{ $company->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div><label class="block mb-1 font-semibold">Wartość (zł)</label><input type="text" value="${(deal.value ?? 0).toString()} ${deal.currency || ''}" disabled class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-700"></div>
+                    <div><label class="block mb-1 font-semibold">Prawdopodobieństwo (%)</label><input type="text" value="${deal.probability || 0}" disabled class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-700"></div>
+                    <div><label class="block mb-1 font-semibold">Etap</label>
+                        <select disabled class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-700">
+                            @foreach($crmStages->sortBy('order') as $stage)
+                                <option value="{{ $stage->slug }}" ${deal.stage === '{{ $stage->slug }}' ? 'selected' : ''}>{{ $stage->name }}@if(isset($stage->is_closed) && $stage->is_closed) (Zamknięcie)@endif</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div><label class="block mb-1 font-semibold">Przewidywane zamknięcie</label><input type="date" value="${deal.expected_close_date ? deal.expected_close_date.split('T')[0] : ''}" disabled class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-700"></div>
+                    <div><label class="block mb-1 font-semibold">Opiekun</label>
+                        <select disabled class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-700">
+                            <option value="">Brak</option>
+                            @foreach($users as $user)
+                                <option value="{{ $user->id }}" ${currentOwnerId == {{ $user->id }} ? 'selected' : ''}>{{ $user->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div><label class="block mb-1 font-semibold">Rzeczywiste zamknięcie</label><input type="date" value="${deal.actual_close_date ? deal.actual_close_date.split('T')[0] : ''}" disabled class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-700"></div>
+                    <div class="col-span-2">
+                        <label class="block mb-1 font-semibold">Przypisani użytkownicy</label>
+                        <div class="border rounded px-3 py-2 max-h-32 overflow-y-auto bg-gray-100">
+                            @foreach($users as $user)
+                                <label class="flex items-center py-1 text-gray-700">
+                                    <input type="checkbox" disabled ${assignedUserIds.includes({{ $user->id }}) ? 'checked' : ''} class="mr-2">
+                                    {{ $user->name }}
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+                    <div class="col-span-2"><label class="block mb-1 font-semibold">Opis</label><textarea rows="3" disabled class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-700">${deal.description || ''}</textarea></div>
+                    ${offersHtml}
+                    ${tasksHtml}
+                    ${activitiesHtml}
+                </div>
+                <div class="mt-4 flex gap-2 justify-end">
+                    <button type="button" onclick="showActivityModal(${id})" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">➕ Dodaj aktywność</button>
+                    <button type="button" onclick="editDeal(${id})" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">✏️ Edytuj szansę</button>
+                </div>
+            `;
+
+            window.modalCloseOnlyByX = true;
+            document.getElementById('modal-overlay').classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Błąd podczas ładowania danych szansy');
+        });
 }
 
 async function searchByNip() {
@@ -996,6 +1149,29 @@ function fillCompanyFromSupplier() {
     }
 }
 
+function syncActivityCompanyFromDeal(dealSelect) {
+    if (!dealSelect) {
+        return;
+    }
+
+    const selectedOption = dealSelect.options[dealSelect.selectedIndex];
+    const companyId = selectedOption ? selectedOption.getAttribute('data-company-id') : null;
+
+    if (!companyId) {
+        return;
+    }
+
+    const form = dealSelect.closest('form');
+    if (!form) {
+        return;
+    }
+
+    const companySelect = form.querySelector('select[name="company_id"]');
+    if (companySelect) {
+        companySelect.value = companyId;
+    }
+}
+
 function editCompany(id) { 
     // Pobierz dane firmy
     fetch(`/crm/company/${id}/edit`)
@@ -1046,6 +1222,8 @@ function editCompany(id) {
                     </div>
                 </form>
             `;
+            const dealSelect = document.querySelector('#modal-content select[name="deal_id"]');
+            syncActivityCompanyFromDeal(dealSelect);
             document.getElementById('modal-overlay').classList.remove('hidden');
         })
         .catch(error => {
@@ -1055,6 +1233,7 @@ function editCompany(id) {
 }
 
 function editDeal(id) { 
+    window.modalCloseOnlyByX = false;
     fetch(`/crm/deal/${id}/edit`)
         .then(response => response.json())
         .then(deal => {
@@ -1094,13 +1273,13 @@ function editDeal(id) {
                     @method('PUT')
                     <div class="grid grid-cols-2 gap-4">
                         <div class="col-span-2"><label class="block mb-1 font-semibold">Nazwa *</label><input type="text" name="name" value="${deal.name || ''}" required class="w-full border rounded px-3 py-2"></div>
-                        <div><label class="block mb-1 font-semibold">Firma</label>
                             <select name="company_id" class="w-full border rounded px-3 py-2">
                                 <option value="">Brak</option>
                                 @foreach($companies as $company)
                                     <option value="{{ $company->id }}" ${deal.company_id == {{ $company->id }} ? 'selected' : ''}>{{ $company->name }}</option>
                                 @endforeach
                             </select>
+                        <!-- Firma field removed -->
                         </div>
                         <div><label class="block mb-1 font-semibold">Wartość (zł) *</label><input type="number" step="0.01" name="value" value="${deal.value || 0}" required class="w-full border rounded px-3 py-2"></div>
                         <div><label class="block mb-1 font-semibold">Prawdopodobieństwo (%) *</label><input type="number" min="0" max="100" name="probability" value="${deal.probability || 50}" required class="w-full border rounded px-3 py-2"></div>
@@ -1212,6 +1391,15 @@ function editTask(id) {
                                     <option value="{{ $company->id }}" ${task.company_id == {{ $company->id }} ? 'selected' : ''}>{{ $company->name }}</option>
                                 @endforeach
                             </select>
+                            <!-- Firma field removed -->
+                        </div>
+                        <div><label class="block mb-1 font-semibold">Szansa</label>
+                            <select name="deal_id" class="w-full border rounded px-3 py-2">
+                                <option value="">Brak</option>
+                                @foreach($deals as $deal)
+                                    <option value="{{ $deal->id }}" ${task.deal_id == {{ $deal->id }} ? 'selected' : ''}>{{ $deal->name }}</option>
+                                @endforeach
+                            </select>
                         </div>
                         <div><label class="block mb-1 font-semibold">Opis</label><textarea name="description" rows="3" class="w-full border rounded px-3 py-2">${task.description || ''}</textarea></div>
                     </div>
@@ -1273,10 +1461,10 @@ function editActivity(id) {
                             </select>
                         </div>
                         <div><label class="block mb-1 font-semibold">Szansa</label>
-                            <select name="deal_id" class="w-full border rounded px-3 py-2">
+                            <select name="deal_id" onchange="syncActivityCompanyFromDeal(this)" class="w-full border rounded px-3 py-2">
                                 <option value="">Brak</option>
                                 @foreach($deals as $deal)
-                                    <option value="{{ $deal->id }}" ${activity.deal_id == {{ $deal->id }} ? 'selected' : ''}>{{ $deal->name }}</option>
+                                    <option value="{{ $deal->id }}" data-company-id="{{ $deal->company_id }}" ${activity.deal_id == {{ $deal->id }} ? 'selected' : ''}>{{ $deal->name }}</option>
                                 @endforeach
                             </select>
                         </div>

@@ -5883,7 +5883,7 @@ class PartController extends Controller
 
     public function getDeal($id)
     {
-        $deal = \App\Models\CrmDeal::with(['assignedUsers', 'offers'])->findOrFail($id);
+        $deal = \App\Models\CrmDeal::with(['assignedUsers', 'offers', 'tasks.assignedTo', 'activities'])->findOrFail($id);
         return response()->json($deal);
     }
 
@@ -5984,7 +5984,6 @@ class PartController extends Controller
             'status' => 'required|in:do_zrobienia,w_trakcie,zakonczone,anulowane',
             'due_date' => 'nullable|date',
             'assigned_to' => 'nullable|exists:users,id',
-            'company_id' => 'nullable|exists:crm_companies,id',
             'deal_id' => 'nullable|exists:crm_deals,id',
         ]);
 
@@ -6022,7 +6021,6 @@ class PartController extends Controller
             'due_date' => 'nullable|date',
             'completed_at' => 'nullable|date',
             'assigned_to' => 'nullable|exists:users,id',
-            'company_id' => 'nullable|exists:crm_companies,id',
             'deal_id' => 'nullable|exists:crm_deals,id',
         ]);
 
