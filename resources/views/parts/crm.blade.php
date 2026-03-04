@@ -55,7 +55,8 @@
     <!-- ZAKŁADKI -->
     <div class="bg-white rounded-lg shadow">
         <div class="border-b border-gray-200 flex gap-1 p-2">
-            <button class="tab-button active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+            <a href="/crm" class="tab-button{{ request()->is('crm') ? ' active' : '' }}">CRM</a>
+            <a href="/audits" class="tab-button{{ request()->is('audits') ? ' active' : '' }}">Audyty</a>
             <button class="tab-button" onclick="switchTab('deals')">💼 Lejek Sprzedażowy</button>
             <button class="tab-button" onclick="switchTab('companies')">🏢 Firmy</button>
             <button class="tab-button" onclick="switchTab('activities')">📝 Historia</button>
@@ -940,7 +941,7 @@ function showDealPreview(id) {
                         <label class="block mb-2 font-semibold text-gray-700">📄 Powiązane oferty</label>
                         <div class="border rounded bg-gray-50 p-3 space-y-2">
                             ${deal.offers.map(offer => `
-                                <div class="flex items-center justify-between bg-white p-3 rounded border border-gray-200">
+                                <div class="flex items-center justify-between bg-white p-3 rounded border border-gray-200 hover:border-blue-400 transition" title="Kliknij, aby otworzyć ofertę">
                                     <div class="flex-1">
                                         <div class="font-semibold text-gray-800">${offer.offer_number} - ${offer.offer_title}</div>
                                         <div class="text-sm text-gray-600">
@@ -1249,7 +1250,7 @@ function editDeal(id) {
                         <label class="block mb-2 font-semibold text-gray-700">📄 Powiązane oferty</label>
                         <div class="border rounded bg-gray-50 p-3 space-y-2">
                             ${deal.offers.map(offer => `
-                                <div class="flex items-center justify-between bg-white p-3 rounded border border-gray-200 hover:border-blue-400 transition">
+                                <div class="flex items-center justify-between bg-white p-3 rounded border border-gray-200 hover:border-blue-400 transition" title="Kliknij, aby otworzyć ofertę">
                                     <div class="flex-1">
                                         <div class="font-semibold text-gray-800">${offer.offer_number} - ${offer.offer_title}</div>
                                         <div class="text-sm text-gray-600">
@@ -1383,7 +1384,7 @@ function editTask(id) {
                                     <option value="{{ $user->id }}" ${task.assigned_to == {{ $user->id }} ? 'selected' : ''}>{{ $user->name }}</option>
                                 @endforeach
                             </select>
-                        </div
+                        </div>
                         <div><label class="block mb-1 font-semibold">Firma</label>
                             <select name="company_id" class="w-full border rounded px-3 py-2">
                                 <option value="">Brak</option>
@@ -1596,7 +1597,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         @endif
                                         @if(is_array($diff) && isset($diff['old']) && isset($diff['new']))
                                             <li><span class="font-semibold">{{ $field }}:</span> <span class="text-gray-600">{{ $diff['old'] ?? '-' }}</span> → <span class="text-green-700">{{ $diff['new'] ?? '-' }}</span></li>
-                                        @endif
+                                            @endif
                                     @endforeach
                                 </ul>
                             @elseif($change->change_type === 'created')
