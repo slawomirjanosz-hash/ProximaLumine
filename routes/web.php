@@ -1464,6 +1464,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/projekty', [PartController::class, 'storeProject'])->name('magazyn.projects.store')->middleware('auth');
     Route::delete('/projekty/bulk-delete', [PartController::class, 'bulkDeleteProjects'])->name('magazyn.projects.bulkDelete')->middleware('auth');
     Route::get('/projekty/{project}', [PartController::class, 'showProject'])->name('magazyn.projects.show')->middleware('auth');
+    Route::get('/projekty/{project}/eksport-produkty-xlsx', [PartController::class, 'exportProjectProductsXlsx'])->name('magazyn.projects.exportProductsXlsx')->middleware('auth');
     Route::get('/projekty/{project}/pobierz', [PartController::class, 'pickupProducts'])->name('magazyn.projects.pickup')->middleware('auth');
     Route::post('/projekty/{project}/pobierz', [PartController::class, 'storePickupProducts'])->name('magazyn.projects.pickup.store')->middleware('auth');
     Route::get('/projekty/{project}/autoryzuj', [PartController::class, 'authorizeProducts'])->name('magazyn.projects.authorize')->middleware('auth');

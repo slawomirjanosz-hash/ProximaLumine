@@ -127,9 +127,13 @@ window.addEventListener('beforeunload', function(e) {
         </div>
         
         {{-- Filtry --}}
-        <div class="grid grid-cols-2 gap-2 mb-4">
+        <div class="grid grid-cols-3 gap-2 mb-4 items-center">
             <input type="text" id="filter-name" placeholder="Filtruj po nazwie..." class="border p-2 rounded">
             <input type="text" id="filter-supplier" placeholder="Filtruj po dostawcy..." class="border p-2 rounded">
+            <label for="exact-name-checkbox" class="inline-flex items-center gap-2 text-sm text-gray-700 select-none">
+                <input type="checkbox" id="exact-name-checkbox" class="w-4 h-4">
+                <span>Dokładna nazwa</span>
+            </label>
         </div>
 
         {{-- Przyciski akcji --}}
@@ -379,18 +383,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // Filtry
     const filterName = document.getElementById('filter-name');
     const filterSupplier = document.getElementById('filter-supplier');
+    const exactNameCheckbox = document.getElementById('exact-name-checkbox');
     const tbody = document.querySelector('#parts-table tbody');
     
     function applyFilters() {
         const nameVal = filterName.value.toLowerCase();
         const supplierVal = filterSupplier.value.toLowerCase();
+        const exactNameOnly = !!exactNameCheckbox?.checked;
         const rows = tbody.querySelectorAll('tr');
 
         rows.forEach(row => {
             const name = row.cells[1]?.textContent.toLowerCase() || '';
             const supplier = row.cells[3]?.textContent.toLowerCase() || '';
             
-            const nameMatch = name.includes(nameVal);
+            const nameMatch = nameVal
+                ? (exactNameOnly ? name === nameVal : name.includes(nameVal))
+                : true;
             const supplierMatch = supplier.includes(supplierVal);
 
             if (nameMatch && supplierMatch) {
@@ -403,6 +411,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     filterName.addEventListener('input', applyFilters);
     filterSupplier.addEventListener('input', applyFilters);
+    exactNameCheckbox.addEventListener('change', applyFilters);
     
     // Zaznacz/Odznacz wszystkie
     document.getElementById('select-all-btn').addEventListener('click', () => {

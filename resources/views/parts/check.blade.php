@@ -53,7 +53,13 @@
     }
 @endphp
 
-    <h2 class="text-xl font-bold mb-4">Katalog produktów</h2>
+    <div class="flex items-center gap-4 mb-4">
+        <h2 class="text-xl font-bold">Katalog produktów</h2>
+        <label for="exact-name-checkbox" class="inline-flex items-center gap-2 text-sm text-gray-700 select-none">
+            <input type="checkbox" id="exact-name-checkbox" class="w-4 h-4">
+            <span>Dokładna nazwa</span>
+        </label>
+    </div>
 
     {{-- FILTRY --}}
     <div class="mb-4">
@@ -130,7 +136,7 @@
     {{-- KOMUNIKAT O PRODUKTACH PONIŻEJ STANU MINIMALNEGO --}}
     @php
         $belowMinimum = $parts->filter(function($p) {
-            return $p->quantity <= $p->minimum_stock && $p->minimum_stock > 0;
+            return $p->quantity < $p->minimum_stock && $p->minimum_stock > 0;
         });
         $belowMinimumCount = $belowMinimum->count();
     @endphp
@@ -295,7 +301,7 @@
 
                     @if($catalogSettings->show_quantity)
                     {{-- STAN --}}
-                    <td class="border p-2 text-center font-bold text-xs {{ $p->quantity <= $p->minimum_stock ? 'bg-red-200' : '' }}">
+                    <td class="border p-2 text-center font-bold text-xs {{ ($p->minimum_stock > 0 && $p->quantity < $p->minimum_stock) ? 'bg-red-200' : '' }}">
                         {{ $p->quantity }}
                     </td>
                     @endif
@@ -814,8 +820,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const categoryFilter = document.getElementById('category-filter');
         const supplierFilter = document.getElementById('supplier-filter');
         const clearFiltersBtn = document.getElementById('clear-filters-btn');
+        const exactNameCheckbox = document.getElementById('exact-name-checkbox');
         
-        if (!table || !searchInput || !categoryFilter || !supplierFilter) {
+        if (!table || !searchInput || !categoryFilter || !supplierFilter || !exactNameCheckbox) {
             console.error('Nie znaleziono elementów do filtrowania');
             return;
         }
@@ -861,6 +868,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const searchTerm = searchInput.value.toLowerCase().trim();
             const categoryValue = categoryFilter.value.trim();
             const supplierValue = supplierFilter.value.trim();
+            const exactNameOnly = exactNameCheckbox.checked;
             
             const rows = table.querySelectorAll('tbody tr[data-name]');
             let visibleCount = 0;
@@ -891,7 +899,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Wyszukiwanie tekstowe
                 if (searchTerm) {
-                    matchesSearch = name.includes(searchTerm) || description.includes(searchTerm) || qrCode.includes(searchTerm) || qrDescText.includes(searchTerm);
+                    if (exactNameOnly) {
+                        // W trybie "Dokładna nazwa" dopasowujemy tylko pełną nazwę produktu.
+                        matchesSearch = name === searchTerm;
+                    } else {
+                        matchesSearch = name.includes(searchTerm) || description.includes(searchTerm) || qrCode.includes(searchTerm) || qrDescText.includes(searchTerm);
+                    }
                 }
 
                 // Filtr kategorii
@@ -930,12 +943,17 @@ document.addEventListener('DOMContentLoaded', function() {
         supplierFilter.addEventListener('change', function() {
             filterTable();
         });
+
+        exactNameCheckbox.addEventListener('change', function() {
+            filterTable();
+        });
         
         if (clearFiltersBtn) {
             clearFiltersBtn.addEventListener('click', function() {
                 searchInput.value = '';
                 categoryFilter.value = '';
                 supplierFilter.value = '';
+                exactNameCheckbox.checked = false;
                 filterTable();
             });
         }

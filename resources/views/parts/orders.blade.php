@@ -127,6 +127,7 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
                     
                     <div class="mb-3">
                         <button type="button" id="remove-all-selected-btn-inner" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs mr-2">🗑️ Wyczyść listę</button>
+                        <button type="button" id="fill-to-minimum-btn-inner" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-xs mr-2 font-semibold">📏 Uzupełnij do minimum</button>
                         <button type="button" id="create-order-btn-inner" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs">📦 Utwórz zamówienie</button>
                     </div>
                     
@@ -216,6 +217,16 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
                                 Wyczyść
                             </button>
                         </div>
+                        <div class="flex items-center gap-6 text-sm text-gray-700">
+                            <label for="catalog-exact-name-checkbox" class="inline-flex items-center gap-2 select-none">
+                                <input type="checkbox" id="catalog-exact-name-checkbox" class="w-4 h-4">
+                                <span>Dokładna nazwa</span>
+                            </label>
+                            <label for="catalog-below-minimum-checkbox" class="inline-flex items-center gap-2 select-none">
+                                <input type="checkbox" id="catalog-below-minimum-checkbox" class="w-4 h-4">
+                                <span>Pokaż poniżej stanu minimum</span>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="overflow-x-auto">
@@ -241,6 +252,9 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
                                 <th class="border p-2 text-center text-xs whitespace-nowrap min-w-[2.5rem] max-w-[4rem] cursor-pointer hover:bg-gray-200 sortable" data-column="quantity">
                                     Stan <span class="sort-icon">▲</span>
                                 </th>
+                                <th class="border p-2 text-center text-xs whitespace-nowrap min-w-[3rem] max-w-[5rem] cursor-pointer hover:bg-gray-200 sortable" data-column="minimum">
+                                    Stan min. <span class="sort-icon">▲</span>
+                                </th>
                                 <th class="border p-1 text-center text-xs whitespace-nowrap min-w-[4.5rem]" style="width: 6ch;">User</th>
                             </tr>
                         </thead>
@@ -259,9 +273,10 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
                                     data-supplier-short="{{ $supplierShort }}"
                                     data-category="{{ $p->category->name ?? '' }}"
                                     data-price="{{ $p->net_price ?? 0 }}"
-                                    data-quantity="{{ $p->quantity }}">
+                                    data-quantity="{{ $p->quantity }}"
+                                    data-minimum="{{ $p->minimum_stock ?? 0 }}">
                                     <td class="border p-2 text-center">
-                                        <input type="checkbox" class="catalog-checkbox w-4 h-4 cursor-pointer" data-part-name="{{ $p->name }}" data-part-desc="{{ $p->description ?? '' }}" data-part-supplier="{{ $p->supplier ?? '' }}" data-part-supplier-short="{{ $supplierShort }}" data-part-price="{{ $p->net_price ?? '' }}" data-part-currency="{{ $p->currency ?? 'PLN' }}" data-part-qty="{{ $p->quantity }}>">
+                                        <input type="checkbox" class="catalog-checkbox w-4 h-4 cursor-pointer" data-part-name="{{ $p->name }}" data-part-desc="{{ $p->description ?? '' }}" data-part-supplier="{{ $p->supplier ?? '' }}" data-part-supplier-short="{{ $supplierShort }}" data-part-price="{{ $p->net_price ?? '' }}" data-part-currency="{{ $p->currency ?? 'PLN' }}" data-part-qty="{{ $p->quantity }}" data-part-minimum="{{ $p->minimum_stock ?? 0 }}">
                                     </td>
                                     <td class="border p-2">{{ $p->name }}</td>
                                     <td class="border p-2 text-xs text-gray-700">{{ $p->description ?? '-' }}</td>
@@ -274,12 +289,13 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
                                             @endif
                                     </td>
                                     <td class="border p-2">{{ $p->category->name ?? '-' }}</td>
-                                    <td class="border p-2 text-center font-bold {{ $p->quantity == 0 ? 'text-red-600 bg-red-50' : '' }}">{{ $p->quantity }}</td>
+                                    <td class="border p-2 text-center font-bold {{ ($p->minimum_stock > 0 && $p->quantity < $p->minimum_stock) ? 'text-red-600 bg-red-50' : '' }}">{{ $p->quantity }}</td>
+                                    <td class="border p-2 text-center font-bold text-xs">{{ $p->minimum_stock ?? 0 }}</td>
                                     <td class="border p-2 text-center text-xs text-gray-600">{{ $p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-' }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td class="border p-2 text-center text-gray-400 italic" colspan="8">Brak produktów w katalogu</td>
+                                    <td class="border p-2 text-center text-gray-400 italic" colspan="9">Brak produktów w katalogu</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -471,6 +487,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectedProductsTableEl = document.getElementById('selected-products-table-inner');
     const selectedProductsTable = selectedProductsTableEl ? selectedProductsTableEl.querySelector('tbody') : null;
     const removeAllBtnInner = document.getElementById('remove-all-selected-btn-inner');
+    const fillToMinimumBtnInner = document.getElementById('fill-to-minimum-btn-inner');
     const createOrderBtn = document.getElementById('create-order-btn-inner');
     const orderNameInput = document.getElementById('order-name-input');
     
@@ -635,6 +652,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const productPrice = this.getAttribute('data-part-price');
             const productCurrency = this.getAttribute('data-part-currency');
             const productQty = parseInt(this.getAttribute('data-part-qty')) || 0;
+            const minimumQty = parseInt(this.getAttribute('data-part-minimum')) || 0;
             
             if (this.checked) {
                 selectedProducts[productName] = {
@@ -643,6 +661,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     price: productPrice || '',
                     currency: productCurrency || 'PLN',
                     stockQuantity: productQty,
+                    minimumStock: minimumQty,
                     orderQuantity: 1
                 };
             } else {
@@ -658,6 +677,38 @@ document.addEventListener('DOMContentLoaded', function() {
             selectedProducts = {};
             catalogCheckboxes.forEach(cb => cb.checked = false);
             updateSelectedProductsDisplay();
+        });
+    }
+
+    if (fillToMinimumBtnInner) {
+        fillToMinimumBtnInner.addEventListener('click', function() {
+            const productEntries = Object.entries(selectedProducts);
+
+            if (productEntries.length === 0) {
+                alert('Najpierw wybierz produkty z katalogu');
+                return;
+            }
+
+            let updatedCount = 0;
+
+            productEntries.forEach(([name, data]) => {
+                const minimum = parseInt(data.minimumStock) || 0;
+                const stock = parseInt(data.stockQuantity) || 0;
+                const missingToMinimum = minimum - stock;
+
+                if (minimum > 0 && missingToMinimum > 0) {
+                    selectedProducts[name].orderQuantity = missingToMinimum;
+                    updatedCount++;
+                }
+            });
+
+            updateSelectedProductsDisplay();
+
+            if (updatedCount === 0) {
+                alert('Wybrane produkty nie są poniżej stanu minimum.');
+            } else {
+                alert(`Ustawiono ilości do minimum dla ${updatedCount} ${updatedCount === 1 ? 'produktu' : 'produktów'}.`);
+            }
         });
     }
 
@@ -1454,6 +1505,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const catalogSearchInput = document.getElementById('catalog-search-input');
     const catalogCategoryFilter = document.getElementById('catalog-category-filter');
     const catalogSupplierFilter = document.getElementById('catalog-supplier-filter');
+    const catalogExactNameCheckbox = document.getElementById('catalog-exact-name-checkbox');
+    const catalogBelowMinimumCheckbox = document.getElementById('catalog-below-minimum-checkbox');
     const catalogClearFilters = document.getElementById('catalog-clear-filters');
     
     let currentSortColumn = null;
@@ -1464,6 +1517,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const searchTerm = catalogSearchInput.value.toLowerCase().trim();
         const categoryValue = catalogCategoryFilter.value;
         const supplierValue = catalogSupplierFilter.value;
+        const exactNameOnly = !!catalogExactNameCheckbox?.checked;
+        const belowMinimumOnly = !!catalogBelowMinimumCheckbox?.checked;
         
         const rows = catalogTable.querySelectorAll('tbody tr[data-name]');
         let visibleCount = 0;
@@ -1472,12 +1527,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const name = row.getAttribute('data-name') || '';
             const category = row.getAttribute('data-category') || '';
             const supplier = row.getAttribute('data-supplier') || '';
+            const quantity = parseInt(row.getAttribute('data-quantity')) || 0;
+            const minimum = parseInt(row.getAttribute('data-minimum')) || 0;
             
-            const matchesSearch = !searchTerm || name.includes(searchTerm);
+            const matchesSearch = !searchTerm || (exactNameOnly ? name === searchTerm : name.includes(searchTerm));
             const matchesCategory = !categoryValue || category === categoryValue;
             const matchesSupplier = !supplierValue || supplier === supplierValue;
+            const matchesBelowMinimum = !belowMinimumOnly || (minimum > 0 && quantity < minimum);
             
-            if (matchesSearch && matchesCategory && matchesSupplier) {
+            if (matchesSearch && matchesCategory && matchesSupplier && matchesBelowMinimum) {
                 row.style.display = '';
                 visibleCount++;
             } else {
@@ -1545,12 +1603,22 @@ document.addEventListener('DOMContentLoaded', function() {
     if (catalogSupplierFilter) {
         catalogSupplierFilter.addEventListener('change', filterCatalogTable);
     }
+
+    if (catalogExactNameCheckbox) {
+        catalogExactNameCheckbox.addEventListener('change', filterCatalogTable);
+    }
+
+    if (catalogBelowMinimumCheckbox) {
+        catalogBelowMinimumCheckbox.addEventListener('change', filterCatalogTable);
+    }
     
     if (catalogClearFilters) {
         catalogClearFilters.addEventListener('click', function() {
             if (catalogSearchInput) catalogSearchInput.value = '';
             if (catalogCategoryFilter) catalogCategoryFilter.value = '';
             if (catalogSupplierFilter) catalogSupplierFilter.value = '';
+            if (catalogExactNameCheckbox) catalogExactNameCheckbox.checked = false;
+            if (catalogBelowMinimumCheckbox) catalogBelowMinimumCheckbox.checked = false;
             filterCatalogTable();
         });
     }

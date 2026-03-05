@@ -453,6 +453,10 @@
                 </button>
                 <h3 class="text-lg font-semibold">📋 Lista produktów w projekcie</h3>
             </div>
+            <a href="{{ route('magazyn.projects.exportProductsXlsx', $project->id) }}"
+               class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 text-sm font-semibold">
+                📊 Eksport Excel
+            </a>
         </div>
         <div id="summary-section-content">
         @php

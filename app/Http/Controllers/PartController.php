@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\PartsExport;
+use App\Exports\ProjectSummaryExport;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -177,7 +178,14 @@ class PartController extends Controller
         $query = Part::with(['category', 'lastModifiedBy']);
 
         if ($request->filled('search')) {
-            $query->where('name', 'like', '%' . $request->search . '%');
+            $search = trim((string) $request->search);
+            $exactName = $request->boolean('exact_name');
+
+            if ($exactName) {
+                $query->whereRaw('LOWER(name) = ?', [mb_strtolower($search)]);
+            } else {
+                $query->where('name', 'like', '%' . $search . '%');
+            }
         }
 
         if ($request->filled('category_id')) {
@@ -433,6 +441,46 @@ class PartController extends Controller
             
             return redirect()->route('magazyn.projects')
                 ->with('error', 'Błąd podczas ładowania szczegółów projektu: ' . $e->getMessage());
+        }
+    }
+
+    // EKSPORT LISTY PRODUKTOW W PROJEKCIE DO XLSX
+    public function exportProjectProductsXlsx(\App\Models\Project $project)
+    {
+        if (!class_exists(\Maatwebsite\Excel\Facades\Excel::class)) {
+            return redirect()->back()
+                ->with('error', 'Brak pakietu "maatwebsite/excel". Zainstaluj go: composer require maatwebsite/excel');
+        }
+
+        $removals = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->where('status', 'added')
+            ->where('authorized', true)
+            ->with('part.category')
+            ->get();
+
+        $summary = $removals->groupBy('part_id')->map(function ($group) {
+            $firstRemoval = $group->first();
+            if (!$firstRemoval || !$firstRemoval->part) {
+                return null;
+            }
+
+            return [
+                'part' => $firstRemoval->part,
+                'total_quantity' => (int) $group->sum('quantity'),
+            ];
+        })->filter()->sortBy(function ($item) {
+            return $item['part']->name;
+        })->values();
+
+        $projectNumber = (string) ($project->project_number ?: $project->id);
+        $safeProjectNumber = preg_replace('/[^A-Za-z0-9_-]/', '_', $projectNumber);
+        $generatedDate = now()->format('Y-m-d');
+        $fileName = ($safeProjectNumber ?: 'projekt_' . $project->id) . '_' . $generatedDate . '.xlsx';
+
+        try {
+            return Excel::download(new ProjectSummaryExport($summary), $fileName);
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Wystapil blad podczas generowania pliku: ' . $e->getMessage());
         }
     }
 
