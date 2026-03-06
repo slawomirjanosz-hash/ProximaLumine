@@ -24,6 +24,10 @@ class CheckPermission
         // Sprawdzenie uprawnień
         $permissions = [
             'view_catalog' => 'can_view_catalog',
+            'view_projects' => 'can_view_projects',
+            'view_offers' => 'can_view_offers',
+            'crm' => 'can_crm',
+            'audits' => 'can_audits',
             'add' => 'can_add',
             'remove' => 'can_remove',
             'orders' => 'can_orders',

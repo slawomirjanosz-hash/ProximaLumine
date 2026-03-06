@@ -510,7 +510,7 @@ Route::get('/test-offers', function () {
 });
 
 // PODSTRONY WYCEN I OFERT
-Route::middleware('auth')->get('/wyceny/portfolio', function () {
+Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/portfolio', function () {
     try {
         if (class_exists('\App\Models\CrmDeal')) {
             $offers = \App\Models\Offer::with('crmDeal.company')->where('status', 'portfolio')->orderBy('created_at', 'desc')->get();
@@ -522,7 +522,7 @@ Route::middleware('auth')->get('/wyceny/portfolio', function () {
     }
     return view('offers-portfolio', compact('offers'));
 })->name('offers.portfolio');
-Route::middleware('auth')->get('/wyceny/nowa', function (Illuminate\Http\Request $request) {
+Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/nowa', function (Illuminate\Http\Request $request) {
     try {
         $dealId = $request->input('deal_id');
         $deal = null;
@@ -589,7 +589,7 @@ Route::middleware('auth')->get('/wyceny/nowa', function (Illuminate\Http\Request
     }
 })->name('offers.new');
 
-Route::middleware('auth')->get('/wyceny/ustawienia', function () {
+Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/ustawienia', function () {
     return view('offers-settings');
 })->name('offers.settings');
 
@@ -846,7 +846,7 @@ Route::middleware('auth')->get('/api/recipes/{recipe}/ingredients', function (\A
     return response()->json($ingredients);
 })->name('api.recipes.ingredients');
 
-Route::middleware('auth')->post('/wyceny/nowa', function (Illuminate\Http\Request $request) {
+Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/nowa', function (Illuminate\Http\Request $request) {
     // Pobierz numer oferty z formularza
     $offerNumber = $request->input('offer_number');
     
@@ -978,7 +978,7 @@ Route::middleware('auth')->post('/wyceny/nowa', function (Illuminate\Http\Reques
     
     return redirect()->route($routeName)->with('success', 'Oferta została zapisana pomyślnie!');
 })->name('offers.store');
-Route::middleware('auth')->get('/wyceny/w-toku', function () {
+Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/w-toku', function () {
     try {
         if (class_exists('\App\Models\CrmDeal')) {
             $offers = \App\Models\Offer::with('crmDeal.company')->where('status', 'inprogress')->orderBy('created_at', 'desc')->get();
@@ -990,7 +990,7 @@ Route::middleware('auth')->get('/wyceny/w-toku', function () {
     }
     return view('offers-inprogress', compact('offers'));
 })->name('offers.inprogress');
-Route::middleware('auth')->get('/wyceny/zarchiwizowane', function () {
+Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/zarchiwizowane', function () {
     try {
         if (class_exists('\App\Models\CrmDeal')) {
             $offers = \App\Models\Offer::with('crmDeal.company')->where('status', 'archived')->orderBy('created_at', 'desc')->get();
@@ -1004,12 +1004,12 @@ Route::middleware('auth')->get('/wyceny/zarchiwizowane', function () {
 })->name('offers.archived');
 
 // Akcje na ofertach
-Route::middleware('auth')->post('/wyceny/{offer}/archive', function (\App\Models\Offer $offer) {
+Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/{offer}/archive', function (\App\Models\Offer $offer) {
     $offer->update(['status' => 'archived']);
     return redirect()->back()->with('success', 'Oferta przeniesiona do archiwum.');
 })->name('offers.archive');
 
-Route::middleware('auth')->post('/wyceny/{offer}/convert-to-project', function (\App\Models\Offer $offer) {
+Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/{offer}/convert-to-project', function (\App\Models\Offer $offer) {
     // Zmień "OF" na "PROJ" w numerze oferty
     $projectNumber = str_replace('OF', 'PROJ', $offer->offer_number);
     
@@ -1027,7 +1027,7 @@ Route::middleware('auth')->post('/wyceny/{offer}/convert-to-project', function (
         ->with('success', 'Projekt został utworzony z oferty! Oferta pozostała w ' . ($offer->status === 'portfolio' ? 'portfolio' : 'ofertach w toku') . '.');
 })->name('offers.convertToProject');
 
-Route::middleware('auth')->post('/wyceny/{offer}/copy', function (\App\Models\Offer $offer) {
+Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/{offer}/copy', function (\App\Models\Offer $offer) {
     $newOffer = $offer->replicate();
     $newOffer->offer_number = app(\App\Http\Controllers\PartController::class)->generateOfferNumber();
     $newOffer->offer_title = $offer->offer_title . '_kopia';
@@ -1037,7 +1037,7 @@ Route::middleware('auth')->post('/wyceny/{offer}/copy', function (\App\Models\Of
     return redirect()->back()->with('success', 'Oferta została skopiowana.');
 })->name('offers.copy');
 
-Route::middleware('auth')->get('/wyceny/{offer}/edit', function (\App\Models\Offer $offer) {
+Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/{offer}/edit', function (\App\Models\Offer $offer) {
     try {
         if (class_exists('\\App\\Models\\CrmDeal')) {
             $offer->load('crmDeal.company');
@@ -1097,7 +1097,7 @@ Route::middleware('auth')->get('/wyceny/{offer}/edit', function (\App\Models\Off
     return view('offers-edit', compact('offer', 'companies', 'suppliers', 'deals', 'servicesName', 'worksName', 'materialsName', 'servicesEnabled', 'worksEnabled', 'materialsEnabled'));
 })->name('offers.edit');
 
-Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Request $request, \App\Models\Offer $offer) {
+Route::middleware(['auth', 'permission:view_offers'])->put('/wyceny/{offer}', function (Illuminate\Http\Request $request, \App\Models\Offer $offer) {
     // DEBUG: Loguj surowe dane z formularza
     \Log::info('=== OFERTA UPDATE DEBUG ===');
     \Log::info('Services RAW:', $request->input('services', []));
@@ -1206,7 +1206,7 @@ Route::middleware('auth')->put('/wyceny/{offer}', function (Illuminate\Http\Requ
 })->name('offers.update');
 
 // Usuwanie oferty tylko dla admina/super admina
-Route::middleware('auth')->delete('/wyceny/{offer}', function (Illuminate\Http\Request $request, \App\Models\Offer $offer) {
+Route::middleware(['auth', 'permission:view_offers'])->delete('/wyceny/{offer}', function (Illuminate\Http\Request $request, \App\Models\Offer $offer) {
     $user = auth()->user();
     if (!$user || (!$user->is_admin && strtolower($user->email) !== 'admin@admin.com')) {
         abort(403, 'Brak uprawnień do usuwania ofert');
@@ -1216,7 +1216,7 @@ Route::middleware('auth')->delete('/wyceny/{offer}', function (Illuminate\Http\R
 })->name('offers.destroy');
 
 // WYCENY I OFERTY
-Route::middleware('auth')->get('/wyceny', function () {
+Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny', function () {
     return view('offers');
 })->name('offers');
 
@@ -1267,7 +1267,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AuditController;
 
 // Generowanie dokumentów dla ofert
-Route::middleware('auth')->get('/wyceny/{offer}/generate-word', [PartController::class, 'generateOfferWord'])->name('offers.generateWord');
+Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/{offer}/generate-word', [PartController::class, 'generateOfferWord'])->name('offers.generateWord');
 
 // TEST ENDPOINT
 Route::get('/test', function () {
@@ -1285,7 +1285,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'permission:audits'])->group(function () {
     Route::get('/audits', [AuditController::class, 'index'])->name('audits');
     Route::post('/audits', [AuditController::class, 'store'])->name('audits.store');
     Route::patch('/audits/{audit}/status', [AuditController::class, 'updateStatus'])->name('audits.status');
@@ -1384,7 +1384,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/magazyn/parts/{part}/update-location', [PartController::class, 'updateLocation'])->name('magazyn.parts.updateLocation')->middleware('permission:view_catalog');
 
     // CRM Routes (Main Catalog)
-    Route::middleware('auth')->group(function () {
+    Route::middleware('permission:crm')->group(function () {
         Route::get('/crm', [PartController::class, 'crmView'])->name('crm');
         Route::get('/crm/ustawienia', [PartController::class, 'crmSettingsView'])->name('crm.settings');
         
@@ -1460,7 +1460,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/parts/clear-session', [PartController::class, 'clearSession'])->name('parts.clearSession');
     Route::post('/parts/delete-selected-history', [PartController::class, 'deleteSelectedHistory'])->name('parts.deleteSelectedHistory')->middleware('permission:remove');
 
-    Route::get('/projekty', [PartController::class, 'projectsView'])->name('magazyn.projects')->middleware('auth');
+    Route::get('/projekty', [PartController::class, 'projectsView'])->name('magazyn.projects')->middleware(['auth', 'permission:view_projects']);
     Route::post('/projekty', [PartController::class, 'storeProject'])->name('magazyn.projects.store')->middleware('auth');
     Route::delete('/projekty/bulk-delete', [PartController::class, 'bulkDeleteProjects'])->name('magazyn.projects.bulkDelete')->middleware('auth');
     Route::get('/projekty/{project}', [PartController::class, 'showProject'])->name('magazyn.projects.show')->middleware('auth');

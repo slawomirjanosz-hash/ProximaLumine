@@ -18,9 +18,7 @@ class AuditController extends Controller
         }
 
         $isSuperAdmin = strtolower((string) $user->email) === 'proximalumine@gmail.com';
-        $isAdmin = (bool) $user->is_admin;
-
-        if (!$isSuperAdmin && !$isAdmin && !(bool) $user->can_audits) {
+        if (!$isSuperAdmin && !(bool) $user->can_audits) {
             abort(403, 'Brak uprawnień do modułu Audyty.');
         }
     }

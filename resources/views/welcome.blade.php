@@ -43,7 +43,7 @@
                     Wejdź do magazynu
                 </a>
             @endif
-            @if(Auth::user()->email === 'proximalumine@gmail.com' || Auth::user()->can_view_magazyn)
+            @if(Auth::user()->email === 'proximalumine@gmail.com' || Auth::user()->can_view_projects)
                 <a href="{{ route('magazyn.projects') }}"
                    class="inline-block px-6 py-3 bg-indigo-600 text-white rounded text-lg hover:bg-indigo-700 min-w-[220px]">
                     🗂️ Projekty
