@@ -64,9 +64,11 @@
                     👥 CRM
                 </a>
             @endif
-            <a href="{{ route('audits') }}" class="inline-block px-6 py-3 text-white rounded text-lg min-w-[220px]" style="background-color: #38bdf8; color: #ffffff;" onmouseover="this.style.backgroundColor='#0ea5e9'" onmouseout="this.style.backgroundColor='#38bdf8'">
-                📝 Audyty
-            </a>
+            @if(Auth::user()->email === 'proximalumine@gmail.com' || Auth::user()->is_admin || Auth::user()->can_audits)
+                <a href="{{ route('audits') }}" class="inline-block px-6 py-3 text-white rounded text-lg min-w-[220px]" style="background-color: #38bdf8; color: #ffffff;" onmouseover="this.style.backgroundColor='#0ea5e9'" onmouseout="this.style.backgroundColor='#38bdf8'">
+                    📝 Audyty
+                </a>
+            @endif
         </div>
     @else
         <a href="{{ route('login') }}"
