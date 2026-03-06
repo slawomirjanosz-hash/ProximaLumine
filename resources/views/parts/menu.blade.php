@@ -120,7 +120,7 @@
             <span class="menu-main-label {{ request()->is('/') ? 'is-active' : '' }}">Start</span>
         </a>
 
-        @if(auth()->check() && (auth()->user()->can_view_magazyn || $isAdmin || $isSuperAdmin))
+        @if(auth()->check() && ($isSuperAdmin || auth()->user()->can_view_magazyn))
         <!-- Magazyn (rozwijane) -->
         <div class="menu-group">
             <button onclick="toggleSubmenu('magazyn')" class="w-full flex items-center px-4 py-3 text-gray-300 hover:text-white transition-all duration-200 {{ $isMagazynMenuActive ? 'text-white' : '' }}">
@@ -135,31 +135,31 @@
                 </div>
             </button>
             <div id="magazyn-submenu" class="bg-gray-900 submenu-panel {{ $isMagazynMenuActive ? 'is-open' : '' }}">
-                @if($isAdmin || $isSuperAdmin || auth()->user()->can_view_catalog)
+                @if($isSuperAdmin || auth()->user()->can_view_catalog)
                 <a href="{{ route('magazyn.check') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.check') ? 'text-white border-l-4 border-blue-500' : '' }}">
                     <span>🔍</span>
                     <span>Katalog</span>
                 </a>
                 @endif
-                @if($isAdmin || $isSuperAdmin || auth()->user()->can_add)
+                @if($isSuperAdmin || auth()->user()->can_add)
                 <a href="{{ route('magazyn.add') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.add') ? 'text-white border-l-4 border-green-500' : '' }}">
                     <span>➕</span>
                     <span>Dodaj</span>
                 </a>
                 @endif
-                @if($isAdmin || $isSuperAdmin || auth()->user()->can_receive)
+                @if($isSuperAdmin || auth()->user()->can_receive)
                 <a href="{{ route('magazyn.receive') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.receive') ? 'text-white border-l-4 border-green-400' : '' }}">
                     <span>📥</span>
                     <span>Przyjmij na magazyn</span>
                 </a>
                 @endif
-                @if($isAdmin || $isSuperAdmin || auth()->user()->can_remove)
+                @if($isSuperAdmin || auth()->user()->can_remove)
                 <a href="{{ route('magazyn.remove') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.remove') ? 'text-white border-l-4 border-red-500' : '' }}">
                     <span>➖</span>
                     <span>Pobierz</span>
                 </a>
                 @endif
-                @if($isAdmin || $isSuperAdmin || auth()->user()->can_orders)
+                @if($isSuperAdmin || auth()->user()->can_orders)
                 <a href="{{ route('magazyn.orders') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.orders') ? 'text-white border-l-4 border-yellow-500' : '' }}">
                     <span>📦</span>
                     <span>Zamówienia</span>
@@ -170,7 +170,7 @@
         @endif
 
         <!-- Projekty (rozwijane) -->
-        @if(auth()->check() && (auth()->user()->can_view_projects || $isAdmin || $isSuperAdmin))
+        @if(auth()->check() && ($isSuperAdmin || auth()->user()->can_view_projects))
         <div class="menu-group">
             <button onclick="toggleSubmenu('projekty')" class="w-full flex items-center px-4 py-3 text-gray-300 hover:text-white transition-all duration-200 {{ $isProjektyMenuActive ? 'text-white' : '' }}">
                 <div class="flex items-center gap-3 flex-1">
@@ -184,25 +184,25 @@
                 </div>
             </button>
             <div id="projekty-submenu" class="bg-gray-900 submenu-panel {{ $isProjektyMenuActive ? 'is-open' : '' }}">
-                @if($isAdmin || $isSuperAdmin || auth()->user()->can_projects_add)
+                @if($isSuperAdmin || auth()->user()->can_projects_add)
                 <a href="{{ route('magazyn.projects') }}?add=1" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->get('add') == '1' ? 'text-white border-l-4 border-green-500' : '' }}">
                     <span>➕</span>
                     <span>Dodaj projekt</span>
                 </a>
                 @endif
-                @if($isAdmin || $isSuperAdmin || auth()->user()->can_projects_in_progress)
+                @if($isSuperAdmin || auth()->user()->can_projects_in_progress)
                 <a href="{{ route('magazyn.projects') }}?status=in_progress" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->get('status') == 'in_progress' ? 'text-white border-l-4 border-yellow-500' : '' }}">
                     <span>⏳</span>
                     <span>Projekty w toku</span>
                 </a>
                 @endif
-                @if($isAdmin || $isSuperAdmin || auth()->user()->can_projects_warranty)
+                @if($isSuperAdmin || auth()->user()->can_projects_warranty)
                 <a href="{{ route('magazyn.projects') }}?status=warranty" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->get('status') == 'warranty' ? 'text-white border-l-4 border-blue-500' : '' }}">
                     <span>🛡️</span>
                     <span>Projekty na gwarancji</span>
                 </a>
                 @endif
-                @if($isAdmin || $isSuperAdmin || auth()->user()->can_projects_archived)
+                @if($isSuperAdmin || auth()->user()->can_projects_archived)
                 <a href="{{ route('magazyn.projects') }}?status=archived" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->get('status') == 'archived' ? 'text-white border-l-4 border-gray-500' : '' }}">
                     <span>📦</span>
                     <span>Projekty archiwalne</span>
