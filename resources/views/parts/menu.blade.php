@@ -99,7 +99,6 @@
         <nav class="py-4">
         @php
             $isSuperAdmin = auth()->check() && strtolower(auth()->user()->email) === 'proximalumine@gmail.com';
-            $isAdmin = auth()->check() && auth()->user()->is_admin;
             $isMagazynMenuActive = request()->routeIs('magazyn.add')
                 || request()->routeIs('magazyn.remove')
                 || request()->routeIs('magazyn.check')
@@ -208,7 +207,7 @@
                     <span>Projekty archiwalne</span>
                 </a>
                 @endif
-                @if($isAdmin || $isSuperAdmin || auth()->user()->can_projects_settings)
+                @if($isSuperAdmin || auth()->user()->can_projects_settings)
                 <a href="{{ route('magazyn.projects.settings') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.projects.settings') ? 'bg-gray-700 text-white border-l-4 border-indigo-500' : '' }}">
                     <span>⚙️</span>
                     <span>Ustawienia projektów</span>
@@ -219,7 +218,7 @@
         @endif
 
         <!-- CRM -->
-        @if(auth()->check() && (auth()->user()->can_crm || $isAdmin || $isSuperAdmin))
+        @if(auth()->check() && ($isSuperAdmin || auth()->user()->can_crm))
         <a href="{{ route('crm') }}" class="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white transition-all duration-200 {{ request()->routeIs('crm*') ? 'bg-gray-700 text-white border-l-4 border-[#0F295F]' : '' }}">
             <span class="text-lg">👥</span>
             <span class="menu-main-label {{ request()->routeIs('crm*') ? 'is-active' : '' }}">CRM</span>
@@ -227,7 +226,7 @@
         @endif
 
         <!-- Oferty (rozwijane) -->
-        @if(auth()->check() && (auth()->user()->can_view_offers || $isAdmin || $isSuperAdmin))
+        @if(auth()->check() && ($isSuperAdmin || auth()->user()->can_view_offers))
         <div class="menu-group">
             <button onclick="toggleSubmenu('oferty')" class="w-full flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 {{ $isOfertyMenuActive ? 'bg-gray-700 text-white' : '' }}">
                 <div class="flex items-center gap-3 flex-1">
@@ -276,7 +275,7 @@
         @endif
 
         <!-- Audyty (rozwijane) -->
-        @if(auth()->check() && ($isSuperAdmin || $isAdmin || auth()->user()->can_audits))
+        @if(auth()->check() && ($isSuperAdmin || auth()->user()->can_audits))
         <div class="menu-group">
             <button onclick="toggleSubmenu('audyty')" class="w-full flex items-center px-4 py-3 text-gray-300 hover:text-white transition-all duration-200 {{ $isAudytyMenuActive ? 'text-white' : '' }}">
                 <div class="flex items-center gap-3 flex-1">
