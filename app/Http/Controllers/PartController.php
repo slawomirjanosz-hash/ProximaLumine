@@ -548,7 +548,17 @@ class PartController extends Controller
         $fileName = $this->buildProjectExportFileName($project, 'xlsx');
 
         try {
-            return Excel::download(new ProjectSummaryExport($summary), $fileName);
+            $raw = Excel::raw(new ProjectSummaryExport($summary), \Maatwebsite\Excel\Excel::XLSX);
+
+            if (!is_string($raw) || $raw === '') {
+                throw new \RuntimeException('Excel::raw zwrocil pusty wynik dla XLSX.');
+            }
+
+            return response($raw, 200, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+                'Cache-Control' => 'no-store, no-cache',
+            ]);
         } catch (\Throwable $e) {
             \Log::error('Project XLSX export failed', [
                 'project_id' => $project->id,
@@ -560,6 +570,12 @@ class PartController extends Controller
 
             return $this->streamProjectSummaryCsv($summary, $project, $e->getMessage());
         }
+    }
+
+    public function exportProjectProductsCsv(\App\Models\Project $project)
+    {
+        $summary = $this->buildProjectSummaryCollection($project);
+        return $this->streamProjectSummaryCsv($summary, $project);
     }
 
     public function projectExportDiagnostics(\App\Models\Project $project)

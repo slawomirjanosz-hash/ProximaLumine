@@ -22,6 +22,9 @@
             <a href="{{ route('magazyn.projects.exportProductsXlsx', $project->id) }}" class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-sm font-semibold">
                 📊 Test eksportu
             </a>
+            <a href="{{ route('magazyn.projects.exportProductsCsv', $project->id) }}" class="px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 text-sm font-semibold">
+                CSV awaryjny
+            </a>
             <a href="{{ route('magazyn.projects.show', $project->id) }}" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm">
                 Powrót do projektu
             </a>
