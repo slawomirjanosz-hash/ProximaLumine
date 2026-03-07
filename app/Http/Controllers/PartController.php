@@ -17,6 +17,98 @@ use Illuminate\Support\Str;
 
 class PartController extends Controller
 {
+    private function buildProjectSummaryCollection(
+        \App\Models\Project $project
+    ): \Illuminate\Support\Collection {
+        $removals = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->where('status', 'added')
+            ->where('authorized', true)
+            ->with('part.category')
+            ->get();
+
+        return $removals->groupBy('part_id')->map(function ($group) {
+            $firstRemoval = $group->first();
+            if (!$firstRemoval || !$firstRemoval->part) {
+                return null;
+            }
+
+            return [
+                'part' => $firstRemoval->part,
+                'total_quantity' => (int) $group->sum('quantity'),
+            ];
+        })->filter()->sortBy(function ($item) {
+            return $item['part']->name;
+        })->values();
+    }
+
+    private function buildProjectExportFileName(\App\Models\Project $project, string $extension): string
+    {
+        $projectNumber = (string) ($project->project_number ?: $project->id);
+        $safeProjectNumber = preg_replace('/[^A-Za-z0-9_-]/', '_', $projectNumber);
+        $generatedDate = now()->format('Y-m-d');
+        $baseName = $safeProjectNumber ?: 'projekt_' . $project->id;
+
+        return $baseName . '_' . $generatedDate . '.' . $extension;
+    }
+
+    private function streamProjectSummaryCsv(
+        \Illuminate\Support\Collection $summary,
+        \App\Models\Project $project,
+        ?string $xlsxError = null
+    ) {
+        $fileName = $this->buildProjectExportFileName($project, 'csv');
+
+        if ($xlsxError) {
+            \Log::warning('XLSX export failed - streaming CSV fallback', [
+                'project_id' => $project->id,
+                'project_number' => $project->project_number,
+                'error' => $xlsxError,
+            ]);
+        }
+
+        return response()->streamDownload(function () use ($summary) {
+            $output = fopen('php://output', 'w');
+            if ($output === false) {
+                return;
+            }
+
+            // BOM dla poprawnego otwierania polskich znakow w Excelu.
+            fwrite($output, "\xEF\xBB\xBF");
+
+            fputcsv($output, [
+                'Nazwa produktu',
+                'Kod QR (opis)',
+                'Opis',
+                'Kategoria',
+                'Dostawca',
+                'Lok',
+                'Laczna ilosc w projekcie',
+            ], ';');
+
+            foreach ($summary as $item) {
+                $part = $item['part'];
+                $description = $part->description
+                    ? preg_replace('/\s+/', ' ', str_replace(["\r", "\n"], ' ', $part->description))
+                    : '-';
+
+                fputcsv($output, [
+                    $part->name,
+                    $part->qr_code ?? '-',
+                    $description,
+                    $part->category->name ?? '-',
+                    $part->supplier ?? '-',
+                    $part->location ?? '-',
+                    (int) $item['total_quantity'],
+                ], ';');
+            }
+
+            fclose($output);
+        }, $fileName, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Cache-Control' => 'no-store, no-cache',
+        ]);
+    }
+
     /**
      * Przekierowanie do autoryzacji produktów z wybranej listy projektowej przez skanowanie
      */
@@ -452,36 +544,58 @@ class PartController extends Controller
                 ->with('error', 'Brak pakietu "maatwebsite/excel". Zainstaluj go: composer require maatwebsite/excel');
         }
 
-        $removals = \App\Models\ProjectRemoval::where('project_id', $project->id)
-            ->where('status', 'added')
-            ->where('authorized', true)
-            ->with('part.category')
-            ->get();
-
-        $summary = $removals->groupBy('part_id')->map(function ($group) {
-            $firstRemoval = $group->first();
-            if (!$firstRemoval || !$firstRemoval->part) {
-                return null;
-            }
-
-            return [
-                'part' => $firstRemoval->part,
-                'total_quantity' => (int) $group->sum('quantity'),
-            ];
-        })->filter()->sortBy(function ($item) {
-            return $item['part']->name;
-        })->values();
-
-        $projectNumber = (string) ($project->project_number ?: $project->id);
-        $safeProjectNumber = preg_replace('/[^A-Za-z0-9_-]/', '_', $projectNumber);
-        $generatedDate = now()->format('Y-m-d');
-        $fileName = ($safeProjectNumber ?: 'projekt_' . $project->id) . '_' . $generatedDate . '.xlsx';
+        $summary = $this->buildProjectSummaryCollection($project);
+        $fileName = $this->buildProjectExportFileName($project, 'xlsx');
 
         try {
             return Excel::download(new ProjectSummaryExport($summary), $fileName);
         } catch (\Throwable $e) {
-            return redirect()->back()->with('error', 'Wystapil blad podczas generowania pliku: ' . $e->getMessage());
+            \Log::error('Project XLSX export failed', [
+                'project_id' => $project->id,
+                'project_number' => $project->project_number,
+                'error_message' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+            ]);
+
+            return $this->streamProjectSummaryCsv($summary, $project, $e->getMessage());
         }
+    }
+
+    public function projectExportDiagnostics(\App\Models\Project $project)
+    {
+        $summary = $this->buildProjectSummaryCollection($project);
+
+        $diagnostics = [
+            'project_id' => $project->id,
+            'project_number' => $project->project_number,
+            'items_count' => $summary->count(),
+            'environment' => app()->environment(),
+            'php_version' => PHP_VERSION,
+            'ext_zip' => extension_loaded('zip'),
+            'ext_xmlwriter' => extension_loaded('xmlwriter'),
+            'ext_dom' => extension_loaded('dom'),
+            'sys_temp_dir' => sys_get_temp_dir(),
+            'sys_temp_writable' => is_writable(sys_get_temp_dir()),
+            'storage_writable' => is_writable(storage_path()),
+            'framework_cache_writable' => is_writable(storage_path('framework/cache')),
+            'excel_raw_test_ok' => false,
+            'excel_raw_test_bytes' => 0,
+            'excel_raw_test_error' => null,
+        ];
+
+        try {
+            $raw = Excel::raw(new ProjectSummaryExport($summary), \Maatwebsite\Excel\Excel::XLSX);
+            $diagnostics['excel_raw_test_ok'] = is_string($raw) && strlen($raw) > 0;
+            $diagnostics['excel_raw_test_bytes'] = is_string($raw) ? strlen($raw) : 0;
+        } catch (\Throwable $e) {
+            $diagnostics['excel_raw_test_error'] = $e->getMessage();
+        }
+
+        return view('diagnostics.project-export', [
+            'project' => $project,
+            'diagnostics' => $diagnostics,
+        ]);
     }
 
     public function pickupProducts(\App\Models\Project $project)
