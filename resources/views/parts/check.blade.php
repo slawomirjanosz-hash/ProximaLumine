@@ -900,8 +900,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Wyszukiwanie tekstowe
                 if (searchTerm) {
                     if (exactNameOnly) {
-                        // W trybie "Dokładna nazwa" dopasowujemy tylko pełną nazwę produktu.
-                        matchesSearch = name === searchTerm;
+                        // W trybie "Dokładna nazwa" dopasowujemy pełną wartość nazwy/opisu/kodu.
+                        matchesSearch =
+                            name === searchTerm ||
+                            description === searchTerm ||
+                            qrCode === searchTerm ||
+                            qrDescText === searchTerm;
                     } else {
                         matchesSearch = name.includes(searchTerm) || description.includes(searchTerm) || qrCode.includes(searchTerm) || qrDescText.includes(searchTerm);
                     }

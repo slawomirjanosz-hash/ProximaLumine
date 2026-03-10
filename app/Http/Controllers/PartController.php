@@ -274,9 +274,18 @@ class PartController extends Controller
             $exactName = $request->boolean('exact_name');
 
             if ($exactName) {
-                $query->whereRaw('LOWER(name) = ?', [mb_strtolower($search)]);
+                $searchLower = mb_strtolower($search);
+                $query->where(function ($q) use ($searchLower) {
+                    $q->whereRaw('LOWER(name) = ?', [$searchLower])
+                        ->orWhereRaw("LOWER(COALESCE(description, '')) = ?", [$searchLower])
+                        ->orWhereRaw("LOWER(COALESCE(qr_code, '')) = ?", [$searchLower]);
+                });
             } else {
-                $query->where('name', 'like', '%' . $search . '%');
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('description', 'like', '%' . $search . '%')
+                        ->orWhere('qr_code', 'like', '%' . $search . '%');
+                });
             }
         }
 
