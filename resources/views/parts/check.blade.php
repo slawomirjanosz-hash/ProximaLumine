@@ -215,8 +215,8 @@
                 </th>
                 @endif
                 @if($catalogSettings->show_minimum)
-                <th class="border p-1 text-center text-xs whitespace-nowrap" style="width: 3rem;">
-                    Min
+                <th class="border p-1 text-center cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="minimum" style="width: 3rem;">
+                    Min <span class="sort-icon">▲</span>
                 </th>
                 @endif
                 @if($catalogSettings->show_location)
@@ -225,13 +225,17 @@
                 </th>
                 @endif
                 @if($catalogSettings->show_user)
-                <th class="border p-1 text-center text-xs whitespace-nowrap" style="width: 4ch;">User</th>
+                <th class="border p-1 text-center cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="user" style="width: 4ch;">
+                    User <span class="sort-icon">▲</span>
+                </th>
                 @endif
                 @if($catalogSettings->show_qr_code)
                 <th class="border p-1 text-center text-xs whitespace-nowrap" style="width: 8rem;">Kod</th>
                 @endif
                 @if($catalogSettings->show_qr_description)
-                <th class="border p-1 text-center text-xs whitespace-nowrap" style="width: 10rem;">Opis kodu</th>
+                <th class="border p-1 text-center cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="qr-description" style="width: 10rem;">
+                    Opis kodu <span class="sort-icon">▲</span>
+                </th>
                 @endif
                 @if($showActionColumn && $catalogSettings->show_actions)
                     <th class="border p-1 text-center text-xs whitespace-nowrap" style="width: 3.5rem;">Akcja</th>
@@ -251,10 +255,13 @@
                 <tr data-name="{{ strtolower($p->name) }}"
                     data-description="{{ strtolower($p->description ?? '') }}"
                     data-qr-code="{{ strtolower($p->qr_code ?? '') }}"
+                    data-qr-description="{{ strtolower($p->qr_code ?? '') }}"
                     data-supplier="{{ strtolower($supplierShort ?: ($p->supplier ?? '')) }}"
                     data-category="{{ strtolower($p->category->name ?? '') }}"
                     data-price="{{ $p->net_price ?? 0 }}"
-                    data-quantity="{{ $p->quantity }}">
+                    data-quantity="{{ $p->quantity }}"
+                    data-minimum="{{ $p->minimum_stock ?? 0 }}"
+                    data-user="{{ strtolower($p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-') }}">
                     {{-- CHECKBOX --}}
                     <td class="border p-2 text-center">
                         <input type="checkbox" name="part_ids[]" value="{{ $p->id }}" class="part-checkbox w-4 h-4 cursor-pointer" form="bulk-delete-form">
@@ -772,7 +779,7 @@ document.addEventListener('DOMContentLoaded', function() {
         rows.sort((a, b) => {
             let aVal, bVal;
             
-            if (column === 'price' || column === 'quantity') {
+            if (column === 'price' || column === 'quantity' || column === 'minimum') {
                 aVal = parseFloat(a.getAttribute('data-' + column)) || 0;
                 bVal = parseFloat(b.getAttribute('data-' + column)) || 0;
             } else {
@@ -827,17 +834,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Funkcja zbierająca ID widocznych produktów
-        function getVisibleProductIds() {
-            const visibleRows = Array.from(table.querySelectorAll('tbody tr[data-name]'))
-                .filter(row => row.style.display !== 'none');
-            
-            return visibleRows.map(row => {
-                const checkbox = row.querySelector('.part-checkbox');
-                return checkbox ? checkbox.value : null;
-            }).filter(id => id !== null);
-        }
-        
         // Funkcja zbierająca ID zaznaczonych produktów
         function getCheckedProductIds() {
             const checkedCheckboxes = Array.from(document.querySelectorAll('.part-checkbox:checked'));
@@ -847,13 +843,12 @@ document.addEventListener('DOMContentLoaded', function() {
         // Funkcja aktualizująca linki pobierania
         function updateDownloadLinks() {
             const checkedIds = getCheckedProductIds();
-            const idsToUse = checkedIds.length > 0 ? checkedIds : getVisibleProductIds();
-            const idsParam = idsToUse.length > 0 ? idsToUse.join(',') : '';
+            const idsParam = checkedIds.length > 0 ? checkedIds.join(',') : '';
             
             const csvLink = document.getElementById('csv-export-link');
             if (csvLink) {
                 const baseUrl = csvLink.href.split('?')[0];
-                csvLink.href = idsParam ? `${baseUrl}?ids=${idsParam}` : baseUrl;
+                csvLink.href = idsParam ? `${baseUrl}?selected_ids=${idsParam}` : baseUrl;
             }
             
             const xlsxBtn = document.getElementById('btn-download-xlsx');
