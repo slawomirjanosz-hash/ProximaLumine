@@ -362,6 +362,9 @@ class PartController extends Controller
 
     public function storeProject(Request $request)
     {
+        $user = auth()->user();
+        $canChangeAuthorization = $user && $user->is_admin;
+
         $request->validate([
             'project_number' => 'required|string|unique:projects,project_number',
             'name' => 'required|string|max:255',
@@ -381,7 +384,7 @@ class PartController extends Controller
             'started_at' => now(),
             'finished_at' => $request->finished_at,
             'status' => 'in_progress',
-            'requires_authorization' => $request->has('requires_authorization'),
+            'requires_authorization' => $canChangeAuthorization && $request->has('requires_authorization'),
         ]);
 
         return redirect()->route('magazyn.projects')->with('success', 'Projekt "' . $project->name . '" został utworzony.');
@@ -1081,6 +1084,9 @@ class PartController extends Controller
 
     public function updateProject(Request $request, \App\Models\Project $project)
     {
+        $user = auth()->user();
+        $canChangeAuthorization = $user && $user->is_admin;
+
         $request->validate([
             'project_number' => 'required|string|unique:projects,project_number,' . $project->id,
             'name' => 'required|string|max:255',
@@ -1102,7 +1108,9 @@ class PartController extends Controller
             'started_at' => $request->started_at,
             'finished_at' => $request->finished_at,
             'status' => $request->status,
-            'requires_authorization' => $request->has('requires_authorization'),
+            'requires_authorization' => $canChangeAuthorization
+                ? $request->has('requires_authorization')
+                : $project->requires_authorization,
         ]);
 
         return redirect()->route('magazyn.projects.show', $project->id)->with('success', 'Projekt został zaktualizowany.');
@@ -3688,6 +3696,64 @@ class PartController extends Controller
                 ? 'Zamówienie zostało utworzone' 
                 : 'Utworzono ' . count($createdOrders) . ' zamówienia dla różnych dostawców',
             'orders' => $createdOrders
+        ]);
+    }
+
+    public function updateOrder(Request $request, \App\Models\Order $order)
+    {
+        if ($order->status === 'received') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nie można edytować przyjętego zamówienia'
+            ], 422);
+        }
+
+        $request->validate([
+            'order_name' => 'required|string|max:255',
+            'products' => 'required|array|min:1',
+            'products.*.name' => 'required|string',
+            'products.*.supplier' => 'nullable|string',
+            'products.*.quantity' => 'required|integer|min:1',
+            'supplier' => 'nullable|string',
+            'supplier_offer_number' => 'nullable|string',
+            'payment_method' => 'nullable|string',
+            'payment_days' => 'nullable|string',
+            'delivery_time' => 'nullable|string',
+        ]);
+
+        $products = $request->input('products', []);
+        $supplierFromProducts = collect($products)->first(function ($product) {
+            return !empty($product['supplier'] ?? null);
+        });
+
+        $order->update([
+            'order_number' => $request->input('order_name'),
+            'supplier' => $supplierFromProducts['supplier'] ?? $request->input('supplier'),
+            'products' => $products,
+            'supplier_offer_number' => $request->input('supplier_offer_number'),
+            'payment_method' => $request->input('payment_method'),
+            'payment_days' => $request->input('payment_days'),
+            'delivery_time' => $request->input('delivery_time'),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Zamówienie zostało zaktualizowane',
+            'order' => [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'supplier' => $order->supplier,
+                'issued_at' => optional($order->issued_at)->format('Y-m-d H:i:s'),
+                'products' => $order->products,
+                'delivery_time' => $order->delivery_time,
+                'supplier_offer_number' => $order->supplier_offer_number,
+                'payment_method' => $order->payment_method,
+                'payment_days' => $order->payment_days,
+                'status' => $order->status,
+                'user' => $order->user->name ?? 'N/A',
+                'received_at' => optional($order->received_at)->format('Y-m-d H:i:s'),
+                'received_by' => $order->receivedBy->name ?? '',
+            ],
         ]);
     }
     
@@ -6697,6 +6763,12 @@ class PartController extends Controller
     // ZMIANA AUTORYZACJI POBRAŃ W SZCZEGÓŁACH PROJEKTU
     public function toggleProjectAuthorization(Request $request, \App\Models\Project $project)
     {
+        $user = auth()->user();
+        if (!$user || !$user->is_admin) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Tylko administrator może zmienić ustawienie autoryzacji pobrań.');
+        }
+
         $project->requires_authorization = $request->has('requires_authorization');
         $project->save();
         return redirect()->route('magazyn.projects.show', $project->id)->with('success', 'Zmieniono ustawienie autoryzacji pobrań dla projektu.');

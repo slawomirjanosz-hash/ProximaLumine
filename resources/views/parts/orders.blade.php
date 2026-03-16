@@ -407,7 +407,11 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
                                                     title="Edytuj zamówienie"
                                                     data-order-id="{{ $order->id }}"
                                                     data-order-number="{{ $order->order_number }}"
-                                                    data-order-products='@json($order->products)'>
+                                                    data-order-products='@json($order->products)'
+                                                    data-order-supplier-offer="{{ $order->supplier_offer_number ?? '' }}"
+                                                    data-order-payment-method="{{ $order->payment_method ?? '' }}"
+                                                    data-order-payment-days="{{ $order->payment_days ?? '' }}"
+                                                    data-order-delivery-time="{{ $order->delivery_time ?? '' }}">
                                                 <span role="img" aria-label="Edytuj" class="pointer-events-none">✏️</span>
                                             </button>
                                             @endif
@@ -500,6 +504,35 @@ document.addEventListener('DOMContentLoaded', function() {
     const deliveryTimeCustomContainer = document.getElementById('delivery-time-custom-container');
     let selectedProducts = {};
     let originalOrderName = orderNameInput ? orderNameInput.value : '';
+    let editingOrderId = null;
+
+    function setOrderFormMode(isEditMode) {
+        if (!createOrderBtn) return;
+
+        if (isEditMode) {
+            createOrderBtn.textContent = '💾 Zapisz zmiany';
+            createOrderBtn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+            createOrderBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+        } else {
+            createOrderBtn.textContent = '📦 Utwórz zamówienie';
+            createOrderBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+            createOrderBtn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+        }
+    }
+
+    function collapseSection(targetId) {
+        const content = document.getElementById(targetId);
+        const trigger = document.querySelector(`[data-target="${targetId}"]`);
+        const arrow = trigger ? trigger.querySelector('.toggle-arrow') : null;
+
+        if (content && !content.classList.contains('hidden')) {
+            content.classList.add('hidden');
+        }
+
+        if (arrow) {
+            arrow.textContent = '▶';
+        }
+    }
     
     // Obsługa pokazywania/ukrywania pola dni płatności
     if (paymentMethodSelect && paymentDaysContainer) {
@@ -717,6 +750,8 @@ document.addEventListener('DOMContentLoaded', function() {
         createOrderBtn.addEventListener('click', function() {
             console.log('Create order button clicked!');
             console.log('Selected products:', selectedProducts);
+
+            const isEditMode = editingOrderId !== null;
             
             if (Object.keys(selectedProducts).length === 0) {
                 alert('Wybierz produkty do zamówienia');
@@ -753,32 +788,87 @@ document.addEventListener('DOMContentLoaded', function() {
         
             // Sprawdź czy nazwa została zmieniona ręcznie
             const wasManuallyChanged = orderName !== originalOrderName;
+
+            const requestUrl = isEditMode
+                ? `/magazyn/zamowienia/${editingOrderId}`
+                : '{{ route('magazyn.order.create') }}';
+            const requestMethod = isEditMode ? 'PUT' : 'POST';
+
+            const payload = {
+                order_name: orderName,
+                products: productsData,
+                supplier: firstSupplier,
+                supplier_offer_number: supplierOfferNumber,
+                payment_method: paymentMethod,
+                payment_days: paymentDays,
+                delivery_time: finalDeliveryTime,
+            };
+
+            if (!isEditMode) {
+                payload.increment_counter = !wasManuallyChanged;
+            }
         
             // Wyślij żądanie do serwera
-            fetch('{{ route('magazyn.order.create') }}', {
-                method: 'POST',
+            fetch(requestUrl, {
+                method: requestMethod,
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': '{{ csrf_token() }}'
                 },
-                body: JSON.stringify({
-                    order_name: orderName,
-                    products: productsData,
-                    supplier: firstSupplier,
-                    supplier_offer_number: supplierOfferNumber,
-                    payment_method: paymentMethod,
-                    payment_days: paymentDays,
-                    delivery_time: finalDeliveryTime,
-                    increment_counter: !wasManuallyChanged
-                })
+                body: JSON.stringify(payload)
             })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Błąd tworzenia zamówienia');
+                    throw new Error(isEditMode ? 'Błąd zapisu zmian zamówienia' : 'Błąd tworzenia zamówienia');
                 }
                 return response.json();
             })
             .then(data => {
+                if (isEditMode) {
+                    showNotification(data.message || 'Zamówienie zostało zaktualizowane', 'success');
+
+                    const updatedOrder = data.order;
+                    const rowCheckbox = document.querySelector(`.order-checkbox[data-order-id="${updatedOrder.id}"]`);
+                    const row = rowCheckbox ? rowCheckbox.closest('tr') : null;
+
+                    if (row && updatedOrder) {
+                        row.children[1].textContent = updatedOrder.order_number || '';
+                        row.children[2].textContent = updatedOrder.supplier || '-';
+
+                        const previewBtn = row.querySelector('.preview-order-btn');
+                        if (previewBtn) {
+                            previewBtn.setAttribute('data-order-number', updatedOrder.order_number || '');
+                            previewBtn.setAttribute('data-order-supplier', updatedOrder.supplier || '');
+                            previewBtn.setAttribute('data-order-products', JSON.stringify(updatedOrder.products || []));
+                            previewBtn.setAttribute('data-order-delivery-time', updatedOrder.delivery_time || '');
+                            previewBtn.setAttribute('data-order-supplier-offer', updatedOrder.supplier_offer_number || '');
+                            previewBtn.setAttribute('data-order-payment-method', updatedOrder.payment_method || '');
+                            previewBtn.setAttribute('data-order-payment-days', updatedOrder.payment_days || '');
+                        }
+
+                        const editBtn = row.querySelector('.edit-order-btn');
+                        if (editBtn) {
+                            editBtn.setAttribute('data-order-number', updatedOrder.order_number || '');
+                            editBtn.setAttribute('data-order-products', JSON.stringify(updatedOrder.products || []));
+                            editBtn.setAttribute('data-order-supplier-offer', updatedOrder.supplier_offer_number || '');
+                            editBtn.setAttribute('data-order-payment-method', updatedOrder.payment_method || '');
+                            editBtn.setAttribute('data-order-payment-days', updatedOrder.payment_days || '');
+                            editBtn.setAttribute('data-order-delivery-time', updatedOrder.delivery_time || '');
+                        }
+                    }
+
+                    editingOrderId = null;
+                    setOrderFormMode(false);
+
+                    selectedProducts = {};
+                    updateSelectedProductsDisplay();
+                    catalogCheckboxes.forEach(cb => cb.checked = false);
+
+                    collapseSection('selected-products-inner');
+                    collapseSection('create-order-content');
+                    return;
+                }
+
                 // Pokaż zielony pasek z komunikatem
                 const orderCount = data.orders ? data.orders.length : 1;
                 showNotification(`Wygenerowano ${orderCount} ${orderCount === 1 ? 'zamówienie' : (orderCount < 5 ? 'zamówienia' : 'zamówień')}`, 'success');
@@ -848,7 +938,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                     title="Edytuj zamówienie"
                                     data-order-id="${order.id}"
                                     data-order-number="${order.order_number}"
-                                    data-order-products='${JSON.stringify(order.products)}'>
+                                    data-order-products='${JSON.stringify(order.products)}'
+                                    data-order-supplier-offer="${order.supplier_offer_number || ''}"
+                                    data-order-payment-method="${order.payment_method || ''}"
+                                    data-order-payment-days="${order.payment_days || ''}"
+                                    data-order-delivery-time="${order.delivery_time || ''}">
                                     <span role="img" aria-label="Edytuj" class="pointer-events-none">✏️</span>
                                 </button>
                                 <button class="bg-red-100 hover:bg-red-200 text-gray-800 px-2 py-1 rounded text-xs inline-flex items-center justify-center delete-order-btn" 
@@ -984,7 +1078,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error('Błąd:', error);
-                alert('Wystąpił błąd podczas tworzenia zamówienia');
+                alert(editingOrderId !== null ? 'Wystąpił błąd podczas zapisywania zmian' : 'Wystąpił błąd podczas tworzenia zamówienia');
             });
         });
     }
@@ -1007,8 +1101,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Funkcja obsługi edycji zamówienia
     function handleEditOrder(e) {
         const btn = e.currentTarget;
+        const orderId = btn.getAttribute('data-order-id');
         const orderNumber = btn.getAttribute('data-order-number');
         const productsJson = btn.getAttribute('data-order-products');
+        const supplierOffer = btn.getAttribute('data-order-supplier-offer') || '';
+        const paymentMethod = btn.getAttribute('data-order-payment-method') || '';
+        const paymentDays = btn.getAttribute('data-order-payment-days') || '';
+        const deliveryTime = btn.getAttribute('data-order-delivery-time') || '';
         
         if (!productsJson) {
             alert('Brak danych produktów dla tego zamówienia');
@@ -1017,6 +1116,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         try {
             const products = JSON.parse(productsJson);
+            editingOrderId = orderId;
+            setOrderFormMode(true);
             
             // Wyczyść obecne produkty
             selectedProducts = {};
@@ -1052,6 +1153,37 @@ document.addEventListener('DOMContentLoaded', function() {
             // Ustaw nazwę zamówienia
             orderNameInput.value = orderNumber;
             originalOrderName = orderNumber;
+
+            const supplierOfferInput = document.getElementById('supplier-offer-number');
+            const paymentMethodInput = document.getElementById('payment-method');
+            const paymentDaysInput = document.getElementById('payment-days');
+            const deliveryTimeInput = document.getElementById('delivery-time');
+            const deliveryTimeCustomInput = document.getElementById('delivery-time-custom');
+
+            if (supplierOfferInput) {
+                supplierOfferInput.value = supplierOffer;
+            }
+
+            if (paymentMethodInput) {
+                paymentMethodInput.value = paymentMethod;
+                paymentMethodInput.dispatchEvent(new Event('change'));
+            }
+
+            if (paymentDaysInput) {
+                paymentDaysInput.value = paymentDays;
+            }
+
+            if (deliveryTimeInput && deliveryTimeCustomInput) {
+                const deliveryOptions = Array.from(deliveryTimeInput.options).map(option => option.value);
+                if (deliveryTime && !deliveryOptions.includes(deliveryTime)) {
+                    deliveryTimeInput.value = 'ręcznie';
+                    deliveryTimeCustomInput.value = deliveryTime;
+                } else {
+                    deliveryTimeInput.value = deliveryTime;
+                    deliveryTimeCustomInput.value = '';
+                }
+                deliveryTimeInput.dispatchEvent(new Event('change'));
+            }
             
             // Najpierw rozwiń sekcję "Zrób zamówienie" jeśli jest zwinięta
             const createOrderSection = document.getElementById('create-order-content');

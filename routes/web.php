@@ -1447,6 +1447,7 @@ Route::middleware('auth')->group(function () {
     });
     
     Route::post('/magazyn/zamowienia/create', [PartController::class, 'createOrder'])->name('magazyn.order.create')->middleware('permission:orders');
+    Route::put('/magazyn/zamowienia/{order}', [PartController::class, 'updateOrder'])->name('magazyn.order.update')->middleware('permission:orders');
     Route::get('/magazyn/zamowienia/{order}/generate-word', [PartController::class, 'generateOrderWord'])->name('magazyn.order.generateWord')->middleware('permission:orders');
     Route::get('/magazyn/zamowienia/{order}/generate-pdf', [PartController::class, 'generateOrderPdf'])->name('magazyn.order.generatePdf')->middleware('permission:orders');
     Route::get('/magazyn/zamowienia/next-name', [PartController::class, 'getNextOrderName'])->name('magazyn.order.nextName')->middleware('permission:orders');
