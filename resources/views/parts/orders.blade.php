@@ -112,12 +112,12 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
                         <thead class="bg-blue-100">
                             <tr>
                                 <th class="border p-1 text-center" style="width: 25px;"></th>
-                                <th class="border p-1 text-left" style="white-space: nowrap;">Produkt</th>
-                                <th class="border p-1 text-left" style="max-width: 120px;">Opis</th>
-                                <th class="border p-1 text-center" style="width: 90px;">Dostawca</th>
-                                <th class="border p-1 text-center" style="width: 9rem;">Cena</th>
-                                <th class="border p-1 text-center" style="width: 35px;">Stan</th>
-                                <th class="border p-1 text-center" style="width: 50px;">Il.</th>
+                                <th class="border p-1 text-left cursor-pointer hover:bg-blue-200 sortable-selected" data-column="name" style="white-space: nowrap;">Produkt <span class="sort-icon-selected text-gray-400">▲</span></th>
+                                <th class="border p-1 text-left cursor-pointer hover:bg-blue-200 sortable-selected" data-column="description" style="max-width: 120px;">Opis <span class="sort-icon-selected text-gray-400">▲</span></th>
+                                <th class="border p-1 text-center cursor-pointer hover:bg-blue-200 sortable-selected" data-column="supplier" style="width: 90px;">Dostawca <span class="sort-icon-selected text-gray-400">▲</span></th>
+                                <th class="border p-1 text-center cursor-pointer hover:bg-blue-200 sortable-selected" data-column="price" style="width: 9rem;">Cena <span class="sort-icon-selected text-gray-400">▲</span></th>
+                                <th class="border p-1 text-center cursor-pointer hover:bg-blue-200 sortable-selected" data-column="stock" style="width: 35px;">Stan <span class="sort-icon-selected text-gray-400">▲</span></th>
+                                <th class="border p-1 text-center cursor-pointer hover:bg-blue-200 sortable-selected" data-column="quantity" style="width: 50px;">Il. <span class="sort-icon-selected text-gray-400">▲</span></th>
                                 <th class="border p-1 text-center" style="width: 45px;">Akcja</th>
                             </tr>
                         </thead>
@@ -255,7 +255,9 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
                                 <th class="border p-2 text-center text-xs whitespace-nowrap min-w-[3rem] max-w-[5rem] cursor-pointer hover:bg-gray-200 sortable" data-column="minimum">
                                     Stan min. <span class="sort-icon">▲</span>
                                 </th>
-                                <th class="border p-1 text-center text-xs whitespace-nowrap min-w-[4.5rem]" style="width: 6ch;">User</th>
+                                <th class="border p-1 text-center text-xs whitespace-nowrap min-w-[4.5rem] cursor-pointer hover:bg-gray-200 sortable" data-column="user" style="width: 6ch;">
+                                    User <span class="sort-icon">▲</span>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -274,7 +276,8 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
                                     data-category="{{ $p->category->name ?? '' }}"
                                     data-price="{{ $p->net_price ?? 0 }}"
                                     data-quantity="{{ $p->quantity }}"
-                                    data-minimum="{{ $p->minimum_stock ?? 0 }}">
+                                    data-minimum="{{ $p->minimum_stock ?? 0 }}"
+                                    data-user="{{ strtolower($p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-') }}">
                                     <td class="border p-2 text-center">
                                         <input type="checkbox" class="catalog-checkbox w-4 h-4 cursor-pointer" data-part-name="{{ $p->name }}" data-part-desc="{{ $p->description ?? '' }}" data-part-supplier="{{ $p->supplier ?? '' }}" data-part-supplier-short="{{ $supplierShort }}" data-part-price="{{ $p->net_price ?? '' }}" data-part-currency="{{ $p->currency ?? 'PLN' }}" data-part-qty="{{ $p->quantity }}" data-part-minimum="{{ $p->minimum_stock ?? 0 }}">
                                     </td>
@@ -505,6 +508,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let selectedProducts = {};
     let originalOrderName = orderNameInput ? orderNameInput.value : '';
     let editingOrderId = null;
+    let selectedSortColumn = 'name';
+    let selectedSortDirection = 'asc';
 
     function setOrderFormMode(isEditMode) {
         if (!createOrderBtn) return;
@@ -532,6 +537,46 @@ document.addEventListener('DOMContentLoaded', function() {
         if (arrow) {
             arrow.textContent = '▶';
         }
+    }
+
+    function getSelectedProductSortValue(name, data, column) {
+        if (column === 'name') return (name || '').toLowerCase();
+        if (column === 'description') return (data.description || '').toLowerCase();
+        if (column === 'supplier') return (data.supplier || '').toLowerCase();
+        if (column === 'price') return parseFloat(String(data.price || '').replace(',', '.')) || 0;
+        if (column === 'stock') return parseInt(data.stockQuantity, 10) || 0;
+        if (column === 'quantity') return parseInt(data.orderQuantity, 10) || 0;
+        return (name || '').toLowerCase();
+    }
+
+    function updateSelectedSortIcons() {
+        if (!selectedProductsTableEl) return;
+
+        selectedProductsTableEl.querySelectorAll('.sortable-selected .sort-icon-selected').forEach(icon => {
+            icon.textContent = '▲';
+            icon.style.color = '#9CA3AF';
+        });
+
+        const activeIcon = selectedProductsTableEl.querySelector(`.sortable-selected[data-column="${selectedSortColumn}"] .sort-icon-selected`);
+        if (activeIcon) {
+            activeIcon.textContent = selectedSortDirection === 'asc' ? '▲' : '▼';
+            activeIcon.style.color = '#000';
+        }
+    }
+
+    function getSortedSelectedProductsEntries() {
+        const entries = Object.entries(selectedProducts);
+
+        entries.sort(([nameA, dataA], [nameB, dataB]) => {
+            const valueA = getSelectedProductSortValue(nameA, dataA, selectedSortColumn);
+            const valueB = getSelectedProductSortValue(nameB, dataB, selectedSortColumn);
+
+            if (valueA < valueB) return selectedSortDirection === 'asc' ? -1 : 1;
+            if (valueA > valueB) return selectedSortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        return entries;
     }
     
     // Obsługa pokazywania/ukrywania pola dni płatności
@@ -565,7 +610,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         selectedProductsTable.innerHTML = '';
         
-        Object.entries(selectedProducts).forEach(([name, data]) => {
+        const sortedEntries = getSortedSelectedProductsEntries();
+
+        sortedEntries.forEach(([name, data]) => {
             const row = document.createElement('tr');
             const stockClass = data.stockQuantity === 0 ? 'text-red-600 bg-red-50 font-bold' : 'text-blue-600 font-bold';
             
@@ -675,6 +722,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 selectedProductsBtn.classList.remove('bg-green-100');
             }
         }
+
+        updateSelectedSortIcons();
     }
 
     catalogCheckboxes.forEach(cb => {
@@ -1691,7 +1740,7 @@ document.addEventListener('DOMContentLoaded', function() {
         rows.sort((a, b) => {
             let aVal, bVal;
             
-            if (column === 'price' || column === 'quantity') {
+            if (column === 'price' || column === 'quantity' || column === 'minimum') {
                 aVal = parseFloat(a.getAttribute('data-' + column)) || 0;
                 bVal = parseFloat(b.getAttribute('data-' + column)) || 0;
             } else {
@@ -1761,6 +1810,23 @@ document.addEventListener('DOMContentLoaded', function() {
             header.addEventListener('click', function() {
                 const column = this.getAttribute('data-column');
                 sortCatalogTable(column);
+            });
+        });
+    }
+
+    if (selectedProductsTableEl) {
+        selectedProductsTableEl.querySelectorAll('.sortable-selected').forEach(header => {
+            header.addEventListener('click', function() {
+                const column = this.getAttribute('data-column');
+
+                if (selectedSortColumn === column) {
+                    selectedSortDirection = selectedSortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    selectedSortColumn = column;
+                    selectedSortDirection = 'asc';
+                }
+
+                updateSelectedProductsDisplay();
             });
         });
     }
