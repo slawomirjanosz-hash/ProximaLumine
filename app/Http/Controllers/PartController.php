@@ -14,9 +14,52 @@ use App\Exports\PartsExport;
 use App\Exports\ProjectSummaryExport;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 class PartController extends Controller
 {
+    private array $schemaColumnCache = [];
+
+    private function hasTableSafe(string $table): bool
+    {
+        try {
+            return Schema::hasTable($table);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    private function hasColumnSafe(string $table, string $column): bool
+    {
+        $cacheKey = $table . '.' . $column;
+        if (array_key_exists($cacheKey, $this->schemaColumnCache)) {
+            return $this->schemaColumnCache[$cacheKey];
+        }
+
+        try {
+            $result = Schema::hasColumn($table, $column);
+        } catch (\Throwable $e) {
+            $result = false;
+        }
+
+        $this->schemaColumnCache[$cacheKey] = $result;
+        return $result;
+    }
+
+    private function filterExistingColumns(string $table, array $payload): array
+    {
+        $filtered = [];
+        foreach ($payload as $column => $value) {
+            if ($this->hasColumnSafe($table, (string) $column)) {
+                $filtered[$column] = $value;
+            }
+        }
+
+        return $filtered;
+    }
+
     private function buildProjectSummaryCollection(
         \App\Models\Project $project
     ): \Illuminate\Support\Collection {
@@ -107,6 +150,183 @@ class PartController extends Controller
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Cache-Control' => 'no-store, no-cache',
         ]);
+    }
+
+    private function normalizeExcelHeader(string $value): string
+    {
+        $value = mb_strtolower(trim($value));
+        $value = str_replace(
+            ['ą', 'ć', 'ę', 'ł', 'ń', 'ó', 'ś', 'ż', 'ź'],
+            ['a', 'c', 'e', 'l', 'n', 'o', 's', 'z', 'z'],
+            $value
+        );
+
+        $value = preg_replace('/\s+/', ' ', $value);
+        return (string) $value;
+    }
+
+    private function resolveImportCostColumnIndexes(array $headers): array
+    {
+        $normalized = array_map(function ($item) {
+            return $this->normalizeExcelHeader((string) $item);
+        }, $headers);
+
+        $find = function (array $aliases) use ($normalized) {
+            foreach ($aliases as $alias) {
+                $index = array_search($alias, $normalized, true);
+                if ($index !== false) {
+                    return (int) $index;
+                }
+            }
+            return null;
+        };
+
+        return [
+            'date' => $find(['data', 'data ksiegowania']),
+            'subject_or_supplier' => $find(['podmiot', 'przedmiot', 'dostawca']),
+            'document' => $find(['dokument', 'nr dokumentu', 'numer dokumentu']),
+            'amount_net' => $find(['kwota netto', 'netto', 'wartosc netto', 'kwota wn', 'kwota']),
+            'description' => $find(['opis']),
+            'status' => $find(['status']),
+            'payment_date' => $find(['data platnosci', 'termin platnosci']),
+        ];
+    }
+
+    private function parseImportedExcelDate(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            try {
+                return ExcelDate::excelToDateTimeObject((float) $value)->format('Y-m-d');
+            } catch (\Throwable $e) {
+                return null;
+            }
+        }
+
+        try {
+            return \Carbon\Carbon::parse((string) $value)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function parseImportedAmount(mixed $value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            return round((float) $value, 2);
+        }
+
+        $text = (string) $value;
+        $text = str_replace(["\xC2\xA0", 'zł', 'PLN', 'pln', ' '], '', $text);
+        $text = str_replace(',', '.', $text);
+        $text = preg_replace('/[^0-9.\-]/', '', $text);
+
+        if ($text !== null && substr_count($text, '.') > 1) {
+            $lastDot = strrpos($text, '.');
+            $intPart = str_replace('.', '', substr($text, 0, $lastDot));
+            $decPart = substr($text, $lastDot + 1);
+            $text = $intPart . '.' . $decPart;
+        }
+
+        if ($text === '' || !is_numeric($text)) {
+            return null;
+        }
+
+        return round((float) $text, 2);
+    }
+
+    private function mapImportedStatus(string $status): string
+    {
+        $normalized = $this->normalizeExcelHeader($status);
+
+        if (str_contains($normalized, 'oplac') || str_contains($normalized, 'zaplac')) {
+            return 'paid';
+        }
+
+        if (str_contains($normalized, 'nie oplac') || str_contains($normalized, 'niezaplac') || str_contains($normalized, 'brak platnosci')) {
+            return 'pending';
+        }
+
+        if (str_contains($normalized, 'oczeki')) {
+            return 'ordered';
+        }
+
+        if (str_contains($normalized, 'zamow')) {
+            return 'ordered';
+        }
+
+        return 'pending';
+    }
+
+    private function mapStatusToLabel(string $status): string
+    {
+        return match ($status) {
+            'paid' => 'Opłacono',
+            'pending' => 'Nie opłacono',
+            'ordered' => 'Oczekiwanie',
+            default => 'Nie opłacono',
+        };
+    }
+
+    private function getImportedCellValue(array $row, ?int $index): mixed
+    {
+        if ($index === null) {
+            return null;
+        }
+
+        return $row[$index] ?? null;
+    }
+
+    private function getAvailableProjectSections(): array
+    {
+        return [
+            'pickup',
+            'changes',
+            'summary',
+            'frappe',
+            'finance',
+        ];
+    }
+
+    private function normalizeProjectVisibleSections(?array $sections): array
+    {
+        $allowed = $this->getAvailableProjectSections();
+
+        if (empty($sections)) {
+            return $allowed;
+        }
+
+        $normalized = collect($sections)
+            ->map(fn ($item) => (string) $item)
+            ->filter(fn ($item) => in_array($item, $allowed, true))
+            ->unique()
+            ->values()
+            ->all();
+
+        return !empty($normalized) ? $normalized : $allowed;
+    }
+
+    private function getProjectSectionsWithData(\App\Models\Project $project): array
+    {
+        $removalsCount = \App\Models\ProjectRemoval::where('project_id', $project->id)->count();
+        $ganttTasksCount = \App\Models\GanttTask::where('project_id', $project->id)->count();
+        $ganttChangesCount = \App\Models\GanttChange::where('project_id', $project->id)->count();
+        $financeCount = \App\Models\ProjectFinance::where('project_id', $project->id)->count();
+
+        return [
+            'pickup' => $removalsCount > 0,
+            'changes' => $removalsCount > 0,
+            'summary' => $removalsCount > 0,
+            'frappe' => ($ganttTasksCount + $ganttChangesCount) > 0,
+            'finance' => $financeCount > 0,
+        ];
     }
 
     /**
@@ -357,6 +577,7 @@ class PartController extends Controller
             'inProgressProjects' => \App\Models\Project::where('status', 'in_progress')->with('responsibleUser')->get(),
             'warrantyProjects' => \App\Models\Project::where('status', 'warranty')->with('responsibleUser')->get(),
             'archivedProjects' => \App\Models\Project::where('status', 'archived')->with('responsibleUser')->get(),
+            'availableProjectSections' => $this->getAvailableProjectSections(),
         ]);
     }
 
@@ -364,8 +585,9 @@ class PartController extends Controller
     {
         $user = auth()->user();
         $canChangeAuthorization = $user && $user->is_admin;
+        $hasVisibleSectionsColumn = $this->hasColumnSafe('projects', 'visible_sections');
 
-        $request->validate([
+        $validationRules = [
             'project_number' => 'required|string|unique:projects,project_number',
             'name' => 'required|string|max:255',
             'budget' => 'nullable|numeric|min:0',
@@ -373,9 +595,18 @@ class PartController extends Controller
             'warranty_period' => 'nullable|integer|min:0',
             'finished_at' => 'nullable|date',
             'requires_authorization' => 'nullable|boolean',
-        ]);
+        ];
 
-        $project = \App\Models\Project::create([
+        if ($hasVisibleSectionsColumn) {
+            $validationRules['visible_sections'] = 'required|array|min:1';
+            $validationRules['visible_sections.*'] = 'string|in:pickup,changes,summary,frappe,finance';
+        }
+
+        $request->validate($validationRules);
+
+        $visibleSections = $this->normalizeProjectVisibleSections($request->input('visible_sections', []));
+
+        $projectPayload = [
             'project_number' => $request->project_number,
             'name' => $request->name,
             'budget' => $request->budget,
@@ -385,7 +616,13 @@ class PartController extends Controller
             'finished_at' => $request->finished_at,
             'status' => 'in_progress',
             'requires_authorization' => $canChangeAuthorization && $request->has('requires_authorization'),
-        ]);
+        ];
+
+        if ($hasVisibleSectionsColumn) {
+            $projectPayload['visible_sections'] = $visibleSections;
+        }
+
+        $project = \App\Models\Project::create($projectPayload);
 
         return redirect()->route('magazyn.projects')->with('success', 'Projekt "' . $project->name . '" został utworzony.');
     }
@@ -527,12 +764,126 @@ class PartController extends Controller
                     ->toArray();
             }
 
+            $hasProjectFinanceTable = $this->hasTableSafe('project_finance');
+            $hasImportRowOrderColumn = $this->hasColumnSafe('project_finance', 'import_row_order');
+            $hasSupplierColumn = $this->hasColumnSafe('project_finance', 'supplier');
+            $hasDocumentNumberColumn = $this->hasColumnSafe('project_finance', 'document_number');
+            $hasDescriptionColumn = $this->hasColumnSafe('project_finance', 'description');
+            $hasPaymentDateColumn = $this->hasColumnSafe('project_finance', 'payment_date');
+            $hasStatusColumn = $this->hasColumnSafe('project_finance', 'status');
+            $hasCategoryColumn = $this->hasColumnSafe('project_finance', 'category');
+
+            $importedCostRows = [];
+            $issuedInvoiceRows = [];
+            if ($hasProjectFinanceTable && $hasCategoryColumn) {
+                $importedCostsQuery = \App\Models\ProjectFinance::where('project_id', $project->id)
+                    ->where('category', 'excel_import');
+
+                if ($hasImportRowOrderColumn) {
+                    $importedCostsQuery->orderByRaw('CASE WHEN import_row_order IS NULL THEN 1 ELSE 0 END')
+                        ->orderBy('import_row_order');
+                }
+
+                $importedCostRows = $importedCostsQuery
+                    ->orderBy('id')
+                    ->get()
+                    ->map(function ($item) use ($hasSupplierColumn, $hasDocumentNumberColumn, $hasDescriptionColumn, $hasPaymentDateColumn, $hasStatusColumn) {
+                        $supplier = $hasSupplierColumn ? trim((string) ($item->supplier ?? '')) : '';
+                        $document = $hasDocumentNumberColumn ? trim((string) ($item->document_number ?? '')) : '';
+                        $description = $hasDescriptionColumn ? trim((string) ($item->description ?? '')) : '';
+
+                        if ($supplier === '' && $document === '' && $description === '') {
+                            $legacyParts = array_map('trim', explode('|', (string) ($item->name ?? '')));
+                            $supplier = $legacyParts[0] ?? '';
+                            $document = $legacyParts[1] ?? '';
+                            $description = $legacyParts[2] ?? '';
+                        }
+
+                        return [
+                            'id' => $item->id,
+                            'date' => $item->date ? \Carbon\Carbon::parse($item->date)->format('Y-m-d') : '',
+                            'subject_or_supplier' => $supplier,
+                            'document' => $document,
+                            'amount_net' => $item->amount !== null ? number_format((float) $item->amount, 2, '.', '') : '',
+                            'description' => $description,
+                            'status' => $this->mapStatusToLabel((string) (($hasStatusColumn ? $item->status : 'pending') ?? 'pending')),
+                            'payment_date' => ($hasPaymentDateColumn && $item->payment_date) ? \Carbon\Carbon::parse($item->payment_date)->format('Y-m-d') : '',
+                        ];
+                    })
+                    ->values()
+                    ->all();
+
+                $issuedInvoiceRows = \App\Models\ProjectFinance::where('project_id', $project->id)
+                    ->where('category', 'issued_invoice')
+                    ->orderByDesc('date')
+                    ->orderByDesc('id')
+                    ->get()
+                    ->map(function ($item) use ($hasDocumentNumberColumn, $hasDescriptionColumn, $hasPaymentDateColumn, $hasStatusColumn) {
+                        return [
+                            'id' => $item->id,
+                            'date' => $item->date ? \Carbon\Carbon::parse($item->date)->format('Y-m-d') : '',
+                            'invoice_number' => $hasDocumentNumberColumn ? trim((string) ($item->document_number ?? '')) : trim((string) ($item->name ?? '')),
+                            'description' => $hasDescriptionColumn ? trim((string) ($item->description ?? '')) : '',
+                            'amount_net' => $item->amount !== null ? number_format((float) $item->amount, 2, '.', '') : '',
+                            'payment_date' => ($hasPaymentDateColumn && $item->payment_date) ? \Carbon\Carbon::parse($item->payment_date)->format('Y-m-d') : '',
+                            'status' => $this->mapStatusToLabel((string) (($hasStatusColumn ? $item->status : 'pending') ?? 'pending')),
+                        ];
+                    })
+                    ->values()
+                    ->all();
+            }
+
+            $projectVisibleSections = $this->normalizeProjectVisibleSections(
+                $this->hasColumnSafe('projects', 'visible_sections') ? $project->visible_sections : null
+            );
+
+            $financeSummary = [
+                'project_value' => (float) ($project->budget ?? 0),
+                'cost_invoices' => 0.0,
+                'issued_invoices' => 0.0,
+                'ordered_materials_services' => 0.0,
+            ];
+
+            if ($hasProjectFinanceTable) {
+                if ($hasCategoryColumn) {
+                    $financeSummary['cost_invoices'] = (float) \App\Models\ProjectFinance::where('project_id', $project->id)
+                        ->where('category', 'excel_import')
+                        ->sum('amount');
+
+                    $financeSummary['issued_invoices'] = (float) \App\Models\ProjectFinance::where('project_id', $project->id)
+                        ->where('category', 'issued_invoice')
+                        ->sum('amount');
+                }
+
+                $orderedQuery = \App\Models\ProjectFinance::where('project_id', $project->id)
+                    ->where('type', 'expense');
+
+                if ($hasCategoryColumn) {
+                    $orderedQuery->whereIn('category', ['materials', 'services']);
+                }
+
+                if ($hasStatusColumn) {
+                    $orderedQuery->where('status', 'ordered');
+                }
+
+                $financeSummary['ordered_materials_services'] = (float) $orderedQuery->sum('amount');
+            }
+            $financeSummary['balance'] = $financeSummary['project_value']
+                - $financeSummary['cost_invoices']
+                - $financeSummary['issued_invoices']
+                - $financeSummary['ordered_materials_services'];
+
             return view('parts.project-details', [
                 'project' => $project,
                 'removals' => $removals,
                 'projectLists' => $projectLists,
                 'loadedLists' => $loadedLists,
                 'outsideListsData' => $outsideListsData,
+                'importedCostRows' => $importedCostRows,
+                'issuedInvoiceRows' => $issuedInvoiceRows,
+                'importedCostMeta' => session('imported_project_costs_meta', []),
+                'financeSummary' => $financeSummary,
+                'projectVisibleSections' => $projectVisibleSections,
             ]);
         } catch (\Exception $e) {
             \Log::error('=== BŁĄD W showProject ===', [
@@ -546,6 +897,368 @@ class PartController extends Controller
             return redirect()->route('magazyn.projects')
                 ->with('error', 'Błąd podczas ładowania szczegółów projektu: ' . $e->getMessage());
         }
+    }
+
+    public function importProjectCostsExcel(Request $request, \App\Models\Project $project)
+    {
+        $user = auth()->user();
+        if (!$user || (!$user->is_admin && !$user->can_import_project_costs_excel)) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Nie masz uprawnień do importu kosztów z pliku Excel.')
+                ->with('finance_import_feedback', true);
+        }
+
+        $request->validate([
+            'costs_file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+        ]);
+
+        if (!$this->hasTableSafe('project_finance')) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brakuje tabeli project_finance w bazie danych. Uruchom migracje na serwerze.')
+                ->with('finance_import_feedback', true);
+        }
+
+        $hasCategoryColumn = $this->hasColumnSafe('project_finance', 'category');
+        if (!$hasCategoryColumn) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brakuje kolumny category w project_finance. Uruchom migracje na serwerze.')
+                ->with('finance_import_feedback', true);
+        }
+
+        $hasOrderColumn = $this->hasColumnSafe('project_finance', 'order');
+        $hasSupplierColumn = $this->hasColumnSafe('project_finance', 'supplier');
+        $hasDocumentNumberColumn = $this->hasColumnSafe('project_finance', 'document_number');
+        $hasDescriptionColumn = $this->hasColumnSafe('project_finance', 'description');
+        $hasPaymentDateColumn = $this->hasColumnSafe('project_finance', 'payment_date');
+        $hasImportRowOrderColumn = $this->hasColumnSafe('project_finance', 'import_row_order');
+
+        $file = $request->file('costs_file');
+        $sheets = Excel::toArray([], $file);
+        $rows = $sheets[0] ?? [];
+
+        if (count($rows) < 2) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Plik nie zawiera danych do importu (wymagany nagłówek i co najmniej 1 wiersz).')
+                ->with('finance_import_feedback', true);
+        }
+
+        $headers = array_map(fn ($cell) => trim((string) $cell), $rows[0]);
+        $indexes = $this->resolveImportCostColumnIndexes($headers);
+
+        $importedRows = [];
+        $inserted = 0;
+        $skipped = 0;
+
+        $maxPreviewRows = 300;
+        $nextOrder = $hasOrderColumn
+            ? (int) (\App\Models\ProjectFinance::where('project_id', $project->id)->max('order') ?? 0)
+            : 0;
+
+        foreach (array_slice($rows, 1) as $excelRowIndex => $row) {
+            $date = $this->parseImportedExcelDate($this->getImportedCellValue($row, $indexes['date']));
+            $subjectOrSupplier = trim((string) ($this->getImportedCellValue($row, $indexes['subject_or_supplier']) ?? ''));
+            $document = trim((string) ($this->getImportedCellValue($row, $indexes['document']) ?? ''));
+            $amount = $this->parseImportedAmount($this->getImportedCellValue($row, $indexes['amount_net']));
+            $description = trim((string) ($this->getImportedCellValue($row, $indexes['description']) ?? ''));
+            $statusText = trim((string) ($this->getImportedCellValue($row, $indexes['status']) ?? ''));
+            $paymentDate = $this->parseImportedExcelDate($this->getImportedCellValue($row, $indexes['payment_date']));
+
+            $isEmpty = $date === null
+                && $subjectOrSupplier === ''
+                && $document === ''
+                && $amount === null
+                && $description === ''
+                && $statusText === ''
+                && $paymentDate === null;
+
+            if ($isEmpty) {
+                continue;
+            }
+
+            $mappedStatus = $this->mapImportedStatus($statusText);
+            $dateForDb = $date ?? $paymentDate ?? now()->format('Y-m-d');
+            $amountForDb = $amount ?? 0.0;
+
+            $name = $subjectOrSupplier;
+            if ($document !== '') {
+                $name .= ' | ' . $document;
+            }
+            if ($description !== '') {
+                $name .= ' | ' . $description;
+            }
+
+            $name = trim($name) !== '' ? $name : 'Pozycja z importu';
+
+            $createPayload = [
+                'project_id' => $project->id,
+                'type' => 'expense',
+                'category' => 'excel_import',
+                'name' => mb_substr($name, 0, 255),
+                'amount' => $amountForDb,
+                'date' => $dateForDb,
+                'status' => $mappedStatus,
+            ];
+
+            if ($hasSupplierColumn) {
+                $createPayload['supplier'] = $subjectOrSupplier !== '' ? mb_substr($subjectOrSupplier, 0, 255) : null;
+            }
+            if ($hasDocumentNumberColumn) {
+                $createPayload['document_number'] = $document !== '' ? mb_substr($document, 0, 255) : null;
+            }
+            if ($hasDescriptionColumn) {
+                $createPayload['description'] = $description !== '' ? $description : null;
+            }
+            if ($hasOrderColumn) {
+                $createPayload['order'] = ++$nextOrder;
+            }
+            if ($hasPaymentDateColumn) {
+                $createPayload['payment_date'] = $paymentDate;
+            }
+            if ($hasImportRowOrderColumn) {
+                $createPayload['import_row_order'] = $excelRowIndex + 1;
+            }
+
+            \App\Models\ProjectFinance::create($this->filterExistingColumns('project_finance', $createPayload));
+
+            $inserted++;
+
+            if (count($importedRows) < $maxPreviewRows) {
+                $importedRows[] = [
+                    'date' => $date,
+                    'subject_or_supplier' => $subjectOrSupplier,
+                    'document' => $document,
+                    'amount_net' => $amount !== null ? number_format($amount, 2, '.', '') : '',
+                    'description' => $description,
+                    'status' => $this->mapStatusToLabel($mappedStatus),
+                    'payment_date' => $paymentDate,
+                ];
+            }
+        }
+
+        if ($inserted === 0) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Nie zaimportowano żadnych pozycji. Sprawdź poprawność danych w pliku (data, przedmiot/dostawca, kwota netto).')
+                ->with('finance_import_feedback', true);
+        }
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', "Zaimportowano {$inserted} pozycji kosztowych z Excela.")
+            ->with('finance_import_feedback', true)
+            ->with('imported_project_costs', $importedRows)
+            ->with('imported_project_costs_meta', [
+                'inserted' => $inserted,
+                'skipped' => $skipped,
+                'preview_truncated' => $inserted > $maxPreviewRows,
+            ]);
+    }
+
+    public function bulkManageImportedProjectCosts(Request $request, \App\Models\Project $project)
+    {
+        $user = auth()->user();
+        if (!$user || (!$user->is_admin && !$user->can_import_project_costs_excel)) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Nie masz uprawnień do zarządzania kosztami z importu.')
+                ->with('finance_import_feedback', true);
+        }
+
+        if (!$this->hasTableSafe('project_finance')) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brakuje tabeli project_finance w bazie danych.')
+                ->with('finance_import_feedback', true);
+        }
+
+        if (!$this->hasColumnSafe('project_finance', 'category')) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brakuje kolumny category w project_finance.')
+                ->with('finance_import_feedback', true);
+        }
+
+        $hasSupplierColumn = $this->hasColumnSafe('project_finance', 'supplier');
+        $hasDocumentNumberColumn = $this->hasColumnSafe('project_finance', 'document_number');
+        $hasDescriptionColumn = $this->hasColumnSafe('project_finance', 'description');
+        $hasPaymentDateColumn = $this->hasColumnSafe('project_finance', 'payment_date');
+
+        $action = (string) $request->input('bulk_action', '');
+        $selectedIds = collect($request->input('selected_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($selectedIds->isEmpty()) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Nie zaznaczono żadnych wierszy.')
+                ->with('finance_import_feedback', true);
+        }
+
+        $rowsInput = $request->input('rows', []);
+        $query = \App\Models\ProjectFinance::where('project_id', $project->id)
+            ->where('category', 'excel_import')
+            ->whereIn('id', $selectedIds->all());
+
+        $records = $query->get();
+
+        if ($records->isEmpty()) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Nie znaleziono zaznaczonych pozycji do modyfikacji.')
+                ->with('finance_import_feedback', true);
+        }
+
+        if ($action === 'delete') {
+            $deleted = $records->count();
+            \App\Models\ProjectFinance::whereIn('id', $records->pluck('id'))->delete();
+
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('success', "Usunięto {$deleted} zaznaczonych pozycji.")
+                ->with('finance_import_feedback', true);
+        }
+
+        if ($action !== 'update') {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Nieznana akcja zbiorcza.')
+                ->with('finance_import_feedback', true);
+        }
+
+        $updated = 0;
+        foreach ($records as $record) {
+            $rowData = $rowsInput[$record->id] ?? [];
+
+            $date = $this->parseImportedExcelDate($rowData['date'] ?? null) ?? now()->format('Y-m-d');
+            $amount = $this->parseImportedAmount($rowData['amount_net'] ?? null) ?? 0.0;
+            $supplier = trim((string) ($rowData['subject_or_supplier'] ?? ''));
+            $document = trim((string) ($rowData['document'] ?? ''));
+            $description = trim((string) ($rowData['description'] ?? ''));
+            $statusText = trim((string) ($rowData['status'] ?? ''));
+            $paymentDate = $this->parseImportedExcelDate($rowData['payment_date'] ?? null);
+
+            $name = $supplier;
+            if ($document !== '') {
+                $name .= ' | ' . $document;
+            }
+            if ($description !== '') {
+                $name .= ' | ' . $description;
+            }
+            $name = trim($name) !== '' ? $name : 'Pozycja z importu';
+
+            $updatePayload = [
+                'name' => mb_substr($name, 0, 255),
+                'amount' => $amount,
+                'date' => $date,
+                'status' => $this->mapImportedStatus($statusText),
+            ];
+
+            if ($hasSupplierColumn) {
+                $updatePayload['supplier'] = $supplier !== '' ? mb_substr($supplier, 0, 255) : null;
+            }
+            if ($hasDocumentNumberColumn) {
+                $updatePayload['document_number'] = $document !== '' ? mb_substr($document, 0, 255) : null;
+            }
+            if ($hasDescriptionColumn) {
+                $updatePayload['description'] = $description !== '' ? $description : null;
+            }
+            if ($hasPaymentDateColumn) {
+                $updatePayload['payment_date'] = $paymentDate;
+            }
+
+            $record->update($this->filterExistingColumns('project_finance', $updatePayload));
+
+            $updated++;
+        }
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', "Zaktualizowano {$updated} zaznaczonych pozycji.")
+            ->with('finance_import_feedback', true);
+    }
+
+    public function storeIssuedProjectInvoice(Request $request, \App\Models\Project $project)
+    {
+        if (!$this->hasTableSafe('project_finance') || !$this->hasColumnSafe('project_finance', 'category')) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brakuje wymaganej tabeli/kolumn dla faktur wystawionych. Uruchom migracje na serwerze.')
+                ->with('finance_issued_feedback', true);
+        }
+
+        $hasOrderColumn = $this->hasColumnSafe('project_finance', 'order');
+        $hasDocumentNumberColumn = $this->hasColumnSafe('project_finance', 'document_number');
+        $hasDescriptionColumn = $this->hasColumnSafe('project_finance', 'description');
+        $hasPaymentDateColumn = $this->hasColumnSafe('project_finance', 'payment_date');
+
+        $request->validate([
+            'issued_invoice_date' => 'required|date',
+            'issued_invoice_number' => 'required|string|max:255',
+            'issued_invoice_description' => 'nullable|string|max:2000',
+            'issued_invoice_amount_net' => 'required',
+            'issued_invoice_payment_date' => 'required|date',
+            'issued_invoice_status' => 'required|in:Opłacono,Nie opłacono',
+        ]);
+
+        $amount = $this->parseImportedAmount($request->input('issued_invoice_amount_net'));
+        if ($amount === null || $amount < 0) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->withErrors(['issued_invoice_amount_net' => 'Podaj poprawną kwotę netto.'])
+                ->withInput()
+                ->with('finance_issued_feedback', true);
+        }
+
+        $statusLabel = (string) $request->input('issued_invoice_status');
+        $status = $statusLabel === 'Opłacono' ? 'paid' : 'pending';
+        $invoiceNumber = trim((string) $request->input('issued_invoice_number'));
+        $description = trim((string) $request->input('issued_invoice_description', ''));
+        $nextOrder = $hasOrderColumn
+            ? (int) (\App\Models\ProjectFinance::where('project_id', $project->id)->max('order') ?? 0)
+            : 0;
+
+        $createPayload = [
+            'project_id' => $project->id,
+            'type' => 'income',
+            'category' => 'issued_invoice',
+            'name' => mb_substr($invoiceNumber !== '' ? $invoiceNumber : 'Faktura wystawiona', 0, 255),
+            'amount' => $amount,
+            'date' => $request->input('issued_invoice_date'),
+            'status' => $status,
+        ];
+
+        if ($hasDocumentNumberColumn) {
+            $createPayload['document_number'] = $invoiceNumber !== '' ? mb_substr($invoiceNumber, 0, 255) : null;
+        }
+        if ($hasDescriptionColumn) {
+            $createPayload['description'] = $description !== '' ? $description : null;
+        }
+        if ($hasPaymentDateColumn) {
+            $createPayload['payment_date'] = $request->input('issued_invoice_payment_date');
+        }
+        if ($hasOrderColumn) {
+            $createPayload['order'] = $nextOrder + 1;
+        }
+
+        \App\Models\ProjectFinance::create($this->filterExistingColumns('project_finance', $createPayload));
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', 'Dodano fakturę wystawioną.')
+            ->with('finance_issued_feedback', true);
+    }
+
+    public function updateIssuedProjectInvoiceStatus(Request $request, \App\Models\Project $project, \App\Models\ProjectFinance $finance)
+    {
+        $request->validate([
+            'issued_invoice_status' => 'required|in:Opłacono,Nie opłacono',
+        ]);
+
+        $financeCategory = $this->hasColumnSafe('project_finance', 'category') ? $finance->category : null;
+        if ((int) $finance->project_id !== (int) $project->id || $financeCategory !== 'issued_invoice') {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Nie znaleziono wskazanej faktury wystawionej.')
+                ->with('finance_issued_feedback', true);
+        }
+
+        $statusLabel = (string) $request->input('issued_invoice_status');
+        $finance->update([
+            'status' => $statusLabel === 'Opłacono' ? 'paid' : 'pending',
+        ]);
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', 'Status faktury został zaktualizowany.')
+            ->with('finance_issued_feedback', true);
     }
 
     // EKSPORT LISTY PRODUKTOW W PROJEKCIE DO XLSX
@@ -1079,6 +1792,11 @@ class PartController extends Controller
             'project' => $project,
             'users' => User::orderBy('name')->get(),
             'qrEnabled' => $qrEnabled,
+            'availableProjectSections' => $this->getAvailableProjectSections(),
+            'projectVisibleSections' => $this->normalizeProjectVisibleSections(
+                $this->hasColumnSafe('projects', 'visible_sections') ? $project->visible_sections : null
+            ),
+            'sectionsWithData' => $this->getProjectSectionsWithData($project),
         ]);
     }
 
@@ -1086,8 +1804,9 @@ class PartController extends Controller
     {
         $user = auth()->user();
         $canChangeAuthorization = $user && $user->is_admin;
+        $hasVisibleSectionsColumn = $this->hasColumnSafe('projects', 'visible_sections');
 
-        $request->validate([
+        $validationRules = [
             'project_number' => 'required|string|unique:projects,project_number,' . $project->id,
             'name' => 'required|string|max:255',
             'budget' => 'nullable|numeric|min:0',
@@ -1097,9 +1816,18 @@ class PartController extends Controller
             'finished_at' => 'nullable|date',
             'status' => 'required|in:in_progress,warranty,archived',
             'requires_authorization' => 'nullable|boolean',
-        ]);
+        ];
 
-        $project->update([
+        if ($hasVisibleSectionsColumn) {
+            $validationRules['visible_sections'] = 'required|array|min:1';
+            $validationRules['visible_sections.*'] = 'string|in:pickup,changes,summary,frappe,finance';
+        }
+
+        $request->validate($validationRules);
+
+        $visibleSections = $this->normalizeProjectVisibleSections($request->input('visible_sections', []));
+
+        $updatePayload = [
             'project_number' => $request->project_number,
             'name' => $request->name,
             'budget' => $request->budget,
@@ -1111,9 +1839,15 @@ class PartController extends Controller
             'requires_authorization' => $canChangeAuthorization
                 ? $request->has('requires_authorization')
                 : $project->requires_authorization,
-        ]);
+        ];
 
-        return redirect()->route('magazyn.projects.show', $project->id)->with('success', 'Projekt został zaktualizowany.');
+        if ($hasVisibleSectionsColumn) {
+            $updatePayload['visible_sections'] = $visibleSections;
+        }
+
+        $project->update($updatePayload);
+
+        return redirect()->route('magazyn.projects', ['status' => 'in_progress'])->with('success', 'Projekt został zaktualizowany.');
     }
 
     public function bulkDeleteProjects(Request $request)
@@ -2722,6 +3456,10 @@ class PartController extends Controller
         
         if ($canGrant('can_projects_settings')) {
             $user->can_projects_settings = (int) $request->has('can_projects_settings');
+        }
+
+        if ($canGrant('can_import_project_costs_excel')) {
+            $user->can_import_project_costs_excel = (int) $request->has('can_import_project_costs_excel');
         }
         
         if ($canGrant('can_view_offers')) {

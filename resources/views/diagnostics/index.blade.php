@@ -14,6 +14,12 @@
         <h2 class="font-bold mb-2">🔍 Dostępne narzędzia diagnostyczne:</h2>
         <ul class="space-y-2">
             <li>
+                <a href="{{ route('diagnostics.anomalies') }}" class="text-red-600 hover:underline font-semibold text-lg">
+                    🚨 Diagnostyka anomalii systemu →
+                </a>
+                <p class="text-xs text-gray-600">Raport brakujących kolumn/tabel, dryftu migracji i osieroconych rekordów.</p>
+            </li>
+            <li>
                 <a href="/diagnostics-projects.html" class="text-blue-600 hover:underline font-semibold text-lg">
                     🔧 Diagnostyka projektów (błędy 500) →
                 </a>

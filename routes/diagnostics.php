@@ -522,3 +522,214 @@ Route::get('/crm-real-update-test', function () {
 Route::get('/crm-deals-structure', function () {
     return view('crm-deals-structure');
 })->name('diagnostics.crm-deals-structure');
+
+Route::get('/diagnostics/anomalies', function () {
+    $checks = [];
+    $anomalies = [];
+    $queryErrors = [];
+
+    $pushCheck = function (string $key, bool $ok, string $message, bool $critical = false) use (&$checks) {
+        $checks[] = [
+            'key' => $key,
+            'ok' => $ok,
+            'critical' => $critical,
+            'message' => $message,
+        ];
+    };
+
+    $pushAnomaly = function (string $title, string $details, string $severity = 'warning') use (&$anomalies) {
+        $anomalies[] = [
+            'title' => $title,
+            'details' => $details,
+            'severity' => $severity,
+        ];
+    };
+
+    $hasTable = function (string $table) {
+        try {
+            return Schema::hasTable($table);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    };
+
+    $hasColumn = function (string $table, string $column) use ($hasTable) {
+        if (!$hasTable($table)) {
+            return false;
+        }
+
+        try {
+            return Schema::hasColumn($table, $column);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    };
+
+    try {
+        DB::connection()->getPdo();
+        $pushCheck('db_connection', true, 'Połączenie z bazą działa.', true);
+    } catch (\Throwable $e) {
+        $pushCheck('db_connection', false, 'Brak połączenia z bazą: ' . $e->getMessage(), true);
+        $pushAnomaly('Brak połączenia z bazą', $e->getMessage(), 'critical');
+    }
+
+    $requiredTables = [
+        'projects' => true,
+        'project_finance' => true,
+        'project_removals' => true,
+        'users' => true,
+        'migrations' => true,
+    ];
+
+    foreach ($requiredTables as $table => $critical) {
+        $exists = $hasTable($table);
+        $pushCheck('table_' . $table, $exists, $exists ? "Tabela {$table} istnieje." : "Brak tabeli {$table}.", $critical);
+
+        if (!$exists) {
+            $pushAnomaly("Brak tabeli {$table}", 'Brak tej tabeli może powodować błędy 500 w szczegółach projektu.', $critical ? 'critical' : 'warning');
+        }
+    }
+
+    $requiredColumns = [
+        'projects' => [
+            'visible_sections' => false,
+            'responsible_user_id' => false,
+        ],
+        'project_finance' => [
+            'category' => true,
+            'status' => true,
+            'supplier' => false,
+            'document_number' => false,
+            'description' => false,
+            'payment_date' => false,
+            'import_row_order' => false,
+        ],
+        'users' => [
+            'can_import_project_costs_excel' => false,
+        ],
+    ];
+
+    foreach ($requiredColumns as $table => $columns) {
+        foreach ($columns as $column => $critical) {
+            $exists = $hasColumn($table, $column);
+            $pushCheck("column_{$table}_{$column}", $exists, $exists ? "Kolumna {$table}.{$column} istnieje." : "Brak kolumny {$table}.{$column}.", $critical);
+
+            if (!$exists) {
+                $pushAnomaly(
+                    "Brak kolumny {$table}.{$column}",
+                    'Aplikacja działa z fallbackiem, ale zalecane jest uruchomienie brakujących migracji.',
+                    $critical ? 'critical' : 'warning'
+                );
+            }
+        }
+    }
+
+    if ($hasTable('projects') && $hasTable('users') && $hasColumn('projects', 'responsible_user_id')) {
+        try {
+            $orphanResponsible = DB::table('projects')
+                ->leftJoin('users', 'projects.responsible_user_id', '=', 'users.id')
+                ->whereNotNull('projects.responsible_user_id')
+                ->whereNull('users.id')
+                ->count();
+
+            if ($orphanResponsible > 0) {
+                $pushAnomaly('Osieroceni użytkownicy odpowiedzialni', "{$orphanResponsible} projektów wskazuje na nieistniejącego użytkownika.", 'warning');
+            }
+        } catch (\Throwable $e) {
+            $queryErrors[] = 'Błąd sprawdzania responsible_user_id: ' . $e->getMessage();
+        }
+    }
+
+    if ($hasTable('project_finance') && $hasTable('projects')) {
+        try {
+            $orphanFinance = DB::table('project_finance')
+                ->leftJoin('projects', 'project_finance.project_id', '=', 'projects.id')
+                ->whereNull('projects.id')
+                ->count();
+
+            if ($orphanFinance > 0) {
+                $pushAnomaly('Osierocone rekordy project_finance', "{$orphanFinance} rekordów finansowych nie ma istniejącego projektu.", 'warning');
+            }
+        } catch (\Throwable $e) {
+            $queryErrors[] = 'Błąd sprawdzania osieroconych project_finance: ' . $e->getMessage();
+        }
+    }
+
+    if ($hasTable('project_finance') && $hasColumn('project_finance', 'category') && $hasColumn('project_finance', 'date')) {
+        try {
+            $importsWithoutDate = DB::table('project_finance')
+                ->where('category', 'excel_import')
+                ->whereNull('date')
+                ->count();
+
+            if ($importsWithoutDate > 0) {
+                $pushAnomaly('Importy kosztów bez daty', "{$importsWithoutDate} rekordów z category=excel_import ma pustą datę.", 'warning');
+            }
+        } catch (\Throwable $e) {
+            $queryErrors[] = 'Błąd sprawdzania importów bez daty: ' . $e->getMessage();
+        }
+    }
+
+    if ($hasTable('project_finance') && $hasColumn('project_finance', 'category') && $hasColumn('project_finance', 'status')) {
+        try {
+            $invalidIssuedStatus = DB::table('project_finance')
+                ->where('category', 'issued_invoice')
+                ->whereNotIn('status', ['paid', 'pending'])
+                ->count();
+
+            if ($invalidIssuedStatus > 0) {
+                $pushAnomaly('Nieprawidłowe statusy faktur wystawionych', "{$invalidIssuedStatus} rekordów ma status inny niż paid/pending.", 'warning');
+            }
+        } catch (\Throwable $e) {
+            $queryErrors[] = 'Błąd sprawdzania statusów issued_invoice: ' . $e->getMessage();
+        }
+    }
+
+    $migrationStats = [
+        'pending_count' => null,
+        'orphaned_count' => null,
+    ];
+    if ($hasTable('migrations')) {
+        try {
+            $migrationFiles = File::files(database_path('migrations'));
+            $fileNames = collect($migrationFiles)
+                ->map(fn ($file) => pathinfo($file, PATHINFO_FILENAME))
+                ->toArray();
+
+            $dbMigrations = DB::table('migrations')->pluck('migration')->toArray();
+
+            $pending = array_diff($fileNames, $dbMigrations);
+            $orphaned = array_diff($dbMigrations, $fileNames);
+
+            $migrationStats['pending_count'] = count($pending);
+            $migrationStats['orphaned_count'] = count($orphaned);
+
+            if (count($pending) > 0) {
+                $pushAnomaly('Niewykonane migracje', count($pending) . ' migracji czeka na uruchomienie na tym środowisku.', 'critical');
+            }
+
+            if (count($orphaned) > 0) {
+                $pushAnomaly('Migracje osierocone w tabeli migrations', count($orphaned) . ' wpisów migracji nie ma pliku w repozytorium.', 'warning');
+            }
+        } catch (\Throwable $e) {
+            $queryErrors[] = 'Błąd analizy migracji: ' . $e->getMessage();
+        }
+    }
+
+    $criticalCount = collect($anomalies)->where('severity', 'critical')->count();
+    $warningCount = collect($anomalies)->where('severity', 'warning')->count();
+
+    return view('diagnostics.anomalies', [
+        'timestamp' => now()->format('Y-m-d H:i:s'),
+        'environment' => app()->environment(),
+        'phpVersion' => PHP_VERSION,
+        'laravelVersion' => app()->version(),
+        'dbConnection' => config('database.default'),
+        'checks' => $checks,
+        'anomalies' => $anomalies,
+        'queryErrors' => $queryErrors,
+        'criticalCount' => $criticalCount,
+        'warningCount' => $warningCount,
+        'migrationStats' => $migrationStats,
+    ]);
+})->middleware('auth')->name('diagnostics.anomalies');
