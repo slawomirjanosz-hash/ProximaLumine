@@ -716,28 +716,28 @@
         <div id="finance-section-content" class="hidden">
             <p class="text-gray-600 text-sm mb-4">Zarządzaj przychodami i wydatkami projektu w czasie:</p>
 
-            <div class="w-full lg:w-1/3 mb-4">
-                <table class="w-full text-sm">
+            <div class="w-full sm:max-w-[33.333%] mb-4">
+                <table class="w-auto text-sm">
                     <tbody>
                         <tr class="bg-blue-50 text-blue-900">
                             <td class="px-3 py-2 font-semibold">Wartość projektu:</td>
-                            <td class="px-3 py-2 text-right font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['project_value'] ?? 0), 2, ',', ' ') }} zł</td>
+                            <td class="pl-2 pr-3 py-2 text-left font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['project_value'] ?? 0), 2, ',', ' ') }} zł</td>
                         </tr>
                         <tr class="bg-indigo-50 text-indigo-900">
                             <td class="px-3 py-2 font-semibold">Faktury kosztowe:</td>
-                            <td class="px-3 py-2 text-right font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['cost_invoices'] ?? 0), 2, ',', ' ') }} zł</td>
+                            <td class="pl-2 pr-3 py-2 text-left font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['cost_invoices'] ?? 0), 2, ',', ' ') }} zł</td>
                         </tr>
                         <tr class="bg-emerald-50 text-emerald-900">
                             <td class="px-3 py-2 font-semibold">Koszty faktury wystawione:</td>
-                            <td class="px-3 py-2 text-right font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['issued_invoices'] ?? 0), 2, ',', ' ') }} zł</td>
+                            <td class="pl-2 pr-3 py-2 text-left font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['issued_invoices'] ?? 0), 2, ',', ' ') }} zł</td>
                         </tr>
                         <tr class="bg-amber-50 text-amber-900">
                             <td class="px-3 py-2 font-semibold">Materiały i usługi zamówione:</td>
-                            <td class="px-3 py-2 text-right font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['ordered_materials_services'] ?? 0), 2, ',', ' ') }} zł</td>
+                            <td class="pl-2 pr-3 py-2 text-left font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['ordered_materials_services'] ?? 0), 2, ',', ' ') }} zł</td>
                         </tr>
                         <tr class="bg-rose-50 text-rose-900">
                             <td class="px-3 py-2 font-semibold">Bilans:</td>
-                            <td class="px-3 py-2 text-right font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['balance'] ?? 0), 2, ',', ' ') }} zł</td>
+                            <td class="pl-2 pr-3 py-2 text-left font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['balance'] ?? 0), 2, ',', ' ') }} zł</td>
                         </tr>
                     </tbody>
                 </table>
