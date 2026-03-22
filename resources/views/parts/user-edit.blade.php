@@ -385,7 +385,7 @@
                 @endif
                 
                 {{-- PROJEKTY --}}
-                @if($canGrant('can_view_projects') || $canGrant('can_projects_add') || $canGrant('can_projects_in_progress') || $canGrant('can_projects_warranty') || $canGrant('can_projects_archived') || $canGrant('can_projects_settings'))
+                @if($canGrant('can_view_projects') || $canGrant('can_projects_add') || $canGrant('can_projects_in_progress') || $canGrant('can_projects_warranty') || $canGrant('can_projects_archived') || $canGrant('can_projects_settings') || $canGrant('can_import_project_costs_excel'))
                 <div class="border rounded">
                     <label class="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer">
                         <input 
@@ -501,6 +501,26 @@
                             <span class="text-sm text-gray-500">⚙️ Dostęp do ustawień projektów i list projektowych (tylko do odczytu)</span>
                         </div>
                         <input type="hidden" name="can_projects_settings" value="1">
+                        @endif
+
+                        {{-- Import kosztów z Excela w harmonogramie finansowym --}}
+                        @if($canGrant('can_import_project_costs_excel'))
+                        <label class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                name="can_import_project_costs_excel" 
+                                class="w-4 h-4 child-checkbox"
+                                data-parent="can_view_projects_checkbox"
+                                {{ $user->can_import_project_costs_excel ? 'checked' : '' }}
+                            >
+                            <span class="text-sm">💸 Import kosztów z Excela (harmonogram finansowy)</span>
+                        </label>
+                        @elseif($user->can_import_project_costs_excel)
+                        <div class="flex items-center gap-2 p-2 border rounded bg-gray-50">
+                            <input type="checkbox" class="w-4 h-4" checked disabled>
+                            <span class="text-sm text-gray-500">💸 Import kosztów z Excela (harmonogram finansowy) (tylko do odczytu)</span>
+                        </div>
+                        <input type="hidden" name="can_import_project_costs_excel" value="1">
                         @endif
                     </div>
                 </div>

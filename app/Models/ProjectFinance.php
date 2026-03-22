@@ -20,10 +20,15 @@ class ProjectFinance extends Model
         'type',
         'category',
         'name',
+        'supplier',
+        'document_number',
+        'description',
         'amount',
         'date',
+        'payment_date',
         'status',
         'order',
+        'import_row_order',
     ];
     
     /**
@@ -32,7 +37,9 @@ class ProjectFinance extends Model
     protected $casts = [
         'amount' => 'decimal:2',
         'date' => 'date',
+        'payment_date' => 'date',
         'order' => 'integer',
+        'import_row_order' => 'integer',
     ];
     
     /**

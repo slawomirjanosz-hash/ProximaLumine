@@ -15,7 +15,7 @@
     
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-xl font-bold">Edycja projektu</h2>
-        <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline">← Powrót do projektu</a>
+        <a href="{{ route('magazyn.projects', ['status' => 'in_progress']) }}" class="text-blue-600 hover:underline">← Powrót do projektów w toku</a>
     </div>
     
     @if(session('success'))
@@ -98,6 +98,9 @@
 
             <div>
                 <label class="block text-sm font-semibold mb-1">Autoryzacja pobrań</label>
+                @php
+                    $canChangeAuthorization = auth()->check() && auth()->user()->is_admin;
+                @endphp
                 <div class="flex items-center gap-2 mt-2">
                     <input 
                         type="checkbox" 
@@ -105,13 +108,58 @@
                         id="requires_authorization" 
                         value="1"
                         {{ old('requires_authorization', $project->requires_authorization) ? 'checked' : '' }}
-                        class="w-4 h-4 cursor-pointer"
+                        class="w-4 h-4 {{ $canChangeAuthorization ? 'cursor-pointer' : 'cursor-not-allowed opacity-50' }}"
+                        {{ $canChangeAuthorization ? '' : 'disabled' }}
                     >
-                    <label for="requires_authorization" class="text-sm font-medium cursor-pointer">
+                    <label for="requires_authorization" class="text-sm font-medium {{ $canChangeAuthorization ? 'cursor-pointer' : 'text-gray-400 cursor-not-allowed' }}">
                         Pobranie produktów wymaga autoryzacji przez skanowanie
                     </label>
                 </div>
                 <p class="text-xs text-gray-500 mt-1">Jeśli zaznaczone, produkty pobrane do projektu nie zostaną odjęte ze stanu magazynu dopóki nie zostaną zeskanowane</p>
+                @if(!$canChangeAuthorization)
+                    <p class="text-xs text-gray-500 mt-1">🔒 Tylko administrator może zmienić to ustawienie</p>
+                @endif
+            </div>
+
+            @php
+                $sectionLabels = [
+                    'pickup' => 'Pobieranie produktów',
+                    'changes' => 'Zmiany w magazynie',
+                    'summary' => 'Lista produktów w projekcie',
+                    'frappe' => 'Gantt Frappe',
+                    'finance' => 'Harmonogram finansowy',
+                ];
+                $selectedSections = old('visible_sections', $projectVisibleSections ?? []);
+            @endphp
+            <div>
+                <label class="block text-sm font-semibold mb-2">Widoczne sekcje w szczegółach projektu</label>
+                <div class="p-4 bg-blue-50 border border-blue-200 rounded space-y-2">
+                    @foreach(($availableProjectSections ?? []) as $sectionKey)
+                        @php
+                            $hasData = (bool) (($sectionsWithData[$sectionKey] ?? false));
+                        @endphp
+                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                                type="checkbox"
+                                name="visible_sections[]"
+                                value="{{ $sectionKey }}"
+                                class="project-section-checkbox w-4 h-4"
+                                data-section-key="{{ $sectionKey }}"
+                                data-has-content="{{ $hasData ? '1' : '0' }}"
+                                data-section-label="{{ $sectionLabels[$sectionKey] ?? $sectionKey }}"
+                                {{ in_array($sectionKey, $selectedSections, true) ? 'checked' : '' }}
+                            >
+                            <span>{{ $sectionLabels[$sectionKey] ?? $sectionKey }}</span>
+                            @if($hasData)
+                                <span class="text-xs text-amber-700">(sekcja zawiera dane)</span>
+                            @endif
+                        </label>
+                    @endforeach
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Po odznaczeniu sekcja zostanie ukryta w szczegółach projektu.</p>
+                @error('visible_sections')
+                    <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
+                @enderror
             </div>
         </div>
 
@@ -119,7 +167,7 @@
             <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
                 Zapisz zmiany
             </button>
-            <a href="{{ route('magazyn.projects.show', $project->id) }}" class="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600">
+            <a href="{{ route('magazyn.projects', ['status' => 'in_progress']) }}" class="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600">
                 Anuluj
             </a>
         </div>
@@ -131,12 +179,39 @@
     // Kontrola checkboxa autoryzacji w zależności od stanu QR
     document.addEventListener('DOMContentLoaded', function() {
         const qrEnabled = {{ $qrEnabled ? 'true' : 'false' }};
+        const canChangeAuthorization = {{ (auth()->check() && auth()->user()->is_admin) ? 'true' : 'false' }};
         const authCheckbox = document.getElementById('requires_authorization');
         
-        if (!qrEnabled && authCheckbox) {
+        if ((!qrEnabled || !canChangeAuthorization) && authCheckbox) {
             authCheckbox.disabled = true;
-            authCheckbox.checked = false;
             authCheckbox.closest('div').classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        const sectionCheckboxes = document.querySelectorAll('.project-section-checkbox');
+        sectionCheckboxes.forEach(cb => {
+            cb.addEventListener('change', function() {
+                const isUnchecking = !this.checked;
+                const hasContent = this.dataset.hasContent === '1';
+
+                if (isUnchecking && hasContent) {
+                    const sectionLabel = this.dataset.sectionLabel || 'Ta sekcja';
+                    const confirmed = confirm(`${sectionLabel} zawiera już dane. Czy na pewno chcesz ukryć tę sekcję?`);
+                    if (!confirmed) {
+                        this.checked = true;
+                    }
+                }
+            });
+        });
+
+        const editForm = document.querySelector('form[action="{{ route('magazyn.updateProject', $project->id) }}"]');
+        if (editForm) {
+            editForm.addEventListener('submit', function(e) {
+                const checked = Array.from(sectionCheckboxes).filter(cb => cb.checked).length;
+                if (checked === 0) {
+                    e.preventDefault();
+                    alert('Wybierz co najmniej jedną widoczną sekcję projektu.');
+                }
+            });
         }
     });
 </script>

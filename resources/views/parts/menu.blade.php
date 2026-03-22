@@ -183,12 +183,6 @@
                 </div>
             </button>
             <div id="projekty-submenu" class="bg-gray-900 submenu-panel {{ $isProjektyMenuActive ? 'is-open' : '' }}">
-                @if($isSuperAdmin || auth()->user()->can_projects_add)
-                <a href="{{ route('magazyn.projects') }}?add=1" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->get('add') == '1' ? 'text-white border-l-4 border-green-500' : '' }}">
-                    <span>➕</span>
-                    <span>Dodaj projekt</span>
-                </a>
-                @endif
                 @if($isSuperAdmin || auth()->user()->can_projects_in_progress)
                 <a href="{{ route('magazyn.projects') }}?status=in_progress" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->get('status') == 'in_progress' ? 'text-white border-l-4 border-yellow-500' : '' }}">
                     <span>⏳</span>
@@ -205,6 +199,12 @@
                 <a href="{{ route('magazyn.projects') }}?status=archived" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->get('status') == 'archived' ? 'text-white border-l-4 border-gray-500' : '' }}">
                     <span>📦</span>
                     <span>Projekty archiwalne</span>
+                </a>
+                @endif
+                @if($isSuperAdmin || auth()->user()->can_projects_add)
+                <a href="{{ route('magazyn.projects') }}?add=1" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->get('add') == '1' ? 'text-white border-l-4 border-green-500' : '' }}">
+                    <span>➕</span>
+                    <span>Dodaj projekt</span>
                 </a>
                 @endif
                 @if($isSuperAdmin || auth()->user()->can_projects_settings)

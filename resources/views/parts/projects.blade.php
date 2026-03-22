@@ -110,6 +110,7 @@
                 @php
                     $qrSettings = \DB::table('qr_settings')->first();
                     $qrEnabled = $qrSettings->qr_enabled ?? true;
+                    $canChangeAuthorization = auth()->check() && auth()->user()->is_admin;
                 @endphp
                 
                 <div class="flex items-center gap-2 p-4 bg-purple-50 border border-purple-200 rounded">
@@ -119,15 +120,50 @@
                         id="requires_authorization"
                         value="1"
                         class="w-5 h-5"
-                        {{ !$qrEnabled ? 'disabled' : '' }}
+                        {{ (!$qrEnabled || !$canChangeAuthorization) ? 'disabled' : '' }}
                     >
-                    <label for="requires_authorization" class="text-sm font-medium {{ !$qrEnabled ? 'text-gray-400' : '' }}">
+                    <label for="requires_authorization" class="text-sm font-medium {{ (!$qrEnabled || !$canChangeAuthorization) ? 'text-gray-400' : '' }}">
                         🔐 Pobranie produktów wymaga autoryzacji (skanowanie kodów QR)
                     </label>
                 </div>
                 @if(!$qrEnabled)
                 <p class="text-xs text-gray-500 -mt-2">💡 Obsługa kodów QR jest wyłączona w ustawieniach</p>
+                @elseif(!$canChangeAuthorization)
+                <p class="text-xs text-gray-500 -mt-2">🔒 Tylko administrator może zmienić to ustawienie</p>
                 @endif
+
+                @php
+                    $sectionLabels = [
+                        'pickup' => 'Pobieranie produktów',
+                        'changes' => 'Zmiany w magazynie',
+                        'summary' => 'Lista produktów w projekcie',
+                        'frappe' => 'Gantt Frappe',
+                        'finance' => 'Harmonogram finansowy',
+                    ];
+                    $selectedSections = old('visible_sections', $availableProjectSections ?? []);
+                @endphp
+                <div class="p-4 bg-blue-50 border border-blue-200 rounded">
+                    <p class="text-sm font-semibold text-blue-900 mb-2">Widoczne sekcje w szczegółach projektu</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        @foreach(($availableProjectSections ?? []) as $sectionKey)
+                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    name="visible_sections[]"
+                                    value="{{ $sectionKey }}"
+                                    class="w-4 h-4"
+                                    {{ in_array($sectionKey, $selectedSections, true) ? 'checked' : '' }}
+                                >
+                                <span>{{ $sectionLabels[$sectionKey] ?? $sectionKey }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                    <p class="text-xs text-gray-600 mt-2">Wybierz sekcje, które mają być dostępne w widoku szczegółów projektu.</p>
+                </div>
+
+                @error('visible_sections')
+                    <p class="text-sm text-red-600">{{ $message }}</p>
+                @enderror
                 
                 <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
                     Utwórz Projekt
@@ -181,6 +217,7 @@
                                     <td class="border p-2 text-center">
                                         <div class="flex items-center justify-center gap-2">
                                             <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline text-sm">Szczegóły</a>
+                                            <a href="{{ route('magazyn.editProject', $project->id) }}" class="text-indigo-600 hover:underline text-sm">Edycja</a>
                                             @if(auth()->user()->email === 'proximalumine@gmail.com')
                                                 <form action="{{ route('magazyn.deleteProject', $project->id) }}" method="POST" class="inline delete-project-form" data-project-name="{{ $project->name }}">
                                                     @csrf

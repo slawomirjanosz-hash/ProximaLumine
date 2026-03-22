@@ -15,6 +15,7 @@ class Project extends Model
         'budget',
         'responsible_user_id',
         'status',
+        'visible_sections',
         'requires_authorization',
         'warranty_period',
         'started_at',
@@ -25,6 +26,7 @@ class Project extends Model
 
     protected $casts = [
         'budget' => 'decimal:2',
+        'visible_sections' => 'array',
         'started_at' => 'datetime',
         'finished_at' => 'datetime',
     ];
