@@ -12,7 +12,7 @@
 
 @include('parts.menu')
 
-<div class="max-w-6xl mx-auto bg-white p-6 rounded shadow mt-6">
+<div class="w-full p-4 lg:p-6 mt-2">
     
     <div class="flex justify-between items-start mb-6">
         <div>
@@ -103,9 +103,13 @@
     </div>
 
     {{-- KONTENER NA PRZESUWALNE SEKCJE --}}
+    @php
+        $visibleSections = $projectVisibleSections ?? ['pickup', 'changes', 'summary', 'frappe', 'finance'];
+    @endphp
     <div id="sortable-sections" class="space-y-8">
     
     {{-- SEKCJA 0: POBIERANIE --}}
+        @if(in_array('pickup', $visibleSections, true))
     <div id="section-pickup" class="sortable-section bg-white border-2 border-indigo-200 rounded-lg p-4 shadow-sm" data-order="0">
         <div class="flex items-center gap-3 mb-4">
             <div class="drag-handle cursor-move text-gray-400 hover:text-gray-600" draggable="true" title="Przeciągnij, aby zmienić kolejność">
@@ -137,6 +141,7 @@
                     <p class="text-xs text-gray-400 mt-1">Projekt zamknięty – nie można zmienić autoryzacji.</p>
                 @else
                     @php
+                        $canChangeAuthorization = auth()->check() && auth()->user()->is_admin;
                         $hasUnauthorized = \App\Models\ProjectRemoval::where('project_id', $project->id)->where('authorized', false)->exists();
                     @endphp
                     @if($hasUnauthorized)
@@ -149,6 +154,19 @@
                         </div>
                         <p class="text-xs text-red-500 mt-1">⚠️ Nie można wyłączyć autoryzacji - masz produkty oczekujące na autoryzację. Najpierw zautoryzuj lub usuń te produkty.</p>
                         <span class="text-orange-600 font-semibold">✓ Wymagana</span>
+                    @elseif(!$canChangeAuthorization)
+                        <div class="flex items-center gap-2 mt-2">
+                            <input type="checkbox" disabled {{ $project->requires_authorization ? 'checked' : '' }} class="w-4 h-4 cursor-not-allowed opacity-50">
+                            <label class="text-sm font-medium text-gray-400">
+                                Pobranie produktów wymaga autoryzacji przez skanowanie
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">🔒 Tylko administrator może zmienić to ustawienie.</p>
+                        @if($project->requires_authorization)
+                            <span class="text-orange-600 font-semibold">✓ Wymagana</span>
+                        @else
+                            <span class="text-gray-600">Nie wymagana</span>
+                        @endif
                     @else
                         <form method="POST" action="{{ route('magazyn.projects.toggleAuthorization', $project->id) }}">
                             @csrf
@@ -286,6 +304,7 @@
             </div>
         </div>
     </div>
+    @endif
     {{-- KONIEC SEKCJI 0 --}}
 
     {{-- TABELA PRODUKTÓW --}}
@@ -353,6 +372,7 @@
         
         
         {{-- SEKCJA 1: ZMIANY W MAGAZYNIE --}}
+        @if(in_array('changes', $visibleSections, true))
         <div id="section-changes" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="2">
         <div class="flex items-center gap-3 mb-4">
             <div class="drag-handle cursor-move text-gray-400 hover:text-gray-600" draggable="true" title="Przeciągnij, aby zmienić kolejność">
@@ -368,6 +388,7 @@
                 Zmiany w magazynie
             </h3>
         </div>
+        @endif
         <div id="changes-section-content" class="hidden">
             <table class="w-full border border-collapse text-xs">
                 <thead class="bg-gray-100">
@@ -440,6 +461,7 @@
     {{-- KONIEC SEKCJI 1: ZMIANY W MAGAZYNIE --}}
     
     {{-- SEKCJA 2: PODSUMOWANIE PRODUKTÓW --}}
+    @if(in_array('summary', $visibleSections, true))
     <div id="section-summary" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="3">
         <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-3">
@@ -535,9 +557,11 @@
         </table>
         </div>
     </div>
+    @endif
     {{-- KONIEC SEKCJI 2 --}}
     
     {{-- SEKCJA 3: GANTT FRAPPE --}}
+    @if(in_array('frappe', $visibleSections, true))
     <div id="section-frappe" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="4">
         <div class="flex items-center gap-3 mb-4">
             <div class="drag-handle cursor-move text-gray-400 hover:text-gray-600" draggable="true" title="Przeciągnij, aby zmienić kolejność">
@@ -669,9 +693,11 @@
             @endif
         </div>
     </div>
+    @endif
     {{-- KONIEC SEKCJI 3 --}}
     
     {{-- SEKCJA 4: HARMONOGRAM FINANSOWY --}}
+    @if(in_array('finance', $visibleSections, true))
     <div id="section-finance" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="5">
         <div class="flex items-center gap-3 mb-4">
             <div class="drag-handle cursor-move text-gray-400 hover:text-gray-600" draggable="true" title="Przeciągnij, aby zmienić kolejność">
@@ -689,6 +715,295 @@
         </div>
         <div id="finance-section-content" class="hidden">
             <p class="text-gray-600 text-sm mb-4">Zarządzaj przychodami i wydatkami projektu w czasie:</p>
+
+            <div class="w-full lg:w-1/3 mb-4">
+                <table class="w-full text-sm">
+                    <tbody>
+                        <tr class="bg-blue-50 text-blue-900">
+                            <td class="px-3 py-2 font-semibold">Wartość projektu:</td>
+                            <td class="px-3 py-2 text-right font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['project_value'] ?? 0), 2, ',', ' ') }} zł</td>
+                        </tr>
+                        <tr class="bg-indigo-50 text-indigo-900">
+                            <td class="px-3 py-2 font-semibold">Faktury kosztowe:</td>
+                            <td class="px-3 py-2 text-right font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['cost_invoices'] ?? 0), 2, ',', ' ') }} zł</td>
+                        </tr>
+                        <tr class="bg-emerald-50 text-emerald-900">
+                            <td class="px-3 py-2 font-semibold">Koszty faktury wystawione:</td>
+                            <td class="px-3 py-2 text-right font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['issued_invoices'] ?? 0), 2, ',', ' ') }} zł</td>
+                        </tr>
+                        <tr class="bg-amber-50 text-amber-900">
+                            <td class="px-3 py-2 font-semibold">Materiały i usługi zamówione:</td>
+                            <td class="px-3 py-2 text-right font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['ordered_materials_services'] ?? 0), 2, ',', ' ') }} zł</td>
+                        </tr>
+                        <tr class="bg-rose-50 text-rose-900">
+                            <td class="px-3 py-2 font-semibold">Bilans:</td>
+                            <td class="px-3 py-2 text-right font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['balance'] ?? 0), 2, ',', ' ') }} zł</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mb-4 border-b border-gray-200">
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" class="finance-tab-btn px-4 py-2 rounded-t bg-white border border-gray-200 border-b-white text-sm font-semibold" data-finance-tab-target="costs">Faktury kosztowe ({{ number_format((float)($financeSummary['cost_invoices'] ?? 0), 2, ',', ' ') }} zł)</button>
+                    <button type="button" class="finance-tab-btn px-4 py-2 rounded-t bg-gray-100 border border-gray-200 text-sm" data-finance-tab-target="issued">Faktury wystawione</button>
+                    <button type="button" class="finance-tab-btn px-4 py-2 rounded-t bg-gray-100 border border-gray-200 text-sm" data-finance-tab-target="orders">Zamówienia</button>
+                </div>
+            </div>
+
+            <div id="finance-tab-costs" class="finance-tab-content">
+
+            @php
+                $canImportProjectCostsExcel = auth()->check() && (auth()->user()->is_admin || auth()->user()->can_import_project_costs_excel);
+            @endphp
+
+            @if($canImportProjectCostsExcel)
+            <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                <h4 class="font-semibold text-gray-800 mb-2">Import kosztów z Excela</h4>
+                @if(session('success') && session('finance_import_feedback'))
+                    <div class="mb-3 p-3 rounded border border-green-200 bg-green-50 text-green-800 text-sm">
+                        {{ session('success') }}
+                    </div>
+                @endif
+                @if(session('error') && session('finance_import_feedback'))
+                    <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
+                        {{ session('error') }}
+                    </div>
+                @endif
+                @error('costs_file')
+                    <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
+                        {{ $message }}
+                    </div>
+                @enderror
+                <p class="text-xs text-gray-500 mb-3">
+                    Oczekiwane kolumny: Data / Data księgowania, Podmiot / Przedmiot / Dostawca, Dokument, Kwota netto, Opis, Status, Data płatności. Inne kolumny są ignorowane, a brakujące kolumny zostaną uzupełnione pustą wartością.
+                </p>
+                <form action="{{ route('magazyn.projects.importCostsExcel', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row gap-2 md:items-center">
+                    @csrf
+                    <input type="file" name="costs_file" accept=".xlsx,.xls,.csv" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-semibold">
+                        📥 Importuj koszty
+                    </button>
+                </form>
+            </div>
+            @endif
+
+            @if(!empty($importedCostRows ?? []))
+            <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h4 class="font-semibold text-gray-800">Zaimportowane koszty</h4>
+                    @if(!empty($importedCostMeta ?? []))
+                    <div class="text-xs text-gray-600">
+                        Zaimportowano: <strong>{{ $importedCostMeta['inserted'] ?? 0 }}</strong>
+                        @if(($importedCostMeta['skipped'] ?? 0) > 0)
+                            | Pominięto: <strong>{{ $importedCostMeta['skipped'] ?? 0 }}</strong>
+                        @endif
+                    </div>
+                    @endif
+                </div>
+
+                <form method="POST" action="{{ route('magazyn.projects.importCostsExcel.bulk', $project->id) }}" id="imported-costs-bulk-form">
+                    @csrf
+                    <div class="flex flex-wrap items-center gap-2 mb-3">
+                        <button type="button" id="select-all-imported-costs" class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm">Zaznacz wszystkie</button>
+                        <button type="button" id="deselect-all-imported-costs" class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm">Odznacz wszystkie</button>
+                        <button type="button" id="enable-edit-selected" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Edytuj zaznaczone</button>
+                        <button type="submit" name="bulk_action" value="update" id="save-selected-edits" class="hidden px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">Zapisz edytowane</button>
+                        <button type="submit" name="bulk_action" value="delete" class="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-sm" onclick="return confirm('Czy na pewno usunąć zaznaczone pozycje?')">Usuń zaznaczone</button>
+                    </div>
+
+                    <div class="w-full overflow-hidden rounded border border-gray-200">
+                        <table class="w-full table-fixed text-xs leading-4">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-800">
+                                    <th class="px-3 py-2 text-center w-10">
+                                        <input type="checkbox" id="header-select-imported-costs" class="w-4 h-4">
+                                    </th>
+                                    <th class="px-2 py-2 text-left imported-sortable-header cursor-pointer" data-sort-key="date">Data</th>
+                                    <th class="px-2 py-2 text-left imported-sortable-header cursor-pointer" data-sort-key="supplier">Dostawca</th>
+                                    <th class="px-2 py-2 text-left imported-sortable-header cursor-pointer" data-sort-key="document">Dokument</th>
+                                    <th class="px-2 py-2 text-right imported-sortable-header cursor-pointer" data-sort-key="amount">Kwota netto</th>
+                                    <th class="px-2 py-2 text-left imported-sortable-header cursor-pointer" data-sort-key="description">Opis</th>
+                                    <th class="px-2 py-2 text-left imported-sortable-header cursor-pointer" data-sort-key="status">Status</th>
+                                    <th class="px-2 py-2 text-left imported-sortable-header cursor-pointer" data-sort-key="payment_date">Data płatności</th>
+                                </tr>
+                            </thead>
+                            <tbody id="imported-costs-tbody">
+                                @foreach(($importedCostRows ?? []) as $importedRow)
+                                @php
+                                    $rowId = (int) ($importedRow['id'] ?? 0);
+                                @endphp
+                                <tr class="bg-white even:bg-gray-50/80 hover:bg-blue-50/50 imported-cost-row" data-row-id="{{ $rowId }}">
+                                    <td class="px-3 py-2 text-center align-middle">
+                                        @if($rowId > 0)
+                                        <input type="checkbox" name="selected_ids[]" value="{{ $rowId }}" class="imported-cost-row-checkbox w-4 h-4">
+                                        @endif
+                                    </td>
+                                    <td class="px-2 py-2 truncate whitespace-nowrap">
+                                        <span class="import-display">{{ $importedRow['date'] ?? '' }}</span>
+                                        <input type="date" name="rows[{{ $rowId }}][date]" value="{{ $importedRow['date'] ?? '' }}" class="import-input hidden w-full px-1.5 py-1 rounded border border-gray-300 bg-white text-xs" disabled>
+                                    </td>
+                                    <td class="px-2 py-2 truncate">
+                                        <span class="import-display">{{ $importedRow['subject_or_supplier'] ?? '' }}</span>
+                                        <input type="text" name="rows[{{ $rowId }}][subject_or_supplier]" value="{{ $importedRow['subject_or_supplier'] ?? '' }}" class="import-input hidden w-full px-1.5 py-1 rounded border border-gray-300 bg-white text-xs" placeholder="Dostawca" disabled>
+                                    </td>
+                                    <td class="px-2 py-2 truncate">
+                                        <span class="import-display">{{ $importedRow['document'] ?? '' }}</span>
+                                        <input type="text" name="rows[{{ $rowId }}][document]" value="{{ $importedRow['document'] ?? '' }}" class="import-input hidden w-full px-1.5 py-1 rounded border border-gray-300 bg-white text-xs" placeholder="Dokument" disabled>
+                                    </td>
+                                    <td class="px-2 py-2 text-right truncate whitespace-nowrap">
+                                        <span class="import-display">{{ ($importedRow['amount_net'] ?? '') !== '' ? number_format((float) str_replace(',', '.', $importedRow['amount_net']), 2, ',', ' ') : '' }}</span>
+                                        <input type="text" name="rows[{{ $rowId }}][amount_net]" value="{{ $importedRow['amount_net'] ?? '' }}" class="import-input hidden w-full px-1.5 py-1 rounded border border-gray-300 bg-white text-xs text-right" placeholder="0,00" disabled>
+                                    </td>
+                                    <td class="px-2 py-2 truncate">
+                                        <span class="import-display">{{ $importedRow['description'] ?? '' }}</span>
+                                        <input type="text" name="rows[{{ $rowId }}][description]" value="{{ $importedRow['description'] ?? '' }}" class="import-input hidden w-full px-1.5 py-1 rounded border border-gray-300 bg-white text-xs" placeholder="Opis" disabled>
+                                    </td>
+                                    <td class="px-2 py-2 truncate">
+                                        <span class="import-display">{{ $importedRow['status'] ?? 'Nie opłacono' }}</span>
+                                        <select name="rows[{{ $rowId }}][status]" class="import-input hidden w-full px-1.5 py-1 rounded border border-gray-300 bg-white text-xs" disabled>
+                                            <option value="Opłacono" {{ ($importedRow['status'] ?? '') === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
+                                            <option value="Nie opłacono" {{ ($importedRow['status'] ?? '') === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
+                                            <option value="Oczekiwanie" {{ ($importedRow['status'] ?? '') === 'Oczekiwanie' ? 'selected' : '' }}>Oczekiwanie</option>
+                                        </select>
+                                    </td>
+                                    <td class="px-2 py-2 truncate whitespace-nowrap">
+                                        <span class="import-display">{{ $importedRow['payment_date'] ?? '' }}</span>
+                                        <input type="date" name="rows[{{ $rowId }}][payment_date]" value="{{ $importedRow['payment_date'] ?? '' }}" class="import-input hidden w-full px-1.5 py-1 rounded border border-gray-300 bg-white text-xs" disabled>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </form>
+
+                @if(($importedCostMeta['preview_truncated'] ?? false) === true)
+                <p class="text-xs text-amber-700 mt-2">Wyświetlono pierwsze 300 wierszy podglądu.</p>
+                @endif
+            </div>
+            @endif
+            </div>
+
+            <div id="finance-tab-issued" class="finance-tab-content hidden">
+                <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                    <h4 class="font-semibold text-gray-800 mb-3">Dodaj fakturę wystawioną</h4>
+                    @if(session('success') && session('finance_issued_feedback'))
+                        <div class="mb-3 p-3 rounded border border-green-200 bg-green-50 text-green-800 text-sm">
+                            {{ session('success') }}
+                        </div>
+                    @endif
+                    @if(session('error') && session('finance_issued_feedback'))
+                        <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
+                            {{ session('error') }}
+                        </div>
+                    @endif
+                    @if($errors->any() && session('finance_issued_feedback'))
+                        <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
+                            {{ $errors->first() }}
+                        </div>
+                    @endif
+
+                    <form action="{{ route('magazyn.projects.issuedInvoices.store', $project->id) }}" method="POST" class="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
+                        @csrf
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Data</label>
+                            <input type="date" name="issued_invoice_date" value="{{ old('issued_invoice_date') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Nr faktury</label>
+                            <input type="text" name="issued_invoice_number" value="{{ old('issued_invoice_number') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="FV/2026/...">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Opis</label>
+                            <input type="text" name="issued_invoice_description" value="{{ old('issued_invoice_description') }}" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="Opis faktury">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Kwota netto</label>
+                            <input type="text" name="issued_invoice_amount_net" value="{{ old('issued_invoice_amount_net') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="0,00">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Termin płatności</label>
+                            <input type="date" name="issued_invoice_payment_date" value="{{ old('issued_invoice_payment_date') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Status</label>
+                            <select name="issued_invoice_status" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                                <option value="Opłacono" {{ old('issued_invoice_status') === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
+                                <option value="Nie opłacono" {{ old('issued_invoice_status', 'Nie opłacono') === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-6">
+                            <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-sm font-semibold">
+                                💾 Zapisz fakturę
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="bg-white border border-gray-200 rounded-lg p-4 text-sm text-gray-700">
+                    <h4 class="font-semibold text-gray-800 mb-3">Faktury wystawione</h4>
+                    <div class="w-full overflow-x-auto rounded border border-gray-200">
+                        <table class="w-full table-auto text-xs">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-800">
+                                    <th class="px-2 py-2 text-left">Data</th>
+                                    <th class="px-2 py-2 text-left">Nr faktury</th>
+                                    <th class="px-2 py-2 text-left">Opis</th>
+                                    <th class="px-2 py-2 text-right">Kwota netto</th>
+                                    <th class="px-2 py-2 text-left">Termin płatności</th>
+                                    <th class="px-2 py-2 text-left">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse(($issuedInvoiceRows ?? []) as $issuedInvoice)
+                                    @php
+                                        $issuedStatus = (string) ($issuedInvoice['status'] ?? 'Nie opłacono');
+                                        $issuedPaymentDate = $issuedInvoice['payment_date'] ?? null;
+                                        $isIssuedOverdue = false;
+                                        if ($issuedPaymentDate && $issuedStatus === 'Nie opłacono') {
+                                            try {
+                                                $isIssuedOverdue = \Carbon\Carbon::parse($issuedPaymentDate)->lt(now()->startOfDay());
+                                            } catch (\Throwable $e) {
+                                                $isIssuedOverdue = false;
+                                            }
+                                        }
+
+                                        $issuedStatusClass = 'bg-gray-100 text-gray-700';
+                                        if ($issuedStatus === 'Opłacono') {
+                                            $issuedStatusClass = 'bg-green-100 text-green-800';
+                                        } elseif ($issuedStatus === 'Nie opłacono' && $isIssuedOverdue) {
+                                            $issuedStatusClass = 'bg-red-100 text-red-800';
+                                        }
+                                    @endphp
+                                    <tr class="bg-white even:bg-gray-50/80">
+                                        <td class="px-2 py-2 whitespace-nowrap">{{ $issuedInvoice['date'] ?? '' }}</td>
+                                        <td class="px-2 py-2">{{ $issuedInvoice['invoice_number'] ?? '' }}</td>
+                                        <td class="px-2 py-2">{{ $issuedInvoice['description'] ?? '' }}</td>
+                                        <td class="px-2 py-2 text-right whitespace-nowrap">{{ ($issuedInvoice['amount_net'] ?? '') !== '' ? number_format((float) str_replace(',', '.', $issuedInvoice['amount_net']), 2, ',', ' ') : '' }}</td>
+                                        <td class="px-2 py-2 whitespace-nowrap">{{ $issuedInvoice['payment_date'] ?? '' }}</td>
+                                        <td class="px-2 py-2 whitespace-nowrap">
+                                            <form action="{{ route('magazyn.projects.issuedInvoices.status', [$project->id, $issuedInvoice['id']]) }}" method="POST" class="inline-block">
+                                                @csrf
+                                                <select name="issued_invoice_status" class="px-2 py-1 rounded border border-gray-300 text-xs font-semibold {{ $issuedStatusClass }}" onchange="this.form.submit()">
+                                                    <option value="Opłacono" {{ $issuedStatus === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
+                                                    <option value="Nie opłacono" {{ $issuedStatus === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
+                                                </select>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6" class="px-2 py-3 text-center text-gray-500">Brak faktur wystawionych.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="finance-tab-orders" class="finance-tab-content hidden">
             
             {{-- Przyciski dodawania --}}
             @if(!in_array($project->status, ['warranty','archived']))
@@ -753,8 +1068,10 @@
             </div>
             
             <p class="text-xs text-gray-500 mt-3">💡 Przeciągnij wiersze, aby zmienić kolejność. Wydatki mogą być oznaczone jako zapłacone, zamówione lub przewidziane.</p>
+            </div>
         </div>
     </div>
+    @endif
     {{-- KONIEC SEKCJI 4 --}}
     
     </div>
@@ -914,8 +1231,9 @@
         const pickupContent = document.getElementById('pickup-section-content');
         const pickupArrow = document.getElementById('toggle-pickup-arrow');
         if (pickupToggleBtn && pickupContent && pickupArrow) {
-            // Domyślnie rozwinięta
-            pickupArrow.textContent = '▼';
+            // Domyślnie zamknięta
+            pickupContent.classList.add('hidden');
+            pickupArrow.textContent = '▶';
             pickupToggleBtn.addEventListener('click', function() {
                 pickupContent.classList.toggle('hidden');
                 pickupArrow.textContent = pickupContent.classList.contains('hidden') ? '▶' : '▼';
@@ -941,8 +1259,9 @@
         const summaryContent = document.getElementById('summary-section-content');
         const summaryArrow = document.getElementById('toggle-summary-arrow');
         if (summaryToggleBtn && summaryContent && summaryArrow) {
-            // Domyślnie rozwinięta (bez hidden)
-            summaryArrow.textContent = '▼';
+            // Domyślnie zamknięta
+            summaryContent.classList.add('hidden');
+            summaryArrow.textContent = '▶';
             summaryToggleBtn.addEventListener('click', function() {
                 summaryContent.classList.toggle('hidden');
                 summaryArrow.textContent = summaryContent.classList.contains('hidden') ? '▶' : '▼';
@@ -967,10 +1286,17 @@
         const financeToggleBtn = document.getElementById('toggle-finance-section');
         const financeContent = document.getElementById('finance-section-content');
         const financeArrow = document.getElementById('toggle-finance-arrow');
+        const shouldOpenFinanceSection = false;
+        const financeInitialTab = 'costs';
         if (financeToggleBtn && financeContent && financeArrow) {
-            // Ustaw domyślnie zamknięte
-            financeContent.classList.add('hidden');
-            financeArrow.textContent = '▶';
+            // Domyślnie zamknięte, ale po imporcie/błędzie otwieramy automatycznie
+            if (shouldOpenFinanceSection) {
+                financeContent.classList.remove('hidden');
+                financeArrow.textContent = '▼';
+            } else {
+                financeContent.classList.add('hidden');
+                financeArrow.textContent = '▶';
+            }
             financeToggleBtn.addEventListener('click', function() {
                 financeContent.classList.toggle('hidden');
                 financeArrow.textContent = financeContent.classList.contains('hidden') ? '▶' : '▼';
@@ -1072,6 +1398,213 @@
             financeList.addEventListener('input', updateFinancials);
             financeList.addEventListener('change', updateFinancials);
         }
+
+        const financeTabButtons = document.querySelectorAll('.finance-tab-btn');
+        const financeTabContents = {
+            costs: document.getElementById('finance-tab-costs'),
+            issued: document.getElementById('finance-tab-issued'),
+            orders: document.getElementById('finance-tab-orders'),
+        };
+
+        function activateFinanceTab(tabName) {
+            Object.entries(financeTabContents).forEach(([key, content]) => {
+                if (!content) return;
+                content.classList.toggle('hidden', key !== tabName);
+            });
+
+            financeTabButtons.forEach(btn => {
+                const active = btn.dataset.financeTabTarget === tabName;
+                btn.classList.toggle('bg-white', active);
+                btn.classList.toggle('border-b-white', active);
+                btn.classList.toggle('font-semibold', active);
+                btn.classList.toggle('bg-gray-100', !active);
+            });
+        }
+
+        financeTabButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                activateFinanceTab(this.dataset.financeTabTarget || 'costs');
+            });
+        });
+
+        activateFinanceTab(financeInitialTab);
+
+        const importedCostsForm = document.getElementById('imported-costs-bulk-form');
+        const headerSelectImportedCosts = document.getElementById('header-select-imported-costs');
+        const selectAllImportedCostsBtn = document.getElementById('select-all-imported-costs');
+        const deselectAllImportedCostsBtn = document.getElementById('deselect-all-imported-costs');
+        const enableEditSelectedBtn = document.getElementById('enable-edit-selected');
+        const saveSelectedEditsBtn = document.getElementById('save-selected-edits');
+        const importedSortableHeaders = document.querySelectorAll('.imported-sortable-header');
+        let importedSortState = { key: null, dir: 'asc' };
+
+        function getImportedCostRows() {
+            return Array.from(document.querySelectorAll('.imported-cost-row'));
+        }
+
+        function getImportedCostRowCheckboxes() {
+            return Array.from(document.querySelectorAll('.imported-cost-row-checkbox'));
+        }
+
+        function getSelectedImportedRows() {
+            return getImportedCostRows().filter(row => row.querySelector('.imported-cost-row-checkbox')?.checked);
+        }
+
+        function setRowEditable(row, editable) {
+            row.querySelectorAll('.import-display').forEach(el => el.classList.toggle('hidden', editable));
+            row.querySelectorAll('.import-input').forEach(el => {
+                el.classList.toggle('hidden', !editable);
+                el.disabled = !editable;
+            });
+            row.classList.toggle('bg-blue-50', editable);
+        }
+
+        function lockAllRows() {
+            getImportedCostRows().forEach(row => setRowEditable(row, false));
+            if (saveSelectedEditsBtn) {
+                saveSelectedEditsBtn.classList.add('hidden');
+            }
+        }
+
+        function setAllImportedCostSelections(checked) {
+            const checkboxes = getImportedCostRowCheckboxes();
+            checkboxes.forEach(cb => { cb.checked = checked; });
+            if (headerSelectImportedCosts) {
+                headerSelectImportedCosts.checked = checked && checkboxes.length > 0;
+            }
+        }
+
+        function syncHeaderCheckboxState() {
+            const checkboxes = getImportedCostRowCheckboxes();
+            const checked = checkboxes.filter(cb => cb.checked).length;
+            if (headerSelectImportedCosts) {
+                headerSelectImportedCosts.checked = checkboxes.length > 0 && checked === checkboxes.length;
+                headerSelectImportedCosts.indeterminate = checked > 0 && checked < checkboxes.length;
+            }
+        }
+
+        function getRowSortValue(row, key) {
+            const rowId = row.dataset.rowId;
+            if (!rowId) return '';
+
+            const fieldMap = {
+                date: `rows[${rowId}][date]`,
+                supplier: `rows[${rowId}][subject_or_supplier]`,
+                document: `rows[${rowId}][document]`,
+                amount: `rows[${rowId}][amount_net]`,
+                description: `rows[${rowId}][description]`,
+                status: `rows[${rowId}][status]`,
+                payment_date: `rows[${rowId}][payment_date]`,
+            };
+
+            const selector = fieldMap[key];
+            if (!selector) return '';
+            const field = row.querySelector(`[name="${selector}"]`);
+            const value = (field?.value || '').toString().trim();
+
+            if (key === 'amount') {
+                const normalized = value.replace(/\s+/g, '').replace(',', '.');
+                return parseFloat(normalized) || 0;
+            }
+
+            if (key === 'date' || key === 'payment_date') {
+                return value || '0000-00-00';
+            }
+
+            return value.toLowerCase();
+        }
+
+        function sortImportedRowsBy(key) {
+            const tbody = document.getElementById('imported-costs-tbody');
+            if (!tbody) return;
+
+            const rows = getImportedCostRows();
+            const dir = importedSortState.key === key && importedSortState.dir === 'asc' ? 'desc' : 'asc';
+            importedSortState = { key, dir };
+
+            rows.sort((a, b) => {
+                const av = getRowSortValue(a, key);
+                const bv = getRowSortValue(b, key);
+
+                if (av < bv) return dir === 'asc' ? -1 : 1;
+                if (av > bv) return dir === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        if (headerSelectImportedCosts) {
+            headerSelectImportedCosts.addEventListener('change', function() {
+                setAllImportedCostSelections(this.checked);
+                syncHeaderCheckboxState();
+            });
+        }
+
+        if (selectAllImportedCostsBtn) {
+            selectAllImportedCostsBtn.addEventListener('click', function() {
+                setAllImportedCostSelections(true);
+                syncHeaderCheckboxState();
+            });
+        }
+
+        if (deselectAllImportedCostsBtn) {
+            deselectAllImportedCostsBtn.addEventListener('click', function() {
+                setAllImportedCostSelections(false);
+                lockAllRows();
+                syncHeaderCheckboxState();
+            });
+        }
+
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('imported-cost-row-checkbox')) {
+                syncHeaderCheckboxState();
+            }
+        });
+
+        if (enableEditSelectedBtn) {
+            enableEditSelectedBtn.addEventListener('click', function() {
+                const selectedRows = getSelectedImportedRows();
+                if (selectedRows.length === 0) {
+                    alert('Zaznacz co najmniej jeden wiersz do edycji.');
+                    return;
+                }
+
+                lockAllRows();
+                selectedRows.forEach(row => setRowEditable(row, true));
+                if (saveSelectedEditsBtn) {
+                    saveSelectedEditsBtn.classList.remove('hidden');
+                }
+            });
+        }
+
+        if (importedCostsForm && saveSelectedEditsBtn) {
+            importedCostsForm.addEventListener('submit', function(e) {
+                const submitter = e.submitter;
+                if (!submitter) return;
+
+                if (submitter.name === 'bulk_action' && submitter.value === 'update') {
+                    const selectedRows = getSelectedImportedRows();
+                    if (selectedRows.length === 0) {
+                        e.preventDefault();
+                        alert('Zaznacz co najmniej jeden wiersz do zapisania.');
+                        return;
+                    }
+                }
+            });
+        }
+
+        importedSortableHeaders.forEach(header => {
+            header.addEventListener('click', function() {
+                const key = this.dataset.sortKey;
+                if (key) {
+                    sortImportedRowsBy(key);
+                }
+            });
+        });
+
+        lockAllRows();
+        syncHeaderCheckboxState();
         
         // Drag & drop dla wierszy finansowych
         let finDragged = null;
