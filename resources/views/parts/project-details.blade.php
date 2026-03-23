@@ -602,9 +602,9 @@
             
             <div class="mb-4 flex gap-2 items-center flex-wrap">
                 <label class="text-sm font-semibold text-gray-700">Widok:</label>
-                <button class="frappe-view-btn bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm" data-mode="Quarter Day">Ćwierć dnia</button>
+                <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Quarter Day">Ćwierć dnia</button>
                 <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Half Day">Pół dnia</button>
-                <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Day">Dzień</button>
+                <button class="frappe-view-btn bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm" data-mode="Day">Dzień</button>
                 <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Week">Tydzień</button>
                 <button class="frappe-view-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm" data-mode="Month">Miesiąc</button>
                 <button id="frappe-today" class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 text-sm ml-4">
@@ -2119,7 +2119,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 bar_corner_radius: 3,
                 arrow_curve: 5,
                 padding: 18,
-                view_mode: 'Month',
+                view_mode: 'Day',
                 date_format: 'YYYY-MM-DD',
                 language: 'en',
                 custom_popup_html: function(task) {
@@ -2169,25 +2169,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 }
             };
-            // Obsługa wszystkich trybów (bez Half Month)
-            if (window.frappeLastViewMode) {
-                ganttConfig.view_mode = window.frappeLastViewMode;
-                if (window.frappeLastViewMode === 'Month') {
-                    ganttConfig.step = 24 * 30;
-                    ganttConfig.column_width = 60;
-                } else if (window.frappeLastViewMode === 'Week') {
-                    ganttConfig.step = 24 * 7;
-                    ganttConfig.column_width = 40;
-                } else if (window.frappeLastViewMode === 'Day') {
-                    ganttConfig.step = 24;
-                    ganttConfig.column_width = 30;
-                } else if (window.frappeLastViewMode === 'Half Day') {
-                    ganttConfig.step = 12;
-                    ganttConfig.column_width = 18;
-                } else if (window.frappeLastViewMode === 'Quarter Day') {
-                    ganttConfig.step = 6;
-                    ganttConfig.column_width = 12;
-                }
+            const currentViewMode = window.frappeCurrentViewMode || 'Day';
+            ganttConfig.view_mode = currentViewMode;
+            if (currentViewMode === 'Month') {
+                ganttConfig.step = 24 * 30;
+                ganttConfig.column_width = 60;
+            } else if (currentViewMode === 'Week') {
+                ganttConfig.step = 24 * 7;
+                ganttConfig.column_width = 40;
+            } else if (currentViewMode === 'Day') {
+                ganttConfig.step = 24;
+                ganttConfig.column_width = 30;
+            } else if (currentViewMode === 'Half Day') {
+                ganttConfig.step = 12;
+                ganttConfig.column_width = 18;
+            } else if (currentViewMode === 'Quarter Day') {
+                ganttConfig.step = 6;
+                ganttConfig.column_width = 12;
             }
             frappeGanttInstance = new Gantt("#frappe-gantt", frappeTasks, ganttConfig);
             renderTaskList();
@@ -2477,6 +2475,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Załaduj zadania z bazy przy starcie
     console.log('🚀 Inicjalizacja wykresu Gantta dla projektu #' + PROJECT_ID);
+    window.frappeCurrentViewMode = 'Day';
     loadTasksFromDB().then(() => {
         console.log('📊 Renderowanie wykresu Gantta z ' + frappeTasks.length + ' zadaniami...');
         renderGantt();
@@ -2486,7 +2485,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.querySelectorAll('.frappe-view-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-            window.frappeLastViewMode = this.dataset.mode;
+            window.frappeCurrentViewMode = this.dataset.mode;
             renderGantt();
         });
     });
