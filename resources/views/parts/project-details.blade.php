@@ -1033,33 +1033,33 @@
 
                     <form action="{{ route('magazyn.projects.issuedInvoices.store', $project->id) }}" method="POST" class="space-y-2">
                         @csrf
-                        <div class="finance-form-row finance-form-row-issued-top">
-                            <div>
+                        <div class="finance-fixed-row">
+                            <div class="finance-field finance-field-date">
                                 <label class="block text-xs text-gray-600 mb-1">Data</label>
                                 <input type="date" name="issued_invoice_date" value="{{ old('issued_invoice_date') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
                             </div>
-                            <div>
+                            <div class="finance-field finance-field-number">
                                 <label class="block text-xs text-gray-600 mb-1">Nr faktury</label>
                                 <input type="text" name="issued_invoice_number" value="{{ old('issued_invoice_number') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="FV/2026/...">
                             </div>
-                            <div>
+                            <div class="finance-field finance-field-flex">
                                 <label class="block text-xs text-gray-600 mb-1">Opis</label>
                                 <input type="text" name="issued_invoice_description" value="{{ old('issued_invoice_description') }}" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="Opis faktury">
                             </div>
                         </div>
 
-                        <div class="finance-form-row finance-form-row-issued-bottom">
-                            <div>
+                        <div class="finance-fixed-row">
+                            <div class="finance-field finance-field-amount">
                                 <label class="block text-xs text-gray-600 mb-1">Kwota netto</label>
                                 <input type="text" name="issued_invoice_amount_net" value="{{ old('issued_invoice_amount_net') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="0,00">
                             </div>
-                            <div>
+                            <div class="finance-field finance-field-date">
                                 <label class="block text-xs text-gray-600 mb-1">Termin płatności</label>
                                 <input type="date" name="issued_invoice_payment_date" value="{{ old('issued_invoice_payment_date') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
                             </div>
-                            <div>
+                            <div class="finance-field finance-field-status">
                                 <label class="block text-xs text-gray-600 mb-1">Status</label>
-                                <select name="issued_invoice_status" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                                <select name="issued_invoice_status" required class="finance-status-select px-2 py-1.5 border border-gray-300 rounded text-sm">
                                     <option value="Opłacono" {{ old('issued_invoice_status') === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
                                     <option value="Nie opłacono" {{ old('issued_invoice_status', 'Nie opłacono') === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
                                 </select>
@@ -1161,40 +1161,40 @@
 
                     <form action="{{ route('magazyn.projects.orders.store', $project->id) }}" method="POST" class="space-y-2">
                         @csrf
-                        <div class="finance-form-row finance-form-row-orders-top">
-                            <div>
+                        <div class="finance-fixed-row">
+                            <div class="finance-field finance-field-date">
                                 <label class="block text-xs text-gray-600 mb-1">Data</label>
                                 <input type="date" name="order_date" value="{{ old('order_date') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
                             </div>
-                            <div>
+                            <div class="finance-field finance-field-number">
                                 <label class="block text-xs text-gray-600 mb-1">Nr zamówienia</label>
                                 <input type="text" name="order_number" value="{{ old('order_number') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="ZAM/2026/...">
                             </div>
-                            <div>
+                            <div class="finance-field finance-field-type">
                                 <label class="block text-xs text-gray-600 mb-1">Typ</label>
                                 <select name="order_category" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
                                     <option value="materials" {{ old('order_category', 'materials') === 'materials' ? 'selected' : '' }}>Materiały</option>
                                     <option value="services" {{ old('order_category') === 'services' ? 'selected' : '' }}>Usługi</option>
                                 </select>
                             </div>
-                            <div>
+                            <div class="finance-field finance-field-flex">
                                 <label class="block text-xs text-gray-600 mb-1">Opis</label>
                                 <input type="text" name="order_description" value="{{ old('order_description') }}" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="Opis zamówienia">
                             </div>
                         </div>
 
-                        <div class="finance-form-row finance-form-row-orders-bottom">
-                            <div>
+                        <div class="finance-fixed-row">
+                            <div class="finance-field finance-field-amount">
                                 <label class="block text-xs text-gray-600 mb-1">Kwota netto</label>
                                 <input type="text" name="order_amount_net" value="{{ old('order_amount_net') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="0,00">
                             </div>
-                            <div>
+                            <div class="finance-field finance-field-date">
                                 <label class="block text-xs text-gray-600 mb-1">Termin płatności</label>
                                 <input type="date" name="order_payment_date" value="{{ old('order_payment_date') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
                             </div>
-                            <div>
+                            <div class="finance-field finance-field-status">
                                 <label class="block text-xs text-gray-600 mb-1">Status</label>
-                                <select name="order_status" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                                <select name="order_status" required class="finance-status-select px-2 py-1.5 border border-gray-300 rounded text-sm">
                                     <option value="Oczekiwanie" {{ old('order_status', 'Oczekiwanie') === 'Oczekiwanie' ? 'selected' : '' }}>Oczekiwanie</option>
                                     <option value="Nie opłacono" {{ old('order_status') === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
                                     <option value="Opłacono" {{ old('order_status') === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
@@ -2178,34 +2178,63 @@
         font-weight: 700;
     }
 
-    .finance-form-row {
-        display: grid;
+    .finance-fixed-row {
+        display: flex;
         gap: 0.5rem;
-        align-items: end;
+        align-items: flex-end;
     }
 
-    .finance-form-row-issued-top {
-        grid-template-columns: 1fr 1.3fr 1.7fr;
+    .finance-field {
+        min-width: 0;
     }
 
-    .finance-form-row-issued-bottom {
-        grid-template-columns: 1fr 1fr 1fr;
+    .finance-field-date,
+    .finance-field-amount {
+        flex: 0 0 170px;
+        max-width: 170px;
     }
 
-    .finance-form-row-orders-top {
-        grid-template-columns: 1fr 1.3fr 0.9fr 1.5fr;
+    .finance-field-number {
+        flex: 0 0 220px;
+        max-width: 220px;
     }
 
-    .finance-form-row-orders-bottom {
-        grid-template-columns: 1fr 1fr 1fr;
+    .finance-field-type {
+        flex: 0 0 140px;
+        max-width: 140px;
     }
 
-    @media (max-width: 900px) {
-        .finance-form-row-issued-top,
-        .finance-form-row-issued-bottom,
-        .finance-form-row-orders-top,
-        .finance-form-row-orders-bottom {
-            grid-template-columns: 1fr;
+    .finance-field-status {
+        flex: 0 0 auto;
+    }
+
+    .finance-status-select {
+        width: auto;
+        min-width: 145px;
+    }
+
+    .finance-field-flex {
+        flex: 1 1 auto;
+    }
+
+    @media (max-width: 1024px) {
+        .finance-fixed-row {
+            flex-wrap: wrap;
+        }
+
+        .finance-field-date,
+        .finance-field-amount,
+        .finance-field-number,
+        .finance-field-type,
+        .finance-field-status,
+        .finance-field-flex {
+            flex: 1 1 100%;
+            max-width: 100%;
+        }
+
+        .finance-status-select {
+            width: 100%;
+            min-width: 0;
         }
     }
 </style>
