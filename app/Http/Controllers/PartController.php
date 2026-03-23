@@ -769,12 +769,14 @@ class PartController extends Controller
             $hasSupplierColumn = $this->hasColumnSafe('project_finance', 'supplier');
             $hasDocumentNumberColumn = $this->hasColumnSafe('project_finance', 'document_number');
             $hasDescriptionColumn = $this->hasColumnSafe('project_finance', 'description');
+            $hasFinanceGroupColumn = $this->hasColumnSafe('project_finance', 'finance_group');
             $hasPaymentDateColumn = $this->hasColumnSafe('project_finance', 'payment_date');
             $hasStatusColumn = $this->hasColumnSafe('project_finance', 'status');
             $hasCategoryColumn = $this->hasColumnSafe('project_finance', 'category');
 
             $importedCostRows = [];
             $issuedInvoiceRows = [];
+            $importedCostGroups = [];
             if ($hasProjectFinanceTable && $hasCategoryColumn) {
                 $importedCostsQuery = \App\Models\ProjectFinance::where('project_id', $project->id)
                     ->where('category', 'excel_import');
@@ -787,10 +789,11 @@ class PartController extends Controller
                 $importedCostRows = $importedCostsQuery
                     ->orderBy('id')
                     ->get()
-                    ->map(function ($item) use ($hasSupplierColumn, $hasDocumentNumberColumn, $hasDescriptionColumn, $hasPaymentDateColumn, $hasStatusColumn) {
+                    ->map(function ($item) use ($hasSupplierColumn, $hasDocumentNumberColumn, $hasDescriptionColumn, $hasFinanceGroupColumn, $hasPaymentDateColumn, $hasStatusColumn) {
                         $supplier = $hasSupplierColumn ? trim((string) ($item->supplier ?? '')) : '';
                         $document = $hasDocumentNumberColumn ? trim((string) ($item->document_number ?? '')) : '';
                         $description = $hasDescriptionColumn ? trim((string) ($item->description ?? '')) : '';
+                        $financeGroup = $hasFinanceGroupColumn ? trim((string) ($item->finance_group ?? '')) : '';
 
                         if ($supplier === '' && $document === '' && $description === '') {
                             $legacyParts = array_map('trim', explode('|', (string) ($item->name ?? '')));
@@ -806,12 +809,27 @@ class PartController extends Controller
                             'document' => $document,
                             'amount_net' => $item->amount !== null ? number_format((float) $item->amount, 2, '.', '') : '',
                             'description' => $description,
+                            'group' => $financeGroup,
                             'status' => $this->mapStatusToLabel((string) (($hasStatusColumn ? $item->status : 'pending') ?? 'pending')),
                             'payment_date' => ($hasPaymentDateColumn && $item->payment_date) ? \Carbon\Carbon::parse($item->payment_date)->format('Y-m-d') : '',
                         ];
                     })
                     ->values()
                     ->all();
+
+                if ($hasFinanceGroupColumn) {
+                    $importedCostGroups = \App\Models\ProjectFinance::where('project_id', $project->id)
+                        ->where('category', 'excel_import')
+                        ->whereNotNull('finance_group')
+                        ->where('finance_group', '<>', '')
+                        ->distinct()
+                        ->orderBy('finance_group')
+                        ->pluck('finance_group')
+                        ->map(fn ($group) => trim((string) $group))
+                        ->filter(fn ($group) => $group !== '')
+                        ->values()
+                        ->all();
+                }
 
                 $issuedInvoiceRows = \App\Models\ProjectFinance::where('project_id', $project->id)
                     ->where('category', 'issued_invoice')
@@ -880,6 +898,7 @@ class PartController extends Controller
                 'loadedLists' => $loadedLists,
                 'outsideListsData' => $outsideListsData,
                 'importedCostRows' => $importedCostRows,
+                'importedCostGroups' => $importedCostGroups,
                 'issuedInvoiceRows' => $issuedInvoiceRows,
                 'importedCostMeta' => session('imported_project_costs_meta', []),
                 'financeSummary' => $financeSummary,
@@ -910,6 +929,8 @@ class PartController extends Controller
 
         $request->validate([
             'costs_file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+            'costs_group_select' => 'required|string|max:100',
+            'costs_group_new' => 'nullable|string|max:100|required_if:costs_group_select,__new__',
         ]);
 
         if (!$this->hasTableSafe('project_finance')) {
@@ -929,8 +950,19 @@ class PartController extends Controller
         $hasSupplierColumn = $this->hasColumnSafe('project_finance', 'supplier');
         $hasDocumentNumberColumn = $this->hasColumnSafe('project_finance', 'document_number');
         $hasDescriptionColumn = $this->hasColumnSafe('project_finance', 'description');
+        $hasFinanceGroupColumn = $this->hasColumnSafe('project_finance', 'finance_group');
         $hasPaymentDateColumn = $this->hasColumnSafe('project_finance', 'payment_date');
         $hasImportRowOrderColumn = $this->hasColumnSafe('project_finance', 'import_row_order');
+        $selectedGroup = trim((string) $request->input('costs_group_select', ''));
+        $newGroup = trim((string) $request->input('costs_group_new', ''));
+        $assignedGroup = $selectedGroup === '__new__' ? $newGroup : $selectedGroup;
+
+        if ($assignedGroup === '') {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->withInput()
+                ->with('error', 'Wybierz grupę lub wpisz nazwę nowej grupy przed importem.')
+                ->with('finance_import_feedback', true);
+        }
 
         $file = $request->file('costs_file');
         $sheets = Excel::toArray([], $file);
@@ -1008,6 +1040,9 @@ class PartController extends Controller
             if ($hasDescriptionColumn) {
                 $createPayload['description'] = $description !== '' ? $description : null;
             }
+            if ($hasFinanceGroupColumn) {
+                $createPayload['finance_group'] = $assignedGroup !== '' ? mb_substr($assignedGroup, 0, 100) : null;
+            }
             if ($hasOrderColumn) {
                 $createPayload['order'] = ++$nextOrder;
             }
@@ -1029,6 +1064,7 @@ class PartController extends Controller
                     'document' => $document,
                     'amount_net' => $amount !== null ? number_format($amount, 2, '.', '') : '',
                     'description' => $description,
+                    'group' => $assignedGroup,
                     'status' => $this->mapStatusToLabel($mappedStatus),
                     'payment_date' => $paymentDate,
                 ];
@@ -1076,6 +1112,7 @@ class PartController extends Controller
         $hasSupplierColumn = $this->hasColumnSafe('project_finance', 'supplier');
         $hasDocumentNumberColumn = $this->hasColumnSafe('project_finance', 'document_number');
         $hasDescriptionColumn = $this->hasColumnSafe('project_finance', 'description');
+        $hasFinanceGroupColumn = $this->hasColumnSafe('project_finance', 'finance_group');
         $hasPaymentDateColumn = $this->hasColumnSafe('project_finance', 'payment_date');
 
         $action = (string) $request->input('bulk_action', '');
@@ -1128,6 +1165,7 @@ class PartController extends Controller
             $supplier = trim((string) ($rowData['subject_or_supplier'] ?? ''));
             $document = trim((string) ($rowData['document'] ?? ''));
             $description = trim((string) ($rowData['description'] ?? ''));
+            $financeGroup = trim((string) ($rowData['group'] ?? ''));
             $statusText = trim((string) ($rowData['status'] ?? ''));
             $paymentDate = $this->parseImportedExcelDate($rowData['payment_date'] ?? null);
 
@@ -1155,6 +1193,9 @@ class PartController extends Controller
             }
             if ($hasDescriptionColumn) {
                 $updatePayload['description'] = $description !== '' ? $description : null;
+            }
+            if ($hasFinanceGroupColumn) {
+                $updatePayload['finance_group'] = $financeGroup !== '' ? mb_substr($financeGroup, 0, 100) : null;
             }
             if ($hasPaymentDateColumn) {
                 $updatePayload['payment_date'] = $paymentDate;

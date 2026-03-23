@@ -775,18 +775,53 @@
                         {{ $message }}
                     </div>
                 @enderror
+                @error('costs_group_select')
+                    <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
+                        {{ $message }}
+                    </div>
+                @enderror
+                @error('costs_group_new')
+                    <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
+                        {{ $message }}
+                    </div>
+                @enderror
                 <p class="text-xs text-gray-500 mb-3">
                     Oczekiwane kolumny: Data / Data księgowania, Podmiot / Przedmiot / Dostawca, Dokument, Kwota netto, Opis, Status, Data płatności. Inne kolumny są ignorowane, a brakujące kolumny zostaną uzupełnione pustą wartością.
                 </p>
+                @php
+                    $existingCostGroups = $importedCostGroups ?? [];
+                    $selectedCostsGroupMode = old('costs_group_select', empty($existingCostGroups) ? '__new__' : '');
+                @endphp
                 <form action="{{ route('magazyn.projects.importCostsExcel', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row gap-2 md:items-center">
                     @csrf
                     <input type="file" name="costs_file" accept=".xlsx,.xls,.csv" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
+                    <select id="costs-group-select" name="costs_group_select" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
+                        <option value="" {{ $selectedCostsGroupMode === '' ? 'selected' : '' }}>Wybierz grupę</option>
+                        @foreach($existingCostGroups as $existingCostGroup)
+                            <option value="{{ $existingCostGroup }}" {{ $selectedCostsGroupMode === $existingCostGroup ? 'selected' : '' }}>{{ $existingCostGroup }}</option>
+                        @endforeach
+                        <option value="__new__" {{ $selectedCostsGroupMode === '__new__' ? 'selected' : '' }}>➕ Dodaj nową grupę</option>
+                    </select>
+                    <input type="text" id="costs-group-new" name="costs_group_new" value="{{ old('costs_group_new') }}" placeholder="Nowa grupa (np. Materiały 2026)" class="px-3 py-2 border border-gray-300 rounded bg-white text-sm {{ $selectedCostsGroupMode === '__new__' ? '' : 'hidden' }}">
                     <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-semibold">
                         📥 Importuj koszty
                     </button>
                 </form>
             </div>
             @endif
+
+            <div class="mb-3">
+                <input
+                    type="text"
+                    id="imported-costs-search"
+                    placeholder="Szukaj po wszystkich kolumnach..."
+                    class="w-full md:w-96 px-3 py-2 border border-gray-300 rounded bg-white text-sm"
+                    {{ empty($importedCostRows ?? []) ? 'disabled' : '' }}
+                >
+                @if(empty($importedCostRows ?? []))
+                    <p class="mt-1 text-xs text-gray-500">Wyszukiwarka aktywuje się po zaimportowaniu pierwszych pozycji.</p>
+                @endif
+            </div>
 
             @if(!empty($importedCostRows ?? []))
             <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
@@ -822,6 +857,7 @@
                                     <th class="px-2 py-2 text-left imported-sortable-header cursor-pointer" data-sort-key="date">Data</th>
                                     <th class="px-2 py-2 text-left imported-sortable-header cursor-pointer" data-sort-key="supplier">Dostawca</th>
                                     <th class="px-2 py-2 text-left imported-sortable-header cursor-pointer" data-sort-key="document">Dokument</th>
+                                    <th class="px-2 py-2 text-left imported-sortable-header cursor-pointer" data-sort-key="group">Grupa</th>
                                     <th class="px-2 py-2 text-right imported-sortable-header cursor-pointer" data-sort-key="amount">Kwota netto</th>
                                     <th class="px-2 py-2 text-left imported-sortable-header cursor-pointer" data-sort-key="description">Opis</th>
                                     <th class="px-2 py-2 text-left imported-sortable-header cursor-pointer" data-sort-key="status">Status</th>
@@ -850,6 +886,10 @@
                                     <td class="px-2 py-2 truncate">
                                         <span class="import-display">{{ $importedRow['document'] ?? '' }}</span>
                                         <input type="text" name="rows[{{ $rowId }}][document]" value="{{ $importedRow['document'] ?? '' }}" class="import-input hidden w-full px-1.5 py-1 rounded border border-gray-300 bg-white text-xs" placeholder="Dokument" disabled>
+                                    </td>
+                                    <td class="px-2 py-2 truncate">
+                                        <span class="import-display">{{ $importedRow['group'] ?? '' }}</span>
+                                        <input type="text" name="rows[{{ $rowId }}][group]" value="{{ $importedRow['group'] ?? '' }}" class="import-input hidden w-full px-1.5 py-1 rounded border border-gray-300 bg-white text-xs" placeholder="Grupa" disabled>
                                     </td>
                                     <td class="px-2 py-2 text-right truncate whitespace-nowrap">
                                         <span class="import-display">{{ ($importedRow['amount_net'] ?? '') !== '' ? number_format((float) str_replace(',', '.', $importedRow['amount_net']), 2, ',', ' ') : '' }}</span>
@@ -1436,7 +1476,18 @@
         const enableEditSelectedBtn = document.getElementById('enable-edit-selected');
         const saveSelectedEditsBtn = document.getElementById('save-selected-edits');
         const importedSortableHeaders = document.querySelectorAll('.imported-sortable-header');
+        const importedCostsSearchInput = document.getElementById('imported-costs-search');
+        const costsGroupSelect = document.getElementById('costs-group-select');
+        const costsGroupNewInput = document.getElementById('costs-group-new');
         let importedSortState = { key: null, dir: 'asc' };
+
+        function syncCostsGroupInputVisibility() {
+            if (!costsGroupSelect || !costsGroupNewInput) return;
+
+            const isNewGroup = costsGroupSelect.value === '__new__';
+            costsGroupNewInput.classList.toggle('hidden', !isNewGroup);
+            costsGroupNewInput.required = isNewGroup;
+        }
 
         function getImportedCostRows() {
             return Array.from(document.querySelectorAll('.imported-cost-row'));
@@ -1491,6 +1542,7 @@
                 date: `rows[${rowId}][date]`,
                 supplier: `rows[${rowId}][subject_or_supplier]`,
                 document: `rows[${rowId}][document]`,
+                group: `rows[${rowId}][group]`,
                 amount: `rows[${rowId}][amount_net]`,
                 description: `rows[${rowId}][description]`,
                 status: `rows[${rowId}][status]`,
@@ -1532,6 +1584,20 @@
             });
 
             rows.forEach(row => tbody.appendChild(row));
+            applyImportedCostsSearchFilter();
+        }
+
+        function applyImportedCostsSearchFilter() {
+            const search = (importedCostsSearchInput?.value || '').toLowerCase().trim();
+            getImportedCostRows().forEach(row => {
+                if (search === '') {
+                    row.classList.remove('hidden');
+                    return;
+                }
+
+                const rowText = (row.textContent || '').toLowerCase();
+                row.classList.toggle('hidden', !rowText.includes(search));
+            });
         }
 
         if (headerSelectImportedCosts) {
@@ -1603,8 +1669,18 @@
             });
         });
 
+        if (importedCostsSearchInput) {
+            importedCostsSearchInput.addEventListener('input', applyImportedCostsSearchFilter);
+        }
+
+        if (costsGroupSelect) {
+            costsGroupSelect.addEventListener('change', syncCostsGroupInputVisibility);
+            syncCostsGroupInputVisibility();
+        }
+
         lockAllRows();
         syncHeaderCheckboxState();
+        applyImportedCostsSearchFilter();
         
         // Drag & drop dla wierszy finansowych
         let finDragged = null;

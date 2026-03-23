@@ -23,6 +23,7 @@ class ProjectFinance extends Model
         'supplier',
         'document_number',
         'description',
+        'finance_group',
         'amount',
         'date',
         'payment_date',
