@@ -1467,6 +1467,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/projekty/{project}', [PartController::class, 'showProject'])->name('magazyn.projects.show')->middleware('auth');
     Route::post('/projekty/{project}/import-koszty-excel', [PartController::class, 'importProjectCostsExcel'])->name('magazyn.projects.importCostsExcel')->middleware('auth');
     Route::post('/projekty/{project}/import-koszty-excel/akcje-zbiorcze', [PartController::class, 'bulkManageImportedProjectCosts'])->name('magazyn.projects.importCostsExcel.bulk')->middleware('auth');
+    Route::post('/projekty/{project}/import-koszty-excel/grupy', [PartController::class, 'manageImportedProjectCostGroups'])->name('magazyn.projects.importCostsExcel.groups')->middleware('auth');
     Route::post('/projekty/{project}/faktury-wystawione', [PartController::class, 'storeIssuedProjectInvoice'])->name('magazyn.projects.issuedInvoices.store')->middleware('auth');
     Route::post('/projekty/{project}/faktury-wystawione/{finance}/status', [PartController::class, 'updateIssuedProjectInvoiceStatus'])->name('magazyn.projects.issuedInvoices.status')->middleware('auth');
     Route::get('/projekty/{project}/eksport-produkty-xlsx', [PartController::class, 'exportProjectProductsXlsx'])->name('magazyn.projects.exportProductsXlsx')->middleware('auth');

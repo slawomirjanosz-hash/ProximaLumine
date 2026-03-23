@@ -899,6 +899,7 @@ class PartController extends Controller
                 'outsideListsData' => $outsideListsData,
                 'importedCostRows' => $importedCostRows,
                 'importedCostGroups' => $importedCostGroups,
+                'hasFinanceGroupColumn' => $hasFinanceGroupColumn,
                 'issuedInvoiceRows' => $issuedInvoiceRows,
                 'importedCostMeta' => session('imported_project_costs_meta', []),
                 'financeSummary' => $financeSummary,
@@ -953,6 +954,13 @@ class PartController extends Controller
         $hasFinanceGroupColumn = $this->hasColumnSafe('project_finance', 'finance_group');
         $hasPaymentDateColumn = $this->hasColumnSafe('project_finance', 'payment_date');
         $hasImportRowOrderColumn = $this->hasColumnSafe('project_finance', 'import_row_order');
+
+        if (!$hasFinanceGroupColumn) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brakuje kolumny finance_group w project_finance. Uruchom migracje na serwerze (php artisan migrate).')
+                ->with('finance_import_feedback', true);
+        }
+
         $selectedGroup = trim((string) $request->input('costs_group_select', ''));
         $newGroup = trim((string) $request->input('costs_group_new', ''));
         $assignedGroup = $selectedGroup === '__new__' ? $newGroup : $selectedGroup;
@@ -1115,6 +1123,12 @@ class PartController extends Controller
         $hasFinanceGroupColumn = $this->hasColumnSafe('project_finance', 'finance_group');
         $hasPaymentDateColumn = $this->hasColumnSafe('project_finance', 'payment_date');
 
+        if (!$hasFinanceGroupColumn) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brakuje kolumny finance_group w project_finance. Uruchom migracje na serwerze (php artisan migrate).')
+                ->with('finance_import_feedback', true);
+        }
+
         $action = (string) $request->input('bulk_action', '');
         $selectedIds = collect($request->input('selected_ids', []))
             ->map(fn ($id) => (int) $id)
@@ -1208,6 +1222,81 @@ class PartController extends Controller
 
         return redirect()->route('magazyn.projects.show', $project->id)
             ->with('success', "Zaktualizowano {$updated} zaznaczonych pozycji.")
+            ->with('finance_import_feedback', true);
+    }
+
+    public function manageImportedProjectCostGroups(Request $request, \App\Models\Project $project)
+    {
+        $user = auth()->user();
+        if (!$user || (!$user->is_admin && !$user->can_import_project_costs_excel)) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Nie masz uprawnień do zarządzania grupami kosztów.')
+                ->with('finance_import_feedback', true);
+        }
+
+        if (!$this->hasTableSafe('project_finance')
+            || !$this->hasColumnSafe('project_finance', 'category')
+            || !$this->hasColumnSafe('project_finance', 'finance_group')) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brakuje wymaganych kolumn dla grup kosztów. Uruchom migracje na serwerze (php artisan migrate).')
+                ->with('finance_import_feedback', true);
+        }
+
+        $request->validate([
+            'group_action' => 'required|in:rename,delete',
+            'group_name' => 'required|string|max:100',
+            'new_group_name' => 'nullable|string|max:100|required_if:group_action,rename',
+        ]);
+
+        $action = (string) $request->input('group_action');
+        $groupName = trim((string) $request->input('group_name', ''));
+
+        if ($groupName === '') {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->withInput()
+                ->with('error', 'Wybierz poprawną grupę.')
+                ->with('finance_import_feedback', true);
+        }
+
+        $groupRowsQuery = \App\Models\ProjectFinance::where('project_id', $project->id)
+            ->where('category', 'excel_import')
+            ->where('finance_group', $groupName);
+
+        $rowsCount = (int) $groupRowsQuery->count();
+        if ($rowsCount === 0) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Wybrana grupa nie zawiera żadnych pozycji.')
+                ->with('finance_import_feedback', true);
+        }
+
+        if ($action === 'rename') {
+            $newGroupName = trim((string) $request->input('new_group_name', ''));
+
+            if ($newGroupName === '') {
+                return redirect()->route('magazyn.projects.show', $project->id)
+                    ->withInput()
+                    ->with('error', 'Podaj nową nazwę grupy.')
+                    ->with('finance_import_feedback', true);
+            }
+
+            if ($newGroupName === $groupName) {
+                return redirect()->route('magazyn.projects.show', $project->id)
+                    ->withInput()
+                    ->with('error', 'Nowa nazwa grupy jest taka sama jak obecna.')
+                    ->with('finance_import_feedback', true);
+            }
+
+            $updated = (int) $groupRowsQuery->update(['finance_group' => mb_substr($newGroupName, 0, 100)]);
+
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('success', "Zmieniono nazwę grupy '{$groupName}' na '{$newGroupName}' w {$updated} pozycjach.")
+                ->with('finance_import_feedback', true);
+        }
+
+        $updated = (int) $groupRowsQuery->update(['finance_group' => null]);
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', "Usunięto przypisanie grupy '{$groupName}' z {$updated} pozycji.")
             ->with('finance_import_feedback', true);
     }
 

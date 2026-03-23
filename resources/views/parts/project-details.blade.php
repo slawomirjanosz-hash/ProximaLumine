@@ -760,6 +760,11 @@
             @if($canImportProjectCostsExcel)
             <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
                 <h4 class="font-semibold text-gray-800 mb-2">Import kosztów z Excela</h4>
+                @if(!($hasFinanceGroupColumn ?? false))
+                    <div class="mb-3 p-3 rounded border border-amber-200 bg-amber-50 text-amber-800 text-sm">
+                        Brak kolumny <strong>finance_group</strong> w bazie. Uruchom migracje na Railway, inaczej grupy nie będą zapisywane.
+                    </div>
+                @endif
                 @if(session('success') && session('finance_import_feedback'))
                     <div class="mb-3 p-3 rounded border border-green-200 bg-green-50 text-green-800 text-sm">
                         {{ session('success') }}
@@ -808,6 +813,48 @@
                     </button>
                 </form>
             </div>
+
+            @if(($hasFinanceGroupColumn ?? false) && !empty($existingCostGroups ?? []))
+            <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                <h4 class="font-semibold text-gray-800 mb-3">Zarządzanie grupami</h4>
+                @error('group_action')
+                    <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">{{ $message }}</div>
+                @enderror
+                @error('group_name')
+                    <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">{{ $message }}</div>
+                @enderror
+                @error('new_group_name')
+                    <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">{{ $message }}</div>
+                @enderror
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <form action="{{ route('magazyn.projects.importCostsExcel.groups', $project->id) }}" method="POST" class="flex flex-col md:flex-row gap-2 md:items-center">
+                        @csrf
+                        <input type="hidden" name="group_action" value="rename">
+                        <select name="group_name" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
+                            <option value="">Wybierz grupę</option>
+                            @foreach($existingCostGroups as $existingCostGroup)
+                                <option value="{{ $existingCostGroup }}">{{ $existingCostGroup }}</option>
+                            @endforeach
+                        </select>
+                        <input type="text" name="new_group_name" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm" placeholder="Nowa nazwa grupy">
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-semibold">✏️ Zmień nazwę</button>
+                    </form>
+
+                    <form action="{{ route('magazyn.projects.importCostsExcel.groups', $project->id) }}" method="POST" class="flex flex-col md:flex-row gap-2 md:items-center" onsubmit="return confirm('Usunąć grupę ze wszystkich przypisanych pozycji?')">
+                        @csrf
+                        <input type="hidden" name="group_action" value="delete">
+                        <select name="group_name" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
+                            <option value="">Wybierz grupę</option>
+                            @foreach($existingCostGroups as $existingCostGroup)
+                                <option value="{{ $existingCostGroup }}">{{ $existingCostGroup }}</option>
+                            @endforeach
+                        </select>
+                        <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-semibold">🗑️ Usuń grupę</button>
+                    </form>
+                </div>
+            </div>
+            @endif
             @endif
 
             <div class="mb-3">
