@@ -755,9 +755,72 @@
 
             @php
                 $canImportProjectCostsExcel = auth()->check() && (auth()->user()->is_admin || auth()->user()->can_import_project_costs_excel);
+                $existingCostGroups = $importedCostGroups ?? [];
+                $importedCostGroupSummariesData = $importedCostGroupSummaries ?? [];
             @endphp
 
             @if($canImportProjectCostsExcel)
+            @if(($hasFinanceGroupColumn ?? false) && !empty($importedCostGroupSummariesData))
+            <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                <h4 class="font-semibold text-gray-800 mb-3">Grupy kosztów</h4>
+                @error('group_action')
+                    <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">{{ $message }}</div>
+                @enderror
+                @error('group_name')
+                    <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">{{ $message }}</div>
+                @enderror
+                @error('new_group_name')
+                    <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">{{ $message }}</div>
+                @enderror
+
+                @php
+                    $groupRowStyles = [
+                        'bg-blue-50 text-blue-900',
+                        'bg-indigo-50 text-indigo-900',
+                        'bg-emerald-50 text-emerald-900',
+                        'bg-amber-50 text-amber-900',
+                        'bg-rose-50 text-rose-900',
+                    ];
+                @endphp
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <tbody>
+                            @foreach($importedCostGroupSummariesData as $summaryIndex => $groupSummary)
+                                @php
+                                    $rowClass = $groupRowStyles[$summaryIndex % count($groupRowStyles)];
+                                    $groupName = (string) ($groupSummary['group'] ?? '');
+                                    $groupAmount = (float) ($groupSummary['total_amount'] ?? 0);
+                                @endphp
+                                <tr class="{{ $rowClass }} border-b border-white/60">
+                                    <td class="px-3 py-2 font-semibold whitespace-nowrap">{{ $groupName }}</td>
+                                    <td class="pl-2 pr-3 py-2 text-right font-bold whitespace-nowrap">{{ number_format($groupAmount, 2, ',', ' ') }} zł</td>
+                                    <td class="px-3 py-2">
+                                        <div class="flex flex-col md:flex-row gap-2 md:items-center md:justify-end">
+                                            <form action="{{ route('magazyn.projects.importCostsExcel.groups', $project->id) }}" method="POST" class="flex gap-2 items-center">
+                                                @csrf
+                                                <input type="hidden" name="group_action" value="rename">
+                                                <input type="hidden" name="group_name" value="{{ $groupName }}">
+                                                <input type="text" name="new_group_name" required class="px-2 py-1.5 border border-gray-300 rounded bg-white text-xs text-gray-900" placeholder="Nowa nazwa grupy">
+                                                <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-semibold">✏️ Edytuj</button>
+                                            </form>
+
+                                            <form action="{{ route('magazyn.projects.importCostsExcel.groups', $project->id) }}" method="POST" onsubmit="return confirm('Usunąć grupę ze wszystkich przypisanych pozycji?')">
+                                                @csrf
+                                                <input type="hidden" name="group_action" value="delete">
+                                                <input type="hidden" name="group_name" value="{{ $groupName }}">
+                                                <button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-semibold">🗑️ Usuń</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            @endif
+
             <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
                 <h4 class="font-semibold text-gray-800 mb-2">Import kosztów z Excela</h4>
                 @if(!($hasFinanceGroupColumn ?? false))
@@ -780,12 +843,7 @@
                         {{ $message }}
                     </div>
                 @enderror
-                @error('costs_group_select')
-                    <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
-                        {{ $message }}
-                    </div>
-                @enderror
-                @error('costs_group_new')
+                @error('costs_group')
                     <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
                         {{ $message }}
                     </div>
@@ -793,68 +851,20 @@
                 <p class="text-xs text-gray-500 mb-3">
                     Oczekiwane kolumny: Data / Data księgowania, Podmiot / Przedmiot / Dostawca, Dokument, Kwota netto, Opis, Status, Data płatności. Inne kolumny są ignorowane, a brakujące kolumny zostaną uzupełnione pustą wartością.
                 </p>
-                @php
-                    $existingCostGroups = $importedCostGroups ?? [];
-                    $selectedCostsGroupMode = old('costs_group_select', empty($existingCostGroups) ? '__new__' : '');
-                @endphp
                 <form action="{{ route('magazyn.projects.importCostsExcel', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row gap-2 md:items-center">
                     @csrf
                     <input type="file" name="costs_file" accept=".xlsx,.xls,.csv" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
-                    <select id="costs-group-select" name="costs_group_select" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
-                        <option value="" {{ $selectedCostsGroupMode === '' ? 'selected' : '' }}>Wybierz grupę</option>
+                    <input type="text" name="costs_group" value="{{ old('costs_group') }}" list="imported-cost-groups-list" required placeholder="Wpisz grupę dla całego importu (np. Materiały)" class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
+                    <datalist id="imported-cost-groups-list">
                         @foreach($existingCostGroups as $existingCostGroup)
-                            <option value="{{ $existingCostGroup }}" {{ $selectedCostsGroupMode === $existingCostGroup ? 'selected' : '' }}>{{ $existingCostGroup }}</option>
+                            <option value="{{ $existingCostGroup }}"></option>
                         @endforeach
-                        <option value="__new__" {{ $selectedCostsGroupMode === '__new__' ? 'selected' : '' }}>➕ Dodaj nową grupę</option>
-                    </select>
-                    <input type="text" id="costs-group-new" name="costs_group_new" value="{{ old('costs_group_new') }}" placeholder="Nowa grupa (np. Materiały 2026)" class="px-3 py-2 border border-gray-300 rounded bg-white text-sm {{ $selectedCostsGroupMode === '__new__' ? '' : 'hidden' }}">
+                    </datalist>
                     <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-semibold">
                         📥 Importuj koszty
                     </button>
                 </form>
             </div>
-
-            @if(($hasFinanceGroupColumn ?? false) && !empty($existingCostGroups ?? []))
-            <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-                <h4 class="font-semibold text-gray-800 mb-3">Zarządzanie grupami</h4>
-                @error('group_action')
-                    <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">{{ $message }}</div>
-                @enderror
-                @error('group_name')
-                    <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">{{ $message }}</div>
-                @enderror
-                @error('new_group_name')
-                    <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">{{ $message }}</div>
-                @enderror
-
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    <form action="{{ route('magazyn.projects.importCostsExcel.groups', $project->id) }}" method="POST" class="flex flex-col md:flex-row gap-2 md:items-center">
-                        @csrf
-                        <input type="hidden" name="group_action" value="rename">
-                        <select name="group_name" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
-                            <option value="">Wybierz grupę</option>
-                            @foreach($existingCostGroups as $existingCostGroup)
-                                <option value="{{ $existingCostGroup }}">{{ $existingCostGroup }}</option>
-                            @endforeach
-                        </select>
-                        <input type="text" name="new_group_name" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm" placeholder="Nowa nazwa grupy">
-                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-semibold">✏️ Zmień nazwę</button>
-                    </form>
-
-                    <form action="{{ route('magazyn.projects.importCostsExcel.groups', $project->id) }}" method="POST" class="flex flex-col md:flex-row gap-2 md:items-center" onsubmit="return confirm('Usunąć grupę ze wszystkich przypisanych pozycji?')">
-                        @csrf
-                        <input type="hidden" name="group_action" value="delete">
-                        <select name="group_name" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
-                            <option value="">Wybierz grupę</option>
-                            @foreach($existingCostGroups as $existingCostGroup)
-                                <option value="{{ $existingCostGroup }}">{{ $existingCostGroup }}</option>
-                            @endforeach
-                        </select>
-                        <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-semibold">🗑️ Usuń grupę</button>
-                    </form>
-                </div>
-            </div>
-            @endif
             @endif
 
             <div class="mb-3">
@@ -1524,17 +1534,7 @@
         const saveSelectedEditsBtn = document.getElementById('save-selected-edits');
         const importedSortableHeaders = document.querySelectorAll('.imported-sortable-header');
         const importedCostsSearchInput = document.getElementById('imported-costs-search');
-        const costsGroupSelect = document.getElementById('costs-group-select');
-        const costsGroupNewInput = document.getElementById('costs-group-new');
         let importedSortState = { key: null, dir: 'asc' };
-
-        function syncCostsGroupInputVisibility() {
-            if (!costsGroupSelect || !costsGroupNewInput) return;
-
-            const isNewGroup = costsGroupSelect.value === '__new__';
-            costsGroupNewInput.classList.toggle('hidden', !isNewGroup);
-            costsGroupNewInput.required = isNewGroup;
-        }
 
         function getImportedCostRows() {
             return Array.from(document.querySelectorAll('.imported-cost-row'));
@@ -1718,11 +1718,6 @@
 
         if (importedCostsSearchInput) {
             importedCostsSearchInput.addEventListener('input', applyImportedCostsSearchFilter);
-        }
-
-        if (costsGroupSelect) {
-            costsGroupSelect.addEventListener('change', syncCostsGroupInputVisibility);
-            syncCostsGroupInputVisibility();
         }
 
         lockAllRows();

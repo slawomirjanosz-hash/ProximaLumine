@@ -777,6 +777,7 @@ class PartController extends Controller
             $importedCostRows = [];
             $issuedInvoiceRows = [];
             $importedCostGroups = [];
+            $importedCostGroupSummaries = [];
             if ($hasProjectFinanceTable && $hasCategoryColumn) {
                 $importedCostsQuery = \App\Models\ProjectFinance::where('project_id', $project->id)
                     ->where('category', 'excel_import');
@@ -827,6 +828,24 @@ class PartController extends Controller
                         ->pluck('finance_group')
                         ->map(fn ($group) => trim((string) $group))
                         ->filter(fn ($group) => $group !== '')
+                        ->values()
+                        ->all();
+
+                    $importedCostGroupSummaries = \App\Models\ProjectFinance::where('project_id', $project->id)
+                        ->where('category', 'excel_import')
+                        ->whereNotNull('finance_group')
+                        ->where('finance_group', '<>', '')
+                        ->select('finance_group', DB::raw('SUM(amount) as total_amount'))
+                        ->groupBy('finance_group')
+                        ->orderBy('finance_group')
+                        ->get()
+                        ->map(function ($row) {
+                            return [
+                                'group' => trim((string) ($row->finance_group ?? '')),
+                                'total_amount' => (float) ($row->total_amount ?? 0),
+                            ];
+                        })
+                        ->filter(fn ($row) => $row['group'] !== '')
                         ->values()
                         ->all();
                 }
@@ -899,6 +918,7 @@ class PartController extends Controller
                 'outsideListsData' => $outsideListsData,
                 'importedCostRows' => $importedCostRows,
                 'importedCostGroups' => $importedCostGroups,
+                'importedCostGroupSummaries' => $importedCostGroupSummaries,
                 'hasFinanceGroupColumn' => $hasFinanceGroupColumn,
                 'issuedInvoiceRows' => $issuedInvoiceRows,
                 'importedCostMeta' => session('imported_project_costs_meta', []),
@@ -930,8 +950,7 @@ class PartController extends Controller
 
         $request->validate([
             'costs_file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
-            'costs_group_select' => 'required|string|max:100',
-            'costs_group_new' => 'nullable|string|max:100|required_if:costs_group_select,__new__',
+            'costs_group' => 'required|string|max:100',
         ]);
 
         if (!$this->hasTableSafe('project_finance')) {
@@ -961,14 +980,12 @@ class PartController extends Controller
                 ->with('finance_import_feedback', true);
         }
 
-        $selectedGroup = trim((string) $request->input('costs_group_select', ''));
-        $newGroup = trim((string) $request->input('costs_group_new', ''));
-        $assignedGroup = $selectedGroup === '__new__' ? $newGroup : $selectedGroup;
+        $assignedGroup = trim((string) $request->input('costs_group', ''));
 
         if ($assignedGroup === '') {
             return redirect()->route('magazyn.projects.show', $project->id)
                 ->withInput()
-                ->with('error', 'Wybierz grupę lub wpisz nazwę nowej grupy przed importem.')
+            ->with('error', 'Wpisz nazwę grupy przed importem.')
                 ->with('finance_import_feedback', true);
         }
 
