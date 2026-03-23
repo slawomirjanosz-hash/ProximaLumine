@@ -843,7 +843,12 @@
                         {{ $message }}
                     </div>
                 @enderror
-                @error('costs_group')
+                @error('costs_group_existing')
+                    <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
+                        {{ $message }}
+                    </div>
+                @enderror
+                @error('costs_group_new')
                     <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
                         {{ $message }}
                     </div>
@@ -851,19 +856,21 @@
                 <p class="text-xs text-gray-500 mb-3">
                     Oczekiwane kolumny: Data / Data księgowania, Podmiot / Przedmiot / Dostawca, Dokument, Kwota netto, Opis, Status, Data płatności. Inne kolumny są ignorowane, a brakujące kolumny zostaną uzupełnione pustą wartością.
                 </p>
-                <form action="{{ route('magazyn.projects.importCostsExcel', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row gap-2 md:items-center">
+                <form action="{{ route('magazyn.projects.importCostsExcel', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row gap-2 md:items-center md:flex-wrap">
                     @csrf
                     <input type="file" name="costs_file" accept=".xlsx,.xls,.csv" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
-                    <input type="text" name="costs_group" value="{{ old('costs_group') }}" list="imported-cost-groups-list" required placeholder="Wpisz grupę dla całego importu (np. Materiały)" class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
-                    <datalist id="imported-cost-groups-list">
+                    <select name="costs_group_existing" class="px-3 py-2 border border-gray-300 rounded bg-white text-sm min-w-[220px]">
+                        <option value="">Wybierz istniejącą grupę</option>
                         @foreach($existingCostGroups as $existingCostGroup)
-                            <option value="{{ $existingCostGroup }}"></option>
+                            <option value="{{ $existingCostGroup }}" {{ old('costs_group_existing') === $existingCostGroup ? 'selected' : '' }}>{{ $existingCostGroup }}</option>
                         @endforeach
-                    </datalist>
+                    </select>
+                    <input type="text" name="costs_group_new" value="{{ old('costs_group_new') }}" placeholder="...lub wpisz nową grupę" class="px-3 py-2 border border-gray-300 rounded bg-white text-sm min-w-[220px]">
                     <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-semibold">
                         📥 Importuj koszty
                     </button>
                 </form>
+                <p class="text-xs text-gray-500 mt-2">Jeśli podasz nową grupę, zostanie utworzona automatycznie i przypisana do wszystkich pozycji z importowanego pliku.</p>
             </div>
             @endif
 

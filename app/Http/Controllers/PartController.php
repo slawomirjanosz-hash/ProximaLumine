@@ -950,7 +950,8 @@ class PartController extends Controller
 
         $request->validate([
             'costs_file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
-            'costs_group' => 'required|string|max:100',
+            'costs_group_existing' => 'nullable|string|max:100',
+            'costs_group_new' => 'nullable|string|max:100',
         ]);
 
         if (!$this->hasTableSafe('project_finance')) {
@@ -980,12 +981,14 @@ class PartController extends Controller
                 ->with('finance_import_feedback', true);
         }
 
-        $assignedGroup = trim((string) $request->input('costs_group', ''));
+        $existingGroup = trim((string) $request->input('costs_group_existing', ''));
+        $newGroup = trim((string) $request->input('costs_group_new', ''));
+        $assignedGroup = $newGroup !== '' ? $newGroup : $existingGroup;
 
         if ($assignedGroup === '') {
             return redirect()->route('magazyn.projects.show', $project->id)
                 ->withInput()
-            ->with('error', 'Wpisz nazwę grupy przed importem.')
+            ->with('error', 'Wybierz istniejącą grupę lub wpisz nową nazwę grupy przed importem.')
                 ->with('finance_import_feedback', true);
         }
 
