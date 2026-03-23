@@ -1890,6 +1890,19 @@
         opacity: 0.5;
         transform: scale(0.98);
     }
+
+    #frappe-gantt .bar-wrapper.overdue-task .bar {
+        fill: #ef4444 !important;
+    }
+
+    #frappe-gantt .bar-wrapper.overdue-task .bar-progress {
+        fill: #b91c1c !important;
+    }
+
+    #frappe-gantt .bar-wrapper.overdue-task .bar-label {
+        fill: #7f1d1d !important;
+        font-weight: 700;
+    }
 </style>
 <script>
 function toggleGanttChangelog() {
@@ -2178,6 +2191,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             frappeGanttInstance = new Gantt("#frappe-gantt", frappeTasks, ganttConfig);
             renderTaskList();
+            applyOverdueTaskStyles();
             console.log('✅ Frappe Gantt zrenderowany!');
         } catch(error) {
             console.error('❌ Błąd Frappe Gantt:', error);
@@ -2185,26 +2199,65 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function isTaskOverdue(task) {
+        const taskEnd = task.end instanceof Date ? task.end : parseDate(task.end);
+        const progressValue = Number(task.progress || 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return progressValue < 100 && taskEnd < today;
+    }
+
+    function applyOverdueTaskStyles() {
+        const wrappers = document.querySelectorAll('#frappe-gantt .bar-wrapper');
+        wrappers.forEach((wrapper, idx) => {
+            const task = frappeTasks[idx];
+            if (!task) return;
+
+            if (isTaskOverdue(task)) {
+                wrapper.classList.add('overdue-task');
+            } else {
+                wrapper.classList.remove('overdue-task');
+            }
+        });
+    }
+
     function renderTaskList() {
         const container = document.getElementById('frappe-task-list');
         if (!frappeTasks.length) { container.innerHTML = ''; return; }
-        // Wyświetl wg kolejności Gantt (frappeTasks)
         let html = '<h4 class="text-lg font-bold mb-2">Lista zadań (kolejność jak w Gantt)</h4>';
-        html += '<ul class="divide-y divide-gray-200">';
+        html += '<div class="overflow-x-auto"><table class="w-full text-sm border border-gray-200">';
+        html += '<thead class="bg-gray-50"><tr>';
+        html += '<th class="px-3 py-2 text-left border-b">Zadanie</th>';
+        html += '<th class="px-3 py-2 text-left border-b">Termin</th>';
+        html += '<th class="px-3 py-2 text-right border-b">Wykonanie</th>';
+        html += '<th class="px-3 py-2 text-left border-b">Status</th>';
+        html += '<th class="px-3 py-2 text-right border-b">Akcje</th>';
+        html += '</tr></thead><tbody>';
+
         frappeTasks.forEach((task, idx) => {
             const end = task.end instanceof Date ? task.end : parseDate(task.end);
-            html += `<li class="flex items-center justify-between py-2">
-                <div>
-                    <span class="font-semibold">${task.name}</span>
-                    <span class="ml-2 text-xs text-gray-500">(koniec: ${formatDateForInput(end)})</span>
-                </div>
-                <div class="flex gap-1">
-                    <button class="move-task-up px-2 py-1 bg-gray-200 rounded text-xs" data-idx="${idx}">⬆️</button>
-                    <button class="move-task-down px-2 py-1 bg-gray-200 rounded text-xs" data-idx="${idx}">⬇️</button>
-                </div>
-            </li>`;
+            const progressValue = Math.max(0, Math.min(100, Number(task.progress || 0)));
+            const overdue = isTaskOverdue(task);
+            const rowClass = overdue ? 'bg-red-50' : 'bg-white';
+            const statusBadge = overdue
+                ? '<span class="px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-semibold">Po terminie</span>'
+                : '<span class="px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-xs font-semibold">Termin OK</span>';
+
+            html += `<tr class="${rowClass} border-b border-gray-100">
+                <td class="px-3 py-2 font-semibold">${task.name}</td>
+                <td class="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">${formatDateForInput(end)}</td>
+                <td class="px-3 py-2 text-right font-bold ${overdue ? 'text-red-700' : 'text-gray-800'} whitespace-nowrap">${progressValue}%</td>
+                <td class="px-3 py-2">${statusBadge}</td>
+                <td class="px-3 py-2">
+                    <div class="flex gap-1 justify-end">
+                        <button class="move-task-up px-2 py-1 bg-gray-200 rounded text-xs" data-idx="${idx}">⬆️</button>
+                        <button class="move-task-down px-2 py-1 bg-gray-200 rounded text-xs" data-idx="${idx}">⬇️</button>
+                    </div>
+                </td>
+            </tr>`;
         });
-        html += '</ul>';
+
+        html += '</tbody></table></div>';
         container.innerHTML = html;
         // Dodaj obsługę przesuwania (wg indeksu w frappeTasks)
         container.querySelectorAll('.move-task-up').forEach(btn => {
