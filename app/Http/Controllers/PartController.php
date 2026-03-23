@@ -765,6 +765,7 @@ class PartController extends Controller
             }
 
             $hasProjectFinanceTable = $this->hasTableSafe('project_finance');
+            $hasProjectFinanceGroupsTable = $this->hasTableSafe('project_finance_groups');
             $hasImportRowOrderColumn = $this->hasColumnSafe('project_finance', 'import_row_order');
             $hasSupplierColumn = $this->hasColumnSafe('project_finance', 'supplier');
             $hasDocumentNumberColumn = $this->hasColumnSafe('project_finance', 'document_number');
@@ -776,8 +777,20 @@ class PartController extends Controller
 
             $importedCostRows = [];
             $issuedInvoiceRows = [];
+            $orderRows = [];
             $importedCostGroups = [];
             $importedCostGroupSummaries = [];
+
+            if ($hasProjectFinanceGroupsTable) {
+                $importedCostGroups = \App\Models\ProjectFinanceGroup::where('project_id', $project->id)
+                    ->orderBy('name')
+                    ->pluck('name')
+                    ->map(fn ($group) => trim((string) $group))
+                    ->filter(fn ($group) => $group !== '')
+                    ->values()
+                    ->all();
+            }
+
             if ($hasProjectFinanceTable && $hasCategoryColumn) {
                 $importedCostsQuery = \App\Models\ProjectFinance::where('project_id', $project->id)
                     ->where('category', 'excel_import');
@@ -819,7 +832,7 @@ class PartController extends Controller
                     ->all();
 
                 if ($hasFinanceGroupColumn) {
-                    $importedCostGroups = \App\Models\ProjectFinance::where('project_id', $project->id)
+                    $groupsFromRows = \App\Models\ProjectFinance::where('project_id', $project->id)
                         ->where('category', 'excel_import')
                         ->whereNotNull('finance_group')
                         ->where('finance_group', '<>', '')
@@ -828,6 +841,15 @@ class PartController extends Controller
                         ->pluck('finance_group')
                         ->map(fn ($group) => trim((string) $group))
                         ->filter(fn ($group) => $group !== '')
+                        ->values()
+                        ->all();
+
+                    $importedCostGroups = collect($importedCostGroups)
+                        ->merge($groupsFromRows)
+                        ->map(fn ($group) => trim((string) $group))
+                        ->filter(fn ($group) => $group !== '')
+                        ->unique()
+                        ->sort()
                         ->values()
                         ->all();
 
@@ -864,6 +886,26 @@ class PartController extends Controller
                             'amount_net' => $item->amount !== null ? number_format((float) $item->amount, 2, '.', '') : '',
                             'payment_date' => ($hasPaymentDateColumn && $item->payment_date) ? \Carbon\Carbon::parse($item->payment_date)->format('Y-m-d') : '',
                             'status' => $this->mapStatusToLabel((string) (($hasStatusColumn ? $item->status : 'pending') ?? 'pending')),
+                        ];
+                    })
+                    ->values()
+                    ->all();
+
+                $orderRows = \App\Models\ProjectFinance::where('project_id', $project->id)
+                    ->whereIn('category', ['materials', 'services'])
+                    ->orderByDesc('date')
+                    ->orderByDesc('id')
+                    ->get()
+                    ->map(function ($item) use ($hasDocumentNumberColumn, $hasDescriptionColumn, $hasPaymentDateColumn, $hasStatusColumn) {
+                        return [
+                            'id' => $item->id,
+                            'date' => $item->date ? \Carbon\Carbon::parse($item->date)->format('Y-m-d') : '',
+                            'order_number' => $hasDocumentNumberColumn ? trim((string) ($item->document_number ?? '')) : trim((string) ($item->name ?? '')),
+                            'category' => (string) ($item->category ?? 'materials'),
+                            'description' => $hasDescriptionColumn ? trim((string) ($item->description ?? '')) : '',
+                            'amount_net' => $item->amount !== null ? number_format((float) $item->amount, 2, '.', '') : '',
+                            'payment_date' => ($hasPaymentDateColumn && $item->payment_date) ? \Carbon\Carbon::parse($item->payment_date)->format('Y-m-d') : '',
+                            'status' => $this->mapStatusToLabel((string) (($hasStatusColumn ? $item->status : 'ordered') ?? 'ordered')),
                         ];
                     })
                     ->values()
@@ -920,7 +962,9 @@ class PartController extends Controller
                 'importedCostGroups' => $importedCostGroups,
                 'importedCostGroupSummaries' => $importedCostGroupSummaries,
                 'hasFinanceGroupColumn' => $hasFinanceGroupColumn,
+                'hasProjectFinanceGroupsTable' => $hasProjectFinanceGroupsTable,
                 'issuedInvoiceRows' => $issuedInvoiceRows,
+                'orderRows' => $orderRows,
                 'importedCostMeta' => session('imported_project_costs_meta', []),
                 'financeSummary' => $financeSummary,
                 'projectVisibleSections' => $projectVisibleSections,
@@ -951,7 +995,6 @@ class PartController extends Controller
         $request->validate([
             'costs_file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
             'costs_group_existing' => 'nullable|string|max:100',
-            'costs_group_new' => 'nullable|string|max:100',
         ]);
 
         if (!$this->hasTableSafe('project_finance')) {
@@ -974,6 +1017,7 @@ class PartController extends Controller
         $hasFinanceGroupColumn = $this->hasColumnSafe('project_finance', 'finance_group');
         $hasPaymentDateColumn = $this->hasColumnSafe('project_finance', 'payment_date');
         $hasImportRowOrderColumn = $this->hasColumnSafe('project_finance', 'import_row_order');
+        $hasProjectFinanceGroupsTable = $this->hasTableSafe('project_finance_groups');
 
         if (!$hasFinanceGroupColumn) {
             return redirect()->route('magazyn.projects.show', $project->id)
@@ -981,15 +1025,26 @@ class PartController extends Controller
                 ->with('finance_import_feedback', true);
         }
 
-        $existingGroup = trim((string) $request->input('costs_group_existing', ''));
-        $newGroup = trim((string) $request->input('costs_group_new', ''));
-        $assignedGroup = $newGroup !== '' ? $newGroup : $existingGroup;
+        $assignedGroup = trim((string) $request->input('costs_group_existing', ''));
 
         if ($assignedGroup === '') {
             return redirect()->route('magazyn.projects.show', $project->id)
                 ->withInput()
-            ->with('error', 'Wybierz istniejącą grupę lub wpisz nową nazwę grupy przed importem.')
+                ->with('error', 'Wybierz grupę z listy przed importem.')
                 ->with('finance_import_feedback', true);
+        }
+
+        if ($hasProjectFinanceGroupsTable) {
+            $groupExists = \App\Models\ProjectFinanceGroup::where('project_id', $project->id)
+                ->where('name', $assignedGroup)
+                ->exists();
+
+            if (!$groupExists) {
+                return redirect()->route('magazyn.projects.show', $project->id)
+                    ->withInput()
+                    ->with('error', 'Wybrana grupa nie istnieje. Najpierw dodaj ją przyciskiem „Dodaj grupę”.')
+                    ->with('finance_import_feedback', true);
+            }
         }
 
         $file = $request->file('costs_file');
@@ -1035,9 +1090,14 @@ class PartController extends Controller
                 continue;
             }
 
+            if ($date === null || $amount === null) {
+                $skipped++;
+                continue;
+            }
+
             $mappedStatus = $this->mapImportedStatus($statusText);
-            $dateForDb = $date ?? $paymentDate ?? now()->format('Y-m-d');
-            $amountForDb = $amount ?? 0.0;
+            $dateForDb = $date;
+            $amountForDb = $amount;
 
             $name = $subjectOrSupplier;
             if ($document !== '') {
@@ -1105,8 +1165,13 @@ class PartController extends Controller
                 ->with('finance_import_feedback', true);
         }
 
+        $successMessage = "Zaimportowano {$inserted} pozycji kosztowych z Excela.";
+        if ($skipped > 0) {
+            $successMessage .= " Pominięto {$skipped} pozycji bez daty lub kwoty netto.";
+        }
+
         return redirect()->route('magazyn.projects.show', $project->id)
-            ->with('success', "Zaimportowano {$inserted} pozycji kosztowych z Excela.")
+            ->with('success', $successMessage)
             ->with('finance_import_feedback', true)
             ->with('imported_project_costs', $importedRows)
             ->with('imported_project_costs_meta', [
@@ -1245,6 +1310,43 @@ class PartController extends Controller
             ->with('finance_import_feedback', true);
     }
 
+    public function addImportedProjectCostGroup(Request $request, \App\Models\Project $project)
+    {
+        $user = auth()->user();
+        if (!$user || (!$user->is_admin && !$user->can_import_project_costs_excel)) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Nie masz uprawnień do dodawania grup kosztów.')
+                ->with('finance_import_feedback', true);
+        }
+
+        if (!$this->hasTableSafe('project_finance_groups')) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brakuje tabeli project_finance_groups. Uruchom migracje na serwerze (php artisan migrate).')
+                ->with('finance_import_feedback', true);
+        }
+
+        $request->validate([
+            'group_name' => 'required|string|max:100',
+        ]);
+
+        $groupName = trim((string) $request->input('group_name', ''));
+        if ($groupName === '') {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->withInput()
+                ->with('error', 'Podaj nazwę grupy.')
+                ->with('finance_import_feedback', true);
+        }
+
+        \App\Models\ProjectFinanceGroup::firstOrCreate([
+            'project_id' => $project->id,
+            'name' => mb_substr($groupName, 0, 100),
+        ]);
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', "Dodano grupę: {$groupName}.")
+            ->with('finance_import_feedback', true);
+    }
+
     public function manageImportedProjectCostGroups(Request $request, \App\Models\Project $project)
     {
         $user = auth()->user();
@@ -1283,11 +1385,7 @@ class PartController extends Controller
             ->where('finance_group', $groupName);
 
         $rowsCount = (int) $groupRowsQuery->count();
-        if ($rowsCount === 0) {
-            return redirect()->route('magazyn.projects.show', $project->id)
-                ->with('error', 'Wybrana grupa nie zawiera żadnych pozycji.')
-                ->with('finance_import_feedback', true);
-        }
+        $hasProjectFinanceGroupsTable = $this->hasTableSafe('project_finance_groups');
 
         if ($action === 'rename') {
             $newGroupName = trim((string) $request->input('new_group_name', ''));
@@ -1308,12 +1406,24 @@ class PartController extends Controller
 
             $updated = (int) $groupRowsQuery->update(['finance_group' => mb_substr($newGroupName, 0, 100)]);
 
+            if ($hasProjectFinanceGroupsTable) {
+                \App\Models\ProjectFinanceGroup::where('project_id', $project->id)
+                    ->where('name', $groupName)
+                    ->update(['name' => mb_substr($newGroupName, 0, 100)]);
+            }
+
             return redirect()->route('magazyn.projects.show', $project->id)
                 ->with('success', "Zmieniono nazwę grupy '{$groupName}' na '{$newGroupName}' w {$updated} pozycjach.")
                 ->with('finance_import_feedback', true);
         }
 
         $updated = (int) $groupRowsQuery->update(['finance_group' => null]);
+
+        if ($hasProjectFinanceGroupsTable) {
+            \App\Models\ProjectFinanceGroup::where('project_id', $project->id)
+                ->where('name', $groupName)
+                ->delete();
+        }
 
         return redirect()->route('magazyn.projects.show', $project->id)
             ->with('success', "Usunięto przypisanie grupy '{$groupName}' z {$updated} pozycji.")
@@ -1388,6 +1498,17 @@ class PartController extends Controller
             ->with('finance_issued_feedback', true);
     }
 
+    public function importIssuedProjectInvoicesExcel(Request $request, \App\Models\Project $project)
+    {
+        $request->validate([
+            'issued_invoices_file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+        ]);
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', 'Plik został przyjęty. Import faktur wystawionych z Excela jest gotowy do konfiguracji według Twojej specyfikacji.')
+            ->with('finance_issued_feedback', true);
+    }
+
     public function updateIssuedProjectInvoiceStatus(Request $request, \App\Models\Project $project, \App\Models\ProjectFinance $finance)
     {
         $request->validate([
@@ -1409,6 +1530,106 @@ class PartController extends Controller
         return redirect()->route('magazyn.projects.show', $project->id)
             ->with('success', 'Status faktury został zaktualizowany.')
             ->with('finance_issued_feedback', true);
+    }
+
+    public function storeProjectOrder(Request $request, \App\Models\Project $project)
+    {
+        if (!$this->hasTableSafe('project_finance') || !$this->hasColumnSafe('project_finance', 'category')) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brakuje wymaganej tabeli/kolumn dla zamówień. Uruchom migracje na serwerze.')
+                ->with('finance_orders_feedback', true);
+        }
+
+        $hasOrderColumn = $this->hasColumnSafe('project_finance', 'order');
+        $hasDocumentNumberColumn = $this->hasColumnSafe('project_finance', 'document_number');
+        $hasDescriptionColumn = $this->hasColumnSafe('project_finance', 'description');
+        $hasPaymentDateColumn = $this->hasColumnSafe('project_finance', 'payment_date');
+
+        $request->validate([
+            'order_date' => 'required|date',
+            'order_number' => 'required|string|max:255',
+            'order_category' => 'required|in:materials,services',
+            'order_description' => 'nullable|string|max:2000',
+            'order_amount_net' => 'required',
+            'order_payment_date' => 'required|date',
+            'order_status' => 'required|in:Opłacono,Nie opłacono,Oczekiwanie',
+        ]);
+
+        $amount = $this->parseImportedAmount($request->input('order_amount_net'));
+        if ($amount === null || $amount < 0) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->withErrors(['order_amount_net' => 'Podaj poprawną kwotę netto.'])
+                ->withInput()
+                ->with('finance_orders_feedback', true);
+        }
+
+        $statusLabel = (string) $request->input('order_status');
+        $status = $statusLabel === 'Opłacono'
+            ? 'paid'
+            : ($statusLabel === 'Oczekiwanie' ? 'ordered' : 'pending');
+
+        $orderNumber = trim((string) $request->input('order_number'));
+        $description = trim((string) $request->input('order_description', ''));
+        $category = (string) $request->input('order_category');
+        $nextOrder = $hasOrderColumn
+            ? (int) (\App\Models\ProjectFinance::where('project_id', $project->id)->max('order') ?? 0)
+            : 0;
+
+        $createPayload = [
+            'project_id' => $project->id,
+            'type' => 'expense',
+            'category' => $category,
+            'name' => mb_substr($orderNumber !== '' ? $orderNumber : 'Zamówienie', 0, 255),
+            'amount' => $amount,
+            'date' => $request->input('order_date'),
+            'status' => $status,
+        ];
+
+        if ($hasDocumentNumberColumn) {
+            $createPayload['document_number'] = $orderNumber !== '' ? mb_substr($orderNumber, 0, 255) : null;
+        }
+        if ($hasDescriptionColumn) {
+            $createPayload['description'] = $description !== '' ? $description : null;
+        }
+        if ($hasPaymentDateColumn) {
+            $createPayload['payment_date'] = $request->input('order_payment_date');
+        }
+        if ($hasOrderColumn) {
+            $createPayload['order'] = $nextOrder + 1;
+        }
+
+        \App\Models\ProjectFinance::create($this->filterExistingColumns('project_finance', $createPayload));
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', 'Dodano zamówienie.')
+            ->with('finance_orders_feedback', true);
+    }
+
+    public function updateProjectOrderStatus(Request $request, \App\Models\Project $project, \App\Models\ProjectFinance $finance)
+    {
+        $request->validate([
+            'order_status' => 'required|in:Opłacono,Nie opłacono,Oczekiwanie',
+        ]);
+
+        $financeCategory = $this->hasColumnSafe('project_finance', 'category') ? $finance->category : null;
+        if ((int) $finance->project_id !== (int) $project->id || !in_array($financeCategory, ['materials', 'services'], true)) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Nie znaleziono wskazanego zamówienia.')
+                ->with('finance_orders_feedback', true);
+        }
+
+        $statusLabel = (string) $request->input('order_status');
+        $status = $statusLabel === 'Opłacono'
+            ? 'paid'
+            : ($statusLabel === 'Oczekiwanie' ? 'ordered' : 'pending');
+
+        $finance->update([
+            'status' => $status,
+        ]);
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', 'Status zamówienia został zaktualizowany.')
+            ->with('finance_orders_feedback', true);
     }
 
     // EKSPORT LISTY PRODUKTOW W PROJEKCIE DO XLSX

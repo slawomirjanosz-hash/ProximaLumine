@@ -622,17 +622,6 @@
                 </p>
             </div>
             
-            @if(auth()->user() && auth()->user()->is_admin)
-            <div class="mb-3 p-2 bg-yellow-50 rounded border border-yellow-200">
-                <p class="text-xs text-gray-700">
-                    <strong>🔧 Diagnostyka (tylko dla administratora):</strong> 
-                    Projekt #{{ $project->id }} "{{ $project->name }}" • 
-                    Otwórz konsolę przeglądarki (F12) aby zobaczyć szczegółowe logi ładowania danych • 
-                    Jeśli wykres nie pokazuje zadań, sprawdź czy są one przypisane do tego projektu
-                </p>
-            </div>
-            @endif
-            
             <div id="frappe-gantt"></div>
 
             <div id="frappe-task-list" class="mt-8">
@@ -746,8 +735,8 @@
             <div class="mb-4 border-b border-gray-200">
                 <div class="flex flex-wrap gap-2">
                     <button type="button" class="finance-tab-btn px-4 py-2 rounded-t bg-white border border-gray-200 border-b-white text-sm font-semibold" data-finance-tab-target="costs">Faktury kosztowe ({{ number_format((float)($financeSummary['cost_invoices'] ?? 0), 2, ',', ' ') }} zł)</button>
-                    <button type="button" class="finance-tab-btn px-4 py-2 rounded-t bg-gray-100 border border-gray-200 text-sm" data-finance-tab-target="issued">Faktury wystawione</button>
-                    <button type="button" class="finance-tab-btn px-4 py-2 rounded-t bg-gray-100 border border-gray-200 text-sm" data-finance-tab-target="orders">Zamówienia</button>
+                    <button type="button" class="finance-tab-btn px-4 py-2 rounded-t bg-gray-100 border border-gray-200 text-sm" data-finance-tab-target="issued">Faktury wystawione ({{ number_format((float)($financeSummary['issued_invoices'] ?? 0), 2, ',', ' ') }} zł)</button>
+                    <button type="button" class="finance-tab-btn px-4 py-2 rounded-t bg-gray-100 border border-gray-200 text-sm" data-finance-tab-target="orders">Zamówienia ({{ number_format((float)($financeSummary['ordered_materials_services'] ?? 0), 2, ',', ' ') }} zł)</button>
                 </div>
             </div>
 
@@ -828,6 +817,11 @@
                         Brak kolumny <strong>finance_group</strong> w bazie. Uruchom migracje na Railway, inaczej grupy nie będą zapisywane.
                     </div>
                 @endif
+                @if(!($hasProjectFinanceGroupsTable ?? false))
+                    <div class="mb-3 p-3 rounded border border-amber-200 bg-amber-50 text-amber-800 text-sm">
+                        Brak tabeli <strong>project_finance_groups</strong>. Uruchom migracje, aby działał przycisk „Dodaj grupę” i lista grup.
+                    </div>
+                @endif
                 @if(session('success') && session('finance_import_feedback'))
                     <div class="mb-3 p-3 rounded border border-green-200 bg-green-50 text-green-800 text-sm">
                         {{ session('success') }}
@@ -848,7 +842,7 @@
                         {{ $message }}
                     </div>
                 @enderror
-                @error('costs_group_new')
+                @error('group_name')
                     <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
                         {{ $message }}
                     </div>
@@ -856,21 +850,30 @@
                 <p class="text-xs text-gray-500 mb-3">
                     Oczekiwane kolumny: Data / Data księgowania, Podmiot / Przedmiot / Dostawca, Dokument, Kwota netto, Opis, Status, Data płatności. Inne kolumny są ignorowane, a brakujące kolumny zostaną uzupełnione pustą wartością.
                 </p>
-                <form action="{{ route('magazyn.projects.importCostsExcel', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row gap-2 md:items-center md:flex-wrap">
+
+                <form action="{{ route('magazyn.projects.importCostsExcel.groups.add', $project->id) }}" method="POST" class="mb-3 flex flex-col md:flex-row gap-2 md:items-center">
                     @csrf
-                    <input type="file" name="costs_file" accept=".xlsx,.xls,.csv" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
-                    <select name="costs_group_existing" class="px-3 py-2 border border-gray-300 rounded bg-white text-sm min-w-[220px]">
+                    <input type="text" name="group_name" value="{{ old('group_name') }}" placeholder="Nowa grupa (np. Materiały)" class="px-2.5 py-1.5 border border-gray-300 rounded bg-white text-xs min-w-[220px]">
+                    <button type="submit" class="px-3 py-1.5 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-xs font-semibold">➕ Dodaj grupę</button>
+                </form>
+
+                <form id="costs-import-form" action="{{ route('magazyn.projects.importCostsExcel', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row gap-2 md:items-center md:flex-wrap">
+                    @csrf
+                    <input id="costs-file-input" type="file" name="costs_file" accept=".xlsx,.xls,.csv" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm {{ empty($existingCostGroups) ? 'opacity-60 cursor-not-allowed' : '' }}" {{ empty($existingCostGroups) ? 'disabled' : '' }}>
+                    <select id="costs-group-existing" name="costs_group_existing" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm min-w-[220px]">
                         <option value="">Wybierz istniejącą grupę</option>
                         @foreach($existingCostGroups as $existingCostGroup)
                             <option value="{{ $existingCostGroup }}" {{ old('costs_group_existing') === $existingCostGroup ? 'selected' : '' }}>{{ $existingCostGroup }}</option>
                         @endforeach
                     </select>
-                    <input type="text" name="costs_group_new" value="{{ old('costs_group_new') }}" placeholder="...lub wpisz nową grupę" class="px-3 py-2 border border-gray-300 rounded bg-white text-sm min-w-[220px]">
                     <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-semibold">
                         📥 Importuj koszty
                     </button>
                 </form>
-                <p class="text-xs text-gray-500 mt-2">Jeśli podasz nową grupę, zostanie utworzona automatycznie i przypisana do wszystkich pozycji z importowanego pliku.</p>
+                <p class="text-xs text-gray-500 mt-2">Najpierw dodaj grupę przyciskiem „Dodaj grupę”, potem wybierz ją z listy i zaimportuj plik.</p>
+                @if(empty($existingCostGroups))
+                    <p class="text-xs text-amber-700 mt-1">Aby wybrać plik, najpierw dodaj co najmniej jedną grupę.</p>
+                @endif
             </div>
             @endif
 
@@ -960,7 +963,11 @@
                                         <input type="text" name="rows[{{ $rowId }}][amount_net]" value="{{ $importedRow['amount_net'] ?? '' }}" class="import-input hidden w-full px-1.5 py-1 rounded border border-gray-300 bg-white text-xs text-right" placeholder="0,00" disabled>
                                     </td>
                                     <td class="px-2 py-2 truncate">
-                                        <span class="import-display">{{ $importedRow['description'] ?? '' }}</span>
+                                        @php
+                                            $importedDescription = (string) ($importedRow['description'] ?? '');
+                                            $importedDescriptionShort = \Illuminate\Support\Str::limit($importedDescription, 40, '…');
+                                        @endphp
+                                        <span class="import-display" title="{{ $importedDescription }}">{{ $importedDescriptionShort }}</span>
                                         <input type="text" name="rows[{{ $rowId }}][description]" value="{{ $importedRow['description'] ?? '' }}" class="import-input hidden w-full px-1.5 py-1 rounded border border-gray-300 bg-white text-xs" placeholder="Opis" disabled>
                                     </td>
                                     <td class="px-2 py-2 truncate">
@@ -990,6 +997,22 @@
             </div>
 
             <div id="finance-tab-issued" class="finance-tab-content hidden">
+                <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                    <h4 class="font-semibold text-gray-800 mb-3">Import faktur wystawionych z Excela</h4>
+                    @error('issued_invoices_file')
+                        <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
+                            {{ $message }}
+                        </div>
+                    @enderror
+                    <form action="{{ route('magazyn.projects.issuedInvoices.importExcel', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row gap-2 md:items-center">
+                        @csrf
+                        <input type="file" name="issued_invoices_file" accept=".xlsx,.xls,.csv" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-semibold">
+                            📥 Importuj faktury wystawione
+                        </button>
+                    </form>
+                </div>
+
                 <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
                     <h4 class="font-semibold text-gray-800 mb-3">Dodaj fakturę wystawioną</h4>
                     @if(session('success') && session('finance_issued_feedback'))
@@ -1083,7 +1106,11 @@
                                     <tr class="bg-white even:bg-gray-50/80">
                                         <td class="px-2 py-2 whitespace-nowrap">{{ $issuedInvoice['date'] ?? '' }}</td>
                                         <td class="px-2 py-2">{{ $issuedInvoice['invoice_number'] ?? '' }}</td>
-                                        <td class="px-2 py-2">{{ $issuedInvoice['description'] ?? '' }}</td>
+                                        @php
+                                            $issuedDescription = (string) ($issuedInvoice['description'] ?? '');
+                                            $issuedDescriptionShort = \Illuminate\Support\Str::limit($issuedDescription, 40, '…');
+                                        @endphp
+                                        <td class="px-2 py-2" title="{{ $issuedDescription }}">{{ $issuedDescriptionShort }}</td>
                                         <td class="px-2 py-2 text-right whitespace-nowrap">{{ ($issuedInvoice['amount_net'] ?? '') !== '' ? number_format((float) str_replace(',', '.', $issuedInvoice['amount_net']), 2, ',', ' ') : '' }}</td>
                                         <td class="px-2 py-2 whitespace-nowrap">{{ $issuedInvoice['payment_date'] ?? '' }}</td>
                                         <td class="px-2 py-2 whitespace-nowrap">
@@ -1108,70 +1135,137 @@
             </div>
 
             <div id="finance-tab-orders" class="finance-tab-content hidden">
-            
-            {{-- Przyciski dodawania --}}
-            @if(!in_array($project->status, ['warranty','archived']))
-            <div class="flex gap-2 mb-4">
-                <button type="button" id="add-income-row" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2">
-                    <span>📈</span> Dodaj przychód
-                </button>
-                <button type="button" id="add-expense-row" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2">
-                    <span>📉</span> Dodaj wydatek
-                </button>
-            </div>
-            @endif
-            
-            {{-- Lista transakcji finansowych --}}
-            <div id="finance-transactions-list" class="space-y-2 mb-4">
-                <!-- Wiersze transakcji będą dodawane dynamicznie -->
-            </div>
-            
-            {{-- Podsumowanie finansowe --}}
-            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4 mt-4">
-                <h4 class="font-semibold text-blue-800 mb-3 flex items-center gap-2">
-                    <span>📊</span> Podsumowanie finansowe
-                </h4>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                    <div class="bg-white rounded p-3 border border-green-200">
-                        <div class="text-xs text-gray-500 uppercase mb-1">Przychody</div>
-                        <div id="total-income" class="text-xl font-bold text-green-600">0.00 zł</div>
-                    </div>
-                    <div class="bg-white rounded p-3 border border-red-200">
-                        <div class="text-xs text-gray-500 uppercase mb-1">Wydatki</div>
-                        <div id="total-expenses" class="text-xl font-bold text-red-600">0.00 zł</div>
-                    </div>
-                    <div class="bg-white rounded p-3 border border-blue-300">
-                        <div class="text-xs text-gray-500 uppercase mb-1">Bilans</div>
-                        <div id="balance" class="text-xl font-bold text-blue-600">0.00 zł</div>
+                <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                    <h4 class="font-semibold text-gray-800 mb-3">Dodaj zamówienie</h4>
+                    @if(session('success') && session('finance_orders_feedback'))
+                        <div class="mb-3 p-3 rounded border border-green-200 bg-green-50 text-green-800 text-sm">
+                            {{ session('success') }}
+                        </div>
+                    @endif
+                    @if(session('error') && session('finance_orders_feedback'))
+                        <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
+                            {{ session('error') }}
+                        </div>
+                    @endif
+                    @if($errors->any() && session('finance_orders_feedback'))
+                        <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
+                            {{ $errors->first() }}
+                        </div>
+                    @endif
+
+                    <form action="{{ route('magazyn.projects.orders.store', $project->id) }}" method="POST" class="grid grid-cols-1 md:grid-cols-7 gap-2 items-end">
+                        @csrf
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Data</label>
+                            <input type="date" name="order_date" value="{{ old('order_date') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Nr zamówienia</label>
+                            <input type="text" name="order_number" value="{{ old('order_number') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="ZAM/2026/...">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Typ</label>
+                            <select name="order_category" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                                <option value="materials" {{ old('order_category', 'materials') === 'materials' ? 'selected' : '' }}>Materiały</option>
+                                <option value="services" {{ old('order_category') === 'services' ? 'selected' : '' }}>Usługi</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Opis</label>
+                            <input type="text" name="order_description" value="{{ old('order_description') }}" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="Opis zamówienia">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Kwota netto</label>
+                            <input type="text" name="order_amount_net" value="{{ old('order_amount_net') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="0,00">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Termin płatności</label>
+                            <input type="date" name="order_payment_date" value="{{ old('order_payment_date') }}" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Status</label>
+                            <select name="order_status" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                                <option value="Oczekiwanie" {{ old('order_status', 'Oczekiwanie') === 'Oczekiwanie' ? 'selected' : '' }}>Oczekiwanie</option>
+                                <option value="Nie opłacono" {{ old('order_status') === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
+                                <option value="Opłacono" {{ old('order_status') === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-7">
+                            <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-sm font-semibold">
+                                💾 Zapisz zamówienie
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="bg-white border border-gray-200 rounded-lg p-4 text-sm text-gray-700">
+                    <h4 class="font-semibold text-gray-800 mb-3">Zamówienia</h4>
+                    <div class="w-full overflow-x-auto rounded border border-gray-200">
+                        <table class="w-full table-auto text-xs">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-800">
+                                    <th class="px-2 py-2 text-left">Data</th>
+                                    <th class="px-2 py-2 text-left">Nr zamówienia</th>
+                                    <th class="px-2 py-2 text-left">Typ</th>
+                                    <th class="px-2 py-2 text-left">Opis</th>
+                                    <th class="px-2 py-2 text-right">Kwota netto</th>
+                                    <th class="px-2 py-2 text-left">Termin płatności</th>
+                                    <th class="px-2 py-2 text-left">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse(($orderRows ?? []) as $orderRow)
+                                    @php
+                                        $orderStatus = (string) ($orderRow['status'] ?? 'Oczekiwanie');
+                                        $orderPaymentDate = $orderRow['payment_date'] ?? null;
+                                        $isOrderOverdue = false;
+                                        if ($orderPaymentDate && $orderStatus !== 'Opłacono') {
+                                            try {
+                                                $isOrderOverdue = \Carbon\Carbon::parse($orderPaymentDate)->lt(now()->startOfDay());
+                                            } catch (\Throwable $e) {
+                                                $isOrderOverdue = false;
+                                            }
+                                        }
+
+                                        $orderStatusClass = 'bg-gray-100 text-gray-700';
+                                        if ($orderStatus === 'Opłacono') {
+                                            $orderStatusClass = 'bg-green-100 text-green-800';
+                                        } elseif ($orderStatus === 'Nie opłacono' && $isOrderOverdue) {
+                                            $orderStatusClass = 'bg-red-100 text-red-800';
+                                        } elseif ($orderStatus === 'Oczekiwanie') {
+                                            $orderStatusClass = 'bg-amber-100 text-amber-800';
+                                        }
+
+                                        $orderDescription = (string) ($orderRow['description'] ?? '');
+                                        $orderDescriptionShort = \Illuminate\Support\Str::limit($orderDescription, 40, '…');
+                                    @endphp
+                                    <tr class="bg-white even:bg-gray-50/80">
+                                        <td class="px-2 py-2 whitespace-nowrap">{{ $orderRow['date'] ?? '' }}</td>
+                                        <td class="px-2 py-2">{{ $orderRow['order_number'] ?? '' }}</td>
+                                        <td class="px-2 py-2">{{ ($orderRow['category'] ?? 'materials') === 'services' ? 'Usługi' : 'Materiały' }}</td>
+                                        <td class="px-2 py-2" title="{{ $orderDescription }}">{{ $orderDescriptionShort }}</td>
+                                        <td class="px-2 py-2 text-right whitespace-nowrap">{{ ($orderRow['amount_net'] ?? '') !== '' ? number_format((float) str_replace(',', '.', $orderRow['amount_net']), 2, ',', ' ') : '' }}</td>
+                                        <td class="px-2 py-2 whitespace-nowrap">{{ $orderRow['payment_date'] ?? '' }}</td>
+                                        <td class="px-2 py-2 whitespace-nowrap">
+                                            <form action="{{ route('magazyn.projects.orders.status', [$project->id, $orderRow['id']]) }}" method="POST" class="inline-block">
+                                                @csrf
+                                                <select name="order_status" class="px-2 py-1 rounded border border-gray-300 text-xs font-semibold {{ $orderStatusClass }}" onchange="this.form.submit()">
+                                                    <option value="Opłacono" {{ $orderStatus === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
+                                                    <option value="Nie opłacono" {{ $orderStatus === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
+                                                    <option value="Oczekiwanie" {{ $orderStatus === 'Oczekiwanie' ? 'selected' : '' }}>Oczekiwanie</option>
+                                                </select>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="px-2 py-3 text-center text-gray-500">Brak zamówień.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-                
-                {{-- Wykres czasowy --}}
-                <div class="bg-white rounded-lg p-4 border border-gray-200 mt-3">
-                    <h5 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                        <span>📈</span> Cash Flow w czasie
-                    </h5>
-                    <canvas id="cashflow-chart" style="max-height: 300px;"></canvas>
-                </div>
-                
-                {{-- Legenda statusów --}}
-                <div class="mt-3 flex flex-wrap gap-3 text-xs">
-                    <div class="flex items-center gap-1">
-                        <span class="w-3 h-3 rounded-full bg-green-500"></span>
-                        <span class="text-gray-600">Zapłacone</span>
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
-                        <span class="text-gray-600">Zamówione</span>
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <span class="w-3 h-3 rounded-full bg-gray-400"></span>
-                        <span class="text-gray-600">Przewidziane</span>
-                    </div>
-                </div>
-            </div>
-            
-            <p class="text-xs text-gray-500 mt-3">💡 Przeciągnij wiersze, aby zmienić kolejność. Wydatki mogą być oznaczone jako zapłacone, zamówione lub przewidziane.</p>
             </div>
         </div>
     </div>
@@ -1390,20 +1484,37 @@
         const financeToggleBtn = document.getElementById('toggle-finance-section');
         const financeContent = document.getElementById('finance-section-content');
         const financeArrow = document.getElementById('toggle-finance-arrow');
-        const shouldOpenFinanceSection = false;
+        const financeSectionStateKey = 'projectFinanceSectionOpen_{{ $project->id }}';
+        const shouldOpenFinanceSection = @json((bool) (
+            session('finance_import_feedback')
+            || session('finance_issued_feedback')
+            || $errors->has('group_name')
+            || $errors->has('group_action')
+            || $errors->has('group_name')
+            || $errors->has('new_group_name')
+            || $errors->has('costs_file')
+            || $errors->has('costs_group_existing')
+        ));
         const financeInitialTab = 'costs';
         if (financeToggleBtn && financeContent && financeArrow) {
-            // Domyślnie zamknięte, ale po imporcie/błędzie otwieramy automatycznie
-            if (shouldOpenFinanceSection) {
+            const storedFinanceSectionState = localStorage.getItem(financeSectionStateKey);
+            const shouldOpenFromStorage = storedFinanceSectionState === '1';
+            const shouldOpenNow = shouldOpenFinanceSection || shouldOpenFromStorage;
+
+            if (shouldOpenNow) {
                 financeContent.classList.remove('hidden');
                 financeArrow.textContent = '▼';
+                localStorage.setItem(financeSectionStateKey, '1');
             } else {
                 financeContent.classList.add('hidden');
                 financeArrow.textContent = '▶';
+                localStorage.setItem(financeSectionStateKey, '0');
             }
+
             financeToggleBtn.addEventListener('click', function() {
                 financeContent.classList.toggle('hidden');
                 financeArrow.textContent = financeContent.classList.contains('hidden') ? '▶' : '▼';
+                localStorage.setItem(financeSectionStateKey, financeContent.classList.contains('hidden') ? '0' : '1');
             });
         }
         
@@ -1504,6 +1615,9 @@
         }
 
         const financeTabButtons = document.querySelectorAll('.finance-tab-btn');
+        const costsImportForm = document.getElementById('costs-import-form');
+        const costsFileInput = document.getElementById('costs-file-input');
+        const costsGroupExisting = document.getElementById('costs-group-existing');
         const financeTabContents = {
             costs: document.getElementById('finance-tab-costs'),
             issued: document.getElementById('finance-tab-issued'),
@@ -1530,6 +1644,29 @@
                 activateFinanceTab(this.dataset.financeTabTarget || 'costs');
             });
         });
+
+        if (costsImportForm) {
+            costsImportForm.addEventListener('submit', function(e) {
+                const hasGroups = costsGroupExisting && Array.from(costsGroupExisting.options).some(opt => opt.value !== '');
+                if (!hasGroups) {
+                    e.preventDefault();
+                    alert('Najpierw dodaj grupę przyciskiem „Dodaj grupę”.');
+                    return;
+                }
+
+                if (!costsGroupExisting.value) {
+                    e.preventDefault();
+                    alert('Wybierz grupę z listy przed importem pliku.');
+                }
+            });
+        }
+
+        if (costsFileInput && costsFileInput.disabled) {
+            const blockedMessage = document.createElement('p');
+            blockedMessage.className = 'text-xs text-amber-700 mt-1';
+            blockedMessage.textContent = 'Najpierw dodaj grupę, aby odblokować wybór pliku.';
+            costsFileInput.parentElement?.appendChild(blockedMessage);
+        }
 
         activateFinanceTab(financeInitialTab);
 
@@ -2046,9 +2183,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const PROJECT_ID = {{ $project->id }};
     const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
+    const isProjectReadonly = ['warranty','archived'].includes('{{ $project->status }}');
     let frappeGanttInstance = null;
     let frappeTasks = [];
     let editingTaskId = null;
+
+    function applyProgressSliderFill(slider) {
+        if (!slider) return;
+        const value = Number(slider.value || 0);
+        slider.style.background = `linear-gradient(to right, #2563eb 0%, #2563eb ${value}%, #e5e7eb ${value}%, #e5e7eb 100%)`;
+    }
     
     function parseDate(dateStr) {
         if (!dateStr) return new Date();
@@ -2352,7 +2496,7 @@ document.addEventListener('DOMContentLoaded', function() {
         html += '<thead class="bg-gray-50"><tr>';
         html += '<th class="px-3 py-2 text-left border-b">Zadanie</th>';
         html += '<th class="px-3 py-2 text-left border-b">Termin</th>';
-        html += '<th class="px-3 py-2 text-right border-b">Wykonanie</th>';
+        html += '<th class="px-3 py-2 text-left border-b">Wykonanie</th>';
         html += '<th class="px-3 py-2 text-left border-b">Status</th>';
         html += '<th class="px-3 py-2 text-right border-b">Akcje</th>';
         html += '</tr></thead><tbody>';
@@ -2369,10 +2513,24 @@ document.addEventListener('DOMContentLoaded', function() {
             html += `<tr class="${rowClass} border-b border-gray-100">
                 <td class="px-3 py-2 font-semibold">${task.name}</td>
                 <td class="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">${formatDateForInput(end)}</td>
-                <td class="px-3 py-2 text-right font-bold ${overdue ? 'text-red-700' : 'text-gray-800'} whitespace-nowrap">${progressValue}%</td>
+                <td class="px-3 py-2">
+                    <div class="flex items-center gap-2 min-w-[180px]">
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value="${progressValue}"
+                            data-idx="${idx}"
+                            class="task-progress-slider w-full h-2 rounded-lg appearance-none cursor-pointer"
+                            ${isProjectReadonly ? 'disabled' : ''}
+                        >
+                        <span class="task-progress-label text-xs font-bold ${overdue ? 'text-red-700' : 'text-gray-800'} whitespace-nowrap">${progressValue}%</span>
+                    </div>
+                </td>
                 <td class="px-3 py-2">${statusBadge}</td>
                 <td class="px-3 py-2">
                     <div class="flex gap-1 justify-end">
+                        <button class="edit-task-row px-2 py-1 bg-blue-600 text-white rounded text-xs ${isProjectReadonly ? 'opacity-50 cursor-not-allowed' : ''}" data-id="${task.id}" ${isProjectReadonly ? 'disabled' : ''}>✏️</button>
                         <button class="move-task-up px-2 py-1 bg-gray-200 rounded text-xs" data-idx="${idx}">⬆️</button>
                         <button class="move-task-down px-2 py-1 bg-gray-200 rounded text-xs" data-idx="${idx}">⬇️</button>
                     </div>
@@ -2382,6 +2540,50 @@ document.addEventListener('DOMContentLoaded', function() {
 
         html += '</tbody></table></div>';
         container.innerHTML = html;
+
+        container.querySelectorAll('.task-progress-slider').forEach(slider => {
+            applyProgressSliderFill(slider);
+
+            slider.addEventListener('input', function() {
+                applyProgressSliderFill(this);
+                const row = this.closest('td');
+                const label = row ? row.querySelector('.task-progress-label') : null;
+                if (label) {
+                    label.textContent = `${this.value}%`;
+                }
+            });
+
+            slider.addEventListener('change', function() {
+                if (isProjectReadonly) return;
+
+                const idx = parseInt(this.dataset.idx, 10);
+                const task = frappeTasks[idx];
+                if (!task) return;
+
+                const nextProgress = Math.max(0, Math.min(100, Number(this.value || 0)));
+                task.progress = nextProgress;
+
+                updateTaskInDB(task.id, { progress: nextProgress })
+                    .then(() => {
+                        renderGantt();
+                    })
+                    .catch(() => {
+                        this.value = task.progress || 0;
+                        applyProgressSliderFill(this);
+                    });
+            });
+        });
+
+        container.querySelectorAll('.edit-task-row').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (isProjectReadonly) return;
+                const taskId = this.dataset.id;
+                if (taskId) {
+                    showTaskModal(taskId.toString());
+                }
+            });
+        });
+
         // Dodaj obsługę przesuwania (wg indeksu w frappeTasks)
         container.querySelectorAll('.move-task-up').forEach(btn => {
             btn.addEventListener('click', function() {
