@@ -1747,6 +1747,82 @@ Route::middleware('auth')->group(function () {
         }
     })->name('api.diagnostics.test-word');
 
+    // TEST lekkiej ścieżki XLSX (bez Laravel Excel exportu danych)
+    Route::get('/api/diagnostics/test-xlsx-lite', function () {
+        if (!auth()->check()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        try {
+            $requiredExtensions = ['zip', 'xml', 'xmlwriter', 'dom'];
+            $extensionStatus = [];
+            foreach ($requiredExtensions as $extension) {
+                $extensionStatus[$extension] = extension_loaded($extension);
+            }
+
+            $missing = array_keys(array_filter($extensionStatus, fn ($loaded) => !$loaded));
+
+            $tempDir = sys_get_temp_dir();
+            if (!is_writable($tempDir)) {
+                $tempDir = storage_path('app/temp');
+                if (!is_dir($tempDir)) {
+                    mkdir($tempDir, 0755, true);
+                }
+            }
+
+            $tempFile = tempnam($tempDir, 'xlsx_lite_');
+            if (!$tempFile) {
+                throw new \RuntimeException('Nie udało się utworzyć pliku tymczasowego');
+            }
+
+            $xlsxPath = $tempFile . '.xlsx';
+            @unlink($tempFile);
+
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setCellValue('A1', 'Railway XLSX Lite Test');
+            $sheet->setCellValue('A2', now()->toDateTimeString());
+
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer->save($xlsxPath);
+
+            $size = file_exists($xlsxPath) ? filesize($xlsxPath) : 0;
+            @unlink($xlsxPath);
+
+            return response()->json([
+                'success' => empty($missing),
+                'message' => empty($missing)
+                    ? '✅ Lite test XLSX zakończony sukcesem'
+                    : '⚠️ Lite test wykrył brakujące rozszerzenia',
+                'details' => [
+                    'extensions' => $extensionStatus,
+                    'missing_extensions' => $missing,
+                    'file_write_test' => $size > 0 ? 'OK (' . $size . ' B)' : 'FAIL',
+                    'environment' => app()->environment(),
+                    'php_version' => PHP_VERSION,
+                ],
+            ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            \Log::error('=== ERROR: Test XLSX Lite FAILED ===', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'details' => [
+                    'exception_class' => get_class($e),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => explode("\n", $e->getTraceAsString()),
+                ],
+            ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        }
+    })->name('api.diagnostics.test-xlsx-lite');
+
     // TEST generowania prostego pliku XLSX
     Route::get('/api/diagnostics/test-xlsx', function (\Illuminate\Http\Request $request) {
         if (!auth()->check()) {
@@ -1808,15 +1884,20 @@ Route::middleware('auth')->group(function () {
                 ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
             }
 
-            $binary = \Maatwebsite\Excel\Facades\Excel::raw(
+            $tmpRelativePath = 'temp/diagnostics_xlsx_' . uniqid('', true) . '.xlsx';
+            \Maatwebsite\Excel\Facades\Excel::store(
                 new \App\Exports\PartsExport($parts),
+                $tmpRelativePath,
+                'local',
                 \Maatwebsite\Excel\Excel::XLSX
             );
 
-            $bytes = is_string($binary) ? strlen($binary) : 0;
+            $tmpAbsolutePath = storage_path('app/' . $tmpRelativePath);
+            $bytes = file_exists($tmpAbsolutePath) ? filesize($tmpAbsolutePath) : 0;
             if ($bytes <= 0) {
                 throw new \RuntimeException('Excel::raw zwrócił pusty wynik');
             }
+            @unlink($tmpAbsolutePath);
 
             \Log::info('=== SUCCESS: Test generowania XLSX ===', [
                 'parts_count' => $parts->count(),
@@ -1836,6 +1917,7 @@ Route::middleware('auth')->group(function () {
                     'excel_facade' => $facadeExists,
                     'parts_export_class' => $exportClassExists,
                     'phpspreadsheet_class' => $phpSpreadsheetExists,
+                    'storage_mode' => 'local/temp file',
                 ],
             ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {

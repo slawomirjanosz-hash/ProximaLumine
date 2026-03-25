@@ -58,26 +58,44 @@
     </div>
     
     <script>
+        async function fetchJsonResponse(url) {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                },
+                credentials: 'include'
+            });
+
+            const rawText = await response.text();
+            const trimmed = (rawText || '').trim();
+            let data = null;
+
+            if (trimmed) {
+                try {
+                    data = JSON.parse(trimmed);
+                } catch (parseError) {
+                    const shortBody = trimmed.length > 400 ? trimmed.slice(0, 400) + '…' : trimmed;
+                    throw new Error(`HTTP ${response.status} ${response.statusText}: odpowiedź nie jest JSON. Body: ${shortBody}`);
+                }
+            }
+
+            return { response, data, rawText: trimmed };
+        }
+
         async function runDiagnostics() {
             document.getElementById('loading').classList.remove('hidden');
             document.getElementById('results').classList.add('hidden');
             document.getElementById('error').classList.add('hidden');
             
             try {
-                const response = await fetch('/api/diagnostics/environment', {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                    },
-                    credentials: 'include'
-                });
+                const { response, data, rawText } = await fetchJsonResponse('/api/diagnostics/environment');
                 
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                    throw new Error(`HTTP ${response.status}: ${rawText || 'Brak treści odpowiedzi'}`);
                 }
-                
-                const data = await response.json();
+
                 displayResults(data);
                 
             } catch (error) {
@@ -181,16 +199,10 @@
             document.getElementById('error').classList.add('hidden');
             
             try {
-                const response = await fetch('/api/diagnostics/test-word', {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                    },
-                    credentials: 'include'
-                });
-                
-                const data = await response.json();
+                const { response, data, rawText } = await fetchJsonResponse('/api/diagnostics/test-word');
+                if (!data) {
+                    throw new Error(`HTTP ${response.status}: ${rawText || 'Brak danych JSON'}`);
+                }
                 
                 if (!response.ok) {
                     // Błąd - pokaż szczegóły
@@ -265,18 +277,30 @@
             document.getElementById('error').classList.add('hidden');
 
             try {
-                const response = await fetch('/api/diagnostics/test-xlsx', {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                    },
-                    credentials: 'include'
-                });
-
-                const data = await response.json();
                 const container = document.getElementById('results-content');
                 container.innerHTML = '';
+
+                const lite = await fetchJsonResponse('/api/diagnostics/test-xlsx-lite');
+                if (!lite.response.ok || !lite.data) {
+                    throw new Error(`Lite test: HTTP ${lite.response.status}: ${lite.rawText || 'Brak danych'}`);
+                }
+
+                const liteSection = document.createElement('div');
+                liteSection.className = 'border border-blue-300 bg-blue-50 rounded-lg p-6';
+                liteSection.innerHTML = `
+                    <h3 class="text-xl font-bold text-blue-800 mb-3">ℹ️ Test XLSX Lite</h3>
+                    <p><strong>Status:</strong> ${lite.data.message || 'OK'}</p>
+                    <p><strong>Rozszerzenia:</strong> ${Object.entries(lite.data.details.extensions || {}).map(([k,v]) => `${k}=${v ? 'OK' : 'BRAK'}`).join(', ')}</p>
+                    <p><strong>Plik testowy:</strong> ${lite.data.details.file_write_test || 'brak'}</p>
+                `;
+                container.appendChild(liteSection);
+
+                const full = await fetchJsonResponse('/api/diagnostics/test-xlsx');
+                const response = full.response;
+                const data = full.data;
+                if (!data) {
+                    throw new Error(`Full test: HTTP ${response.status}: ${full.rawText || 'Brak danych JSON'}`);
+                }
 
                 if (!response.ok) {
                     const errorSection = document.createElement('div');
@@ -296,6 +320,7 @@
                                     </details>
                                 ` : ''}
                             ` : ''}
+                            <p><strong>HTTP:</strong> ${response.status} ${response.statusText}</p>
                         </div>
                     `;
                     container.appendChild(errorSection);
