@@ -5,15 +5,12 @@ namespace App\Exports;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Border as PhpBorder;
-use PhpOffice\PhpSpreadsheet\Worksheet\Table;
-use PhpOffice\PhpSpreadsheet\Worksheet\Table\TableStyleInfo;
 
-class PartsExport implements FromCollection, WithHeadings, ShouldAutoSize, WithEvents
+class PartsExport implements FromCollection, WithHeadings, WithEvents
 {
     protected $parts;
 
@@ -87,15 +84,6 @@ class PartsExport implements FromCollection, WithHeadings, ShouldAutoSize, WithE
                 // Vertically center all data cells so single-line cells are centered next to wrapped descriptions
                 $sheet->getStyle("A2:{$lastCol}{$lastRow}")->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
 
-                // Try to add an Excel Table so it appears as a table in Excel (may be ignored on older lib versions)
-                try {
-                    $table = new Table('Table1', $range);
-                    $styleInfo = new TableStyleInfo(true, true, 'TableStyleMedium9', true);
-                    $table->setStyle($styleInfo);
-                    $sheet->addTable($table);
-                } catch (\Throwable $e) {
-                    // ignore if table API isn't available
-                }
             },
         ];
     }

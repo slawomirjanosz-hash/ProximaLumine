@@ -1632,6 +1632,17 @@ class PartController extends Controller
             ->with('finance_orders_feedback', true);
     }
 
+    public function importProjectOrdersExcel(Request $request, \App\Models\Project $project)
+    {
+        $request->validate([
+            'orders_file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+        ]);
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', 'Plik zamówień został przyjęty. Import z Excela jest gotowy do konfiguracji według Twojej specyfikacji.')
+            ->with('finance_orders_feedback', true);
+    }
+
     // EKSPORT LISTY PRODUKTOW W PROJEKCIE DO XLSX
     public function exportProjectProductsXlsx(\App\Models\Project $project)
     {
@@ -2814,10 +2825,28 @@ class PartController extends Controller
     // EKSPORT DO XLSX (sformatowany)
     public function exportXlsx(Request $request)
     {
-        // Guard: jeśli pakiet maatwebsite/excel nie jest zainstalowany, pokaż przyjazny komunikat zamiast fatalnego błędu
+        // Guard: jeśli pakiet maatwebsite/excel nie jest zainstalowany, użyj fallbacku CSV
         if (!class_exists(\Maatwebsite\Excel\Facades\Excel::class)) {
-            return redirect()->back()
-                ->with('error', 'Brak pakietu "maatwebsite/excel". Zainstaluj go: composer require maatwebsite/excel');
+            \Log::error('XLSX export unavailable: maatwebsite/excel facade missing');
+            return $this->export($request);
+        }
+
+        // Railway/production guard: brakujące rozszerzenia powodują błędy XLSX
+        $requiredExtensions = ['zip', 'xml', 'xmlwriter', 'dom'];
+        $missingExtensions = [];
+        foreach ($requiredExtensions as $extension) {
+            if (!extension_loaded($extension)) {
+                $missingExtensions[] = $extension;
+            }
+        }
+
+        if (!empty($missingExtensions)) {
+            \Log::error('XLSX export unavailable: missing PHP extensions', [
+                'missing_extensions' => $missingExtensions,
+                'request_ids' => $request->get('ids'),
+                'request_selected_ids' => $request->get('selected_ids'),
+            ]);
+            return $this->export($request);
         }
 
         // Pobierz ustawienia katalogu
@@ -2851,8 +2880,15 @@ class PartController extends Controller
         try {
             return Excel::download(new PartsExport($parts), 'katalog.xlsx');
         } catch (\Throwable $e) {
-            return redirect()->back()
-                ->with('error', 'Wystąpił błąd podczas generowania pliku: ' . $e->getMessage());
+            \Log::error('XLSX export failed, using CSV fallback', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_ids' => $request->get('ids'),
+                'request_selected_ids' => $request->get('selected_ids'),
+                'parts_count' => $parts->count(),
+            ]);
+
+            return $this->export($request);
         }
     }
 

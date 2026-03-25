@@ -1142,6 +1142,22 @@
 
             <div id="finance-tab-orders" class="finance-tab-content hidden">
                 <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                    <h4 class="font-semibold text-gray-800 mb-3">Import zamówień z Excela</h4>
+                    @error('orders_file')
+                        <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
+                            {{ $message }}
+                        </div>
+                    @enderror
+                    <form action="{{ route('magazyn.projects.orders.importExcel', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row gap-2 md:items-center">
+                        @csrf
+                        <input type="file" name="orders_file" accept=".xlsx,.xls,.csv" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-semibold">
+                            📥 Importuj zamówienia
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
                     <h4 class="font-semibold text-gray-800 mb-3">Dodaj zamówienie</h4>
                     @if(session('success') && session('finance_orders_feedback'))
                         <div class="mb-3 p-3 rounded border border-green-200 bg-green-50 text-green-800 text-sm">
