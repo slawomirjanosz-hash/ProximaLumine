@@ -2825,59 +2825,59 @@ class PartController extends Controller
     // EKSPORT DO XLSX (sformatowany)
     public function exportXlsx(Request $request)
     {
-        // Guard: jeśli pakiet maatwebsite/excel nie jest zainstalowany, użyj fallbacku CSV
-        if (!class_exists(\Maatwebsite\Excel\Facades\Excel::class)) {
-            \Log::error('XLSX export unavailable: maatwebsite/excel facade missing');
-            return $this->export($request);
-        }
-
-        // Railway/production guard: brakujące rozszerzenia powodują błędy XLSX
-        $requiredExtensions = ['zip', 'xml', 'xmlwriter', 'dom'];
-        $missingExtensions = [];
-        foreach ($requiredExtensions as $extension) {
-            if (!extension_loaded($extension)) {
-                $missingExtensions[] = $extension;
-            }
-        }
-
-        if (!empty($missingExtensions)) {
-            \Log::error('XLSX export unavailable: missing PHP extensions', [
-                'missing_extensions' => $missingExtensions,
-                'request_ids' => $request->get('ids'),
-                'request_selected_ids' => $request->get('selected_ids'),
-            ]);
-            return $this->export($request);
-        }
-
-        // Pobierz ustawienia katalogu
-        $catalogSettings = \DB::table('catalog_columns_settings')->first();
-        $exportAll = $catalogSettings && isset($catalogSettings->export_all_products) 
-            ? $catalogSettings->export_all_products 
-            : true;
-
-        $query = Part::with(['category', 'lastModifiedBy'])->orderBy('name');
-
-        // Jeśli są zaznaczone IDs (z checkboxów), filtruj tylko te
-        if ($request->filled('selected_ids')) {
-            $ids = array_filter(explode(',', $request->selected_ids));
-            $query->whereIn('id', $ids);
-        } elseif ($request->filled('ids')) {
-            $ids = array_filter(explode(',', $request->ids));
-            $query->whereIn('id', $ids);
-        } elseif (!$exportAll) {
-            // Jeśli ustawienie export_all_products jest wyłączone, stosuj filtry
-            if ($request->filled('search')) {
-                $query->where('name', 'like', '%' . $request->search . '%');
-            }
-            if ($request->filled('category_id')) {
-                $query->where('category_id', $request->category_id);
-            }
-        }
-        // Jeśli export_all_products jest włączone i nie ma zaznaczonych ID, pobierz wszystko
-
-        $parts = $query->get();
-
         try {
+            // Guard: jeśli pakiet maatwebsite/excel nie jest zainstalowany, użyj fallbacku CSV
+            if (!class_exists(\Maatwebsite\Excel\Facades\Excel::class)) {
+                \Log::error('XLSX export unavailable: maatwebsite/excel facade missing');
+                return $this->export($request);
+            }
+
+            // Railway/production guard: brakujące rozszerzenia powodują błędy XLSX
+            $requiredExtensions = ['zip', 'xml', 'xmlwriter', 'dom'];
+            $missingExtensions = [];
+            foreach ($requiredExtensions as $extension) {
+                if (!extension_loaded($extension)) {
+                    $missingExtensions[] = $extension;
+                }
+            }
+
+            if (!empty($missingExtensions)) {
+                \Log::error('XLSX export unavailable: missing PHP extensions', [
+                    'missing_extensions' => $missingExtensions,
+                    'request_ids' => $request->get('ids'),
+                    'request_selected_ids' => $request->get('selected_ids'),
+                ]);
+                return $this->export($request);
+            }
+
+            // Pobierz ustawienia katalogu
+            $catalogSettings = \DB::table('catalog_columns_settings')->first();
+            $exportAll = $catalogSettings && isset($catalogSettings->export_all_products)
+                ? $catalogSettings->export_all_products
+                : true;
+
+            $query = Part::with(['category', 'lastModifiedBy'])->orderBy('name');
+
+            // Jeśli są zaznaczone IDs (z checkboxów), filtruj tylko te
+            if ($request->filled('selected_ids')) {
+                $ids = array_filter(explode(',', $request->selected_ids));
+                $query->whereIn('id', $ids);
+            } elseif ($request->filled('ids')) {
+                $ids = array_filter(explode(',', $request->ids));
+                $query->whereIn('id', $ids);
+            } elseif (!$exportAll) {
+                // Jeśli ustawienie export_all_products jest wyłączone, stosuj filtry
+                if ($request->filled('search')) {
+                    $query->where('name', 'like', '%' . $request->search . '%');
+                }
+                if ($request->filled('category_id')) {
+                    $query->where('category_id', $request->category_id);
+                }
+            }
+            // Jeśli export_all_products jest włączone i nie ma zaznaczonych ID, pobierz wszystko
+
+            $parts = $query->get();
+
             return Excel::download(new PartsExport($parts), 'katalog.xlsx');
         } catch (\Throwable $e) {
             \Log::error('XLSX export failed, using CSV fallback', [
@@ -2885,7 +2885,7 @@ class PartController extends Controller
                 'trace' => $e->getTraceAsString(),
                 'request_ids' => $request->get('ids'),
                 'request_selected_ids' => $request->get('selected_ids'),
-                'parts_count' => $parts->count(),
+                'parts_count' => isset($parts) ? $parts->count() : null,
             ]);
 
             return $this->export($request);

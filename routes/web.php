@@ -1747,6 +1747,120 @@ Route::middleware('auth')->group(function () {
         }
     })->name('api.diagnostics.test-word');
 
+    // TEST generowania prostego pliku XLSX
+    Route::get('/api/diagnostics/test-xlsx', function (\Illuminate\Http\Request $request) {
+        if (!auth()->check()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $idsRaw = (string) $request->query('ids', '');
+        $ids = array_values(array_filter(array_map('intval', explode(',', $idsRaw))));
+
+        try {
+            \Log::info('=== START: Test generowania XLSX ===', [
+                'ids_raw' => $idsRaw,
+                'ids' => $ids,
+            ]);
+
+            $requiredExtensions = ['zip', 'xml', 'xmlwriter', 'dom'];
+            $extensionStatus = [];
+            foreach ($requiredExtensions as $extension) {
+                $extensionStatus[$extension] = extension_loaded($extension);
+            }
+
+            $partsQuery = \App\Models\Part::query()
+                ->with(['category', 'lastModifiedBy', 'supplier'])
+                ->orderBy('name');
+
+            if (!empty($ids)) {
+                $partsQuery->whereIn('id', $ids);
+            } else {
+                $partsQuery->limit(5);
+            }
+
+            $parts = $partsQuery->get();
+
+            if ($parts->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Brak produktów do testu XLSX',
+                    'details' => [
+                        'ids' => $ids,
+                        'hint' => 'Podaj poprawne ids, np. ?ids=1,2',
+                    ],
+                ], 422, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }
+
+            $facadeExists = class_exists(\Maatwebsite\Excel\Facades\Excel::class);
+            $exportClassExists = class_exists(\App\Exports\PartsExport::class);
+            $phpSpreadsheetExists = class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class);
+
+            if (!$facadeExists || !$exportClassExists || !$phpSpreadsheetExists) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Brak wymaganych klas do generowania XLSX',
+                    'details' => [
+                        'excel_facade' => $facadeExists,
+                        'parts_export_class' => $exportClassExists,
+                        'phpspreadsheet_class' => $phpSpreadsheetExists,
+                        'extensions' => $extensionStatus,
+                    ],
+                ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }
+
+            $binary = \Maatwebsite\Excel\Facades\Excel::raw(
+                new \App\Exports\PartsExport($parts),
+                \Maatwebsite\Excel\Excel::XLSX
+            );
+
+            $bytes = is_string($binary) ? strlen($binary) : 0;
+            if ($bytes <= 0) {
+                throw new \RuntimeException('Excel::raw zwrócił pusty wynik');
+            }
+
+            \Log::info('=== SUCCESS: Test generowania XLSX ===', [
+                'parts_count' => $parts->count(),
+                'bytes' => $bytes,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => '✅ Test XLSX zakończony sukcesem',
+                'details' => [
+                    'parts_count' => $parts->count(),
+                    'tested_ids' => $parts->pluck('id')->values(),
+                    'generated_bytes' => $bytes,
+                    'environment' => app()->environment(),
+                    'php_version' => PHP_VERSION,
+                    'extensions' => $extensionStatus,
+                    'excel_facade' => $facadeExists,
+                    'parts_export_class' => $exportClassExists,
+                    'phpspreadsheet_class' => $phpSpreadsheetExists,
+                ],
+            ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            \Log::error('=== ERROR: Test generowania XLSX FAILED ===', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'ids' => $ids,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'details' => [
+                    'exception_class' => get_class($e),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => explode("\n", $e->getTraceAsString()),
+                    'ids' => $ids,
+                ],
+            ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        }
+    })->name('api.diagnostics.test-xlsx');
+
     // Strona diagnostyczna dla generowania ofert Word
     Route::get('/diagnostics/offers-word', function (\Illuminate\Http\Request $request) {
         $defaultOfferId = $request->integer('offer_id');

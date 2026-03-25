@@ -17,7 +17,7 @@
         <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
             <h1 class="text-3xl font-bold mb-4">🔧 Diagnostyka Środowiska Railway</h1>
             <p class="text-gray-600 mb-4">
-                Ten widok pomaga zidentyfikować problemy z generowaniem dokumentów Word na Railway.
+                Ten widok pomaga zidentyfikować problemy z generowaniem dokumentów Word i XLSX na Railway.
             </p>
             
             @auth
@@ -27,6 +27,9 @@
                 </button>
                 <button onclick="testWordGeneration()" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition ml-2">
                     📄 Test Generowania Word
+                </button>
+                <button onclick="testXlsxGeneration()" class="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition ml-2">
+                    📊 Test Generowania XLSX
                 </button>
             </div>
             @else
@@ -249,6 +252,76 @@
                 
             } catch (error) {
                 console.error('Błąd testu Word:', error);
+                document.getElementById('error-message').textContent = error.message;
+                document.getElementById('error').classList.remove('hidden');
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+            }
+        }
+
+        async function testXlsxGeneration() {
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('error').classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/diagnostics/test-xlsx', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                const container = document.getElementById('results-content');
+                container.innerHTML = '';
+
+                if (!response.ok) {
+                    const errorSection = document.createElement('div');
+                    errorSection.className = 'border border-red-400 bg-red-50 rounded-lg p-6';
+                    errorSection.innerHTML = `
+                        <h3 class="text-2xl font-bold text-red-700 mb-4">❌ Test Generowania XLSX - BŁĄD</h3>
+                        <div class="space-y-2">
+                            <p><strong>Błąd:</strong> <span class="text-red-600">${data.error || 'Unknown error'}</span></p>
+                            ${data.details ? `
+                                <p><strong>Klasa wyjątku:</strong> ${data.details.exception_class || 'N/A'}</p>
+                                <p><strong>Plik:</strong> ${data.details.file || 'N/A'}</p>
+                                <p><strong>Linia:</strong> ${data.details.line || 'N/A'}</p>
+                                ${data.details.trace ? `
+                                    <details class="mt-4">
+                                        <summary class="cursor-pointer font-semibold text-red-700">Stack Trace (kliknij aby rozwinąć)</summary>
+                                        <pre class="mt-2 p-4 bg-red-100 rounded text-xs overflow-auto">${data.details.trace.join('\n')}</pre>
+                                    </details>
+                                ` : ''}
+                            ` : ''}
+                        </div>
+                    `;
+                    container.appendChild(errorSection);
+                } else {
+                    const successSection = document.createElement('div');
+                    successSection.className = 'border border-green-400 bg-green-50 rounded-lg p-6';
+                    successSection.innerHTML = `
+                        <h3 class="text-2xl font-bold text-green-700 mb-4">✅ ${data.message}</h3>
+                        <div class="space-y-2">
+                            <p><strong>Liczba produktów:</strong> ${data.details.parts_count}</p>
+                            <p><strong>Przetestowane ID:</strong> ${(data.details.tested_ids || []).join(', ')}</p>
+                            <p><strong>Rozmiar wygenerowanego pliku:</strong> ${data.details.generated_bytes} B</p>
+                            <p><strong>Środowisko:</strong> ${data.details.environment}</p>
+                            <p><strong>PHP Version:</strong> ${data.details.php_version}</p>
+                        </div>
+                        <div class="mt-4 p-4 bg-green-100 rounded">
+                            <p class="font-semibold">✅ Silnik XLSX działa na Railway.</p>
+                            <p class="text-sm mt-2">Jeśli przycisk "Pobierz do Excel" dalej zwraca 503, sprawdź logi z endpointu /magazyn/sprawdz/eksport-xlsx i porównaj z tym testem.</p>
+                        </div>
+                    `;
+                    container.appendChild(successSection);
+                }
+
+                document.getElementById('results').classList.remove('hidden');
+            } catch (error) {
+                console.error('Błąd testu XLSX:', error);
                 document.getElementById('error-message').textContent = error.message;
                 document.getElementById('error').classList.remove('hidden');
             } finally {
