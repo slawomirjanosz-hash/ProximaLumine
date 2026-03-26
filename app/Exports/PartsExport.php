@@ -29,7 +29,7 @@ class PartsExport implements FromCollection, WithHeadings, WithEvents
                 'Dost.' => is_object($p->supplier) ? ($p->supplier->name ?? '-') : ($p->supplier ?? '-'),
                 'Cena' => $p->net_price ?? '-',
                 'Waluta' => $p->currency ?? '-',
-                'kategoria' => $p->category->name ?? '-',
+                'kategoria' => $p->category?->name ?? '-',
                 'ilość' => $p->quantity,
                 'jednostka' => $p->unit ?? '-',
                 'lok.' => $p->location ?? '-',

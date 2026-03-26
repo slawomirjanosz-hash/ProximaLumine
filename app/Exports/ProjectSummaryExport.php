@@ -28,7 +28,7 @@ class ProjectSummaryExport implements FromCollection, WithHeadings, ShouldAutoSi
                 'Nazwa produktu' => $part->name,
                 'Kod QR (opis)' => $part->qr_code ?? '-',
                 'Opis' => $description,
-                'Kategoria' => $part->category->name ?? '-',
+                'Kategoria' => $part->category?->name ?? '-',
                 'Dostawca' => $part->supplier ?? '-',
                 'Lok' => $part->location ?? '-',
                 'Laczna ilosc w projekcie' => $item['total_quantity'],

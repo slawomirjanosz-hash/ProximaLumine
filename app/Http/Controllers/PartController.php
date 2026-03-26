@@ -2828,7 +2828,7 @@ class PartController extends Controller
                 fputcsv($output, [
                     $p->name,
                     $description,
-                    $p->category->name ?? '-',
+                    $p->category?->name ?? '-',
                     $p->quantity,
                     $p->unit ?? '-',
                     $p->minimum_stock ?? 0,
