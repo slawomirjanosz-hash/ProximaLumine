@@ -1747,6 +1747,31 @@ Route::middleware('auth')->group(function () {
         }
     })->name('api.diagnostics.test-word');
 
+    // Odczyt ostatniego śladu diagnostyki XLSX (przydatne gdy test kończy się 503)
+    Route::get('/api/diagnostics/xlsx-trace', function () {
+        if (!auth()->check()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $traceFile = storage_path('app/diagnostics/xlsx_trace.json');
+        if (!file_exists($traceFile)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Brak śladu diagnostycznego XLSX',
+                'trace_file' => $traceFile,
+            ], 404, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        }
+
+        $content = file_get_contents($traceFile);
+        $decoded = json_decode((string) $content, true);
+
+        return response()->json([
+            'success' => true,
+            'trace_file' => $traceFile,
+            'trace' => $decoded ?: $content,
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    })->name('api.diagnostics.xlsx-trace');
+
     // TEST lekkiej ścieżki XLSX (bez Laravel Excel exportu danych)
     Route::get('/api/diagnostics/test-xlsx-lite', function () {
         if (!auth()->check()) {
@@ -1832,7 +1857,36 @@ Route::middleware('auth')->group(function () {
         $idsRaw = (string) $request->query('ids', '');
         $ids = array_values(array_filter(array_map('intval', explode(',', $idsRaw))));
 
+        $traceDir = storage_path('app/diagnostics');
+        if (!is_dir($traceDir)) {
+            @mkdir($traceDir, 0755, true);
+        }
+        $traceFile = $traceDir . DIRECTORY_SEPARATOR . 'xlsx_trace.json';
+
+        $trace = [
+            'started_at' => now()->toDateTimeString(),
+            'environment' => app()->environment(),
+            'php_version' => PHP_VERSION,
+            'ids_raw' => $idsRaw,
+            'ids' => $ids,
+            'entries' => [],
+        ];
+
+        $appendTrace = function (string $stage, array $details = []) use (&$trace, $traceFile) {
+            $trace['entries'][] = [
+                'time' => now()->toDateTimeString(),
+                'stage' => $stage,
+                'details' => $details,
+            ];
+
+            @file_put_contents(
+                $traceFile,
+                json_encode($trace, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
+            );
+        };
+
         try {
+            $appendTrace('start');
             \Log::info('=== START: Test generowania XLSX ===', [
                 'ids_raw' => $idsRaw,
                 'ids' => $ids,
@@ -1843,6 +1897,7 @@ Route::middleware('auth')->group(function () {
             foreach ($requiredExtensions as $extension) {
                 $extensionStatus[$extension] = extension_loaded($extension);
             }
+            $appendTrace('extensions_checked', $extensionStatus);
 
             $partsQuery = \App\Models\Part::query()
                 ->with(['category', 'lastModifiedBy', 'supplier'])
@@ -1851,12 +1906,18 @@ Route::middleware('auth')->group(function () {
             if (!empty($ids)) {
                 $partsQuery->whereIn('id', $ids);
             } else {
-                $partsQuery->limit(5);
+                $partsQuery->limit(1);
             }
+            $appendTrace('parts_query_prepared', ['uses_ids' => !empty($ids)]);
 
             $parts = $partsQuery->get();
+            $appendTrace('parts_loaded', [
+                'count' => $parts->count(),
+                'loaded_ids' => $parts->pluck('id')->values()->all(),
+            ]);
 
             if ($parts->isEmpty()) {
+                $appendTrace('no_parts_for_test');
                 return response()->json([
                     'success' => false,
                     'error' => 'Brak produktów do testu XLSX',
@@ -1870,8 +1931,14 @@ Route::middleware('auth')->group(function () {
             $facadeExists = class_exists(\Maatwebsite\Excel\Facades\Excel::class);
             $exportClassExists = class_exists(\App\Exports\PartsExport::class);
             $phpSpreadsheetExists = class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class);
+            $appendTrace('class_checks', [
+                'excel_facade' => $facadeExists,
+                'parts_export_class' => $exportClassExists,
+                'phpspreadsheet_class' => $phpSpreadsheetExists,
+            ]);
 
             if (!$facadeExists || !$exportClassExists || !$phpSpreadsheetExists) {
+                $appendTrace('class_check_failed');
                 return response()->json([
                     'success' => false,
                     'error' => 'Brak wymaganych klas do generowania XLSX',
@@ -1884,13 +1951,20 @@ Route::middleware('auth')->group(function () {
                 ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
             }
 
+            $tempDir = storage_path('app/temp');
+            if (!is_dir($tempDir)) {
+                @mkdir($tempDir, 0755, true);
+            }
+
             $tmpRelativePath = 'temp/diagnostics_xlsx_' . uniqid('', true) . '.xlsx';
+            $appendTrace('before_excel_store', ['path' => $tmpRelativePath]);
             \Maatwebsite\Excel\Facades\Excel::store(
                 new \App\Exports\PartsExport($parts),
                 $tmpRelativePath,
                 'local',
                 \Maatwebsite\Excel\Excel::XLSX
             );
+            $appendTrace('after_excel_store');
 
             $tmpAbsolutePath = storage_path('app/' . $tmpRelativePath);
             $bytes = file_exists($tmpAbsolutePath) ? filesize($tmpAbsolutePath) : 0;
@@ -1898,11 +1972,13 @@ Route::middleware('auth')->group(function () {
                 throw new \RuntimeException('Excel::raw zwrócił pusty wynik');
             }
             @unlink($tmpAbsolutePath);
+            $appendTrace('file_verified', ['bytes' => $bytes]);
 
             \Log::info('=== SUCCESS: Test generowania XLSX ===', [
                 'parts_count' => $parts->count(),
                 'bytes' => $bytes,
             ]);
+            $appendTrace('success');
 
             return response()->json([
                 'success' => true,
@@ -1918,9 +1994,16 @@ Route::middleware('auth')->group(function () {
                     'parts_export_class' => $exportClassExists,
                     'phpspreadsheet_class' => $phpSpreadsheetExists,
                     'storage_mode' => 'local/temp file',
+                    'trace_file' => $traceFile,
                 ],
             ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
+            $appendTrace('error', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
             \Log::error('=== ERROR: Test generowania XLSX FAILED ===', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
@@ -1938,6 +2021,7 @@ Route::middleware('auth')->group(function () {
                     'line' => $e->getLine(),
                     'trace' => explode("\n", $e->getTraceAsString()),
                     'ids' => $ids,
+                    'trace_file' => $traceFile,
                 ],
             ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         }

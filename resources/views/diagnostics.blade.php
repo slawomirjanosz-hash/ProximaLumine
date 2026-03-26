@@ -347,8 +347,46 @@
                 document.getElementById('results').classList.remove('hidden');
             } catch (error) {
                 console.error('Błąd testu XLSX:', error);
-                document.getElementById('error-message').textContent = error.message;
-                document.getElementById('error').classList.remove('hidden');
+                const container = document.getElementById('results-content');
+                container.innerHTML = '';
+
+                const failSection = document.createElement('div');
+                failSection.className = 'border border-red-400 bg-red-50 rounded-lg p-6';
+                failSection.innerHTML = `
+                    <h3 class="text-2xl font-bold text-red-700 mb-4">❌ Test Generowania XLSX - BŁĄD TRANSPORTU</h3>
+                    <p><strong>Komunikat:</strong> ${error.message}</p>
+                    <p class="text-sm mt-2">Próba odczytu ostatniego śladu serwera...</p>
+                `;
+                container.appendChild(failSection);
+
+                try {
+                    const traceResp = await fetchJsonResponse('/api/diagnostics/xlsx-trace');
+                    if (traceResp.response.ok && traceResp.data && traceResp.data.trace) {
+                        const traceSection = document.createElement('div');
+                        traceSection.className = 'border border-yellow-400 bg-yellow-50 rounded-lg p-6 mt-4';
+
+                        const trace = traceResp.data.trace;
+                        const entries = Array.isArray(trace.entries) ? trace.entries : [];
+                        const lastEntry = entries.length ? entries[entries.length - 1] : null;
+
+                        traceSection.innerHTML = `
+                            <h3 class="text-xl font-bold text-yellow-800 mb-3">🧭 Ostatni ślad diagnostyczny XLSX</h3>
+                            <p><strong>Plik śladu:</strong> ${traceResp.data.trace_file || 'N/A'}</p>
+                            <p><strong>Start:</strong> ${trace.started_at || 'N/A'}</p>
+                            <p><strong>Ostatni etap:</strong> ${lastEntry ? lastEntry.stage : 'N/A'}</p>
+                            ${lastEntry ? `<p><strong>Czas etapu:</strong> ${lastEntry.time || 'N/A'}</p>` : ''}
+                            <details class="mt-4">
+                                <summary class="cursor-pointer font-semibold text-yellow-800">Pokaż pełny ślad JSON</summary>
+                                <pre class="mt-2 p-4 bg-yellow-100 rounded text-xs overflow-auto">${JSON.stringify(trace, null, 2)}</pre>
+                            </details>
+                        `;
+                        container.appendChild(traceSection);
+                    }
+                } catch (traceError) {
+                    console.error('Nie udało się pobrać śladu XLSX:', traceError);
+                }
+
+                document.getElementById('results').classList.remove('hidden');
             } finally {
                 document.getElementById('loading').classList.add('hidden');
             }

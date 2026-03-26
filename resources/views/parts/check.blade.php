@@ -1062,52 +1062,64 @@ document.addEventListener('DOMContentLoaded', function() {
                     params.append('ids', selectedIds);
                 }
                 const url = `/magazyn/sprawdz/${endpoint}?${params.toString()}`;
-                
-                fetch(url, {
-                    credentials: 'same-origin',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                    .then(response => {
-                        showAlert('info', 'Pobieranie...');
-                        const contentType = (response.headers.get('content-type') || '').toLowerCase();
-                        const disposition = response.headers.get('content-disposition') || '';
 
-                        if (!response.ok) {
-                            return response.text().then(text => {
-                                throw new Error(text || 'Błąd serwera');
+                const downloadFromUrl = (downloadUrl, defaultFilename) => {
+                    return fetch(downloadUrl, {
+                        credentials: 'same-origin',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                        .then(response => {
+                            showAlert('info', 'Pobieranie...');
+                            const contentType = (response.headers.get('content-type') || '').toLowerCase();
+                            const disposition = response.headers.get('content-disposition') || '';
+
+                            if (!response.ok) {
+                                return response.text().then(text => {
+                                    throw new Error(text || 'Błąd serwera');
+                                });
+                            }
+
+                            if (contentType.includes('text/html')) {
+                                return response.text().then(text => { throw new Error(text || 'Nieoczekiwana odpowiedź serwera'); });
+                            }
+
+                            return response.blob().then(blob => ({ blob, disposition, defaultFilename }));
+                        })
+                        .then(({ blob, disposition, defaultFilename }) => {
+                            const blobUrl = window.URL.createObjectURL(blob);
+                            let finalFilename = defaultFilename;
+
+                            const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+                            const basicMatch = disposition.match(/filename="?([^";]+)"?/i);
+                            if (utf8Match && utf8Match[1]) {
+                                finalFilename = decodeURIComponent(utf8Match[1]);
+                            } else if (basicMatch && basicMatch[1]) {
+                                finalFilename = basicMatch[1];
+                            }
+
+                            const a = document.createElement('a');
+                            a.href = blobUrl;
+                            a.download = finalFilename;
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            window.URL.revokeObjectURL(blobUrl);
+                            showAlert('success', 'Pobrano plik.');
+                        });
+                };
+
+                downloadFromUrl(url, filename)
+                    .catch(err => {
+                        if (endpoint === 'eksport-xlsx') {
+                            const csvUrl = `/magazyn/sprawdz/eksport?${params.toString()}`;
+                            showAlert('error', 'XLSX niedostępny na serwerze. Pobieram CSV jako awaryjny eksport...', 7000);
+                            return downloadFromUrl(csvUrl, 'katalog.csv').catch(csvErr => {
+                                showAlert('error', 'Błąd pobierania XLSX i CSV: ' + csvErr.message);
                             });
                         }
 
-                        if (contentType.includes('text/html')) {
-                            return response.text().then(text => { throw new Error(text || 'Nieoczekiwana odpowiedź serwera'); });
-                        }
-
-                        return response.blob().then(blob => ({ blob, disposition }));
-                    })
-                    .then(({ blob, disposition }) => {
-                        const blobUrl = window.URL.createObjectURL(blob);
-                        let finalFilename = filename;
-
-                        const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-                        const basicMatch = disposition.match(/filename="?([^";]+)"?/i);
-                        if (utf8Match && utf8Match[1]) {
-                            finalFilename = decodeURIComponent(utf8Match[1]);
-                        } else if (basicMatch && basicMatch[1]) {
-                            finalFilename = basicMatch[1];
-                        }
-
-                        const a = document.createElement('a');
-                        a.href = blobUrl;
-                        a.download = finalFilename;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        window.URL.revokeObjectURL(blobUrl);
-                        showAlert('success', 'Pobrano plik.');
-                    })
-                    .catch(err => {
                         showAlert('error', 'Błąd pobierania: ' + err.message);
                     });
             });
