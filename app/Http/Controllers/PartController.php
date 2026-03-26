@@ -2784,63 +2784,77 @@ class PartController extends Controller
     // EKSPORT DO EXCELA (CSV)
     public function export(Request $request)
     {
-        $exportAll = $this->resolveCatalogExportAllSetting();
+        try {
+            $exportAll = $this->resolveCatalogExportAllSetting();
 
-        $query = Part::with(['category', 'lastModifiedBy'])->orderBy('name');
+            $query = Part::with(['category', 'lastModifiedBy'])->orderBy('name');
 
-        // Jeśli są zaznaczone IDs (z checkboxów), filtruj tylko te
-        if ($request->filled('selected_ids')) {
-            $ids = array_filter(explode(',', $request->selected_ids));
-            $query->whereIn('id', $ids);
-        } elseif ($request->filled('ids')) {
-            $ids = array_filter(explode(',', $request->ids));
-            $query->whereIn('id', $ids);
-        } elseif (!$exportAll) {
-            // Jeśli ustawienie export_all_products jest wyłączone, stosuj filtry
-            if ($request->filled('search')) {
-                $query->where('name', 'like', '%' . $request->search . '%');
+            if ($request->filled('selected_ids')) {
+                $ids = array_filter(explode(',', (string) $request->selected_ids));
+                $query->whereIn('id', $ids);
+            } elseif ($request->filled('ids')) {
+                $ids = array_filter(explode(',', (string) $request->ids));
+                $query->whereIn('id', $ids);
+            } elseif (!$exportAll) {
+                if ($request->filled('search')) {
+                    $query->where('name', 'like', '%' . $request->search . '%');
+                }
+                if ($request->filled('category_id')) {
+                    $query->where('category_id', $request->category_id);
+                }
             }
-            if ($request->filled('category_id')) {
-                $query->where('category_id', $request->category_id);
-            }
-        }
-        // Jeśli export_all_products jest włączone i nie ma zaznaczonych ID, pobierz wszystko
 
-        $parts = $query->get();
+            $parts = $query->get();
 
-        $headers = [
-            'Content-Type' => 'text/csv; charset=utf-8',
-            'Content-Disposition' => 'attachment; filename="katalog.csv"',
-        ];
-
-        $callback = function() use ($parts) {
-            $output = fopen('php://output', 'w');
-            // UTF-8 BOM so Excel detects UTF-8 correctly
-            fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-            // Tell Excel to use semicolon as separator
-            fwrite($output, "sep=;\r\n");
-            fputcsv($output, ['Nazwa', 'Opis', 'Kategoria', 'Stan', 'Jednostka', 'Stan min.', 'Lokalizacja', 'Użytkownik'], ';');
+            // Generuj CSV w pamięci (php://temp), aby uniknąć problemów ze streamowaniem na Railway
+            $buf = fopen('php://temp', 'r+');
+            fprintf($buf, chr(0xEF) . chr(0xBB) . chr(0xBF)); // UTF-8 BOM
+            fwrite($buf, "sep=;\r\n");
+            fputcsv($buf, ['Nazwa', 'Opis', 'Kategoria', 'Stan', 'Jednostka', 'Stan min.', 'Lokalizacja', 'Użytkownik'], ';');
 
             foreach ($parts as $p) {
-                // Ensure description is a single line: replace newlines with spaces and collapse multiple spaces
-                $description = $p->description ? preg_replace('/\s+/', ' ', str_replace(["\r", "\n"], ' ', $p->description)) : '-';
+                $description = $p->description
+                    ? preg_replace('/\s+/', ' ', str_replace(["\r", "\n"], ' ', (string) $p->description))
+                    : '-';
 
-                fputcsv($output, [
-                    $p->name,
+                fputcsv($buf, [
+                    (string) ($p->name ?? ''),
                     $description,
                     $p->category?->name ?? '-',
-                    $p->quantity,
+                    (string) ($p->quantity ?? '0'),
                     $p->unit ?? '-',
-                    $p->minimum_stock ?? 0,
+                    (string) ($p->minimum_stock ?? '0'),
                     $p->location ?? '-',
-                    $p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-',
+                    $p->lastModifiedBy?->short_name ?? '-',
                 ], ';');
             }
 
-            fclose($output);
-        };
+            rewind($buf);
+            $csv = (string) stream_get_contents($buf);
+            fclose($buf);
 
-        return response()->stream($callback, 200, $headers);
+            \Log::info('CSV export success', ['parts' => $parts->count(), 'bytes' => strlen($csv)]);
+
+            return response($csv, 200, [
+                'Content-Type'        => 'text/csv; charset=utf-8',
+                'Content-Disposition' => 'attachment; filename="katalog.csv"',
+                'Content-Length'      => (string) strlen($csv),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('CSV export failed', [
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error'   => $e->getMessage(),
+                'file'    => basename($e->getFile()),
+                'line'    => $e->getLine(),
+            ], 500);
+        }
     }
 
     // EKSPORT DO XLSX (sformatowany)

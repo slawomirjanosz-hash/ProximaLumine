@@ -1078,12 +1078,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
                             if (!response.ok) {
                                 return response.text().then(text => {
-                                    throw new Error(text || 'Błąd serwera');
+                                    let msg = text || 'Błąd serwera';
+                                    try {
+                                        const parsed = JSON.parse(text);
+                                        msg = parsed.error || parsed.message || msg;
+                                    } catch (_) {}
+                                    throw new Error(msg);
                                 });
                             }
 
                             if (contentType.includes('text/html')) {
-                                return response.text().then(text => { throw new Error(text || 'Nieoczekiwana odpowiedź serwera'); });
+                                return response.text().then(text => { throw new Error('Nieoczekiwana odpowiedź HTML – odśwież stronę i spróbuj ponownie'); });
                             }
 
                             return response.blob().then(blob => ({ blob, disposition, defaultFilename }));
