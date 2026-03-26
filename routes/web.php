@@ -1969,7 +1969,23 @@ Route::middleware('auth')->group(function () {
             $tmpAbsolutePath = storage_path('app/' . $tmpRelativePath);
             $bytes = file_exists($tmpAbsolutePath) ? filesize($tmpAbsolutePath) : 0;
             if ($bytes <= 0) {
-                throw new \RuntimeException('Excel::raw zwrócił pusty wynik');
+                $appendTrace('store_file_empty_or_missing', [
+                    'exists' => file_exists($tmpAbsolutePath),
+                    'path' => $tmpAbsolutePath,
+                ]);
+
+                $raw = \Maatwebsite\Excel\Facades\Excel::raw(
+                    new \App\Exports\PartsExport($parts),
+                    \Maatwebsite\Excel\Excel::XLSX
+                );
+                $rawBytes = is_string($raw) ? strlen($raw) : 0;
+                $appendTrace('raw_generated', ['bytes' => $rawBytes]);
+
+                if ($rawBytes <= 0) {
+                    throw new \RuntimeException('Nie udało się wygenerować danych XLSX (store i raw zwróciły pusty wynik)');
+                }
+
+                $bytes = $rawBytes;
             }
             @unlink($tmpAbsolutePath);
             $appendTrace('file_verified', ['bytes' => $bytes]);

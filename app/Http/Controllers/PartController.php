@@ -94,6 +94,31 @@ class PartController extends Controller
         return $baseName . '_' . $generatedDate . '.' . $extension;
     }
 
+    private function resolveCatalogExportAllSetting(): bool
+    {
+        if (!$this->hasTableSafe('catalog_columns_settings')) {
+            return true;
+        }
+
+        try {
+            $catalogSettings = DB::table('catalog_columns_settings')->first();
+
+            if (!$catalogSettings || !isset($catalogSettings->export_all_products)) {
+                return true;
+            }
+
+            return (bool) $catalogSettings->export_all_products;
+        } catch (\Throwable $e) {
+            \Log::warning('Unable to load catalog export settings, using defaults', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return true;
+        }
+    }
+
     private function streamProjectSummaryCsv(
         \Illuminate\Support\Collection $summary,
         \App\Models\Project $project,
@@ -2759,11 +2784,7 @@ class PartController extends Controller
     // EKSPORT DO EXCELA (CSV)
     public function export(Request $request)
     {
-        // Pobierz ustawienia katalogu
-        $catalogSettings = \DB::table('catalog_columns_settings')->first();
-        $exportAll = $catalogSettings && isset($catalogSettings->export_all_products) 
-            ? $catalogSettings->export_all_products 
-            : true;
+        $exportAll = $this->resolveCatalogExportAllSetting();
 
         $query = Part::with(['category', 'lastModifiedBy'])->orderBy('name');
 
@@ -2850,11 +2871,7 @@ class PartController extends Controller
                 return $this->export($request);
             }
 
-            // Pobierz ustawienia katalogu
-            $catalogSettings = \DB::table('catalog_columns_settings')->first();
-            $exportAll = $catalogSettings && isset($catalogSettings->export_all_products)
-                ? $catalogSettings->export_all_products
-                : true;
+            $exportAll = $this->resolveCatalogExportAllSetting();
 
             $query = Part::with(['category', 'lastModifiedBy'])->orderBy('name');
 
@@ -2900,11 +2917,7 @@ class PartController extends Controller
                 ->with('error', 'Brak pakietu "phpoffice/phpword". Zainstaluj go: composer require phpoffice/phpword');
         }
 
-        // Pobierz ustawienia katalogu
-        $catalogSettings = \DB::table('catalog_columns_settings')->first();
-        $exportAll = $catalogSettings && isset($catalogSettings->export_all_products) 
-            ? $catalogSettings->export_all_products 
-            : true;
+        $exportAll = $this->resolveCatalogExportAllSetting();
 
         $query = Part::with(['category', 'lastModifiedBy'])->orderBy('name');
 
