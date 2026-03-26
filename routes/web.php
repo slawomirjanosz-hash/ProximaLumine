@@ -1900,7 +1900,7 @@ Route::middleware('auth')->group(function () {
             $appendTrace('extensions_checked', $extensionStatus);
 
             $partsQuery = \App\Models\Part::query()
-                ->with(['category', 'lastModifiedBy', 'supplier'])
+                ->with(['category', 'lastModifiedBy'])
                 ->orderBy('name');
 
             if (!empty($ids)) {
