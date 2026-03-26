@@ -368,6 +368,10 @@
                         const trace = traceResp.data.trace;
                         const entries = Array.isArray(trace.entries) ? trace.entries : [];
                         const lastEntry = entries.length ? entries[entries.length - 1] : null;
+                        const lastDetails = lastEntry && lastEntry.details ? lastEntry.details : null;
+                        const lastMessage = lastDetails && lastDetails.message ? lastDetails.message : 'N/A';
+                        const lastFile = lastDetails && lastDetails.file ? lastDetails.file : 'N/A';
+                        const lastLine = lastDetails && typeof lastDetails.line !== 'undefined' ? lastDetails.line : 'N/A';
 
                         traceSection.innerHTML = `
                             <h3 class="text-xl font-bold text-yellow-800 mb-3">🧭 Ostatni ślad diagnostyczny XLSX</h3>
@@ -375,6 +379,8 @@
                             <p><strong>Start:</strong> ${trace.started_at || 'N/A'}</p>
                             <p><strong>Ostatni etap:</strong> ${lastEntry ? lastEntry.stage : 'N/A'}</p>
                             ${lastEntry ? `<p><strong>Czas etapu:</strong> ${lastEntry.time || 'N/A'}</p>` : ''}
+                            ${lastEntry ? `<p><strong>Ostatni błąd:</strong> ${lastMessage}</p>` : ''}
+                            ${lastEntry ? `<p><strong>Plik/Linia:</strong> ${lastFile}:${lastLine}</p>` : ''}
                             <details class="mt-4">
                                 <summary class="cursor-pointer font-semibold text-yellow-800">Pokaż pełny ślad JSON</summary>
                                 <pre class="mt-2 p-4 bg-yellow-100 rounded text-xs overflow-auto">${JSON.stringify(trace, null, 2)}</pre>

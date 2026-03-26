@@ -1062,6 +1062,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     params.append('ids', selectedIds);
                 }
                 const url = `/magazyn/sprawdz/${endpoint}?${params.toString()}`;
+                const isRailwayHost = /(^|\.)railway\.app$/i.test(window.location.hostname);
 
                 const downloadFromUrl = (downloadUrl, defaultFilename) => {
                     return fetch(downloadUrl, {
@@ -1109,6 +1110,15 @@ document.addEventListener('DOMContentLoaded', function() {
                             showAlert('success', 'Pobrano plik.');
                         });
                 };
+
+                if (endpoint === 'eksport-xlsx' && isRailwayHost) {
+                    const csvUrl = `/magazyn/sprawdz/eksport?${params.toString()}`;
+                    showAlert('error', 'Na Railway eksport XLSX jest chwilowo niestabilny. Pobieram CSV (Excel) jako tryb awaryjny...', 7000);
+                    downloadFromUrl(csvUrl, 'katalog.csv').catch(csvErr => {
+                        showAlert('error', 'Błąd pobierania CSV: ' + csvErr.message);
+                    });
+                    return;
+                }
 
                 downloadFromUrl(url, filename)
                     .catch(err => {
