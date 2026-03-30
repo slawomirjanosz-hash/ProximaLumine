@@ -40,19 +40,26 @@
                     <h3 class="text-lg font-semibold mb-3 text-green-900">🎯 Przypisanie do szansy CRM (opcjonalnie)</h3>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Wybierz szansę CRM</label>
-                        <select id="crm-deal-select" name="crm_deal_id" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500" onchange="updateDealInfo(this.value)">
-                            <option value="">-- Brak przypisania --</option>
-                            @foreach($deals as $d)
-                                <option value="{{ $d->id }}" 
-                                    data-name="{{ $d->name }}"
-                                    data-company="{{ $d->company ? $d->company->name : '' }}"
-                                    data-value="{{ number_format($d->value, 2, ',', ' ') }}"
-                                    data-currency="{{ $d->currency }}"
-                                    @if($offer->crm_deal_id == $d->id) selected @endif>
-                                    {{ $d->name }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <div class="flex items-center gap-2">
+                            <select id="crm-deal-select" name="crm_deal_id" class="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500" onchange="updateDealInfo(this.value)">
+                                <option value="">-- Brak przypisania --</option>
+                                @foreach($deals as $d)
+                                    <option value="{{ $d->id }}" 
+                                        data-name="{{ $d->name }}"
+                                        data-company="{{ $d->company ? $d->company->name : '' }}"
+                                        data-value="{{ number_format($d->value, 2, ',', ' ') }}"
+                                        data-currency="{{ $d->currency }}"
+                                        @if($offer->crm_deal_id == $d->id) selected @endif>
+                                        {{ $d->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @if($offer->crm_deal_id)
+                            <button type="button" onclick="detachDeal()" class="px-3 py-2 bg-red-100 text-red-700 border border-red-300 rounded hover:bg-red-200 transition text-sm font-semibold whitespace-nowrap" title="Odepnij szansę od tej oferty">
+                                ✂️ Odepnij szansę
+                            </button>
+                            @endif
+                        </div>
                     </div>
                     <div id="deal-info" class="mt-3 p-3 bg-blue-50 border-l-4 border-blue-500 rounded @if(!$offer->crmDeal) hidden @endif">
                         <p class="text-sm font-medium text-blue-800">Szczegóły szansy:</p>
@@ -1349,6 +1356,17 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         });
     });
     
+    // Odepnij szansę od oferty
+    function detachDeal() {
+        if (!confirm('Czy na pewno odpiąć szansę CRM od tej oferty?')) return;
+        const select = document.getElementById('crm-deal-select');
+        select.value = '';
+        updateDealInfo('');
+        // Ukryj przycisk odepnięcia
+        const detachBtn = document.querySelector('[onclick="detachDeal()"]');
+        if (detachBtn) detachBtn.remove();
+    }
+
     // Update deal info based on selection
     function updateDealInfo(dealId) {
         const dealInfo = document.getElementById('deal-info');

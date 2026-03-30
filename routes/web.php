@@ -1032,6 +1032,7 @@ Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/{offer}/cop
     $newOffer->offer_number = app(\App\Http\Controllers\PartController::class)->generateOfferNumber();
     $newOffer->offer_title = $offer->offer_title . '_kopia';
     $newOffer->offer_date = now();
+    $newOffer->crm_deal_id = null;
     $newOffer->save();
     
     return redirect()->back()->with('success', 'Oferta została skopiowana.');
