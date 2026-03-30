@@ -973,6 +973,16 @@ Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/nowa', func
         \Log::warning('Could not increment offer number: ' . $e->getMessage());
     }
     
+    // Aktualizuj wartość szansy CRM jeśli oferta jest do niej przypisana
+    $crmDealId = $request->input('crm_deal_id');
+    if ($crmDealId && class_exists('\\App\\Models\\CrmDeal')) {
+        try {
+            \App\Models\CrmDeal::where('id', $crmDealId)->update(['value' => $totalPrice]);
+        } catch (\Exception $e) {
+            \Log::warning('Could not update CRM deal value: ' . $e->getMessage());
+        }
+    }
+
     $destination = $request->input('destination');
     $routeName = $destination === 'portfolio' ? 'offers.portfolio' : 'offers.inprogress';
     
@@ -1203,6 +1213,16 @@ Route::middleware(['auth', 'permission:view_offers'])->put('/wyceny/{offer}', fu
         'customer_email' => $request->input('customer_email')
     ]);
     
+    // Aktualizuj wartość szansy CRM jeśli oferta jest do niej przypisana
+    $crmDealId = $request->input('crm_deal_id');
+    if ($crmDealId && class_exists('\\App\\Models\\CrmDeal')) {
+        try {
+            \App\Models\CrmDeal::where('id', $crmDealId)->update(['value' => $totalPrice]);
+        } catch (\Exception $e) {
+            \Log::warning('Could not update CRM deal value: ' . $e->getMessage());
+        }
+    }
+
     return redirect()->route('offers.edit', $offer)->with('success', 'Oferta została zapisana pomyślnie!');
 })->name('offers.update');
 

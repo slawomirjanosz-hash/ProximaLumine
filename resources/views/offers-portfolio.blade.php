@@ -9,7 +9,7 @@
 <body class="bg-gray-100 min-h-screen flex flex-col">
     @include('parts.menu')
     <main class="flex-1">
-        <div class="relative max-w-6xl mx-auto p-6">
+        <div class="relative w-full px-4 p-6">
             <a href="{{ route('offers') }}" class="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 shadow rounded-full text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition z-10">
                 <svg xmlns='http://www.w3.org/2000/svg' class='h-5 w-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 19l-7-7 7-7' /></svg>
                 Powrót
@@ -28,19 +28,19 @@
                     <table class="w-full text-sm">
                         <thead class="bg-gray-100">
                             <tr>
-                                <th class="p-2 text-left text-xs">Nr oferty</th>
-                                <th class="p-2 text-left text-xs">Nazwa</th>
-                                <th class="p-2 text-left text-xs">Data</th>
+                                <th class="p-2 text-left text-xs whitespace-nowrap">Nr oferty</th>
+                                <th class="p-2 text-left text-sm w-2/5">Nazwa</th>
+                                <th class="p-2 text-left text-xs whitespace-nowrap">Data</th>
                                 <th class="p-2 text-left text-xs">Szansa CRM</th>
-                                <th class="p-2 text-right text-xs">Cena końcowa</th>
+                                <th class="p-2 text-right text-sm whitespace-nowrap">Cena końcowa</th>
                                 <th class="p-2 text-center text-xs">Akcja</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach($offers as $offer)
                             <tr class="border-t hover:bg-gray-50">
-                                <td class="p-2 text-xs">{{ $offer->offer_number }}</td>
-                                <td class="p-2 text-xs">{{ $offer->offer_title }}</td>
+                                <td class="p-2 text-xs whitespace-nowrap">{{ $offer->offer_number }}</td>
+                                <td class="p-2 text-sm font-medium">{{ $offer->offer_title }}</td>
                                 <td class="p-2 text-xs whitespace-nowrap">{{ $offer->offer_date->format('Y-m-d') }}</td>
                                 <td class="p-2">
                                     @if($offer->crmDeal)
@@ -54,7 +54,7 @@
                                         <span class="text-gray-400">-</span>
                                     @endif
                                 </td>
-                                <td class="p-2 text-right font-semibold text-xs">{{ number_format($offer->total_price, 2, ',', ' ') }} zł</td>
+                                <td class="p-2 text-right font-bold text-sm whitespace-nowrap">{{ number_format($offer->total_price, 2, ',', ' ') }} zł</td>
                                 <td class="p-2 text-center">
                                     <div class="flex gap-1 justify-center flex-nowrap">
                                         <form action="{{ route('offers.convertToProject', $offer) }}" method="POST" class="inline">
