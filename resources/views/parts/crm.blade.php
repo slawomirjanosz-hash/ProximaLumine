@@ -334,21 +334,24 @@
 
         <!-- TAB: LEJEK SPRZEDAŻOWY -->
         <div id="tab-deals" class="tab-content p-6">
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
                 <h2 class="text-2xl font-bold">💼 Lejek Sprzedażowy - Szanse</h2>
-                <button onclick="showDealModal()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">➕ Dodaj Szansę</button>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="deals-search" placeholder="🔍 Szukaj po nazwie, firmie, opiekunie..." class="px-3 py-2 border border-gray-300 rounded text-sm w-72" oninput="filterDealsTable()">
+                    <button onclick="showDealModal()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 whitespace-nowrap">➕ Dodaj Szansę</button>
+                </div>
             </div>
             
-            <table class="w-full border-collapse text-xs">
+            <table id="deals-table" class="w-full border-collapse text-xs">
                 <thead class="bg-gray-100">
                     <tr>
-                        <th class="border p-2 text-left min-w-0 max-w-xs truncate">Nazwa</th>
-                        <th class="border p-2 text-left min-w-0 max-w-xs truncate">Firma</th>
-                        <th class="border p-2 text-right whitespace-nowrap w-auto">Wartość</th>
-                        <th class="border p-2 text-center whitespace-nowrap w-auto">Etap</th>
-                        <th class="border p-2 text-center whitespace-nowrap w-auto">Szansa %</th>
-                        <th class="border p-2 text-left whitespace-nowrap w-auto" title="Oczekiwanie zamknięcia">Oczek. Zam</th>
-                        <th class="border p-2 text-left whitespace-nowrap w-auto">Opiekun</th>
+                        <th class="border p-2 text-left min-w-0 max-w-xs truncate cursor-pointer select-none hover:bg-gray-200" onclick="sortDealsTable(0, this)">Nazwa <span class="sort-icon text-gray-400">⇅</span></th>
+                        <th class="border p-2 text-left min-w-0 max-w-xs truncate cursor-pointer select-none hover:bg-gray-200" onclick="sortDealsTable(1, this)">Firma <span class="sort-icon text-gray-400">⇅</span></th>
+                        <th class="border p-2 text-right whitespace-nowrap w-auto cursor-pointer select-none hover:bg-gray-200" onclick="sortDealsTable(2, this)">Wartość <span class="sort-icon text-gray-400">⇅</span></th>
+                        <th class="border p-2 text-center whitespace-nowrap w-auto cursor-pointer select-none hover:bg-gray-200" onclick="sortDealsTable(3, this)">Etap <span class="sort-icon text-gray-400">⇅</span></th>
+                        <th class="border p-2 text-center whitespace-nowrap w-auto cursor-pointer select-none hover:bg-gray-200" onclick="sortDealsTable(4, this)">Szansa % <span class="sort-icon text-gray-400">⇅</span></th>
+                        <th class="border p-2 text-left whitespace-nowrap w-auto cursor-pointer select-none hover:bg-gray-200" title="Oczekiwanie zamknięcia" onclick="sortDealsTable(5, this)">Oczek. Zam <span class="sort-icon text-gray-400">⇅</span></th>
+                        <th class="border p-2 text-left whitespace-nowrap w-auto cursor-pointer select-none hover:bg-gray-200" onclick="sortDealsTable(6, this)">Opiekun <span class="sort-icon text-gray-400">⇅</span></th>
                         <th class="border p-2 text-left whitespace-nowrap w-auto">Przypisani</th>
                         <th class="border p-2 text-center whitespace-nowrap w-auto">Akcje</th>
                     </tr>
@@ -386,11 +389,16 @@
                                 @endif
                             </td>
                             <td class="border p-2 text-center whitespace-nowrap w-auto">
-                                <button onclick="editDeal({{ $deal->id }})" class="text-blue-600 hover:underline">✏️</button>
-                                <form action="{{ route('crm.deal.delete', $deal->id) }}" method="POST" class="inline" onsubmit="return confirm('Usunąć szansę?')">
-                                    @csrf @method('DELETE')
-                                    <button type="submit" class="text-red-600 hover:underline">🗑️</button>
-                                </form>
+                                <div class="flex flex-col items-center gap-1">
+                                    <a href="{{ route('offers.new') }}?deal_id={{ $deal->id }}" class="inline-flex items-center gap-1 px-2 py-1 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-700 transition font-semibold" title="Utwórz ofertę dla tej szansy">📋 Zrób ofertę</a>
+                                    <div class="flex gap-2">
+                                        <button onclick="editDeal({{ $deal->id }})" class="text-blue-600 hover:underline">✏️</button>
+                                        <form action="{{ route('crm.deal.delete', $deal->id) }}" method="POST" class="inline" onsubmit="return confirm('Usunąć szansę?')">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="text-red-600 hover:underline">🗑️</button>
+                                        </form>
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                     @empty
@@ -402,12 +410,15 @@
 
         <!-- TAB: FIRMY -->
         <div id="tab-companies" class="tab-content p-6">
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
                 <h2 class="text-2xl font-bold">🏢 Firmy / Kontakty</h2>
-                <button onclick="showCompanyModal()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">➕ Dodaj Firmę</button>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="companies-search" placeholder="🔍 Szukaj po nazwie, NIP, opiekunie, typie..." class="px-3 py-2 border border-gray-300 rounded text-sm w-80" oninput="filterCompaniesTable()">
+                    <button onclick="showCompanyModal()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 whitespace-nowrap">➕ Dodaj Firmę</button>
+                </div>
             </div>
             
-            <table class="w-full border-collapse text-xs">
+            <table id="companies-table" class="w-full border-collapse text-xs">
                 <thead class="bg-gray-100">
                     <tr>
                         <th class="border p-2 text-left">Nazwa</th>
@@ -1527,6 +1538,95 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// ===================== FILTROWANIE FIRM =====================
+function filterCompaniesTable() {
+    const query = document.getElementById('companies-search').value.toLowerCase().trim();
+    const table = document.getElementById('companies-table');
+    if (!table) return;
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = (!query || text.includes(query)) ? '' : 'none';
+    });
+}
+
+// ===================== FILTROWANIE SZANS =====================
+function filterDealsTable() {
+    const query = document.getElementById('deals-search').value.toLowerCase().trim();
+    const table = document.getElementById('deals-table');
+    if (!table) return;
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = (!query || text.includes(query)) ? '' : 'none';
+    });
+}
+
+// ===================== SORTOWANIE SZANS =====================
+let dealsSortCol = -1;
+let dealsSortDir = 1;
+
+function sortDealsTable(colIndex, thEl) {
+    const table = document.getElementById('deals-table');
+    if (!table) return;
+
+    if (dealsSortCol === colIndex) {
+        dealsSortDir *= -1;
+    } else {
+        dealsSortCol = colIndex;
+        dealsSortDir = 1;
+    }
+
+    // Reset all sort icons
+    table.querySelectorAll('th .sort-icon').forEach(icon => icon.textContent = '⇅');
+    table.querySelectorAll('th .sort-icon').forEach(icon => icon.classList.add('text-gray-400'));
+    if (thEl) {
+        const icon = thEl.querySelector('.sort-icon');
+        if (icon) {
+            icon.textContent = dealsSortDir === 1 ? '▲' : '▼';
+            icon.classList.remove('text-gray-400');
+            icon.classList.add('text-blue-600');
+        }
+    }
+
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    // Keep empty row at bottom if present
+    const dataRows = rows.filter(r => r.cells.length > 1);
+    const emptyRows = rows.filter(r => r.cells.length === 1);
+
+    dataRows.sort((a, b) => {
+        const aCell = a.cells[colIndex];
+        const bCell = b.cells[colIndex];
+        if (!aCell || !bCell) return 0;
+
+        let aVal = aCell.textContent.trim();
+        let bVal = bCell.textContent.trim();
+
+        // Numeric sort for value and probability columns
+        if (colIndex === 2 || colIndex === 4) {
+            const aNum = parseFloat(aVal.replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+            const bNum = parseFloat(bVal.replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+            return dealsSortDir * (aNum - bNum);
+        }
+
+        // Date sort
+        if (colIndex === 5) {
+            const parseDate = s => {
+                const m = s.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+                return m ? new Date(m[3], m[2]-1, m[1]).getTime() : 0;
+            };
+            return dealsSortDir * (parseDate(aVal) - parseDate(bVal));
+        }
+
+        return dealsSortDir * aVal.localeCompare(bVal, 'pl');
+    });
+
+    dataRows.forEach(r => tbody.appendChild(r));
+    emptyRows.forEach(r => tbody.appendChild(r));
+}
 
 </script>
 
