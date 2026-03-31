@@ -21,16 +21,44 @@
             </p>
             
             @auth
-            <div class="mb-4">
+            <div class="mb-4 flex flex-wrap gap-2">
                 <button onclick="runDiagnostics()" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                     🚀 Uruchom Diagnostykę
                 </button>
-                <button onclick="testWordGeneration()" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition ml-2">
+                <button onclick="testWordGeneration()" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
                     📄 Test Generowania Word
                 </button>
-                <button onclick="testXlsxGeneration()" class="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition ml-2">
+                <button onclick="testXlsxGeneration()" class="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition">
                     📊 Test Generowania XLSX
                 </button>
+                <button onclick="probeXlsx()" class="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition">
+                    🔍 Probe XLSX (szczegóły błędu)
+                </button>
+                <button onclick="probeWord()" class="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition">
+                    🔍 Probe Word (szczegóły błędu)
+                </button>
+            </div>
+            <div class="mb-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+                <p class="font-semibold text-yellow-800 mb-2">⬇️ Bezpośrednie testy pobierania (klik = plik pobierany przez przeglądarkę):</p>
+                <div class="flex flex-wrap gap-2">
+                    <a href="/magazyn/sprawdz/test-minimal-xlsx" target="_blank"
+                       class="px-4 py-2 bg-green-700 text-white rounded hover:bg-green-800 text-sm">
+                        📥 Pobierz minimalny XLSX (1 wiersz)
+                    </a>
+                    <a href="/magazyn/sprawdz/test-minimal-word" target="_blank"
+                       class="px-4 py-2 bg-purple-700 text-white rounded hover:bg-purple-800 text-sm">
+                        📥 Pobierz minimalny Word (1 akapit)
+                    </a>
+                    <a href="/magazyn/sprawdz/eksport-xlsx" target="_blank"
+                       class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">
+                        📥 Pobierz pełny XLSX (katalog)
+                    </a>
+                    <a href="/magazyn/sprawdz/eksport-word" target="_blank"
+                       class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                        📥 Pobierz pełny Word (katalog)
+                    </a>
+                </div>
+                <p class="text-xs text-yellow-700 mt-2">Jeśli "minimalny" pobiera się poprawnie a "pełny" nie — problem leży w przetwarzaniu danych (nie w transporcie). Jeśli "minimalny" też nie działa — problem z rozszerzeniami PHP lub prawami do zapisu tmp.</p>
             </div>
             @else
             <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
@@ -393,6 +421,46 @@
                 }
 
                 document.getElementById('results').classList.remove('hidden');
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+            }
+        }
+        async function probeXlsx() {
+            await runProbe('/api/diagnostics/probe-xlsx', 'XLSX');
+        }
+
+        async function probeWord() {
+            await runProbe('/api/diagnostics/probe-word', 'Word');
+        }
+
+        async function runProbe(url, label) {
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('error').classList.add('hidden');
+            try {
+                const { response, data } = await fetchJsonResponse(url);
+                const container = document.getElementById('results-content');
+                container.innerHTML = '';
+                const ok = response.ok && data && data.success;
+                const section = document.createElement('div');
+                section.className = ok
+                    ? 'border border-green-400 bg-green-50 rounded-lg p-6'
+                    : 'border border-red-400 bg-red-50 rounded-lg p-6';
+                const rows = data ? Object.entries(data).map(([k,v]) => {
+                    const val = typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v);
+                    const isOk = v === true || (typeof v === 'number' && v > 0);
+                    const isBad = v === false || (typeof v === 'string' && (v.startsWith('Błąd') || v.startsWith('Brak')));
+                    const color = isOk ? 'text-green-700' : (isBad ? 'text-red-700' : 'text-gray-800');
+                    return `<tr><td class="font-mono font-semibold pr-4 align-top py-1 text-sm">${k}</td><td class="py-1 text-sm ${color} whitespace-pre-wrap">${val}</td></tr>`;
+                }).join('') : '';
+                section.innerHTML = `
+                    <h3 class="text-xl font-bold mb-4 ${ok ? 'text-green-700' : 'text-red-700'}">${ok ? '✅' : '❌'} Probe ${label}</h3>
+                    <table class="w-full">${rows}</table>`;
+                container.appendChild(section);
+                document.getElementById('results').classList.remove('hidden');
+            } catch (error) {
+                document.getElementById('error-message').textContent = error.message;
+                document.getElementById('error').classList.remove('hidden');
             } finally {
                 document.getElementById('loading').classList.add('hidden');
             }

@@ -733,3 +733,198 @@ Route::get('/diagnostics/anomalies', function () {
         'migrationStats' => $migrationStats,
     ]);
 })->middleware('auth')->name('diagnostics.anomalies');
+
+// ============================================================
+// DIAGNOSTYKA POBIERANIA XLSX I WORD
+// ============================================================
+
+// Minimalny test pobierania XLSX (1 wiersz, bez maatwebsite/excel – bezpośrednio PhpSpreadsheet)
+Route::get('/magazyn/sprawdz/test-minimal-xlsx', function () {
+    if (!auth()->check()) return response()->json(['error' => 'Unauthorized'], 401);
+    try {
+        if (!class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+            return response()->json(['error' => 'Brak klasy PhpSpreadsheet'], 500);
+        }
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setCellValue('A1', 'Nazwa');
+        $sheet->setCellValue('B1', 'Ilość');
+        $sheet->setCellValue('A2', 'Test produkt');
+        $sheet->setCellValue('B2', 42);
+
+        $tempDir = is_writable(sys_get_temp_dir()) ? sys_get_temp_dir() : storage_path('app/temp');
+        if (!is_dir($tempDir)) mkdir($tempDir, 0755, true);
+        $file = tempnam($tempDir, 'xlsx_') . '.xlsx';
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save($file);
+
+        return response()->download($file, 'test-minimal.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    } catch (\Throwable $e) {
+        \Log::error('test-minimal-xlsx failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+        return response()->json([
+            'error' => $e->getMessage(),
+            'class' => get_class($e),
+            'file' => basename($e->getFile()),
+            'line' => $e->getLine(),
+        ], 500);
+    }
+})->middleware('auth')->name('diagnostics.test.minimal.xlsx');
+
+// Minimalny test pobierania Word (1 akapit, bezpośrednio PhpWord)
+Route::get('/magazyn/sprawdz/test-minimal-word', function () {
+    if (!auth()->check()) return response()->json(['error' => 'Unauthorized'], 401);
+    try {
+        if (!class_exists(\PhpOffice\PhpWord\PhpWord::class)) {
+            return response()->json(['error' => 'Brak klasy PhpWord'], 500);
+        }
+        $phpWord = new \PhpOffice\PhpWord\PhpWord();
+        $section = $phpWord->addSection();
+        $section->addText('Test dokument Word – diagnostyka Railway');
+        $section->addText('Środowisko: ' . app()->environment());
+        $section->addText('Czas: ' . now()->toDateTimeString());
+
+        $tempDir = is_writable(sys_get_temp_dir()) ? sys_get_temp_dir() : storage_path('app/temp');
+        if (!is_dir($tempDir)) mkdir($tempDir, 0755, true);
+        $file = tempnam($tempDir, 'word_') . '.docx';
+
+        \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007')->save($file);
+
+        return response()->download($file, 'test-minimal.docx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ])->deleteFileAfterSend(true);
+    } catch (\Throwable $e) {
+        \Log::error('test-minimal-word failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+        return response()->json([
+            'error' => $e->getMessage(),
+            'class' => get_class($e),
+            'file' => basename($e->getFile()),
+            'line' => $e->getLine(),
+        ], 500);
+    }
+})->middleware('auth')->name('diagnostics.test.minimal.word');
+
+// Probe JSON: sprawdز pełny stack XLSX (1 produkt z bazy) i zwróć szczegóły błędu
+Route::get('/api/diagnostics/probe-xlsx', function () {
+    if (!auth()->check()) return response()->json(['error' => 'Unauthorized'], 401);
+    $info = [
+        'php_version' => PHP_VERSION,
+        'environment' => app()->environment(),
+        'extensions' => [],
+        'classes' => [],
+        'temp_dir' => null,
+        'temp_writable' => null,
+        'parts_count' => null,
+        'excel_store' => null,
+        'excel_raw_bytes' => null,
+        'error' => null,
+    ];
+    foreach (['zip','xml','xmlwriter','dom','gd'] as $ext) {
+        $info['extensions'][$ext] = extension_loaded($ext);
+    }
+    foreach ([
+        'PhpOffice\\PhpSpreadsheet\\Spreadsheet' => 'PhpSpreadsheet',
+        'Maatwebsite\\Excel\\Facades\\Excel' => 'Excel facade',
+        'App\\Exports\\PartsExport' => 'PartsExport',
+    ] as $class => $label) {
+        $info['classes'][$label] = class_exists($class);
+    }
+    $tempDir = is_writable(sys_get_temp_dir()) ? sys_get_temp_dir() : storage_path('app/temp');
+    $info['temp_dir'] = $tempDir;
+    $info['temp_writable'] = is_writable($tempDir);
+
+    try {
+        $part = \App\Models\Part::with(['category','lastModifiedBy'])->first();
+        if (!$part) {
+            $info['error'] = 'Brak produktów w bazie – nie można przetestować';
+            return response()->json($info, 422);
+        }
+        $info['parts_count'] = 1;
+        $info['tested_part'] = $part->name;
+
+        // Próba via Excel::raw
+        if (class_exists(\Maatwebsite\Excel\Facades\Excel::class) && class_exists(\App\Exports\PartsExport::class)) {
+            $raw = \Maatwebsite\Excel\Facades\Excel::raw(
+                new \App\Exports\PartsExport(collect([$part])),
+                \Maatwebsite\Excel\Excel::XLSX
+            );
+            $info['excel_raw_bytes'] = is_string($raw) ? strlen($raw) : 0;
+        }
+
+        // Próba via PhpSpreadsheet bezpośrednio
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setCellValue('A1', 'Nazwa');
+        $sheet->setCellValue('A2', $part->name ?? 'brak');
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $tmpFile = tempnam($tempDir, 'probe_xlsx_') . '.xlsx';
+        $writer->save($tmpFile);
+        $info['direct_phpspreadsheet_bytes'] = file_exists($tmpFile) ? filesize($tmpFile) : 0;
+        @unlink($tmpFile);
+
+        $info['success'] = true;
+        return response()->json($info, 200);
+    } catch (\Throwable $e) {
+        $info['error'] = $e->getMessage();
+        $info['error_class'] = get_class($e);
+        $info['error_file'] = $e->getFile();
+        $info['error_line'] = $e->getLine();
+        $info['error_trace'] = array_slice(explode("\n", $e->getTraceAsString()), 0, 20);
+        \Log::error('probe-xlsx failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+        return response()->json($info, 500);
+    }
+})->middleware('auth')->name('api.diagnostics.probe-xlsx');
+
+// Probe JSON: sprawdź pełny stack Word (1 produkt z bazy) i zwróć szczegóły błędu
+Route::get('/api/diagnostics/probe-word', function () {
+    if (!auth()->check()) return response()->json(['error' => 'Unauthorized'], 401);
+    $info = [
+        'php_version' => PHP_VERSION,
+        'environment' => app()->environment(),
+        'extensions' => [],
+        'classes' => [],
+        'temp_dir' => null,
+        'temp_writable' => null,
+        'phpword_create' => null,
+        'phpword_save_bytes' => null,
+        'error' => null,
+    ];
+    foreach (['zip','xml','gd'] as $ext) {
+        $info['extensions'][$ext] = extension_loaded($ext);
+    }
+    foreach ([
+        'PhpOffice\\PhpWord\\PhpWord' => 'PhpWord',
+        'PhpOffice\\PhpWord\\IOFactory' => 'PhpWord IOFactory',
+    ] as $class => $label) {
+        $info['classes'][$label] = class_exists($class);
+    }
+    $tempDir = is_writable(sys_get_temp_dir()) ? sys_get_temp_dir() : storage_path('app/temp');
+    $info['temp_dir'] = $tempDir;
+    $info['temp_writable'] = is_writable($tempDir);
+
+    try {
+        $phpWord = new \PhpOffice\PhpWord\PhpWord();
+        $info['phpword_create'] = true;
+        $section = $phpWord->addSection();
+        $section->addText('Diagnostyka – test generowania Word');
+        $section->addText('Środowisko: ' . app()->environment());
+
+        $tmpFile = tempnam($tempDir, 'probe_word_') . '.docx';
+        \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007')->save($tmpFile);
+        $info['phpword_save_bytes'] = file_exists($tmpFile) ? filesize($tmpFile) : 0;
+        @unlink($tmpFile);
+
+        $info['success'] = true;
+        return response()->json($info, 200);
+    } catch (\Throwable $e) {
+        $info['error'] = $e->getMessage();
+        $info['error_class'] = get_class($e);
+        $info['error_file'] = $e->getFile();
+        $info['error_line'] = $e->getLine();
+        $info['error_trace'] = array_slice(explode("\n", $e->getTraceAsString()), 0, 20);
+        \Log::error('probe-word failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+        return response()->json($info, 500);
+    }
+})->middleware('auth')->name('api.diagnostics.probe-word');

@@ -2860,14 +2860,17 @@ class PartController extends Controller
     // EKSPORT DO XLSX (sformatowany)
     public function exportXlsx(Request $request)
     {
+        $isAjax = $request->ajax() || $request->wantsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest';
+
         try {
-            // Guard: jeśli pakiet maatwebsite/excel nie jest zainstalowany, użyj fallbacku CSV
+            // Guard: jeśli pakiet maatwebsite/excel nie jest zainstalowany
             if (!class_exists(\Maatwebsite\Excel\Facades\Excel::class)) {
                 \Log::error('XLSX export unavailable: maatwebsite/excel facade missing');
+                if ($isAjax) return response()->json(['error' => 'Brak pakietu maatwebsite/excel na serwerze'], 500);
                 return $this->export($request);
             }
 
-            // Railway/production guard: brakujące rozszerzenia powodują błędy XLSX
+            // Sprawdź brakujące rozszerzenia PHP
             $requiredExtensions = ['zip', 'xml', 'xmlwriter', 'dom'];
             $missingExtensions = [];
             foreach ($requiredExtensions as $extension) {
@@ -2879,9 +2882,11 @@ class PartController extends Controller
             if (!empty($missingExtensions)) {
                 \Log::error('XLSX export unavailable: missing PHP extensions', [
                     'missing_extensions' => $missingExtensions,
-                    'request_ids' => $request->get('ids'),
-                    'request_selected_ids' => $request->get('selected_ids'),
                 ]);
+                if ($isAjax) return response()->json([
+                    'error' => 'Brakujące rozszerzenia PHP: ' . implode(', ', $missingExtensions),
+                    'missing' => $missingExtensions,
+                ], 500);
                 return $this->export($request);
             }
 
@@ -2889,7 +2894,6 @@ class PartController extends Controller
 
             $query = Part::with(['category', 'lastModifiedBy'])->orderBy('name');
 
-            // Jeśli są zaznaczone IDs (z checkboxów), filtruj tylko te
             if ($request->filled('selected_ids')) {
                 $ids = array_filter(explode(',', $request->selected_ids));
                 $query->whereIn('id', $ids);
@@ -2897,7 +2901,6 @@ class PartController extends Controller
                 $ids = array_filter(explode(',', $request->ids));
                 $query->whereIn('id', $ids);
             } elseif (!$exportAll) {
-                // Jeśli ustawienie export_all_products jest wyłączone, stosuj filtry
                 if ($request->filled('search')) {
                     $query->where('name', 'like', '%' . $request->search . '%');
                 }
@@ -2905,20 +2908,22 @@ class PartController extends Controller
                     $query->where('category_id', $request->category_id);
                 }
             }
-            // Jeśli export_all_products jest włączone i nie ma zaznaczonych ID, pobierz wszystko
 
             $parts = $query->get();
 
             return Excel::download(new PartsExport($parts), 'katalog.xlsx');
         } catch (\Throwable $e) {
-            \Log::error('XLSX export failed, using CSV fallback', [
+            \Log::error('XLSX export failed', [
                 'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
-                'request_ids' => $request->get('ids'),
-                'request_selected_ids' => $request->get('selected_ids'),
-                'parts_count' => isset($parts) ? $parts->count() : null,
             ]);
-
+            if ($isAjax) return response()->json([
+                'error' => 'Błąd generowania XLSX: ' . $e->getMessage(),
+                'file' => basename($e->getFile()),
+                'line' => $e->getLine(),
+            ], 500);
             return $this->export($request);
         }
     }
