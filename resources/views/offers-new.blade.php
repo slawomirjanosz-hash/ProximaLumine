@@ -12,7 +12,7 @@
         @include('parts.menu')
     </header>
     <main class="flex-1 p-6">
-        <div class="max-w-5xl mx-auto bg-white rounded shadow p-6 relative">
+        <div class="w-full bg-white rounded shadow p-6 relative">
             <a href="{{ route('offers') }}" class="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 shadow rounded-full text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition z-10">
                 <svg xmlns='http://www.w3.org/2000/svg' class='h-5 w-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 19l-7-7 7-7' /></svg>
                 Powrót

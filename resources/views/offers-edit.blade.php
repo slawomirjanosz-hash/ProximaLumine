@@ -12,8 +12,8 @@
     <header class="bg-white shadow">
         @include('parts.menu')
     </header>
-    <main class="flex-1 p-6">
-        <div class="max-w-5xl mx-auto bg-white rounded shadow p-6 relative">
+    <main class="w-full flex-1 p-6">
+        <div class="w-full bg-white rounded shadow p-6 relative">
                         @if(auth()->user() && (auth()->user()->is_admin || strtolower(auth()->user()->email) === 'admin@admin.com'))
                         <form method="POST" action="{{ route('offers.destroy', $offer) }}" onsubmit="return confirm('Czy na pewno chcesz usunąć tę ofertę?');" class="absolute top-4 right-4">
                             @csrf
