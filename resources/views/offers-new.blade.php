@@ -566,6 +566,79 @@
             }
         }
 
+        function formatPrice(value) {
+            return value.toLocaleString('pl-PL', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' zł';
+        }
+
+        function moveRow(button, direction, section) {
+            const row = button.closest('tr');
+            const tbody = row.closest('tbody');
+            if (direction === 'up') {
+                const prev = row.previousElementSibling;
+                if (prev) tbody.insertBefore(row, prev);
+            } else {
+                const next = row.nextElementSibling;
+                if (next) tbody.insertBefore(next, row);
+            }
+            reindexSection(section);
+            calculateTotal(section);
+        }
+
+        function reindexSection(section) {
+            const tbody = document.getElementById(section + '-table');
+            if (!tbody) return;
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach((row, newIndex) => {
+                const numInput = row.querySelector('td:first-child input[readonly]');
+                if (numInput) numInput.value = newIndex + 1;
+                row.querySelectorAll('[name]').forEach(el => {
+                    if (section.startsWith('custom')) {
+                        const sNum = section.replace('custom', '');
+                        el.name = el.name.replace(
+                            /custom_sections\[\d+\]\[items\]\[\d+\]/,
+                            'custom_sections[' + sNum + '][items][' + newIndex + ']'
+                        );
+                    } else {
+                        el.name = el.name.replace(
+                            new RegExp('^' + section + '\\[\\d+\\]'),
+                            section + '[' + newIndex + ']'
+                        );
+                    }
+                });
+            });
+            rowCounters[section] = rows.length;
+        }
+
+        function injectMoveButtons(row, section) {
+            const lastTd = row.querySelector('td:last-child');
+            if (!lastTd || lastTd.dataset.moveInit) return;
+            lastTd.dataset.moveInit = '1';
+            let actionDiv = lastTd.querySelector('div.flex');
+            if (!actionDiv) {
+                lastTd.innerHTML = '<div class="flex gap-1 items-center">' + lastTd.innerHTML + '</div>';
+                actionDiv = lastTd.querySelector('div.flex');
+            }
+            const frag = document.createRange().createContextualFragment(
+                '<button type="button" onclick="moveRow(this,\'up\',\'' + section + '\')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Wyżej">↑</button>' +
+                '<button type="button" onclick="moveRow(this,\'down\',\'' + section + '\')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Niżej">↓</button>'
+            );
+            actionDiv.insertBefore(frag, actionDiv.firstChild);
+        }
+
+        function initMoveButtons() {
+            ['services', 'works', 'materials'].forEach(section => {
+                const tbody = document.getElementById(section + '-table');
+                if (!tbody) return;
+                tbody.querySelectorAll('tr').forEach(row => injectMoveButtons(row, section));
+            });
+            customSections.forEach(num => {
+                const sId = 'custom' + num;
+                const tbody = document.getElementById(sId + '-table');
+                if (!tbody) return;
+                tbody.querySelectorAll('tr').forEach(row => injectMoveButtons(row, sId));
+            });
+        }
+
         function calculateRowValue(input) {
             const row = input.closest('tr');
             const quantityInput = row.querySelector('.quantity-input');
@@ -614,7 +687,7 @@
                     </td>
                     <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                     <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
-                    <td class="p-1"><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="px-1 py-0.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs whitespace-nowrap">Dod. do kat.</button></td>
+                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="moveRow(this,'up','${section}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Wyżej">↑</button><button type="button" onclick="moveRow(this,'down','${section}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Niżej">↓</button><button type="button" onclick="removeRow(this,'${section}')" class="text-red-600 hover:text-red-800 text-xs">✕</button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="px-1 py-0.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs whitespace-nowrap">Dod. do kat.</button></div></td>
                 `;
             } else {
                 row.innerHTML = `
@@ -632,7 +705,7 @@
                     </td>
                     <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                     <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
-                    <td class="p-1"><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="px-1 py-0.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs whitespace-nowrap">Dod. do kat.</button></td>
+                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="moveRow(this,'up','${section}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Wyżej">↑</button><button type="button" onclick="moveRow(this,'down','${section}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Niżej">↓</button><button type="button" onclick="removeRow(this,'${section}')" class="text-red-600 hover:text-red-800 text-xs">✕</button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="px-1 py-0.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs whitespace-nowrap">Dod. do kat.</button></div></td>
                 `;
             }
             
@@ -670,7 +743,7 @@
                 total += value;
             });
             
-            document.getElementById(section + '-total').textContent = total.toFixed(2) + ' zł';
+            document.getElementById(section + '-total').textContent = formatPrice(total);
             calculateGrandTotal();
         }
 
@@ -699,7 +772,7 @@
                 });
             });
             
-            document.getElementById('grand-total').textContent = grandTotal.toFixed(2) + ' zł';
+            document.getElementById('grand-total').textContent = formatPrice(grandTotal);
         }
 
         // ===========================================
@@ -945,6 +1018,7 @@
         // Inicjalizuj wyszukiwanie dla pierwszego wiersza
         document.addEventListener('DOMContentLoaded', function() {
             initPartSearch();
+            initMoveButtons();
         });
 
         // ===========================================
