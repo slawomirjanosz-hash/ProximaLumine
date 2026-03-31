@@ -2926,7 +2926,12 @@ class PartController extends Controller
     // EKSPORT DO WORD (.docx)
     public function exportWord(Request $request)
     {
+        $isAjax = $request->ajax() || $request->wantsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest';
+
         if (!class_exists(\PhpOffice\PhpWord\PhpWord::class)) {
+            if ($isAjax) {
+                return response()->json(['error' => 'Brak pakietu phpoffice/phpword na serwerze.'], 500);
+            }
             return redirect()->back()
                 ->with('error', 'Brak pakietu "phpoffice/phpword". Zainstaluj go: composer require phpoffice/phpword');
         }
@@ -2961,6 +2966,9 @@ class PartController extends Controller
             foreach ($requiredExtensions as $ext) {
                 if (!extension_loaded($ext)) {
                     \Log::error("Missing PHP extension for Word exportWord: {$ext}");
+                    if ($isAjax) {
+                        return response()->json(['error' => "Brak wymaganego rozszerzenia PHP: {$ext}"], 500);
+                    }
                     return redirect()->back()->with('error', "Brak wymaganego rozszerzenia PHP: {$ext}");
                 }
             }
@@ -3111,6 +3119,9 @@ class PartController extends Controller
             return response()->download($file, 'katalog.docx')->deleteFileAfterSend(true);
         } catch (\Throwable $e) {
             \Log::error("Export error: {$e->getMessage()}", ['trace' => $e->getTraceAsString()]);
+            if ($isAjax) {
+                return response()->json(['error' => 'Błąd generowania dokumentu: ' . $e->getMessage()], 500);
+            }
             return redirect()->back()->with('error', 'Wystąpił błąd podczas generowania dokumentu: ' . $e->getMessage());
         }
     }

@@ -33,9 +33,9 @@
                                 <th class="p-2 text-left text-xs whitespace-nowrap">Nr oferty</th>
                                 <th class="p-2 text-left text-sm w-2/5">Nazwa</th>
                                 <th class="p-2 text-left text-xs whitespace-nowrap">Data</th>
-                                <th class="p-2 text-left text-xs">Szansa CRM</th>
+                                <th class="p-2 text-left text-xs w-1/4">Szansa CRM</th>
                                 <th class="p-2 text-right text-sm whitespace-nowrap">Cena końcowa</th>
-                                <th class="p-2 text-center text-xs">Akcja</th>
+                                <th class="p-2 text-center text-xs w-20">Akcja</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -61,17 +61,27 @@
                                     <div class="flex gap-1 justify-center flex-nowrap">
                                         <form action="{{ route('offers.convertToProject', $offer) }}" method="POST" class="inline">
                                             @csrf
-                                            <button type="submit" onclick="return confirm('Utworzyć projekt z tej oferty?')" class="px-2 py-0.5 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-xs font-semibold whitespace-nowrap">⭐ Wygrana</button>
+                                            <button type="submit" onclick="return confirm('Utworzyć projekt z tej oferty?')" title="Wygrana – utwórz projekt" class="p-1.5 bg-yellow-600 text-white rounded hover:bg-yellow-700">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                                            </button>
                                         </form>
-                                        <a href="{{ route('offers.generateWord', $offer) }}" class="px-2 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 text-xs whitespace-nowrap">📄 Word</a>
-                                        <a href="{{ route('offers.edit', $offer) }}" class="px-2 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs whitespace-nowrap">Edytuj</a>
+                                        <a href="{{ route('offers.generateWord', $offer) }}" title="Generuj Word" class="p-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 inline-flex items-center">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                        </a>
+                                        <a href="{{ route('offers.edit', $offer) }}" title="Edytuj ofertę" class="p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 inline-flex items-center">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                        </a>
                                         <form action="{{ route('offers.copy', $offer) }}" method="POST" class="inline">
                                             @csrf
-                                            <button type="submit" class="px-2 py-0.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs whitespace-nowrap">Kopiuj</button>
+                                            <button type="submit" title="Kopiuj ofertę" class="p-1.5 bg-green-600 text-white rounded hover:bg-green-700">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                            </button>
                                         </form>
                                         <form action="{{ route('offers.archive', $offer) }}" method="POST" class="inline">
                                             @csrf
-                                            <button type="submit" onclick="return confirm('Czy na pewno przenieść ofertę do archiwum?')" class="px-2 py-0.5 bg-gray-600 text-white rounded hover:bg-gray-700 text-xs whitespace-nowrap" title="Do archiwum">Do arch.</button>
+                                            <button type="submit" onclick="return confirm('Czy na pewno przenieść ofertę do archiwum?')" title="Przenieś do archiwum" class="p-1.5 bg-gray-600 text-white rounded hover:bg-gray-700">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                                            </button>
                                         </form>
                                     </div>
                                 </td>

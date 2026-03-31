@@ -1116,25 +1116,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                 };
 
-                if (endpoint === 'eksport-xlsx' && isRailwayHost) {
-                    const csvUrl = `/magazyn/sprawdz/eksport?${params.toString()}`;
-                    showAlert('error', 'Na Railway eksport XLSX jest chwilowo niestabilny. Pobieram CSV (Excel) jako tryb awaryjny...', 7000);
-                    downloadFromUrl(csvUrl, 'katalog.csv').catch(csvErr => {
-                        showAlert('error', 'Błąd pobierania CSV: ' + csvErr.message);
-                    });
-                    return;
-                }
-
                 downloadFromUrl(url, filename)
                     .catch(err => {
-                        if (endpoint === 'eksport-xlsx') {
-                            const csvUrl = `/magazyn/sprawdz/eksport?${params.toString()}`;
-                            showAlert('error', 'XLSX niedostępny na serwerze. Pobieram CSV jako awaryjny eksport...', 7000);
-                            return downloadFromUrl(csvUrl, 'katalog.csv').catch(csvErr => {
-                                showAlert('error', 'Błąd pobierania XLSX i CSV: ' + csvErr.message);
-                            });
-                        }
-
                         showAlert('error', 'Błąd pobierania: ' + err.message);
                     });
             });

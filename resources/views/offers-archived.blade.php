@@ -31,9 +31,9 @@
                                 <th class="p-4 text-left">Nr oferty</th>
                                 <th class="p-4 text-left">Nazwa</th>
                                 <th class="p-4 text-left">Data</th>
-                                <th class="p-4 text-left">Szansa CRM</th>
-                                <th class="p-4 text-right">Cena końcowa</th>
-                                <th class="p-4 text-center">Akcja</th>
+                                <th class="p-4 text-left w-1/4">Szansa CRM</th>
+                                <th class="p-4 text-right whitespace-nowrap">Cena końcowa</th>
+                                <th class="p-4 text-center w-16">Akcja</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -56,11 +56,15 @@
                                 </td>
                                 <td class="p-4 text-right font-semibold">{{ number_format($offer->total_price, 2, ',', ' ') }} zł</td>
                                 <td class="p-4 text-center">
-                                    <div class="flex gap-2 justify-center">
-                                        <a href="{{ route('offers.edit', $offer) }}" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Edytuj</a>
+                                    <div class="flex gap-1 justify-center">
+                                        <a href="{{ route('offers.edit', $offer) }}" title="Edytuj ofertę" class="p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 inline-flex items-center">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                        </a>
                                         <form action="{{ route('offers.copy', $offer) }}" method="POST" class="inline">
                                             @csrf
-                                            <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm">Kopiuj</button>
+                                            <button type="submit" title="Kopiuj ofertę" class="p-1.5 bg-green-600 text-white rounded hover:bg-green-700">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                            </button>
                                         </form>
                                     </div>
                                 </td>
