@@ -722,6 +722,8 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
 
         // Oblicz sumy przy ładowaniu
         document.addEventListener('DOMContentLoaded', function() {
+            initCheckboxColumn();
+            formatAllValueInputs();
             calculateTotal('services');
             calculateTotal('works');
             calculateTotal('materials');
@@ -974,6 +976,70 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             }
         }
 
+        function initCheckboxColumn() {
+            ['services', 'works', 'materials'].forEach(section => {
+                const tbody = document.getElementById(section + '-table');
+                if (!tbody) return;
+                const table = tbody.closest('table');
+                const thead = table ? table.querySelector('thead tr') : null;
+                if (thead && !thead.querySelector('th.cb-th')) {
+                    const th = document.createElement('th');
+                    th.className = 'p-1 w-5 cb-th';
+                    thead.insertBefore(th, thead.firstChild);
+                }
+                tbody.querySelectorAll('tr').forEach(row => {
+                    if (!row.querySelector('.row-checkbox')) {
+                        const td = document.createElement('td');
+                        td.className = 'p-1 text-center';
+                        td.innerHTML = '<input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer">';
+                        row.insertBefore(td, row.firstChild);
+                    }
+                });
+            });
+            customSections.forEach(num => {
+                const sId = 'custom' + num;
+                const tbody = document.getElementById(sId + '-table');
+                if (!tbody) return;
+                const table = tbody.closest('table');
+                const thead = table ? table.querySelector('thead tr') : null;
+                if (thead && !thead.querySelector('th.cb-th')) {
+                    const th = document.createElement('th');
+                    th.className = 'p-1 w-5 cb-th';
+                    thead.insertBefore(th, thead.firstChild);
+                }
+                tbody.querySelectorAll('tr').forEach(row => {
+                    if (!row.querySelector('.row-checkbox')) {
+                        const td = document.createElement('td');
+                        td.className = 'p-1 text-center';
+                        td.innerHTML = '<input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer">';
+                        row.insertBefore(td, row.firstChild);
+                    }
+                });
+            });
+        }
+
+        function formatAllValueInputs() {
+            document.querySelectorAll('.value-input').forEach(input => {
+                if (input.dataset.formattedInit) return;
+                input.dataset.formattedInit = '1';
+                const raw = parseFloat(input.value) || 0;
+                input.dataset.raw = raw.toFixed(2);
+                input.type = 'text';
+                input.value = formatPrice(raw);
+            });
+        }
+
+        document.addEventListener('focusin', function(e) {
+            const td = e.target.closest('td');
+            if (!td) return;
+            const row = td.closest('tr');
+            if (!row) return;
+            const tbody = row.closest('tbody');
+            if (!tbody || !tbody.id || !tbody.id.endsWith('-table')) return;
+            const cb = row.querySelector('.row-checkbox');
+            if (cb) cb.checked = true;
+        });
+
         function calculateRowValue(input) {
             const row = input.closest('tr');
             const quantityInput = row.querySelector('.quantity-input');
@@ -983,8 +1049,11 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             const quantity = parseFloat(quantityInput.value) || 0;
             const price = parseFloat(priceInput.value) || 0;
             const value = quantity * price;
-            
-            valueInput.value = value.toFixed(2);
+
+            valueInput.dataset.raw = value.toFixed(2);
+            valueInput.dataset.formattedInit = '1';
+            valueInput.type = 'text';
+            valueInput.value = formatPrice(value);
             
             const section = input.dataset.section;
             calculateTotal(section);
@@ -999,18 +1068,23 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 supplierOptions += `<option value=\"{{ addslashes($supplier->name) }}\">{{ addslashes($supplier->short_name ?: $supplier->name) }}<\/option>`;
             @endforeach
             row.innerHTML = `
+                <td class="p-1 text-center"><input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer"></td>
                 <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="${rowCount + 1}" readonly></td>
                 <td class="p-1"><textarea name="${section}[${rowCount}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
                 <td class="p-1"><textarea name="${section}[${rowCount}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
                 <td class="p-1"><input type="number" min="1" value="1" name="${section}[${rowCount}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                 <td class="p-1"><select name="${section}[${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                 <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
-                <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][value]" value="{{ ($work['quantity'] ?? 1) * ($work['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
+                <td class="p-1"><input type="text" name="${section}[${rowCount}][value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
                 <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="moveRow(this,'up','${section}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Wyżej">↑</button><button type="button" onclick="moveRow(this,'down','${section}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Niżej">↓</button><button type="button" onclick="removeRow(this, '${section}')" class="text-red-600 hover:text-red-800 text-xs">✕</button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
             `;
-            table.appendChild(row);
+            // Insert after last checked row, or append at end
+            const allRows = table.querySelectorAll('tr');
+            let lastChecked = null;
+            allRows.forEach(r => { if (r.querySelector('.row-checkbox')?.checked) lastChecked = r; });
+            if (lastChecked) lastChecked.after(row); else table.appendChild(row);
             rowCounters[section]++;
-            updateRowNumbers(section);
+            reindexSection(section);
         }
 
         function removeRow(button, section) {
@@ -1025,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         function updateRowNumbers(section) {
             const rows = document.querySelectorAll(`#${section}-table tr`);
             rows.forEach((row, index) => {
-                const numberInput = row.querySelector('td:first-child input[type="number"][readonly]');
+                const numberInput = row.querySelector('input[type="number"][readonly]');
                 if (numberInput) {
                     numberInput.value = index + 1;
                 }
@@ -1055,7 +1129,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             if (!tbody) return;
             const rows = tbody.querySelectorAll('tr');
             rows.forEach((row, newIndex) => {
-                const numInput = row.querySelector('td:first-child input[readonly]');
+                const numInput = row.querySelector('input[type="number"][readonly]');
                 if (numInput) numInput.value = newIndex + 1;
                 row.querySelectorAll('[name]').forEach(el => {
                     if (section.startsWith('custom')) {
@@ -1110,7 +1184,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             let total = 0;
             
             inputs.forEach(input => {
-                const value = parseFloat(input.value) || 0;
+                const value = parseFloat(input.dataset.raw || input.value) || 0;
                 total += value;
             });
             
@@ -1206,6 +1280,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                                 <td class="p-1"><select name="custom_sections[${customSectionCounter}][items][0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
+                                <td class="p-1 text-center"><input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer"></td>
                                 <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="moveRow(this,'up','${sectionId}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Wyżej">↑</button><button type="button" onclick="moveRow(this,'down','${sectionId}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Niżej">↓</button><button type="button" onclick="addProductToCatalog(this, 'custom_sections[${customSectionCounter}][items]', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
                             </tr>
                         </tbody>
@@ -1309,18 +1384,22 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             @endforeach
             const row = document.createElement('tr');
             row.innerHTML = `
+                <td class="p-1 text-center"><input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer"></td>
                 <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="${rowCount + 1}" readonly></td>
                 <td class="p-1"><textarea name="custom_sections[${sectionNumber}][items][${rowCount}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
                 <td class="p-1"><textarea name="custom_sections[${sectionNumber}][items][${rowCount}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
                 <td class="p-1"><input type="number" min="1" value="1" name="custom_sections[${sectionNumber}][items][${rowCount}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                 <td class="p-1"><select name="custom_sections[${sectionNumber}][items][${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
-                <td class="p-1"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
+                <td class="p-1"><input type="text" name="custom_sections[${sectionNumber}][items][${rowCount}][value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
                 <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="moveRow(this,'up','${sectionId}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Wyżej">↑</button><button type="button" onclick="moveRow(this,'down','${sectionId}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Niżej">↓</button><button type="button" onclick="removeRow(this, '${sectionId}')" class="text-red-600 hover:text-red-800 text-xs">✕</button><button type="button" onclick="addProductToCatalog(this, 'custom_sections[${sectionNumber}][items]', ${rowCount})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
             `;
-            table.appendChild(row);
+            const allRows = table.querySelectorAll('tr');
+            let lastChecked = null;
+            allRows.forEach(r => { if (r.querySelector('.row-checkbox')?.checked) lastChecked = r; });
+            if (lastChecked) lastChecked.after(row); else table.appendChild(row);
             rowCounters[sectionId]++;
-            updateRowNumbers(sectionId);
+            reindexSection(sectionId);
         }
         
         function escapeHtml(text) {

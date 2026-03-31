@@ -589,7 +589,7 @@
             if (!tbody) return;
             const rows = tbody.querySelectorAll('tr');
             rows.forEach((row, newIndex) => {
-                const numInput = row.querySelector('td:first-child input[readonly]');
+                const numInput = row.querySelector('input[type="number"][readonly]');
                 if (numInput) numInput.value = newIndex + 1;
                 row.querySelectorAll('[name]').forEach(el => {
                     if (section.startsWith('custom')) {
@@ -639,6 +639,70 @@
             });
         }
 
+        function initCheckboxColumn() {
+            ['services', 'works', 'materials'].forEach(section => {
+                const tbody = document.getElementById(section + '-table');
+                if (!tbody) return;
+                const table = tbody.closest('table');
+                const thead = table ? table.querySelector('thead tr') : null;
+                if (thead && !thead.querySelector('th.cb-th')) {
+                    const th = document.createElement('th');
+                    th.className = 'p-1 w-5 cb-th';
+                    thead.insertBefore(th, thead.firstChild);
+                }
+                tbody.querySelectorAll('tr').forEach(row => {
+                    if (!row.querySelector('.row-checkbox')) {
+                        const td = document.createElement('td');
+                        td.className = 'p-1 text-center';
+                        td.innerHTML = '<input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer">';
+                        row.insertBefore(td, row.firstChild);
+                    }
+                });
+            });
+            customSections.forEach(num => {
+                const sId = 'custom' + num;
+                const tbody = document.getElementById(sId + '-table');
+                if (!tbody) return;
+                const table = tbody.closest('table');
+                const thead = table ? table.querySelector('thead tr') : null;
+                if (thead && !thead.querySelector('th.cb-th')) {
+                    const th = document.createElement('th');
+                    th.className = 'p-1 w-5 cb-th';
+                    thead.insertBefore(th, thead.firstChild);
+                }
+                tbody.querySelectorAll('tr').forEach(row => {
+                    if (!row.querySelector('.row-checkbox')) {
+                        const td = document.createElement('td');
+                        td.className = 'p-1 text-center';
+                        td.innerHTML = '<input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer">';
+                        row.insertBefore(td, row.firstChild);
+                    }
+                });
+            });
+        }
+
+        function formatAllValueInputs() {
+            document.querySelectorAll('.value-input').forEach(input => {
+                if (input.dataset.formattedInit) return;
+                input.dataset.formattedInit = '1';
+                const raw = parseFloat(input.value) || 0;
+                input.dataset.raw = raw.toFixed(2);
+                input.type = 'text';
+                input.value = formatPrice(raw);
+            });
+        }
+
+        document.addEventListener('focusin', function(e) {
+            const td = e.target.closest('td');
+            if (!td) return;
+            const row = td.closest('tr');
+            if (!row) return;
+            const tbody = row.closest('tbody');
+            if (!tbody || !tbody.id || !tbody.id.endsWith('-table')) return;
+            const cb = row.querySelector('.row-checkbox');
+            if (cb) cb.checked = true;
+        });
+
         function calculateRowValue(input) {
             const row = input.closest('tr');
             const quantityInput = row.querySelector('.quantity-input');
@@ -648,8 +712,11 @@
             const quantity = parseFloat(quantityInput.value) || 0;
             const price = parseFloat(priceInput.value) || 0;
             const value = quantity * price;
-            
-            valueInput.value = value.toFixed(2);
+
+            valueInput.dataset.raw = value.toFixed(2);
+            valueInput.dataset.formattedInit = '1';
+            valueInput.type = 'text';
+            valueInput.value = formatPrice(value);
             
             const section = input.dataset.section;
             calculateTotal(section);
@@ -663,6 +730,7 @@
             
             if (section === 'materials') {
                 row.innerHTML = `
+                    <td class="p-1 text-center"><input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer"></td>
                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="${rowCount + 1}" readonly></td>
                     <td class="p-1">
                         <div class="relative">
@@ -686,11 +754,12 @@
                         </select>
                     </td>
                     <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
-                    <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
+                    <td class="p-1"><input type="text" name="${section}[${rowCount}][value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
                     <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="moveRow(this,'up','${section}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Wyżej">↑</button><button type="button" onclick="moveRow(this,'down','${section}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Niżej">↓</button><button type="button" onclick="removeRow(this,'${section}')" class="text-red-600 hover:text-red-800 text-xs">✕</button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="px-1 py-0.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs whitespace-nowrap">Dod. do kat.</button></div></td>
                 `;
             } else {
                 row.innerHTML = `
+                    <td class="p-1 text-center"><input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer"></td>
                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="${rowCount + 1}" readonly></td>
                     <td class="p-1"><input type="text" name="${section}[${rowCount}][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                     <td class="p-1"><input type="text" name="${section}[${rowCount}][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
@@ -704,14 +773,18 @@
                         </select>
                     </td>
                     <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
-                    <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
+                    <td class="p-1"><input type="text" name="${section}[${rowCount}][value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
                     <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="moveRow(this,'up','${section}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Wyżej">↑</button><button type="button" onclick="moveRow(this,'down','${section}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Niżej">↓</button><button type="button" onclick="removeRow(this,'${section}')" class="text-red-600 hover:text-red-800 text-xs">✕</button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="px-1 py-0.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs whitespace-nowrap">Dod. do kat.</button></div></td>
                 `;
             }
             
-            table.appendChild(row);
+            // Insert after last checked row, or append at end
+            const allRows = table.querySelectorAll('tr');
+            let lastChecked = null;
+            allRows.forEach(r => { if (r.querySelector('.row-checkbox')?.checked) lastChecked = r; });
+            if (lastChecked) lastChecked.after(row); else table.appendChild(row);
             rowCounters[section]++;
-            updateRowNumbers(section);
+            reindexSection(section);
             
             if (section === 'materials') {
                 initPartSearch();
@@ -727,7 +800,7 @@
         function updateRowNumbers(section) {
             const rows = document.querySelectorAll(`#${section}-table tr`);
             rows.forEach((row, index) => {
-                const numberInput = row.querySelector('td:first-child input[type="number"][readonly]');
+                const numberInput = row.querySelector('input[type="number"][readonly]');
                 if (numberInput) {
                     numberInput.value = index + 1;
                 }
@@ -739,7 +812,7 @@
             let total = 0;
             
             inputs.forEach(input => {
-                const value = parseFloat(input.value) || 0;
+                const value = parseFloat(input.dataset.raw || input.value) || 0;
                 total += value;
             });
             
@@ -755,20 +828,20 @@
             let grandTotal = 0;
             
             servicesInputs.forEach(input => {
-                grandTotal += parseFloat(input.value) || 0;
+                grandTotal += parseFloat(input.dataset.raw || input.value) || 0;
             });
             worksInputs.forEach(input => {
-                grandTotal += parseFloat(input.value) || 0;
+                grandTotal += parseFloat(input.dataset.raw || input.value) || 0;
             });
             materialsInputs.forEach(input => {
-                grandTotal += parseFloat(input.value) || 0;
+                grandTotal += parseFloat(input.dataset.raw || input.value) || 0;
             });
             
             // Dodaj sumy z niestandardowych sekcji
             customSections.forEach(sectionId => {
                 const inputs = document.querySelectorAll(`#custom-${sectionId}-table .value-input`);
                 inputs.forEach(input => {
-                    grandTotal += parseFloat(input.value) || 0;
+                    grandTotal += parseFloat(input.dataset.raw || input.value) || 0;
                 });
             });
             
@@ -1017,6 +1090,8 @@
         
         // Inicjalizuj wyszukiwanie dla pierwszego wiersza
         document.addEventListener('DOMContentLoaded', function() {
+            initCheckboxColumn();
+            formatAllValueInputs();
             initPartSearch();
             initMoveButtons();
         });
