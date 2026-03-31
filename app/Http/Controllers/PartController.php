@@ -2911,7 +2911,17 @@ class PartController extends Controller
 
             $parts = $query->get();
 
-            return Excel::download(new PartsExport($parts), 'katalog.xlsx');
+            // Użyj Excel::raw zamiast Excel::download, żeby uniknąć problemu z tymczasowymi plikami
+            // na Railway (Excel::download pisze przez TemporaryFile na dysk lokalny)
+            $rawContent = Excel::raw(new PartsExport($parts), \Maatwebsite\Excel\Excel::XLSX);
+
+            return response($rawContent, 200, [
+                'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => 'attachment; filename="katalog.xlsx"',
+                'Content-Length'      => (string) strlen($rawContent),
+                'Cache-Control'       => 'no-cache, must-revalidate',
+                'Pragma'              => 'no-cache',
+            ]);
         } catch (\Throwable $e) {
             \Log::error('XLSX export failed', [
                 'message' => $e->getMessage(),
@@ -2994,46 +3004,56 @@ class PartController extends Controller
 
             // Pobierz dane firmy z bazy danych
             $companySettings = \App\Models\CompanySetting::first();
-            
-            // header: logo + company info (keeps aspect ratio by setting height on image)
-            $logoData = $companySettings && $companySettings->logo 
-                ? $companySettings->logo
-                : null;
-            
-            // Jeśli logo jest w formacie base64 (data:image/...), należy je zapisać tymczasowo
-            if ($logoData && str_starts_with($logoData, 'data:image')) {
-                // Wyodrębniamy dane base64
-                preg_match('/data:image\\/([a-zA-Z]+);base64,(.*)/', $logoData, $matches);
-                if ($matches) {
-                    $extension = $matches[1];
-                    $base64Data = $matches[2];
-                    $tempLogoPath = $tempDir . '/temp_logo_' . uniqid() . '.' . $extension;
-                    file_put_contents($tempLogoPath, base64_decode($base64Data));
-                    $logoPath = $tempLogoPath;
-                } else {
-                    $logoPath = public_path('logo.png');
+
+            // helper: oczyść tekst z niedozwolonych znaków XML
+            $cleanText = function (?string $text): string {
+                if ($text === null || $text === '') return '-';
+                // Usuń tagi HTML, znormaliz. białe znaki, usuń znaki kontrolne < 0x20 poza tabem/LF
+                $text = strip_tags($text);
+                $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $text);
+                $text = preg_replace('/\s+/', ' ', $text);
+                return trim($text) ?: '-';
+            };
+
+            // header: logo + company info
+            $logoPath = null;
+            $tempLogoPath = null;
+            try {
+                $logoData = $companySettings && $companySettings->logo ? $companySettings->logo : null;
+                if ($logoData && str_starts_with($logoData, 'data:image')) {
+                    preg_match('/data:image\/([a-zA-Z]+);base64,(.+)$/s', $logoData, $matches);
+                    if (!empty($matches[2])) {
+                        $extension    = $matches[1];
+                        $tempLogoPath = $tempDir . '/temp_logo_' . uniqid() . '.' . $extension;
+                        file_put_contents($tempLogoPath, base64_decode($matches[2]));
+                        if (file_exists($tempLogoPath) && filesize($tempLogoPath) > 0) {
+                            $logoPath = $tempLogoPath;
+                        }
+                    }
+                } elseif ($logoData) {
+                    $candidate = storage_path('app/public/' . $logoData);
+                    if (file_exists($candidate)) $logoPath = $candidate;
                 }
-            } elseif ($logoData) {
-                // Stary format - ścieżka do pliku
-                $logoPath = storage_path('app/public/' . $logoData);
-            } else {
-                $logoPath = public_path('logo.png');
+                if (!$logoPath) {
+                    $candidate = public_path('logo.png');
+                    if (file_exists($candidate)) $logoPath = $candidate;
+                }
+            } catch (\Throwable $logoErr) {
+                \Log::warning('exportWord: błąd ładowania logo, kontynuuję bez logo: ' . $logoErr->getMessage());
+                $logoPath = null;
             }
-            
+
             $header = $section->addHeader();
             $headerTable = $header->addTable(['cellMargin' => 40]);
             $headerTable->addRow();
-            if (file_exists($logoPath)) {
-                // logo cell: set height to ~1.2cm (≈34pt) and center vertically; add small top margin to visually center with text
+            if ($logoPath && file_exists($logoPath)) {
                 $headerTable->addCell(1600, ['valign' => 'center'])->addImage($logoPath, [
-                    'height' => 34,
+                    'height'    => 34,
                     'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT,
                     'marginTop' => 6,
                 ]);
-                
-                // Usuwamy tymczasowy plik jeśli został utworzony
-                if (isset($tempLogoPath) && file_exists($tempLogoPath)) {
-                    unlink($tempLogoPath);
+                if ($tempLogoPath && file_exists($tempLogoPath)) {
+                    @unlink($tempLogoPath);
                 }
             } else {
                 $headerTable->addCell(1600, ['valign' => 'center']);
@@ -3069,12 +3089,12 @@ class PartController extends Controller
 
             // Compute max text lengths for Kategoria and Stan so their column widths match widest text
             // Include header text length ("Kategoria" = 9 chars, "Stan" = 4 chars) so headers don't wrap
-            $maxCategoryLen = max(9, collect($parts)->map(function ($p) { return mb_strlen($p->category->name ?? '-', 'UTF-8'); })->max() ?: 1);
+            $maxCategoryLen = max(9, collect($parts)->map(function ($p) { return mb_strlen($p->category?->name ?? '-', 'UTF-8'); })->max() ?: 1);
             $maxStanLen = max(4, collect($parts)->map(function ($p) { return mb_strlen((string)($p->quantity ?? ''), 'UTF-8'); })->max() ?: 1);
             $maxUnitLen = max(5, collect($parts)->map(function ($p) { return mb_strlen($p->unit ?? '-', 'UTF-8'); })->max() ?: 1);
             $maxStanMinLen = max(9, collect($parts)->map(function ($p) { return mb_strlen((string)($p->minimum_stock ?? ''), 'UTF-8'); })->max() ?: 1);
             $maxLocationLen = max(4, collect($parts)->map(function ($p) { return mb_strlen($p->location ?? '-', 'UTF-8'); })->max() ?: 1);
-            $maxUserLen = max(4, collect($parts)->map(function ($p) { return mb_strlen($p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-', 'UTF-8'); })->max() ?: 1);
+            $maxUserLen = max(4, collect($parts)->map(function ($p) { return mb_strlen($p->lastModifiedBy?->short_name ?? '-', 'UTF-8'); })->max() ?: 1);
 
             // Approximate width per character in Word (dxa); use higher multiplier for bold headers with padding
             $charWidth = 220; // increased for bold text + centered alignment + padding
@@ -3107,14 +3127,14 @@ class PartController extends Controller
                 // alternating subtle gray rows
                 $cellStyle = ($rowIndex % 2 === 0) ? ['bgColor' => 'F3F4F6'] : [];
 
-                $table->addCell(3500, $cellStyle)->addText($p->name);
-                $table->addCell(6000, $cellStyle)->addText($p->description ?? '-');
-                $table->addCell($categoryWidth, $cellStyle)->addText($p->category->name ?? '-', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                $table->addCell($stanWidth, $cellStyle)->addText((string)$p->quantity, null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                $table->addCell($unitWidth, $cellStyle)->addText($p->unit ?? '-', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                $table->addCell($stanMinWidth, $cellStyle)->addText((string)$p->minimum_stock, null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                $table->addCell($locationWidth, $cellStyle)->addText($p->location ?? '-', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                $table->addCell($userWidth, $cellStyle)->addText($p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $table->addCell(3500, $cellStyle)->addText($cleanText($p->name));
+                $table->addCell(6000, $cellStyle)->addText($cleanText($p->description));
+                $table->addCell($categoryWidth, $cellStyle)->addText($cleanText($p->category?->name), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $table->addCell($stanWidth, $cellStyle)->addText((string)($p->quantity ?? '0'), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $table->addCell($unitWidth, $cellStyle)->addText($cleanText($p->unit), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $table->addCell($stanMinWidth, $cellStyle)->addText((string)($p->minimum_stock ?? '0'), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $table->addCell($locationWidth, $cellStyle)->addText($cleanText($p->location), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $table->addCell($userWidth, $cellStyle)->addText($cleanText($p->lastModifiedBy?->short_name), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             }
 
             $temp = tempnam($tempDir, 'word');

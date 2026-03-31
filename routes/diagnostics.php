@@ -817,8 +817,8 @@ Route::get('/api/diagnostics/probe-xlsx', function () {
         'temp_dir' => null,
         'temp_writable' => null,
         'parts_count' => null,
-        'excel_store' => null,
-        'excel_raw_bytes' => null,
+        'excel_raw_1part_bytes' => null,
+        'excel_raw_allparts_bytes' => null,
         'error' => null,
     ];
     foreach (['zip','xml','xmlwriter','dom','gd'] as $ext) {
@@ -836,28 +836,36 @@ Route::get('/api/diagnostics/probe-xlsx', function () {
     $info['temp_writable'] = is_writable($tempDir);
 
     try {
-        $part = \App\Models\Part::with(['category','lastModifiedBy'])->first();
-        if (!$part) {
+        $allParts = \App\Models\Part::with(['category','lastModifiedBy'])->get();
+        $info['parts_count'] = $allParts->count();
+        if ($allParts->isEmpty()) {
             $info['error'] = 'Brak produktów w bazie – nie można przetestować';
             return response()->json($info, 422);
         }
-        $info['parts_count'] = 1;
-        $info['tested_part'] = $part->name;
+        $firstPart = $allParts->first();
+        $info['tested_first_part'] = $firstPart->name;
 
-        // Próba via Excel::raw
+        // Próba via Excel::raw z 1 produktem
         if (class_exists(\Maatwebsite\Excel\Facades\Excel::class) && class_exists(\App\Exports\PartsExport::class)) {
-            $raw = \Maatwebsite\Excel\Facades\Excel::raw(
-                new \App\Exports\PartsExport(collect([$part])),
+            $raw1 = \Maatwebsite\Excel\Facades\Excel::raw(
+                new \App\Exports\PartsExport(collect([$firstPart])),
                 \Maatwebsite\Excel\Excel::XLSX
             );
-            $info['excel_raw_bytes'] = is_string($raw) ? strlen($raw) : 0;
+            $info['excel_raw_1part_bytes'] = is_string($raw1) ? strlen($raw1) : 0;
+
+            // Próba via Excel::raw ze wszystkimi produktami (dokładnie jak exportXlsx)
+            $rawAll = \Maatwebsite\Excel\Facades\Excel::raw(
+                new \App\Exports\PartsExport($allParts),
+                \Maatwebsite\Excel\Excel::XLSX
+            );
+            $info['excel_raw_allparts_bytes'] = is_string($rawAll) ? strlen($rawAll) : 0;
         }
 
         // Próba via PhpSpreadsheet bezpośrednio
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setCellValue('A1', 'Nazwa');
-        $sheet->setCellValue('A2', $part->name ?? 'brak');
+        $sheet->setCellValue('A2', $firstPart->name ?? 'brak');
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
         $tmpFile = tempnam($tempDir, 'probe_xlsx_') . '.xlsx';
         $writer->save($tmpFile);
