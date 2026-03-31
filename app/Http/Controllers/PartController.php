@@ -3141,7 +3141,17 @@ class PartController extends Controller
             $file = $temp . '.docx';
             \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007')->save($file);
 
-            return response()->download($file, 'katalog.docx')->deleteFileAfterSend(true);
+            $content = file_get_contents($file);
+            @unlink($file);
+            @unlink($temp);
+
+            return response($content, 200, [
+                'Content-Type'        => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'Content-Disposition' => 'attachment; filename="katalog.docx"',
+                'Content-Length'      => (string) strlen($content),
+                'Cache-Control'       => 'no-cache, must-revalidate',
+                'Pragma'              => 'no-cache',
+            ]);
         } catch (\Throwable $e) {
             \Log::error("Export error: {$e->getMessage()}", ['trace' => $e->getTraceAsString()]);
             if ($isAjax) {
