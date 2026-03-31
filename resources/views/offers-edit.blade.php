@@ -1030,6 +1030,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         }
 
         document.addEventListener('focusin', function(e) {
+            if (e.target.classList.contains('row-checkbox')) return;
             const td = e.target.closest('td');
             if (!td) return;
             const row = td.closest('tr');
@@ -1203,20 +1204,20 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             let grandTotal = 0;
             
             servicesInputs.forEach(input => {
-                grandTotal += parseFloat(input.value) || 0;
+                grandTotal += parseFloat(input.dataset.raw || input.value) || 0;
             });
             worksInputs.forEach(input => {
-                grandTotal += parseFloat(input.value) || 0;
+                grandTotal += parseFloat(input.dataset.raw || input.value) || 0;
             });
             materialsInputs.forEach(input => {
-                grandTotal += parseFloat(input.value) || 0;
+                grandTotal += parseFloat(input.dataset.raw || input.value) || 0;
             });
             
             // Dodaj sumy z niestandardowych sekcji
             customSections.forEach(sectionNum => {
                 const inputs = document.querySelectorAll(`#custom${sectionNum}-table .value-input`);
                 inputs.forEach(input => {
-                    grandTotal += parseFloat(input.value) || 0;
+                    grandTotal += parseFloat(input.dataset.raw || input.value) || 0;
                 });
             });
             

@@ -693,6 +693,7 @@
         }
 
         document.addEventListener('focusin', function(e) {
+            if (e.target.classList.contains('row-checkbox')) return;
             const td = e.target.closest('td');
             if (!td) return;
             const row = td.closest('tr');
