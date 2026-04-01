@@ -393,11 +393,27 @@
                     </button>
                 </div>
 
-                <!-- Suma końcowa -->
-                <div class="bg-gray-50 p-4 rounded border border-gray-300">
-                    <div class="text-right">
-                        <span class="text-xl font-semibold">Suma końcowa: </span>
-                        <span id="grand-total" class="text-2xl font-bold text-blue-600">0.00 zł</span>
+                <!-- Suma końcowa + Zysk -->
+                <div class="bg-gray-50 p-4 rounded border border-gray-300 space-y-3">
+                    <div class="flex items-center justify-end gap-3">
+                        <span class="text-lg font-semibold text-gray-600">Suma netto:</span>
+                        <span id="grand-total" class="text-xl font-bold text-blue-600">0,00 zł</span>
+                    </div>
+                    <div class="flex flex-wrap items-center justify-end gap-3 border-t pt-3">
+                        <span class="text-sm font-medium text-gray-700">Zysk:</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="profit-percent" name="profit_percent" min="0" max="10000" step="0.01" value="0" class="w-20 px-2 py-1 border rounded text-sm text-right focus:ring-2 focus:ring-green-400" oninput="updateProfitFromPercent()">
+                            <span class="text-sm text-gray-600">%</span>
+                        </div>
+                        <span class="text-gray-400 text-sm">lub</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="profit-amount-input" name="profit_amount" min="0" step="0.01" value="0" class="w-36 px-2 py-1 border rounded text-sm text-right focus:ring-2 focus:ring-green-400" oninput="updateProfitFromAmount()">
+                            <span class="text-sm text-gray-600">zł</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-end gap-3 border-t pt-3">
+                        <span class="text-xl font-semibold">Razem z zyskiem:</span>
+                        <span id="total-with-profit" class="text-2xl font-bold text-green-700">0,00 zł</span>
                     </div>
                 </div>
 
@@ -552,6 +568,7 @@
         
         let customSectionCounter = 0;
         let customSections = [];
+        let _grandTotalRaw = 0;
 
         function toggleSection(section) {
             const content = document.getElementById(section + '-content');
@@ -846,7 +863,28 @@
                 });
             });
             
+            _grandTotalRaw = grandTotal;
             document.getElementById('grand-total').textContent = formatPrice(grandTotal);
+            updateProfitDisplay();
+        }
+
+        function updateProfitFromPercent() {
+            const pct = parseFloat(document.getElementById('profit-percent').value) || 0;
+            const amount = _grandTotalRaw * pct / 100;
+            document.getElementById('profit-amount-input').value = amount.toFixed(2);
+            updateProfitDisplay();
+        }
+
+        function updateProfitFromAmount() {
+            const amount = parseFloat(document.getElementById('profit-amount-input').value) || 0;
+            const pct = _grandTotalRaw > 0 ? (amount / _grandTotalRaw * 100) : 0;
+            document.getElementById('profit-percent').value = pct.toFixed(2);
+            updateProfitDisplay();
+        }
+
+        function updateProfitDisplay() {
+            const amount = parseFloat(document.getElementById('profit-amount-input').value) || 0;
+            document.getElementById('total-with-profit').textContent = formatPrice(_grandTotalRaw + amount);
         }
 
         // ===========================================

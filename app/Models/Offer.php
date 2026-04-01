@@ -24,7 +24,9 @@ class Offer extends Model
         'customer_city',
         'customer_postal_code',
         'customer_phone',
-        'customer_email'
+        'customer_email',
+        'profit_percent',
+        'profit_amount'
     ];
 
     protected $casts = [

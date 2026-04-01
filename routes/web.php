@@ -942,7 +942,9 @@ Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/nowa', func
             'works_enabled' => $request->input('works_enabled', '1') === '1',
             'materials_enabled' => $request->input('materials_enabled', '1') === '1',
         ]),
-        'total_price' => $totalPrice,
+        'total_price' => $totalPrice + floatval($request->input('profit_amount', 0)),
+        'profit_percent' => floatval($request->input('profit_percent', 0)),
+        'profit_amount' => floatval($request->input('profit_amount', 0)),
         'status' => $request->input('destination'),
         'crm_deal_id' => $request->input('crm_deal_id'),
         'customer_name' => $request->input('customer_name'),
@@ -1201,7 +1203,9 @@ Route::middleware(['auth', 'permission:view_offers'])->put('/wyceny/{offer}', fu
             'works_enabled' => $request->input('works_enabled', '1') === '1',
             'materials_enabled' => $request->input('materials_enabled', '1') === '1',
         ]),
-        'total_price' => $totalPrice,
+        'total_price' => $totalPrice + floatval($request->input('profit_amount', 0)),
+        'profit_percent' => floatval($request->input('profit_percent', 0)),
+        'profit_amount' => floatval($request->input('profit_amount', 0)),
         'status' => $request->input('destination'),
         'crm_deal_id' => $request->input('crm_deal_id'),
         'customer_name' => $request->input('customer_name'),
@@ -1217,7 +1221,8 @@ Route::middleware(['auth', 'permission:view_offers'])->put('/wyceny/{offer}', fu
     $crmDealId = $request->input('crm_deal_id');
     if ($crmDealId && class_exists('\\App\\Models\\CrmDeal')) {
         try {
-            \App\Models\CrmDeal::where('id', $crmDealId)->update(['value' => $totalPrice]);
+            $totalWithProfit = $totalPrice + floatval($request->input('profit_amount', 0));
+            \App\Models\CrmDeal::where('id', $crmDealId)->update(['value' => $totalWithProfit]);
         } catch (\Exception $e) {
             \Log::warning('Could not update CRM deal value: ' . $e->getMessage());
         }
