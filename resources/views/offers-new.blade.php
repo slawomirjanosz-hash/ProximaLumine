@@ -124,31 +124,27 @@
                 </div>
 
                 <!-- Dane klienta -->
-                <div class="border border-blue-300 rounded p-4 bg-blue-50">
-                    <h3 class="text-lg font-semibold mb-4 text-blue-900">👤 Dane klienta</h3>
-                    
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Wybierz z bazy lub wpisz ręcznie</label>
-                        <div class="flex gap-2">
-                            <select id="company-select" class="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" onchange="fillCustomerData(this.value)">
-                                <option value="">-- Wybierz firmę z CRM --</option>
-                                @foreach($companies as $company)
-                                    <option value="{{ $company->id }}" 
-                                        data-name="{{ $company->name }}"
-                                        data-short-name="{{ $company->supplier->short_name ?? '' }}"
-                                        data-nip="{{ $company->nip ?? '' }}"
-                                        data-address="{{ $company->address ?? '' }}"
-                                        data-city="{{ $company->city ?? '' }}"
-                                        data-postal="{{ $company->postal_code ?? '' }}"
-                                        data-phone="{{ $company->phone ?? '' }}"
-                                        data-email="{{ $company->email ?? '' }}"
-                                        @if(isset($deal) && $deal && $deal->company_id == $company->id) selected @endif>
-                                        {{ $company->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <button type="button" onclick="clearCustomerData()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">Wyczyść</button>
-                        </div>
+                <div class="border border-blue-300 rounded p-3 bg-blue-50">
+                    <div class="flex items-center gap-2 flex-wrap mb-3">
+                        <label class="text-sm font-semibold text-blue-900 whitespace-nowrap">👤 Dane klienta — wybierz z bazy lub przypisz ręcznie:</label>
+                        <select id="company-select" class="flex-1 min-w-0 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" onchange="fillCustomerData(this.value)">
+                            <option value="">-- Wybierz firmę z CRM --</option>
+                            @foreach($companies as $company)
+                                <option value="{{ $company->id }}"
+                                    data-name="{{ $company->name }}"
+                                    data-short-name="{{ $company->supplier->short_name ?? '' }}"
+                                    data-nip="{{ $company->nip ?? '' }}"
+                                    data-address="{{ $company->address ?? '' }}"
+                                    data-city="{{ $company->city ?? '' }}"
+                                    data-postal="{{ $company->postal_code ?? '' }}"
+                                    data-phone="{{ $company->phone ?? '' }}"
+                                    data-email="{{ $company->email ?? '' }}"
+                                    @if(isset($deal) && $deal && $deal->company_id == $company->id) selected @endif>
+                                    {{ $company->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <button type="button" onclick="clearCustomerData()" class="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm whitespace-nowrap">Wyczyść</button>
                     </div>
 
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -191,6 +187,11 @@
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('services')">
                             <span class="font-semibold text-lg section-name" id="services-name-label">Usługi</span>
+                            <span class="text-xs text-gray-500 flex items-center gap-1.5 mr-2">
+                                <span id="services-header-sum" class="font-semibold text-gray-700">0,00 zł</span>
+                                <span class="text-gray-300">|</span>
+                                <span class="text-green-700">z zysk.: <span id="services-header-profit" class="font-semibold">0,00 zł</span></span>
+                            </span>
                             <svg id="services-icon" class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </button>
                         <button type="button" onclick="editSectionName('services')" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
@@ -252,6 +253,11 @@
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('works')">
                             <span class="font-semibold text-lg section-name" id="works-name-label">Prace własne</span>
+                            <span class="text-xs text-gray-500 flex items-center gap-1.5 mr-2">
+                                <span id="works-header-sum" class="font-semibold text-gray-700">0,00 zł</span>
+                                <span class="text-gray-300">|</span>
+                                <span class="text-green-700">z zysk.: <span id="works-header-profit" class="font-semibold">0,00 zł</span></span>
+                            </span>
                             <svg id="works-icon" class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </button>
                         <button type="button" onclick="editSectionName('works')" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
@@ -313,6 +319,11 @@
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('materials')">
                             <span class="font-semibold text-lg section-name" id="materials-name-label">Materiały</span>
+                            <span class="text-xs text-gray-500 flex items-center gap-1.5 mr-2">
+                                <span id="materials-header-sum" class="font-semibold text-gray-700">0,00 zł</span>
+                                <span class="text-gray-300">|</span>
+                                <span class="text-green-700">z zysk.: <span id="materials-header-profit" class="font-semibold">0,00 zł</span></span>
+                            </span>
                             <svg id="materials-icon" class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </button>
                         <button type="button" onclick="editSectionName('materials')" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
@@ -616,6 +627,7 @@
         let customSectionCounter = 0;
         let customSections = [];
         let _grandTotalRaw = 0;
+        let _sectionTotals = {};
 
         function toggleSection(section) {
             const content = document.getElementById(section + '-content');
@@ -891,7 +903,10 @@
                 total += value;
             });
             
+            _sectionTotals[section] = total;
             document.getElementById(section + '-total').textContent = formatPrice(total);
+            const headerSum = document.getElementById(section + '-header-sum');
+            if (headerSum) headerSum.textContent = formatPrice(total);
             calculateGrandTotal();
         }
 
@@ -942,6 +957,12 @@
         function updateProfitDisplay() {
             const amount = parseFloat(document.getElementById('profit-amount-input').value) || 0;
             document.getElementById('total-with-profit').textContent = formatPrice(_grandTotalRaw + amount);
+            const pct = parseFloat(document.getElementById('profit-percent').value) || 0;
+            const multiplier = 1 + pct / 100;
+            Object.keys(_sectionTotals).forEach(section => {
+                const el = document.getElementById(section + '-header-profit');
+                if (el) el.textContent = formatPrice(_sectionTotals[section] * multiplier);
+            });
         }
 
         // ===========================================
@@ -1020,6 +1041,12 @@
                 <div class="flex items-center justify-between p-4 bg-gray-50">
                     <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('${sectionId}')">
                         <span class="font-semibold text-lg section-name" id="${sectionId}-name-label">${escapeHtml(sectionName.trim())}</span>
+                        <span class="text-xs text-gray-500 flex items-center gap-1.5 mr-2">
+                            <span id="${sectionId}-header-sum" class="font-semibold text-gray-700">0,00 z&#322;</span>
+                            <span class="text-gray-300">|</span>
+                            <span class="text-green-700">z zysk.: <span id="${sectionId}-header-profit" class="font-semibold">0,00 z&#322;</span></span>
+                        </span>
+                        <svg id="${sectionId}-icon" class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                     </button>
                     <button type="button" onclick="editSectionName('${sectionId}', ${customSectionCounter})" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13h3l8-8a2.828 2.828 0 00-4-4l-8 8v3z" /></svg>
