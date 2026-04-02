@@ -26,7 +26,10 @@ class Offer extends Model
         'customer_phone',
         'customer_email',
         'profit_percent',
-        'profit_amount'
+        'profit_amount',
+        'schedule_enabled',
+        'schedule',
+        'payment_terms'
     ];
 
     protected $casts = [
@@ -34,6 +37,9 @@ class Offer extends Model
         'works' => 'array',
         'materials' => 'array',
         'custom_sections' => 'array',
+        'schedule' => 'array',
+        'payment_terms' => 'array',
+        'schedule_enabled' => 'boolean',
         'offer_date' => 'date'
     ];
 

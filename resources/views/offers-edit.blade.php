@@ -524,6 +524,56 @@
                     </div>
                 </div>
 
+                <!-- Harmonogram i Warunki Płatności -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <!-- Harmonogram -->
+                    <div class="border border-gray-300 rounded bg-white">
+                        <div class="p-3 bg-gray-50 border-b flex items-center gap-3">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
+                                <input type="checkbox" id="schedule-enabled" name="schedule_enabled" value="1" class="w-4 h-4 accent-blue-600" onchange="toggleSchedule(this.checked)" {{ ($offer->schedule_enabled ?? false) ? 'checked' : '' }}>
+                                <span class="font-semibold text-gray-800">Harmonogram</span>
+                            </label>
+                        </div>
+                        <div id="schedule-section" class="{{ ($offer->schedule_enabled ?? false) ? '' : 'hidden' }} p-3">
+                            <table class="w-full text-xs border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-100">
+                                        <th class="p-1 border text-center w-8">Lp.</th>
+                                        <th class="p-1 border text-left">Etap / Milestone</th>
+                                        <th class="p-1 border text-left w-28">Termin</th>
+                                        <th class="p-1 border text-left">Opis</th>
+                                        <th class="p-1 border w-6"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="schedule-table"></tbody>
+                            </table>
+                            <button type="button" onclick="addScheduleRow()" class="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">+ Dodaj wiersz</button>
+                        </div>
+                    </div>
+
+                    <!-- Warunki Płatności -->
+                    <div class="border border-gray-300 rounded bg-white">
+                        <div class="p-3 bg-gray-50 border-b">
+                            <span class="font-semibold text-gray-800">Warunki płatności</span>
+                        </div>
+                        <div class="p-3">
+                            <table class="w-full text-xs border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-100">
+                                        <th class="p-1 border text-center w-8">Lp.</th>
+                                        <th class="p-1 border text-left">Opis</th>
+                                        <th class="p-1 border text-right w-16">%</th>
+                                        <th class="p-1 border text-left w-28">Termin / Uwagi</th>
+                                        <th class="p-1 border w-6"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="payment-table"></tbody>
+                            </table>
+                            <button type="button" onclick="addPaymentRow()" class="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">+ Dodaj wiersz</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Opis oferty -->
                 <div class="mt-8">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Opis oferty</label>
@@ -751,6 +801,16 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             });
 
             initMoveButtons();
+
+            // Inicjalizuj istniejące wiersze harmonogramu
+            @foreach($offer->schedule ?? [] as $row)
+            addScheduleRow('{{ addslashes($row['milestone'] ?? '') }}', '{{ $row['date'] ?? '' }}', '{{ addslashes($row['description'] ?? '') }}');
+            @endforeach
+
+            // Inicjalizuj istniejące warunki płatności
+            @foreach($offer->payment_terms ?? [] as $term)
+            addPaymentRow('{{ addslashes($term['description'] ?? '') }}', '{{ $term['percent'] ?? '' }}', '{{ addslashes($term['deadline'] ?? '') }}');
+            @endforeach
         });
 
         // ===========================================
@@ -1260,6 +1320,62 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         function updateProfitDisplay() {
             const amount = parseFloat(document.getElementById('profit-amount-input').value) || 0;
             document.getElementById('total-with-profit').textContent = formatPrice(_grandTotalRaw + amount);
+        }
+
+        // ===========================================
+        // HARMONOGRAM I WARUNKI PŁATNOŚCI
+        // ===========================================
+        let scheduleCount = 0;
+        let paymentCount = 0;
+
+        function toggleSchedule(checked) {
+            document.getElementById('schedule-section').classList.toggle('hidden', !checked);
+        }
+
+        function addScheduleRow(milestone, date, description) {
+            const tbody = document.getElementById('schedule-table');
+            const idx = scheduleCount++;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="p-1 border text-center text-gray-500 text-xs">${idx + 1}</td>
+                <td class="p-1 border"><input type="text" name="schedule[${idx}][milestone]" value="${escapeHtml(milestone||'')}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                <td class="p-1 border"><input type="date" name="schedule[${idx}][date]" value="${date||''}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                <td class="p-1 border"><input type="text" name="schedule[${idx}][description]" value="${escapeHtml(description||'')}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                <td class="p-1 border text-center"><button type="button" onclick="this.closest('tr').remove(); reindexSchedule()" class="text-red-600 hover:text-red-800 text-xs">✕</button></td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        function reindexSchedule() {
+            document.querySelectorAll('#schedule-table tr').forEach((row, i) => {
+                row.querySelector('td:first-child').textContent = i + 1;
+                row.querySelectorAll('[name]').forEach(el => {
+                    el.name = el.name.replace(/schedule\[\d+\]/, `schedule[${i}]`);
+                });
+            });
+        }
+
+        function addPaymentRow(description, percent, deadline) {
+            const tbody = document.getElementById('payment-table');
+            const idx = paymentCount++;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="p-1 border text-center text-gray-500 text-xs">${idx + 1}</td>
+                <td class="p-1 border"><input type="text" name="payment_terms[${idx}][description]" value="${escapeHtml(description||'')}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                <td class="p-1 border"><input type="number" step="0.01" min="0" max="100" name="payment_terms[${idx}][percent]" value="${percent||''}" class="w-full px-1 py-0.5 border rounded text-xs text-right"></td>
+                <td class="p-1 border"><input type="text" name="payment_terms[${idx}][deadline]" value="${escapeHtml(deadline||'')}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                <td class="p-1 border text-center"><button type="button" onclick="this.closest('tr').remove(); reindexPayment()" class="text-red-600 hover:text-red-800 text-xs">✕</button></td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        function reindexPayment() {
+            document.querySelectorAll('#payment-table tr').forEach((row, i) => {
+                row.querySelector('td:first-child').textContent = i + 1;
+                row.querySelectorAll('[name]').forEach(el => {
+                    el.name = el.name.replace(/payment_terms\[\d+\]/, `payment_terms[${i}]`);
+                });
+            });
         }
 
         // ===========================================
