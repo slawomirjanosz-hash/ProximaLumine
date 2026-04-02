@@ -36,34 +36,31 @@
                 @method('PUT')
                 
                 <!-- Przypisanie do szansy CRM -->
-                <div class="mb-6 p-4 bg-green-50 border border-green-300 rounded">
-                    <h3 class="text-lg font-semibold mb-3 text-green-900">🎯 Przypisanie do szansy CRM (opcjonalnie)</h3>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Wybierz szansę CRM</label>
-                        <div class="flex items-center gap-2">
-                            <select id="crm-deal-select" name="crm_deal_id" class="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500" onchange="updateDealInfo(this.value)">
-                                <option value="">-- Brak przypisania --</option>
-                                @foreach($deals as $d)
-                                    <option value="{{ $d->id }}" 
-                                        data-name="{{ $d->name }}"
-                                        data-company="{{ $d->company ? $d->company->name : '' }}"
-                                        data-value="{{ number_format($d->value, 2, ',', ' ') }}"
-                                        data-currency="{{ $d->currency }}"
-                                        @if($offer->crm_deal_id == $d->id) selected @endif>
-                                        {{ $d->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @if($offer->crm_deal_id)
-                            <button type="button" onclick="detachDeal()" class="px-3 py-2 bg-red-100 text-red-700 border border-red-300 rounded hover:bg-red-200 transition text-sm font-semibold whitespace-nowrap" title="Odepnij szansę od tej oferty">
-                                ✂️ Odepnij szansę
-                            </button>
-                            @endif
-                        </div>
+                <div class="mb-4 p-3 bg-green-50 border border-green-300 rounded">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <label class="text-sm font-semibold text-green-900 whitespace-nowrap">🎯 Przypisz do szansy:</label>
+                        <select id="crm-deal-select" name="crm_deal_id" class="flex-1 min-w-0 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500" onchange="updateDealInfo(this.value)">
+                            <option value="">-- Brak przypisania --</option>
+                            @foreach($deals as $d)
+                                <option value="{{ $d->id }}"
+                                    data-name="{{ $d->name }}"
+                                    data-company="{{ $d->company ? $d->company->name : '' }}"
+                                    data-value="{{ number_format($d->value, 2, ',', ' ') }}"
+                                    data-currency="{{ $d->currency }}"
+                                    @if($offer->crm_deal_id == $d->id) selected @endif>
+                                    {{ $d->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @if($offer->crm_deal_id)
+                        <button type="button" onclick="detachDeal()" class="px-2 py-1 bg-red-100 text-red-700 border border-red-300 rounded hover:bg-red-200 transition text-sm font-semibold whitespace-nowrap" title="Odepnij szansę od tej oferty">
+                            ✂️ Odepnij szansę
+                        </button>
+                        @endif
                     </div>
-                    <div id="deal-info" class="mt-3 p-3 bg-blue-50 border-l-4 border-blue-500 rounded @if(!$offer->crmDeal) hidden @endif">
-                        <p class="text-sm font-medium text-blue-800">Szczegóły szansy:</p>
-                        <p class="mt-1 text-sm text-blue-700">
+                    <div id="deal-info" class="mt-1 flex items-baseline gap-2 text-sm @if(!$offer->crmDeal) hidden @endif">
+                        <span class="font-medium text-blue-800 whitespace-nowrap">Szczegóły szansy:</span>
+                        <p class="text-blue-700">
                             <strong id="deal-name">{{ $offer->crmDeal ? $offer->crmDeal->name : '' }}</strong>
                             <span id="deal-company" class="ml-2">{{ $offer->crmDeal && $offer->crmDeal->company ? '• Firma: ' . $offer->crmDeal->company->name : '' }}</span>
                             <span id="deal-value" class="ml-2">{{ $offer->crmDeal ? '• Wartość: ' . number_format($offer->crmDeal->value, 2, ',', ' ') . ' ' . $offer->crmDeal->currency : '' }}</span>
@@ -175,7 +172,7 @@
                                     <th class="p-1 text-left w-[14%]">Dostawca</th>
                                     <th class="p-1 text-left w-24">Cena (zł)</th>
                                     <th class="p-1 text-left w-24">Wartość (zł)</th>
-                                    <th class="p-1 w-10"></th>
+                                    <th class="p-1 w-24"></th>
                                 </tr>
                             </thead>
                             <tbody id="services-table">
@@ -256,7 +253,7 @@
                                     <th class="p-1 text-left w-[14%]">Dostawca</th>
                                     <th class="p-1 text-left w-24">Cena (zł)</th>
                                     <th class="p-1 text-left w-24">Wartość (zł)</th>
-                                    <th class="p-1 w-10"></th>
+                                    <th class="p-1 w-24"></th>
                                 </tr>
                             </thead>
                             <tbody id="works-table">
@@ -337,7 +334,7 @@
                                     <th class="p-1 text-left w-[14%]">Dostawca</th>
                                     <th class="p-1 text-left w-24">Cena (zł)</th>
                                     <th class="p-1 text-left w-24">Wartość (zł)</th>
-                                    <th class="p-1 w-10"></th>
+                                    <th class="p-1 w-24"></th>
                                 </tr>
                             </thead>
                             <tbody id="materials-table">
@@ -428,7 +425,7 @@
                                                 <th class="p-1 text-left w-[14%]">Dostawca</th>
                                                 <th class="p-1 text-left w-24">Cena (zł)</th>
                                                 <th class="p-1 text-left w-24">Wartość (zł)</th>
-                                                <th class="p-1 w-10"></th>
+                                                <th class="p-1 w-24"></th>
                                             </tr>
                                         </thead>
                                         <tbody id="custom{{ $sectionIndex + 1 }}-table">
@@ -805,8 +802,10 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
 
             initMoveButtons();
 
-            // Auto-resize all existing textareas
-            document.querySelectorAll('textarea').forEach(autoResizeTextarea);
+            // Auto-resize visible textareas only (hidden sections will be resized on expand)
+            document.querySelectorAll('textarea').forEach(ta => {
+                if (ta.offsetParent !== null) autoResizeTextarea(ta);
+            });
 
             // Inicjalizuj istniejące wiersze harmonogramu
             @foreach($offer->schedule ?? [] as $row)
@@ -1069,6 +1068,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             if (content.classList.contains('hidden')) {
                 content.classList.remove('hidden');
                 icon.classList.add('rotate-180');
+                content.querySelectorAll('textarea').forEach(autoResizeTextarea);
             } else {
                 content.classList.add('hidden');
                 icon.classList.remove('rotate-180');
@@ -1438,6 +1438,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                     <table class="w-full mb-4 text-xs table-fixed">
                         <thead>
                             <tr class="bg-gray-100">
+                                <th class="p-1 w-5 cb-th"></th>
                                 <th class="p-1 text-left w-10">Nr</th>
                                 <th class="p-1 text-left w-[28%]">Nazwa</th>
                                 <th class="p-1 text-left w-[28%]">Opis</th>
@@ -1445,19 +1446,19 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                                 <th class="p-1 text-left w-[14%]">Dostawca</th>
                                 <th class="p-1 text-left w-24">Cena (zł)</th>
                                 <th class="p-1 text-left w-24">Wartość (zł)</th>
-                                <th class="p-1 w-10"></th>
+                                <th class="p-1 w-24"></th>
                             </tr>
                         </thead>
                         <tbody id="${sectionId}-table">
                             <tr>
+                                <td class="p-1 text-center"><input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer"></td>
                                 <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="1" readonly></td>
                                 <td class="p-1"><textarea name="custom_sections[${customSectionCounter}][items][0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
                                 <td class="p-1"><textarea name="custom_sections[${customSectionCounter}][items][0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
                                 <td class="p-1"><input type="number" min="1" value="1" name="custom_sections[${customSectionCounter}][items][0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                                 <td class="p-1"><select name="custom_sections[${customSectionCounter}][items][0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
-                                <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
-                                <td class="p-1 text-center"><input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer"></td>
+                                <td class="p-1"><input type="text" name="custom_sections[${customSectionCounter}][items][0][value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
                                 <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Wyżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Niżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'custom_sections[${customSectionCounter}][items]', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                             </tr>
                         </tbody>

@@ -213,7 +213,7 @@
                                     <th class="p-1 text-left">Dostawca</th>
                                     <th class="p-1 text-left w-24">Cena</th>
                                     <th class="p-1 text-left w-24">Wartość</th>
-                                    <th class="p-1 w-8"></th>
+                                    <th class="p-1 w-24"></th>
                                 </tr>
                             </thead>
                             <tbody id="services-table">
@@ -274,7 +274,7 @@
                                     <th class="p-1 text-left">Dostawca</th>
                                     <th class="p-1 text-left w-24">Cena</th>
                                     <th class="p-1 text-left w-24">Wartość</th>
-                                    <th class="p-1 w-8"></th>
+                                    <th class="p-1 w-24"></th>
                                 </tr>
                             </thead>
                             <tbody id="works-table">
@@ -335,7 +335,7 @@
                                     <th class="p-1 text-left">Dostawca</th>
                                     <th class="p-1 text-left w-24">Cena</th>
                                     <th class="p-1 text-left w-24">Wartość</th>
-                                    <th class="p-1 w-8"></th>
+                                    <th class="p-1 w-24"></th>
                                 </tr>
                             </thead>
                             <tbody id="materials-table">
@@ -624,6 +624,7 @@
             if (content.classList.contains('hidden')) {
                 content.classList.remove('hidden');
                 icon.classList.add('rotate-180');
+                content.querySelectorAll('textarea').forEach(autoResizeTextarea);
             } else {
                 content.classList.add('hidden');
                 icon.classList.remove('rotate-180');
@@ -633,6 +634,15 @@
         function formatPrice(value) {
             return value.toLocaleString('pl-PL', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' zł';
         }
+
+        function autoResizeTextarea(ta) {
+            ta.style.overflowY = 'hidden';
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
+        }
+        document.addEventListener('input', function(e) {
+            if (e.target.tagName === 'TEXTAREA') autoResizeTextarea(e.target);
+        });
 
         function moveRow(button, direction, section) {
             const row = button.closest('tr');
@@ -1023,6 +1033,7 @@
                     <table class="w-full mb-4 text-xs">
                         <thead>
                             <tr class="bg-gray-100">
+                                <th class="p-1 w-5 cb-th"></th>
                                 <th class="p-1 text-left w-10">Nr</th>
                                 <th class="p-1 text-left">Nazwa</th>
                                 <th class="p-1 text-left w-48">Opis</th>
@@ -1030,11 +1041,12 @@
                                 <th class="p-1 text-left">Dostawca</th>
                                 <th class="p-1 text-left w-24">Cena (zł)</th>
                                 <th class="p-1 text-left w-24">Wartość (zł)</th>
-                                <th class="p-1 w-10"></th>
+                                <th class="p-1 w-24"></th>
                             </tr>
                         </thead>
                         <tbody id="${sectionId}-table">
                             <tr>
+                                <td class="p-1 text-center"><input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer"></td>
                                 <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="1" readonly></td>
                                 <td class="p-1"><input type="text" name="custom_sections[${customSectionCounter}][items][0][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                 <td class="p-1"><input type="text" name="custom_sections[${customSectionCounter}][items][0][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
