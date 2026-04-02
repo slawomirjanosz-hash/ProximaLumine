@@ -180,8 +180,9 @@
                 <div id="section-services" class="border border-gray-300 rounded">
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center hover:bg-gray-100 transition" onclick="toggleSection('services')">
-                            <span class="font-semibold text-lg section-name flex-1" id="services-name-label">Usługi</span>
-                            <span class="mr-3 whitespace-nowrap font-semibold text-lg">
+                            <span class="font-semibold text-lg section-name text-left" id="services-name-label" style="min-width:0;">Usługi</span>
+                            <span class="flex-1"></span>
+                            <span class="mr-3 whitespace-nowrap font-semibold text-lg text-right" style="min-width:120px;">
                                 <span id="services-header-sum" class="text-gray-600">0,00 zł</span>
                                 <span class="text-gray-400"> / </span>
                                 <span id="services-header-profit" class="text-green-600">0,00 zł</span>
@@ -246,8 +247,9 @@
                 <div id="section-works" class="border border-gray-300 rounded">
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center hover:bg-gray-100 transition" onclick="toggleSection('works')">
-                            <span class="font-semibold text-lg section-name flex-1" id="works-name-label">Prace własne</span>
-                            <span class="mr-3 whitespace-nowrap font-semibold text-lg">
+                            <span class="font-semibold text-lg section-name text-left" id="works-name-label" style="min-width:0;">Prace własne</span>
+                            <span class="flex-1"></span>
+                            <span class="mr-3 whitespace-nowrap font-semibold text-lg text-right" style="min-width:120px;">
                                 <span id="works-header-sum" class="text-gray-600">0,00 zł</span>
                                 <span class="text-gray-400"> / </span>
                                 <span id="works-header-profit" class="text-green-600">0,00 zł</span>
@@ -312,8 +314,9 @@
                 <div id="section-materials" class="border border-gray-300 rounded">
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center hover:bg-gray-100 transition" onclick="toggleSection('materials')">
-                            <span class="font-semibold text-lg section-name flex-1" id="materials-name-label">Materiały</span>
-                            <span class="mr-3 whitespace-nowrap font-semibold text-lg">
+                            <span class="font-semibold text-lg section-name text-left" id="materials-name-label" style="min-width:0;">Materiały</span>
+                            <span class="flex-1"></span>
+                            <span class="mr-3 whitespace-nowrap font-semibold text-lg text-right" style="min-width:120px;">
                                 <span id="materials-header-sum" class="text-gray-600">0,00 zł</span>
                                 <span class="text-gray-400"> / </span>
                                 <span id="materials-header-profit" class="text-green-600">0,00 zł</span>
@@ -1034,8 +1037,9 @@
             sectionDiv.innerHTML = `
                 <div class="flex items-center justify-between p-4 bg-gray-50">
                     <button type="button" class="flex-1 flex items-center hover:bg-gray-100 transition" onclick="toggleSection('${sectionId}')">
-                        <span class="font-semibold text-lg section-name flex-1" id="${sectionId}-name-label">${escapeHtml(sectionName.trim())}</span>
-                        <span class="mr-3 whitespace-nowrap font-semibold text-lg">
+                        <span class="font-semibold text-lg section-name text-left" id="${sectionId}-name-label" style="min-width:0;">${escapeHtml(sectionName.trim())}</span>
+                        <span class="flex-1"></span>
+                        <span class="mr-3 whitespace-nowrap font-semibold text-lg text-right" style="min-width:120px;">
                             <span id="${sectionId}-header-sum" class="text-gray-600">0,00 z&#322;</span>
                             <span class="text-gray-400"> / </span>
                             <span id="${sectionId}-header-profit" class="text-green-600">0,00 z&#322;</span>

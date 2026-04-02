@@ -143,8 +143,9 @@
                 <div id="section-services" class="border border-gray-300 rounded" @if(!$servicesEnabled) style="display:none;" @endif>
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center hover:bg-gray-100 transition" onclick="toggleSection('services')">
-                            <span class="font-semibold text-lg section-name flex-1" id="services-name-label">{{ $servicesName }}</span>
-                            <span class="mr-3 whitespace-nowrap font-semibold text-lg">
+                            <span class="font-semibold text-lg section-name text-left" id="services-name-label" style="min-width:0;">{{ $servicesName }}</span>
+                            <span class="flex-1"></span>
+                            <span class="mr-3 whitespace-nowrap font-semibold text-lg text-right" style="min-width:120px;">
                                 <span id="services-header-sum" class="text-gray-600">0,00 zł</span>
                                 <span class="text-gray-400"> / </span>
                                 <span id="services-header-profit" class="text-green-600">0,00 zł</span>
@@ -229,8 +230,9 @@
                 <div id="section-works" class="border border-gray-300 rounded" @if(!$worksEnabled) style="display:none;" @endif>
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center hover:bg-gray-100 transition" onclick="toggleSection('works')">
-                            <span class="font-semibold text-lg section-name flex-1" id="works-name-label">{{ $worksName }}</span>
-                            <span class="mr-3 whitespace-nowrap font-semibold text-lg">
+                            <span class="font-semibold text-lg section-name text-left" id="works-name-label" style="min-width:0;">{{ $worksName }}</span>
+                            <span class="flex-1"></span>
+                            <span class="mr-3 whitespace-nowrap font-semibold text-lg text-right" style="min-width:120px;">
                                 <span id="works-header-sum" class="text-gray-600">0,00 zł</span>
                                 <span class="text-gray-400"> / </span>
                                 <span id="works-header-profit" class="text-green-600">0,00 zł</span>
@@ -315,8 +317,9 @@
                 <div id="section-materials" class="border border-gray-300 rounded" @if(!$materialsEnabled) style="display:none;" @endif>
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center hover:bg-gray-100 transition" onclick="toggleSection('materials')">
-                            <span class="font-semibold text-lg section-name flex-1" id="materials-name-label">{{ $materialsName }}</span>
-                            <span class="mr-3 whitespace-nowrap font-semibold text-lg">
+                            <span class="font-semibold text-lg section-name text-left" id="materials-name-label" style="min-width:0;">{{ $materialsName }}</span>
+                            <span class="flex-1"></span>
+                            <span class="mr-3 whitespace-nowrap font-semibold text-lg text-right" style="min-width:120px;">
                                 <span id="materials-header-sum" class="text-gray-600">0,00 zł</span>
                                 <span class="text-gray-400"> / </span>
                                 <span id="materials-header-profit" class="text-green-600">0,00 zł</span>
@@ -412,8 +415,9 @@
                             <div class="border border-gray-300 rounded mb-4" id="section-custom{{ $sectionIndex + 1 }}">
                                 <div class="flex items-center justify-between p-4 bg-gray-50">
                                     <button type="button" class="flex-1 flex items-center hover:bg-gray-100 transition" onclick="toggleSection('custom{{ $sectionIndex + 1 }}')">
-                                        <span class="font-semibold text-lg section-name flex-1" id="custom{{ $sectionIndex + 1 }}-name-label">{{ $customSection['name'] ?? 'Sekcja ' . ($sectionIndex + 1) }}</span>
-                                        <span class="mr-3 whitespace-nowrap font-semibold text-lg">
+                                        <span class="font-semibold text-lg section-name text-left" id="custom{{ $sectionIndex + 1 }}-name-label" style="min-width:0;">{{ $customSection['name'] ?? 'Sekcja ' . ($sectionIndex + 1) }}</span>
+                                        <span class="flex-1"></span>
+                                        <span class="mr-3 whitespace-nowrap font-semibold text-lg text-right" style="min-width:120px;">
                                             <span id="custom{{ $sectionIndex + 1 }}-header-sum" class="text-gray-600">0,00 zł</span>
                                             <span class="text-gray-400"> / </span>
                                             <span id="custom{{ $sectionIndex + 1 }}-header-profit" class="text-green-600">0,00 zł</span>
