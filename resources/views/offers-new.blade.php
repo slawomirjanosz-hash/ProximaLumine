@@ -53,75 +53,71 @@
                 </div>
                 
                 <!-- Podstawowe informacje -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="space-y-4">
+                @if($errors->has('offer_number'))
+                    <div class="text-red-600 text-sm mb-1">{{ $errors->first('offer_number') }}</div>
+                @endif
+                @php
+                    $offerSettings = null;
+                    try {
+                        $offerSettings = \DB::table('offer_settings')->first();
+                    } catch (\Exception $e) {
+                        // Table doesn't exist yet
+                    }
+                    // Use preview number from controller if available
+                    if (!isset($previewNumber)) {
+                        $previewNumber = 'OFF_' . date('Ymd') . '_0001';
+                    }
+                    $element4Customer = '';
+                    $element4Enabled = false;
+                    if ($offerSettings) {
+                        // Przygotuj element 4 (klient) osobno
+                        $element4Customer = '';
+                        $element4Enabled = false;
+                        if (($offerSettings->element4_type ?? 'empty') === 'customer') {
+                            $element4Enabled = true;
+                            if (isset($deal) && $deal && $deal->company && $deal->company->supplier && $deal->company->supplier->short_name) {
+                                $element4Customer = $deal->company->supplier->short_name;
+                            } elseif (isset($deal) && $deal && $deal->company && $deal->company->name) {
+                                // Fallback: użyj pierwszych 5 znaków nazwy jako skrótu
+                                $element4Customer = strtoupper(substr($deal->company->name, 0, 5));
+                            }
+                        }
+                    }
+                @endphp
+                <div class="flex flex-wrap items-start gap-3">
+                    <div class="flex items-center gap-1.5">
+                        <label class="text-sm font-medium text-gray-700 whitespace-nowrap">Nr oferty:</label>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Nr oferty</label>
-                        @if($errors->has('offer_number'))
-                            <div class="text-red-600 text-sm mb-1">{{ $errors->first('offer_number') }}</div>
-                        @endif
-                        @php
-                            $offerSettings = null;
-                            try {
-                                $offerSettings = \DB::table('offer_settings')->first();
-                            } catch (\Exception $e) {
-                                // Table doesn't exist yet
-                            }
-                            
-                            // Use preview number from controller if available
-                            if (!isset($previewNumber)) {
-                                $previewNumber = 'OFF_' . date('Ymd') . '_0001';
-                            }
-                            $element4Customer = '';
-                            $element4Enabled = false;
-                            
-                            if ($offerSettings) {
-                                // Przygotuj element 4 (klient) osobno
-                                $element4Customer = '';
-                                $element4Enabled = false;
-                                if (($offerSettings->element4_type ?? 'empty') === 'customer') {
-                                    $element4Enabled = true;
-                                    if (isset($deal) && $deal && $deal->company && $deal->company->supplier && $deal->company->supplier->short_name) {
-                                        $element4Customer = $deal->company->supplier->short_name;
-                                    } elseif (isset($deal) && $deal && $deal->company && $deal->company->name) {
-                                        // Fallback: użyj pierwszych 5 znaków nazwy jako skrótu
-                                        $element4Customer = strtoupper(substr($deal->company->name, 0, 5));
-                                    }
-                                }
-                            }
-                        @endphp
-                        <input type="text" name="offer_number_base" id="offer_number_base" value="{{ $previewNumber }}" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" oninput="updateFinalOfferNumber()" required>
-                            <small class="text-gray-500 text-xs">Możesz zmienić domyślny numer</small>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Data</label>
-                            <input type="date" name="offer_date" value="{{ date('Y-m-d') }}" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                            <input type="text" name="offer_number_base" id="offer_number_base" value="{{ $previewNumber }}" class="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-44" oninput="updateFinalOfferNumber()" required>
+                            <div><small class="text-gray-500 text-xs">Możesz zmienić domyślny numer</small></div>
                         </div>
                     </div>
-                    @if($element4Enabled)
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Element 4 - Klient</label>
-                        <input type="text" id="element4_customer" value="{{ $element4Customer }}" data-separator="{{ $offerSettings->separator3 ?? '_' }}" class="w-full px-3 py-2 border border-gray-300 rounded bg-gray-100" readonly>
-                        <small class="text-gray-500 text-xs">Skrót z: Magazyn → Ustawienia → Dostawcy i klienci</small>
-                        <div class="mt-2 space-y-2">
-                            <label class="flex items-center text-sm">
-                                <input type="checkbox" name="include_element4" id="include_element4" value="1" checked class="mr-2" onchange="updateFinalOfferNumber()">
-                                <span>Dołącz do numeru oferty</span>
-                            </label>
-                            <div class="text-xs text-gray-600 bg-blue-50 p-2 rounded">
-                                <strong>Pełny numer:</strong> <span id="full_offer_preview">{{ $previewNumber . ($offerSettings->separator3 ?? '_') . $element4Customer }}</span>
-                            </div>
-                        </div>
-                        <input type="hidden" name="offer_number" id="offer_number" value="{{ $previewNumber . ($offerSettings->separator3 ?? '_') . $element4Customer }}">
+                    <div class="flex items-center gap-1.5 flex-1 min-w-[16rem]">
+                        <label class="text-sm font-medium text-gray-700 whitespace-nowrap">Tytuł oferty:</label>
+                        <input type="text" name="offer_title" class="flex-1 min-w-0 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
                     </div>
-                    @else
-                    <input type="hidden" name="offer_number" id="offer_number" value="{{ $previewNumber }}">
-                    @endif
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tytuł oferty</label>
-                        <input type="text" name="offer_title" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                    <div class="flex items-center gap-1.5">
+                        <label class="text-sm font-medium text-gray-700 whitespace-nowrap">Data:</label>
+                        <input type="date" name="offer_date" value="{{ date('Y-m-d') }}" class="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
                     </div>
                 </div>
+                @if($element4Enabled)
+                <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-1.5">
+                        <label class="font-medium text-gray-700 whitespace-nowrap">Klient (el. 4):</label>
+                        <input type="text" id="element4_customer" value="{{ $element4Customer }}" data-separator="{{ $offerSettings->separator3 ?? '_' }}" class="px-2 py-1 border border-gray-300 rounded bg-gray-100 text-sm w-28" readonly>
+                    </div>
+                    <label class="flex items-center gap-1 cursor-pointer">
+                        <input type="checkbox" name="include_element4" id="include_element4" value="1" checked onchange="updateFinalOfferNumber()">
+                        <span>Dołącz do nr</span>
+                    </label>
+                    <span class="text-gray-600 text-xs">Nr: <strong id="full_offer_preview">{{ $previewNumber . ($offerSettings->separator3 ?? '_') . $element4Customer }}</strong></span>
+                    <small class="text-gray-500">Skrót z: Magazyn → Ustawienia → Dostawcy i klienci</small>
+                    <input type="hidden" name="offer_number" id="offer_number" value="{{ $previewNumber . ($offerSettings->separator3 ?? '_') . $element4Customer }}">
+                </div>
+                @else
+                <input type="hidden" name="offer_number" id="offer_number" value="{{ $previewNumber }}">
+                @endif
 
                 <!-- Dane klienta -->
                 <div class="border border-blue-300 rounded p-3 bg-blue-50">
@@ -147,37 +143,35 @@
                         <button type="button" onclick="clearCustomerData()" class="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm whitespace-nowrap">Wyczyść</button>
                     </div>
 
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        <div class="col-span-2">
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Nazwa firmy *</label>
-                            <input type="text" id="customer_name" name="customer_name" value="{{ isset($deal) && $deal && $deal->company ? $deal->company->name : '' }}" class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                        <div class="flex items-center gap-1.5">
+                            <label class="text-xs font-medium text-gray-700 whitespace-nowrap">Nazwa firmy *</label>
+                            <input type="text" id="customer_name" name="customer_name" value="{{ isset($deal) && $deal && $deal->company ? $deal->company->name : '' }}" class="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-48" required>
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">NIP</label>
-                            <div class="flex gap-1">
-                                <input type="text" id="customer_nip" name="customer_nip" value="{{ isset($deal) && $deal && $deal->company ? $deal->company->nip : '' }}" class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                <button type="button" onclick="fetchFromGUS()" class="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 whitespace-nowrap">GUS</button>
-                            </div>
+                        <div class="flex items-center gap-1.5">
+                            <label class="text-xs font-medium text-gray-700 whitespace-nowrap">NIP</label>
+                            <input type="text" id="customer_nip" name="customer_nip" value="{{ isset($deal) && $deal && $deal->company ? $deal->company->nip : '' }}" class="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-32">
+                            <button type="button" onclick="fetchFromGUS()" class="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 whitespace-nowrap">GUS</button>
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Telefon</label>
-                            <input type="text" id="customer_phone" name="customer_phone" value="{{ isset($deal) && $deal && $deal->company ? $deal->company->phone : '' }}" class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <div class="flex items-center gap-1.5">
+                            <label class="text-xs font-medium text-gray-700 whitespace-nowrap">Telefon</label>
+                            <input type="text" id="customer_phone" name="customer_phone" value="{{ isset($deal) && $deal && $deal->company ? $deal->company->phone : '' }}" class="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-32">
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Adres</label>
-                            <input type="text" id="customer_address" name="customer_address" value="{{ isset($deal) && $deal && $deal->company ? $deal->company->address : '' }}" class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <div class="flex items-center gap-1.5">
+                            <label class="text-xs font-medium text-gray-700 whitespace-nowrap">Email</label>
+                            <input type="email" id="customer_email" name="customer_email" value="{{ isset($deal) && $deal && $deal->company ? $deal->company->email : '' }}" class="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-44">
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Email</label>
-                            <input type="email" id="customer_email" name="customer_email" value="{{ isset($deal) && $deal && $deal->company ? $deal->company->email : '' }}" class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <div class="flex items-center gap-1.5">
+                            <label class="text-xs font-medium text-gray-700 whitespace-nowrap">Adres</label>
+                            <input type="text" id="customer_address" name="customer_address" value="{{ isset($deal) && $deal && $deal->company ? $deal->company->address : '' }}" class="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-44">
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Miasto</label>
-                            <input type="text" id="customer_city" name="customer_city" value="{{ isset($deal) && $deal && $deal->company ? $deal->company->city : '' }}" class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <div class="flex items-center gap-1.5">
+                            <label class="text-xs font-medium text-gray-700 whitespace-nowrap">Miasto</label>
+                            <input type="text" id="customer_city" name="customer_city" value="{{ isset($deal) && $deal && $deal->company ? $deal->company->city : '' }}" class="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-32">
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Kod pocztowy</label>
-                            <input type="text" id="customer_postal_code" name="customer_postal_code" value="{{ isset($deal) && $deal && $deal->company ? $deal->company->postal_code : '' }}" class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <div class="flex items-center gap-1.5">
+                            <label class="text-xs font-medium text-gray-700 whitespace-nowrap">Kod pocz.</label>
+                            <input type="text" id="customer_postal_code" name="customer_postal_code" value="{{ isset($deal) && $deal && $deal->company ? $deal->company->postal_code : '' }}" class="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-24">
                         </div>
                     </div>
                 </div>
@@ -185,14 +179,14 @@
                 <!-- Sekcja Usługi -->
                 <div id="section-services" class="border border-gray-300 rounded">
                     <div class="flex items-center justify-between p-4 bg-gray-50">
-                        <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('services')">
-                            <span class="font-semibold text-lg section-name" id="services-name-label">Usługi</span>
-                            <span class="text-xs text-gray-500 flex items-center gap-1.5 mr-2">
-                                <span id="services-header-sum" class="font-semibold text-gray-700">0,00 zł</span>
-                                <span class="text-gray-300">|</span>
-                                <span class="text-green-700">z zysk.: <span id="services-header-profit" class="font-semibold">0,00 zł</span></span>
+                        <button type="button" class="flex-1 flex items-center hover:bg-gray-100 transition" onclick="toggleSection('services')">
+                            <span class="font-semibold text-lg section-name flex-1" id="services-name-label">Usługi</span>
+                            <span class="mr-3 whitespace-nowrap font-semibold text-lg">
+                                <span id="services-header-sum" class="text-gray-600">0,00 zł</span>
+                                <span class="text-gray-400"> / </span>
+                                <span id="services-header-profit" class="text-green-600">0,00 zł</span>
                             </span>
-                            <svg id="services-icon" class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                            <svg id="services-icon" class="h-5 w-5 transform transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </button>
                         <button type="button" onclick="editSectionName('services')" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13h3l8-8a2.828 2.828 0 00-4-4l-8 8v3z" /></svg>
@@ -251,14 +245,14 @@
                 <!-- Sekcja Prace własne -->
                 <div id="section-works" class="border border-gray-300 rounded">
                     <div class="flex items-center justify-between p-4 bg-gray-50">
-                        <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('works')">
-                            <span class="font-semibold text-lg section-name" id="works-name-label">Prace własne</span>
-                            <span class="text-xs text-gray-500 flex items-center gap-1.5 mr-2">
-                                <span id="works-header-sum" class="font-semibold text-gray-700">0,00 zł</span>
-                                <span class="text-gray-300">|</span>
-                                <span class="text-green-700">z zysk.: <span id="works-header-profit" class="font-semibold">0,00 zł</span></span>
+                        <button type="button" class="flex-1 flex items-center hover:bg-gray-100 transition" onclick="toggleSection('works')">
+                            <span class="font-semibold text-lg section-name flex-1" id="works-name-label">Prace własne</span>
+                            <span class="mr-3 whitespace-nowrap font-semibold text-lg">
+                                <span id="works-header-sum" class="text-gray-600">0,00 zł</span>
+                                <span class="text-gray-400"> / </span>
+                                <span id="works-header-profit" class="text-green-600">0,00 zł</span>
                             </span>
-                            <svg id="works-icon" class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                            <svg id="works-icon" class="h-5 w-5 transform transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </button>
                         <button type="button" onclick="editSectionName('works')" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13h3l8-8a2.828 2.828 0 00-4-4l-8 8v3z" /></svg>
@@ -317,14 +311,14 @@
                 <!-- Sekcja Materiały -->
                 <div id="section-materials" class="border border-gray-300 rounded">
                     <div class="flex items-center justify-between p-4 bg-gray-50">
-                        <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('materials')">
-                            <span class="font-semibold text-lg section-name" id="materials-name-label">Materiały</span>
-                            <span class="text-xs text-gray-500 flex items-center gap-1.5 mr-2">
-                                <span id="materials-header-sum" class="font-semibold text-gray-700">0,00 zł</span>
-                                <span class="text-gray-300">|</span>
-                                <span class="text-green-700">z zysk.: <span id="materials-header-profit" class="font-semibold">0,00 zł</span></span>
+                        <button type="button" class="flex-1 flex items-center hover:bg-gray-100 transition" onclick="toggleSection('materials')">
+                            <span class="font-semibold text-lg section-name flex-1" id="materials-name-label">Materiały</span>
+                            <span class="mr-3 whitespace-nowrap font-semibold text-lg">
+                                <span id="materials-header-sum" class="text-gray-600">0,00 zł</span>
+                                <span class="text-gray-400"> / </span>
+                                <span id="materials-header-profit" class="text-green-600">0,00 zł</span>
                             </span>
-                            <svg id="materials-icon" class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                            <svg id="materials-icon" class="h-5 w-5 transform transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </button>
                         <button type="button" onclick="editSectionName('materials')" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13h3l8-8a2.828 2.828 0 00-4-4l-8 8v3z" /></svg>
@@ -1039,14 +1033,14 @@
             sectionDiv.id = `section-${sectionId}`;
             sectionDiv.innerHTML = `
                 <div class="flex items-center justify-between p-4 bg-gray-50">
-                    <button type="button" class="flex-1 flex items-center justify-between hover:bg-gray-100 transition" onclick="toggleSection('${sectionId}')">
-                        <span class="font-semibold text-lg section-name" id="${sectionId}-name-label">${escapeHtml(sectionName.trim())}</span>
-                        <span class="text-xs text-gray-500 flex items-center gap-1.5 mr-2">
-                            <span id="${sectionId}-header-sum" class="font-semibold text-gray-700">0,00 z&#322;</span>
-                            <span class="text-gray-300">|</span>
-                            <span class="text-green-700">z zysk.: <span id="${sectionId}-header-profit" class="font-semibold">0,00 z&#322;</span></span>
+                    <button type="button" class="flex-1 flex items-center hover:bg-gray-100 transition" onclick="toggleSection('${sectionId}')">
+                        <span class="font-semibold text-lg section-name flex-1" id="${sectionId}-name-label">${escapeHtml(sectionName.trim())}</span>
+                        <span class="mr-3 whitespace-nowrap font-semibold text-lg">
+                            <span id="${sectionId}-header-sum" class="text-gray-600">0,00 z&#322;</span>
+                            <span class="text-gray-400"> / </span>
+                            <span id="${sectionId}-header-profit" class="text-green-600">0,00 z&#322;</span>
                         </span>
-                        <svg id="${sectionId}-icon" class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                        <svg id="${sectionId}-icon" class="h-5 w-5 transform transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                     </button>
                     <button type="button" onclick="editSectionName('${sectionId}', ${customSectionCounter})" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13h3l8-8a2.828 2.828 0 00-4-4l-8 8v3z" /></svg>
