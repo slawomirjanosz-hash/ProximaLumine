@@ -164,7 +164,7 @@
                     </div>
                         <input type="hidden" id="services-name-input" name="services_name" value="{{ $servicesName }}">
                         <input type="hidden" id="services-enabled-input" name="services_enabled" value="{{ $servicesEnabled ? '1' : '0' }}">
-                    <div id="services-content" class="p-4 hidden">
+                    <div id="services-content" class="p-4 overflow-x-auto hidden">
                         <table class="w-full mb-4 text-xs table-fixed">
                             <thead>
                                 <tr class="bg-gray-100">
@@ -182,8 +182,8 @@
                                 @forelse($offer->services ?? [] as $index => $service)
                                 <tr>
                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="{{ $index + 1 }}" readonly></td>
-                                    <td class="p-1"><textarea name="services[{{ $index }}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $service['name'] ?? '' }}</textarea></td>
-                                    <td class="p-1"><textarea name="services[{{ $index }}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $service['type'] ?? '' }}</textarea></td>
+                                    <td class="p-1"><textarea name="services[{{ $index }}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden">{{ $service['name'] ?? '' }}</textarea></td>
+                                    <td class="p-1"><textarea name="services[{{ $index }}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden">{{ $service['type'] ?? '' }}</textarea></td>
                                     <td class="p-1"><input type="number" min="1" value="{{ $service['quantity'] ?? 1 }}" name="services[{{ $index }}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="services" onchange="calculateRowValue(this)"></td>
                                                                 <td class="p-1">
                                                                     <select name="services[{{ $index }}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -195,14 +195,13 @@
                                                                 </td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[{{ $index }}][price]" value="{{ $service['price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="services" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[{{ $index }}][value]" value="{{ ($service['quantity'] ?? 1) * ($service['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="services" readonly></td>
-                                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, 'services')" class="text-red-600 hover:text-red-800 text-xs">✕</button>
-                                    <button type="button" onclick="addProductToCatalog(this, 'services', {{ $index }})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
+                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'services')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'services', {{ $index }})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                 </tr>
                                 @empty
                                 <tr>
                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="1" readonly></td>
-                                    <td class="p-1"><textarea name="services[0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
-                                    <td class="p-1"><textarea name="services[0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
+                                    <td class="p-1"><textarea name="services[0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
+                                    <td class="p-1"><textarea name="services[0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
                                     <td class="p-1"><input type="number" min="1" value="1" name="services[0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="services" onchange="calculateRowValue(this)"></td>
                                                                 <td class="p-1">
                                                                     <select name="services[0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -214,8 +213,7 @@
                                                                 </td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="services" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="services" readonly></td>
-                                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, 'services')" class="text-red-600 hover:text-red-800 text-xs">✕</button>
-                                    <button type="button" onclick="addProductToCatalog(this, 'services', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
+                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'services')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'services', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -247,7 +245,7 @@
                     </div>
                         <input type="hidden" id="works-name-input" name="works_name" value="{{ $worksName }}">
                         <input type="hidden" id="works-enabled-input" name="works_enabled" value="{{ $worksEnabled ? '1' : '0' }}">
-                    <div id="works-content" class="p-4 hidden">
+                    <div id="works-content" class="p-4 overflow-x-auto hidden">
                         <table class="w-full mb-4 text-xs table-fixed">
                             <thead>
                                 <tr class="bg-gray-100">
@@ -265,8 +263,8 @@
                                 @forelse($offer->works ?? [] as $index => $work)
                                 <tr>
                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="{{ $index + 1 }}" readonly></td>
-                                    <td class="p-1"><textarea name="works[{{ $index }}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $work['name'] ?? '' }}</textarea></td>
-                                    <td class="p-1"><textarea name="works[{{ $index }}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $work['type'] ?? '' }}</textarea></td>
+                                    <td class="p-1"><textarea name="works[{{ $index }}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden">{{ $work['name'] ?? '' }}</textarea></td>
+                                    <td class="p-1"><textarea name="works[{{ $index }}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden">{{ $work['type'] ?? '' }}</textarea></td>
                                     <td class="p-1"><input type="number" min="1" value="{{ $work['quantity'] ?? 1 }}" name="works[{{ $index }}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="works" onchange="calculateRowValue(this)"></td>
                                                                 <td class="p-1">
                                                                     <select name="works[{{ $index }}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -278,14 +276,13 @@
                                                                 </td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[{{ $index }}][price]" value="{{ $work['price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="works" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[{{ $index }}][value]" value="{{ ($work['quantity'] ?? 1) * ($work['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="works" readonly></td>
-                                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, 'works')" class="text-red-600 hover:text-red-800 text-xs">✕</button>
-                                    <button type="button" onclick="addProductToCatalog(this, 'works', {{ $index }})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
+                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'works')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'works', {{ $index }})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                 </tr>
                                 @empty
                                 <tr>
                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="1" readonly></td>
-                                    <td class="p-1"><textarea name="works[0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
-                                    <td class="p-1"><textarea name="works[0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
+                                    <td class="p-1"><textarea name="works[0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
+                                    <td class="p-1"><textarea name="works[0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
                                     <td class="p-1"><input type="number" min="1" value="1" name="works[0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="works" onchange="calculateRowValue(this)"></td>
                                                                 <td class="p-1">
                                                                     <select name="works[0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -297,8 +294,7 @@
                                                                 </td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="works" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="works" readonly></td>
-                                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, 'works')" class="text-red-600 hover:text-red-800 text-xs">✕</button>
-                                    <button type="button" onclick="addProductToCatalog(this, 'works', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
+                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'works')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'works', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -330,7 +326,7 @@
                     </div>
                         <input type="hidden" id="materials-name-input" name="materials_name" value="{{ $materialsName }}">
                         <input type="hidden" id="materials-enabled-input" name="materials_enabled" value="{{ $materialsEnabled ? '1' : '0' }}">
-                    <div id="materials-content" class="p-4 hidden">
+                    <div id="materials-content" class="p-4 overflow-x-auto hidden">
                         <table class="w-full mb-4 text-xs table-fixed">
                             <thead>
                                 <tr class="bg-gray-100">
@@ -348,8 +344,8 @@
                                 @forelse($offer->materials ?? [] as $index => $material)
                                 <tr>
                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="{{ $index + 1 }}" readonly></td>
-                                    <td class="p-1"><textarea name="materials[{{ $index }}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $material['name'] ?? '' }}</textarea></td>
-                                    <td class="p-1"><textarea name="materials[{{ $index }}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $material['type'] ?? '' }}</textarea></td>
+                                    <td class="p-1"><textarea name="materials[{{ $index }}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden">{{ $material['name'] ?? '' }}</textarea></td>
+                                    <td class="p-1"><textarea name="materials[{{ $index }}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden">{{ $material['type'] ?? '' }}</textarea></td>
                                     <td class="p-1"><input type="number" min="1" value="{{ $material['quantity'] ?? 1 }}" name="materials[{{ $index }}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="materials" onchange="calculateRowValue(this)"></td>
                                                                 <td class="p-1">
                                                                     <select name="materials[{{ $index }}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -361,14 +357,13 @@
                                                                 </td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[{{ $index }}][price]" value="{{ $material['price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="materials" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[{{ $index }}][value]" value="{{ ($material['quantity'] ?? 1) * ($material['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="materials" readonly></td>
-                                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, 'materials')" class="text-red-600 hover:text-red-800 text-xs">✕</button>
-                                    <button type="button" onclick="addProductToCatalog(this, 'materials', {{ $index }})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
+                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'materials')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'materials', {{ $index }})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                 </tr>
                                 @empty
                                 <tr>
                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="1" readonly></td>
-                                    <td class="p-1"><textarea name="materials[0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
-                                    <td class="p-1"><textarea name="materials[0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
+                                    <td class="p-1"><textarea name="materials[0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
+                                    <td class="p-1"><textarea name="materials[0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
                                     <td class="p-1"><input type="number" min="1" value="1" name="materials[0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="materials" onchange="calculateRowValue(this)"></td>
                                                                 <td class="p-1">
                                                                     <select name="materials[0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -380,8 +375,7 @@
                                                                 </td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="materials" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="materials" readonly></td>
-                                    <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="removeRow(this, 'materials')" class="text-red-600 hover:text-red-800 text-xs">✕</button>
-                                    <button type="button" onclick="addProductToCatalog(this, 'materials', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
+                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'materials')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'materials', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -422,7 +416,7 @@
                                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                     </button>
                                 </div>
-                                <div id="custom{{ $sectionIndex + 1 }}-content" class="p-4 hidden">
+                                <div id="custom{{ $sectionIndex + 1 }}-content" class="p-4 overflow-x-auto hidden">
                                     <input type="hidden" id="custom{{ $sectionIndex + 1 }}-name-input" name="custom_sections[{{ $sectionIndex + 1 }}][name]" value="{{ $customSection['name'] ?? '' }}">
                                     <table class="w-full mb-4 text-xs table-fixed">
                                         <thead>
@@ -441,8 +435,8 @@
                                             @forelse($customSection['items'] ?? [] as $itemIndex => $item)
                                                 <tr>
                                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="{{ $itemIndex + 1 }}" readonly></td>
-                                                    <td class="p-1"><textarea name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $item['name'] ?? '' }}</textarea></td>
-                                                    <td class="p-1"><textarea name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto">{{ $item['type'] ?? '' }}</textarea></td>
+                                                    <td class="p-1"><textarea name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden">{{ $item['name'] ?? '' }}</textarea></td>
+                                                    <td class="p-1"><textarea name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden">{{ $item['type'] ?? '' }}</textarea></td>
                                                     <td class="p-1"><input type="number" min="1" value="{{ $item['quantity'] ?? 1 }}" name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="custom{{ $sectionIndex + 1 }}" onchange="calculateRowValue(this)"></td>
                                                                                                         <td class="p-1">
                                                                                                             <select name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -454,14 +448,13 @@
                                                                                                         </td>
                                                     <td class="p-1"><input type="number" step="0.01" name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][price]" value="{{ $item['price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="custom{{ $sectionIndex + 1 }}" onchange="calculateRowValue(this)"></td>
                                                     <td class="p-1"><input type="number" step="0.01" name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][value]" value="{{ ($item['quantity'] ?? 1) * ($item['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="custom{{ $sectionIndex + 1 }}" readonly></td>
-                                                    <td class="p-1"><div class="flex gap-1 items-center">@if($itemIndex > 0)<button type="button" onclick="removeRow(this, 'custom{{ $sectionIndex + 1 }}')" class="text-red-600 hover:text-red-800 text-xs">✕</button>@endif
-                                                    <button type="button" onclick="addProductToCatalog(this, 'custom_sections[{{ $sectionIndex + 1 }}][items]', {{ $itemIndex }})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
+                                                    <td class="p-1"><div class="flex items-center gap-0.5">@if($itemIndex > 0)<button type="button" onclick="removeRow(this, 'custom{{ $sectionIndex + 1 }}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>@endif<button type="button" onclick="addProductToCatalog(this, 'custom_sections[{{ $sectionIndex + 1 }}][items]', {{ $itemIndex }})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                                 </tr>
                                             @empty
                                                 <tr>
                                                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="1" readonly></td>
-                                                    <td class="p-1"><textarea name="custom_sections[{{ $sectionIndex + 1 }}][items][0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
-                                                    <td class="p-1"><textarea name="custom_sections[{{ $sectionIndex + 1 }}][items][0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
+                                                    <td class="p-1"><textarea name="custom_sections[{{ $sectionIndex + 1 }}][items][0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
+                                                    <td class="p-1"><textarea name="custom_sections[{{ $sectionIndex + 1 }}][items][0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
                                                     <td class="p-1"><input type="number" min="1" value="1" name="custom_sections[{{ $sectionIndex + 1 }}][items][0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="custom{{ $sectionIndex + 1 }}" onchange="calculateRowValue(this)"></td>
                                                                                                         <td class="p-1">
                                                                                                             <select name="custom_sections[{{ $sectionIndex + 1 }}][items][0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
@@ -473,7 +466,7 @@
                                                                                                         </td>
                                                     <td class="p-1"><input type="number" step="0.01" name="custom_sections[{{ $sectionIndex + 1 }}][items][0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="custom{{ $sectionIndex + 1 }}" onchange="calculateRowValue(this)"></td>
                                                     <td class="p-1"><input type="number" step="0.01" name="custom_sections[{{ $sectionIndex + 1 }}][items][0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="custom{{ $sectionIndex + 1 }}" readonly></td>
-                                                    <td class="p-1"><button type="button" onclick="addProductToCatalog(this, 'custom_sections[{{ $sectionIndex + 1 }}][items]', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></td>
+                                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="addProductToCatalog(this, 'custom_sections[{{ $sectionIndex + 1 }}][items]', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                                 </tr>
                                             @endforelse
                                         </tbody>
@@ -788,6 +781,16 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         @endif
 
         // Oblicz sumy przy ładowaniu
+        function autoResizeTextarea(ta) {
+            ta.style.overflowY = 'hidden';
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
+        }
+
+        document.addEventListener('input', function(e) {
+            if (e.target.tagName === 'TEXTAREA') autoResizeTextarea(e.target);
+        });
+
         document.addEventListener('DOMContentLoaded', function() {
             initCheckboxColumn();
             formatAllValueInputs();
@@ -801,6 +804,9 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             });
 
             initMoveButtons();
+
+            // Auto-resize all existing textareas
+            document.querySelectorAll('textarea').forEach(autoResizeTextarea);
 
             // Inicjalizuj istniejące wiersze harmonogramu
             @foreach($offer->schedule ?? [] as $row)
@@ -1019,23 +1025,39 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                     fieldPrefix = `${section}[${rowCount}]`;
                 }
                 
+                let supplierOptions = `<option value="">-- brak --</option>`;
+                @foreach($suppliers as $supplier)
+                    supplierOptions += `<option value="{{ addslashes($supplier->name) }}">{{ addslashes($supplier->short_name ?: $supplier->name) }}<\/option>`;
+                @endforeach
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
+                    <td class="p-1 text-center"><input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer"></td>
                     <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="${rowCount + 1}" readonly></td>
-                    <td class="p-1"><input type="text" name="${fieldPrefix}[name]" value="${safeName}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                    <td class="p-1"><input type="text" name="${fieldPrefix}[type]" value="${safeDescription}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                    <td class="p-1"><textarea name="${fieldPrefix}[name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden">${safeName}</textarea></td>
+                    <td class="p-1"><textarea name="${fieldPrefix}[type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden">${safeDescription}</textarea></td>
                     <td class="p-1"><input type="number" min="1" value="1" name="${fieldPrefix}[quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
-                    <td class="p-1"><input type="text" name="${fieldPrefix}[supplier]" value="${safeSupplier}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
+                    <td class="p-1"><select name="${fieldPrefix}[supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                     <td class="p-1"><input type="number" step="0.01" name="${fieldPrefix}[price]" value="${price}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
-                    <td class="p-1"><input type="number" step="0.01" name="${fieldPrefix}[value]" value="${price}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
-                    <td class="p-1"><button type="button" onclick="removeRow(this, '${section}')" class="text-red-600 hover:text-red-800">✕</button></td>
+                    <td class="p-1"><input type="text" name="${fieldPrefix}[value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
+                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Wyżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Niżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="removeRow(this, '${section}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                 `;
-                
+
+                // Select the matching supplier
+                if (supplier) {
+                    const supSelect = row.querySelector('select');
+                    if (supSelect) supSelect.value = supplier;
+                }
+
                 table.appendChild(row);
                 rowCounters[section]++;
+
+                // Calculate row value immediately
+                const priceInput = row.querySelector('.price-input');
+                if (priceInput) calculateRowValue(priceInput);
             });
-            
-            updateRowNumbers(section);
+
+            reindexSection(section);
             calculateTotal(section);
             closePartsCatalog();
         }
@@ -1148,13 +1170,13 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             row.innerHTML = `
                 <td class="p-1 text-center"><input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer"></td>
                 <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="${rowCount + 1}" readonly></td>
-                <td class="p-1"><textarea name="${section}[${rowCount}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
-                <td class="p-1"><textarea name="${section}[${rowCount}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
+                <td class="p-1"><textarea name="${section}[${rowCount}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
+                <td class="p-1"><textarea name="${section}[${rowCount}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
                 <td class="p-1"><input type="number" min="1" value="1" name="${section}[${rowCount}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                 <td class="p-1"><select name="${section}[${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                 <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                 <td class="p-1"><input type="text" name="${section}[${rowCount}][value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
-                <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="moveRow(this,'up','${section}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Wyżej">↑</button><button type="button" onclick="moveRow(this,'down','${section}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Niżej">↓</button><button type="button" onclick="removeRow(this, '${section}')" class="text-red-600 hover:text-red-800 text-xs">✕</button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
+                <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Wyżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Niżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="removeRow(this, '${section}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
             `;
             // Insert after last checked row, or append at end
             const allRows = table.querySelectorAll('tr');
@@ -1237,8 +1259,8 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 actionDiv = lastTd.querySelector('div.flex');
             }
             const frag = document.createRange().createContextualFragment(
-                '<button type="button" onclick="moveRow(this,\'up\',\'' + section + '\')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Wyżej">↑</button>' +
-                '<button type="button" onclick="moveRow(this,\'down\',\'' + section + '\')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Niżej">↓</button>'
+                '<button type="button" onclick="moveRow(this,\'up\',\'' + section + '\')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Wyżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button>' +
+                '<button type="button" onclick="moveRow(this,\'down\',\'' + section + '\')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Niżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>'
             );
             actionDiv.insertBefore(frag, actionDiv.firstChild);
         }
@@ -1411,7 +1433,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                 </div>
-                <div id="${sectionId}-content" class="p-4 hidden">
+                <div id="${sectionId}-content" class="p-4 overflow-x-auto hidden">
                     <input type="hidden" id="${sectionId}-name-input" name="custom_sections[${customSectionCounter}][name]" value="${escapeHtml(sectionName.trim())}">
                     <table class="w-full mb-4 text-xs table-fixed">
                         <thead>
@@ -1429,14 +1451,14 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                         <tbody id="${sectionId}-table">
                             <tr>
                                 <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="1" readonly></td>
-                                <td class="p-1"><textarea name="custom_sections[${customSectionCounter}][items][0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
-                                <td class="p-1"><textarea name="custom_sections[${customSectionCounter}][items][0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
+                                <td class="p-1"><textarea name="custom_sections[${customSectionCounter}][items][0][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
+                                <td class="p-1"><textarea name="custom_sections[${customSectionCounter}][items][0][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
                                 <td class="p-1"><input type="number" min="1" value="1" name="custom_sections[${customSectionCounter}][items][0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                                 <td class="p-1"><select name="custom_sections[${customSectionCounter}][items][0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
                                 <td class="p-1 text-center"><input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer"></td>
-                                <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="moveRow(this,'up','${sectionId}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Wyżej">↑</button><button type="button" onclick="moveRow(this,'down','${sectionId}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Niżej">↓</button><button type="button" onclick="addProductToCatalog(this, 'custom_sections[${customSectionCounter}][items]', 0)" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
+                                <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Wyżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Niżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'custom_sections[${customSectionCounter}][items]', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                             </tr>
                         </tbody>
                     </table>
@@ -1541,13 +1563,13 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             row.innerHTML = `
                 <td class="p-1 text-center"><input type="checkbox" class="row-checkbox accent-blue-600 cursor-pointer"></td>
                 <td class="p-1"><input type="number" class="w-full px-1 py-0.5 border rounded text-xs" value="${rowCount + 1}" readonly></td>
-                <td class="p-1"><textarea name="custom_sections[${sectionNumber}][items][${rowCount}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
-                <td class="p-1"><textarea name="custom_sections[${sectionNumber}][items][${rowCount}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] max-h-[4.2rem] overflow-y-auto"></textarea></td>
+                <td class="p-1"><textarea name="custom_sections[${sectionNumber}][items][${rowCount}][name]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
+                <td class="p-1"><textarea name="custom_sections[${sectionNumber}][items][${rowCount}][type]" rows="1" class="w-full px-1 py-0.5 border rounded text-xs resize-none leading-tight min-h-[1.6rem] overflow-hidden"></textarea></td>
                 <td class="p-1"><input type="number" min="1" value="1" name="custom_sections[${sectionNumber}][items][${rowCount}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                 <td class="p-1"><select name="custom_sections[${sectionNumber}][items][${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                 <td class="p-1"><input type="text" name="custom_sections[${sectionNumber}][items][${rowCount}][value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
-                <td class="p-1"><div class="flex gap-1 items-center"><button type="button" onclick="moveRow(this,'up','${sectionId}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Wyżej">↑</button><button type="button" onclick="moveRow(this,'down','${sectionId}')" class="text-gray-400 hover:text-gray-600 text-xs px-0.5" title="Niżej">↓</button><button type="button" onclick="removeRow(this, '${sectionId}')" class="text-red-600 hover:text-red-800 text-xs">✕</button><button type="button" onclick="addProductToCatalog(this, 'custom_sections[${sectionNumber}][items]', ${rowCount})" class="px-1 py-0.5 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 whitespace-nowrap">Dod. do kat.</button></div></td>
+                <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Wyżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Niżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="removeRow(this, '${sectionId}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'custom_sections[${sectionNumber}][items]', ${rowCount})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
             `;
             const allRows = table.querySelectorAll('tr');
             let lastChecked = null;
