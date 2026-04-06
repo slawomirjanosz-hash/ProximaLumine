@@ -1004,7 +1004,7 @@
             
             _grandTotalRaw = grandTotal;
             document.getElementById('grand-total').textContent = formatPrice(grandTotal);
-            updateProfitDisplay();
+            updateProfitFromPercent();
         }
 
         function updateProfitFromPercent() {

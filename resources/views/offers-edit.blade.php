@@ -1404,7 +1404,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             
             _grandTotalRaw = grandTotal;
             document.getElementById('grand-total').textContent = formatPrice(grandTotal);
-            updateProfitDisplay();
+            updateProfitFromPercent();
         }
 
         function updateProfitFromPercent() {
