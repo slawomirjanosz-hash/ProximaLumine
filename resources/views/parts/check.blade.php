@@ -471,6 +471,17 @@
                                         ❌
                                     </button>
                                 </form>
+
+                                {{-- 📋 KOPIUJ --}}
+                                <form method="POST"
+                                      action="{{ route('parts.copy', $p->id) }}"
+                                      class="col-span-2"
+                                      onsubmit="return confirm('Skopiować część {{ addslashes($p->name) }}?');">
+                                    @csrf
+                                    <button class="bg-teal-100 hover:bg-teal-200 px-1 py-0.5 rounded text-xs w-full" title="Kopiuj część">
+                                        📋 Kopiuj
+                                    </button>
+                                </form>
                             </div>
                             @endif
                         </td>

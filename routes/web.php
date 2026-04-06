@@ -1497,6 +1497,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/magazyn/zamowienia/{order}/receive', [PartController::class, 'receiveOrder'])->name('magazyn.order.receive')->middleware('permission:orders');
 
     Route::delete('/parts/{part}', [PartController::class, 'destroy'])->name('parts.destroy')->middleware('permission:settings');
+    Route::post('/parts/{part}/copy', [PartController::class, 'copyPart'])->name('parts.copy')->middleware('permission:add');
     Route::post('/parts/preview', [PartController::class, 'preview'])->name('parts.preview')->middleware('permission:view_catalog');
     Route::post('/parts/search-similar', [PartController::class, 'searchSimilar'])->name('parts.searchSimilar')->middleware('permission:view_catalog');
     Route::post('/parts/clear-session', [PartController::class, 'clearSession'])->name('parts.clearSession');

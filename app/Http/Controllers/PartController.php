@@ -3607,6 +3607,35 @@ class PartController extends Controller
             ->with('success', 'Część została usunięta z magazynu');
     }
 
+    // KOPIOWANIE CZĘŚCI
+    public function copyPart(Part $part)
+    {
+        $baseQr   = preg_replace('/_v\d+$/', '', $part->qr_code ?? $part->name);
+        $baseName = preg_replace('/_v\d+$/', '', $part->name);
+
+        $existing = Part::where(function ($q) use ($baseQr, $part) {
+            $q->where('qr_code', 'like', $baseQr . '_v%')
+              ->orWhere('qr_code', $part->qr_code);
+        })->pluck('qr_code')->toArray();
+
+        $maxVersion = 0;
+        foreach ($existing as $qr) {
+            if (preg_match('/_v(\d+)$/', $qr, $m)) {
+                $maxVersion = max($maxVersion, (int) $m[1]);
+            }
+        }
+        $newVersion = $maxVersion + 1;
+
+        $newPart = $part->replicate();
+        $newPart->name             = $baseName . '_v' . $newVersion;
+        $newPart->qr_code          = $baseQr . '_v' . $newVersion;
+        $newPart->quantity         = 0;
+        $newPart->last_modified_by = auth()->id();
+        $newPart->save();
+
+        return redirect()->back()->with('success', 'Skopiowano jako: ' . $newPart->name);
+    }
+
     // MASOWE USUWANIE CZĘŚCI
     public function bulkDelete(Request $request)
     {
