@@ -6492,6 +6492,24 @@ class PartController extends Controller
         }
     }
 
+    // GENERUJ PDF DLA OFERTY
+    public function generateOfferPdf($offerId)
+    {
+        $offer = \App\Models\Offer::findOrFail($offerId);
+        $company = \App\Models\CompanySetting::first();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('offers.pdf', compact('offer', 'company'))
+            ->setPaper('a4', 'portrait');
+
+        $filename = 'Oferta_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $offer->offer_number) . '.pdf';
+
+        if (request()->boolean('download')) {
+            return $pdf->download($filename);
+        }
+
+        return $pdf->stream($filename);
+    }
+
     // GENERUJ DOKUMENT WORD DLA OFERTY
     public function generateOfferWord($offerId)
     {

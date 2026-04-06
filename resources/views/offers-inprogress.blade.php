@@ -68,6 +68,9 @@
                                         <a href="{{ route('offers.generateWord', $offer) }}" title="Generuj Word" class="p-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 inline-flex items-center">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                                         </a>
+                                        <button type="button" onclick="openPdfPreview('{{ route('offers.generatePdf', $offer) }}')" title="Podgląd PDF" class="p-1.5 bg-red-600 text-white rounded hover:bg-red-700 inline-flex items-center">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                        </button>
                                         <a href="{{ route('offers.edit', $offer) }}" title="Edytuj ofertę" class="p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 inline-flex items-center">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                                         </a>
@@ -97,8 +100,43 @@
             @endif
         </div>
     </main>
+
+{{-- PDF PREVIEW MODAL --}}
+<div id="pdf-preview-modal" style="display:none; position:fixed; inset:0; z-index:9998; background:rgba(0,0,0,0.75); align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:10px; width:92vw; max-width:960px; height:90vh; display:flex; flex-direction:column; box-shadow:0 24px 64px rgba(0,0,0,0.5);">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #e5e7eb; flex-shrink:0;">
+            <span style="font-weight:700; font-size:15px; color:#1f2937;">&#128196; Podgląd PDF</span>
+            <div style="display:flex; gap:8px;">
+                <a id="pdf-download-link" href="#" download style="padding:8px 16px; background:#2563eb; color:#fff; border-radius:6px; font-size:13px; font-weight:600; text-decoration:none;">&#8595; Pobierz PDF</a>
+                <button onclick="closePdfPreview()" style="padding:8px 14px; background:#ef4444; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;">&times; Zamknij</button>
+            </div>
+        </div>
+        <iframe id="pdf-preview-iframe" src="" style="flex:1; border:none; border-radius:0 0 10px 10px;"></iframe>
+    </div>
+</div>
+
 </body>
 <script>
+function openPdfPreview(url) {
+    var modal = document.getElementById('pdf-preview-modal');
+    var iframe = document.getElementById('pdf-preview-iframe');
+    var dlLink = document.getElementById('pdf-download-link');
+    iframe.src = url;
+    dlLink.href = url + '?download=1';
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+function closePdfPreview() {
+    var modal = document.getElementById('pdf-preview-modal');
+    var iframe = document.getElementById('pdf-preview-iframe');
+    iframe.src = '';
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closePdfPreview();
+});
+
 function updateDateTime() {
     const now = new Date();
     const day = String(now.getDate()).padStart(2, '0');

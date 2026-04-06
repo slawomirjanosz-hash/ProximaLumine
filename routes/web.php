@@ -1300,6 +1300,7 @@ use App\Http\Controllers\AuditController;
 
 // Generowanie dokumentów dla ofert
 Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/{offer}/generate-word', [PartController::class, 'generateOfferWord'])->name('offers.generateWord');
+Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/{offer}/generate-pdf', [PartController::class, 'generateOfferPdf'])->name('offers.generatePdf');
 
 // TEST ENDPOINT
 Route::get('/test', function () {
