@@ -228,7 +228,7 @@
                                         </select>
                                     </td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="services" onchange="calculateRowValue(this)"></td>
-                                    <td class="p-1"><div class="flex items-center gap-1"><label class="flex items-center gap-0.5 cursor-pointer select-none flex-shrink-0"><input type="checkbox" name="services[0][discounted]" value="1" class="w-4 h-4 accent-orange-500 discount-checkbox" onchange="toggleCatalogPrice(this)"><span class="text-[10px] font-bold text-orange-600">kat.</span></label><input type="number" step="0.01" name="services[0][catalog_price]" class="flex-1 min-w-0 px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()" readonly></div></td>
+                                    <td class="p-1"><input type="number" step="0.01" name="services[0][catalog_price]" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="services" readonly></td>
                                     <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'services')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'services', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                 </tr>
@@ -297,7 +297,7 @@
                                         </select>
                                     </td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="works" onchange="calculateRowValue(this)"></td>
-                                    <td class="p-1"><div class="flex items-center gap-1"><label class="flex items-center gap-0.5 cursor-pointer select-none flex-shrink-0"><input type="checkbox" name="works[0][discounted]" value="1" class="w-4 h-4 accent-orange-500 discount-checkbox" onchange="toggleCatalogPrice(this)"><span class="text-[10px] font-bold text-orange-600">kat.</span></label><input type="number" step="0.01" name="works[0][catalog_price]" class="flex-1 min-w-0 px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()" readonly></div></td>
+                                    <td class="p-1"><input type="number" step="0.01" name="works[0][catalog_price]" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="works" readonly></td>
                                     <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'works')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'works', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                 </tr>
@@ -376,7 +376,7 @@
                                         </select>
                                     </td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="materials" onchange="calculateRowValue(this)"></td>
-                                    <td class="p-1"><div class="flex items-center gap-1"><label class="flex items-center gap-0.5 cursor-pointer select-none flex-shrink-0"><input type="checkbox" name="materials[0][discounted]" value="1" class="w-4 h-4 accent-orange-500 discount-checkbox" onchange="toggleCatalogPrice(this)"><span class="text-[10px] font-bold text-orange-600">kat.</span></label><input type="number" step="0.01" name="materials[0][catalog_price]" class="flex-1 min-w-0 px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()" readonly></div></td>
+                                    <td class="p-1"><input type="number" step="0.01" name="materials[0][catalog_price]" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="materials" readonly></td>
                                     <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'materials')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'materials', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                 </tr>
@@ -409,7 +409,7 @@
                     <div class="flex items-center justify-end gap-6 mb-2">
                         <span>Koszty: <b class="font-semibold text-gray-800" id="costs-display">0,00 zł</b></span>
                         <span>Oferta: <b class="font-semibold text-gray-800" id="offer-display">0,00 zł</b></span>
-                        <span>Suma netto: <b class="font-semibold text-gray-800" id="grand-total">0,00 zł</b></span>
+                        <span id="grand-total" class="hidden"></span>
                     </div>
                     <div class="flex items-center justify-end gap-3 mb-2">
                         <span>Zysk:</span>
@@ -821,33 +821,43 @@
             calculateTotal(section);
         }
 
-        function toggleCatalogPrice(checkbox) {
-            const catalogInput = checkbox.closest('td').querySelector('.catalog-price-input');
-            if (checkbox.checked) {
-                catalogInput.removeAttribute('readonly');
-                if (!catalogInput.value) {
-                    const priceInput = checkbox.closest('tr') ? checkbox.closest('tr').querySelector('.price-input') : null;
-                    if (priceInput) catalogInput.value = priceInput.value;
-                }
-            } else {
-                catalogInput.value = '';
-                catalogInput.setAttribute('readonly', '');
-            }
-            updateBuiltInProfit();
-        }
-
         function updateBuiltInProfit() {
             let builtIn = 0, offerTotal = 0;
-            document.querySelectorAll('.discount-checkbox:checked').forEach(function(cb) {
-                const row = cb.closest('tr');
+            document.querySelectorAll('.catalog-price-input').forEach(function(catalogInput) {
+                const row = catalogInput.closest('tr');
                 if (!row) return;
                 const priceInput = row.querySelector('.price-input');
-                const catalogInput = cb.closest('td').querySelector('.catalog-price-input');
                 const qtyInput = row.querySelector('.quantity-input');
                 const price = parseFloat(priceInput ? priceInput.value : '') || 0;
-                const catalog = parseFloat(catalogInput ? catalogInput.value : '') || 0;
+                const catalog = parseFloat(catalogInput.value) || price;
                 const qty = parseFloat(qtyInput ? qtyInput.value : '1') || 1;
                 if (catalog > price) builtIn += (catalog - price) * qty;
+                offerTotal += catalog * qty;
+            });
+            const pct = _grandTotalRaw > 0 ? (builtIn / _grandTotalRaw * 100) : 0;
+            const builtEl = document.getElementById('built-in-profit-display');
+            if (builtEl) builtEl.textContent = formatPrice(builtIn) + ' (' + pct.toFixed(1) + '%)';
+            const costsEl = document.getElementById('costs-display');
+            if (costsEl) costsEl.textContent = formatPrice(_grandTotalRaw);
+            const offerEl = document.getElementById('offer-display');
+            if (offerEl) offerEl.textContent = formatPrice(offerTotal);
+            const additionalAmount = parseFloat((document.getElementById('profit-amount-input') || {}).value || '0') || 0;
+            const totalProfit = builtIn + additionalAmount;
+            const totalPct = _grandTotalRaw > 0 ? (totalProfit / _grandTotalRaw * 100) : 0;
+            const totalEl = document.getElementById('total-profit-display');
+            if (totalEl) totalEl.textContent = formatPrice(totalProfit) + ' (' + totalPct.toFixed(1) + '%)';
+        }
+
+        document.addEventListener('input', function(e) {
+            if (e.target.classList.contains('price-input')) {
+                const row = e.target.closest('tr');
+                if (row) {
+                    const catalogInput = row.querySelector('.catalog-price-input');
+                    if (catalogInput) catalogInput.value = e.target.value;
+                }
+                updateBuiltInProfit();
+            }
+        });
                 if (catalog > 0) offerTotal += catalog * qty;
             });
             const pct = _grandTotalRaw > 0 ? (builtIn / _grandTotalRaw * 100) : 0;
@@ -896,7 +906,7 @@
                         </select>
                     </td>
                     <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
-                    <td class="p-1"><div class="flex items-center gap-1"><label class="flex items-center gap-0.5 cursor-pointer select-none flex-shrink-0"><input type="checkbox" name="${section}[${rowCount}][discounted]" value="1" class="w-4 h-4 accent-orange-500 discount-checkbox" onchange="toggleCatalogPrice(this)"><span class="text-[10px] font-bold text-orange-600">kat.</span></label><input type="number" step="0.01" name="${section}[${rowCount}][catalog_price]" class="flex-1 min-w-0 px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()" readonly></div></td>
+                    <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][catalog_price]" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                     <td class="p-1"><input type="text" name="${section}[${rowCount}][value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
                     <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Wyżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Niżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="removeRow(this,'${section}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                 `;
@@ -916,7 +926,7 @@
                         </select>
                     </td>
                     <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
-                    <td class="p-1"><div class="flex items-center gap-1"><label class="flex items-center gap-0.5 cursor-pointer select-none flex-shrink-0"><input type="checkbox" name="${section}[${rowCount}][discounted]" value="1" class="w-4 h-4 accent-orange-500 discount-checkbox" onchange="toggleCatalogPrice(this)"><span class="text-[10px] font-bold text-orange-600">kat.</span></label><input type="number" step="0.01" name="${section}[${rowCount}][catalog_price]" class="flex-1 min-w-0 px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()" readonly></div></td>
+                    <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][catalog_price]" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                     <td class="p-1"><input type="text" name="${section}[${rowCount}][value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
                     <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Wyżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Niżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="removeRow(this,'${section}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                 `;
@@ -1147,7 +1157,7 @@
                                     </select>
                                 </td>
                                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
-                                <td class="p-1"><div class="flex items-center gap-1"><label class="flex items-center gap-0.5 cursor-pointer select-none flex-shrink-0"><input type="checkbox" name="custom_sections[${customSectionCounter}][items][0][discounted]" value="1" class="w-4 h-4 accent-orange-500 discount-checkbox" onchange="toggleCatalogPrice(this)"><span class="text-[10px] font-bold text-orange-600">kat.</span></label><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][catalog_price]" class="flex-1 min-w-0 px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()" readonly></div></td>
+                                <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][catalog_price]" class="flex-1 min-w-0 px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
                                 <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="addProductToCatalog(this, 'custom_sections', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                             </tr>
@@ -1245,7 +1255,7 @@
                     </select>
                 </td>
                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
-                <td class="p-1"><div class="flex items-center gap-1"><label class="flex items-center gap-0.5 cursor-pointer select-none flex-shrink-0"><input type="checkbox" name="custom_sections[${sectionNumber}][items][${rowCount}][discounted]" value="1" class="w-4 h-4 accent-orange-500 discount-checkbox" onchange="toggleCatalogPrice(this)"><span class="text-[10px] font-bold text-orange-600">kat.</span></label><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][catalog_price]" class="flex-1 min-w-0 px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()" readonly></div></td>
+                <td class="p-1"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][catalog_price]" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
                 <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Wyżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Niżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="removeRow(this, '${sectionId}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'custom_sections', ${rowCount})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
             `;
