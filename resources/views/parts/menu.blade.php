@@ -530,3 +530,166 @@ function toggleSubmenu(id) {
     }
 </style>
 
+{{-- ===== OVERLAY WYGAŚNIĘCIA SESJI ===== --}}
+<div id="session-expired-overlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.7); align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:12px; padding:32px; width:100%; max-width:400px; box-shadow:0 20px 60px rgba(0,0,0,0.4); margin:16px;">
+        <div style="text-align:center; margin-bottom:24px;">
+            <div style="font-size:48px; margin-bottom:12px;">🔒</div>
+            <h2 style="font-size:20px; font-weight:700; color:#1f2937; margin:0 0 8px;">Sesja wygasła</h2>
+            <p style="color:#6b7280; font-size:14px; margin:0;">Zostałeś automatycznie wylogowany. Zaloguj się ponownie, aby kontynuować pracę.</p>
+        </div>
+
+        <div id="session-login-error" style="display:none; background:#fef2f2; border:1px solid #fca5a5; border-radius:6px; padding:12px; margin-bottom:16px;">
+            <p id="session-login-error-msg" style="color:#dc2626; font-size:13px; margin:0;"></p>
+        </div>
+
+        <form id="session-relogin-form" style="display:flex; flex-direction:column; gap:14px;">
+            <div>
+                <label style="display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:6px;">Email</label>
+                <input type="email" id="session-email" name="email" required
+                    style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; box-sizing:border-box; outline:none;"
+                    placeholder="twoj@email.com">
+            </div>
+            <div>
+                <label style="display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:6px;">Hasło</label>
+                <input type="password" id="session-password" name="password"
+                    style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; box-sizing:border-box; outline:none;"
+                    placeholder="Twoje hasło">
+            </div>
+            <button type="submit" id="session-relogin-btn"
+                style="background:#2563eb; color:#fff; font-weight:700; padding:12px; border:none; border-radius:6px; font-size:15px; cursor:pointer; transition:background 0.2s;">
+                Zaloguj się ponownie
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    var _sessionOverlayVisible = false;
+
+    function showSessionOverlay() {
+        if (_sessionOverlayVisible) return;
+        _sessionOverlayVisible = true;
+        var overlay = document.getElementById('session-expired-overlay');
+        if (overlay) {
+            overlay.style.display = 'flex';
+            var emailInput = document.getElementById('session-email');
+            if (emailInput) setTimeout(function() { emailInput.focus(); }, 100);
+        }
+    }
+
+    function hideSessionOverlay() {
+        _sessionOverlayVisible = false;
+        var overlay = document.getElementById('session-expired-overlay');
+        if (overlay) overlay.style.display = 'none';
+    }
+
+    function refreshCsrfToken() {
+        return fetch('/auth/session-check', { credentials: 'same-origin' })
+            .then(function (r) { return r.json().catch(function() { return {}; }); })
+            .catch(function() { return {}; });
+    }
+
+    // Periodyczne sprawdzanie sesji co 2 minuty
+    function checkSession() {
+        fetch('/auth/session-check', { credentials: 'same-origin', cache: 'no-store' })
+            .then(function (response) {
+                if (response.status === 401 || response.status === 403) {
+                    showSessionOverlay();
+                }
+            })
+            .catch(function () {
+                // błąd sieci – ignoruj, spróbuj przy kolejnym sprawdzeniu
+            });
+    }
+
+    setInterval(checkSession, 2 * 60 * 1000); // co 2 minuty
+
+    // Przechwytywanie globalnych odpowiedzi fetch (401/419 = wygasła sesja)
+    var _origFetch = window.fetch;
+    window.fetch = function (input, init) {
+        // Nie przechwytuj samego session-check żeby uniknąć rekurencji
+        var url = (typeof input === 'string') ? input : (input && input.url ? input.url : '');
+        var isSessionCheck = (typeof url === 'string' && url.indexOf('/auth/session-check') !== -1);
+        if (isSessionCheck) return _origFetch.apply(this, arguments);
+
+        return _origFetch.apply(this, arguments).then(function (response) {
+            if ((response.status === 401 || response.status === 419) && !_sessionOverlayVisible) {
+                showSessionOverlay();
+            }
+            return response;
+        });
+    };
+
+    // Formularz ponownego logowania
+    document.addEventListener('DOMContentLoaded', function () {
+        var form = document.getElementById('session-relogin-form');
+        var btn = document.getElementById('session-relogin-btn');
+        var errorBox = document.getElementById('session-login-error');
+        var errorMsg = document.getElementById('session-login-error-msg');
+
+        if (!form) return;
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var email = document.getElementById('session-email').value;
+            var password = document.getElementById('session-password').value;
+
+            btn.disabled = true;
+            btn.textContent = 'Logowanie...';
+            errorBox.style.display = 'none';
+
+            // Pobierz świeży token CSRF z meta tagu
+            var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            var csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+            _origFetch('/login', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({ email: email, password: password })
+            })
+            .then(function (response) {
+                if (response.ok || response.status === 200) {
+                    // Zalogowano – odśwież stronę
+                    hideSessionOverlay();
+                    window.location.reload();
+                    return;
+                }
+                return response.json().catch(function() { return {}; }).then(function (data) {
+                    var msg = '';
+                    if (data && data.message) {
+                        msg = data.message;
+                    } else if (data && data.errors) {
+                        var keys = Object.keys(data.errors);
+                        if (keys.length) msg = data.errors[keys[0]][0];
+                    } else {
+                        msg = 'Nieprawidłowy email lub hasło.';
+                    }
+                    errorMsg.textContent = msg;
+                    errorBox.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Zaloguj się ponownie';
+                });
+            })
+            .catch(function () {
+                // Może być przekierowanie (302) – spróbuj sprawdzić sesję
+                refreshCsrfToken().then(function () {
+                    checkSession();
+                    hideSessionOverlay();
+                    window.location.reload();
+                });
+            });
+        });
+    });
+})();
+</script>
+

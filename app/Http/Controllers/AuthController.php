@@ -27,6 +27,9 @@ class AuthController extends Controller
         $user = User::where('email', $email)->first();
 
         if (!$user) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Podane dane logowania są nieprawidłowe.'], 422);
+            }
             return back()->withErrors([
                 'email' => 'Podane dane logowania są nieprawidłowe.',
             ])->onlyInput('email');
@@ -36,6 +39,9 @@ class AuthController extends Controller
         if (is_null($user->password) && empty($password)) {
             Auth::login($user, $request->boolean('remember'));
             $request->session()->regenerate();
+            if ($request->expectsJson()) {
+                return response()->json(['success' => true]);
+            }
             return redirect('/')->with('success', 'Zalogowano pomyślnie!');
         }
 
@@ -43,10 +49,16 @@ class AuthController extends Controller
         if (!is_null($user->password) && !empty($password)) {
             if (Auth::attempt(['email' => $email, 'password' => $password], $request->boolean('remember'))) {
                 $request->session()->regenerate();
+                if ($request->expectsJson()) {
+                    return response()->json(['success' => true]);
+                }
                 return redirect('/')->with('success', 'Zalogowano pomyślnie!');
             }
         }
 
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Podane dane logowania są nieprawidłowe.'], 422);
+        }
         return back()->withErrors([
             'email' => 'Podane dane logowania są nieprawidłowe.',
         ])->onlyInput('email');

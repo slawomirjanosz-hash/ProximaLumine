@@ -1328,6 +1328,14 @@ Route::get('/login', [AuthController::class, 'loginView'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+// Sprawdzenie sesji (używane przez overlay wygaśnięcia sesji)
+Route::get('/auth/session-check', function () {
+    if (auth()->check()) {
+        return response()->json(['authenticated' => true]);
+    }
+    return response()->json(['authenticated' => false], 401);
+})->name('auth.session-check');
+
 // Railway session diagnostics - dostępne bez logowania
 Route::get('/railway/session-test', function () {
     $sessionData = [
