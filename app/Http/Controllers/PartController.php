@@ -6701,31 +6701,95 @@ class PartController extends Controller
             ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
         );
         
-        // Data w prawym górnym rogu
-        $companyCity = $companySettings && $companySettings->city ? $companySettings->city : 'Warszawa';
+        // Miasto + data oferty (prawy górny róg)
+        $companyCity = $companySettings && $companySettings->city ? $companySettings->city : '';
         $offerDateFormatted = $offer->offer_date ? $offer->offer_date->format('d.m.Y') : now()->format('d.m.Y');
-        $dateText = $companyCity . ', ' . $offerDateFormatted;
+        $dateText = ($companyCity ? $companyCity . ', ' : '') . $offerDateFormatted;
         $section->addText(
             $dateText,
-            ['size' => 10],
-            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT, 'spaceAfter' => 0]
+            ['size' => 10, 'color' => '444444'],
+            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT, 'spaceAfter' => 60]
         );
-        
-        $section->addTextBreak(2);
-        
-        // Tytuł oferty wycentrowany
-        $section->addText(
-            'Oferta nr. ' . $offerNumber,
-            ['bold' => true, 'size' => 14],
-            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER, 'spaceAfter' => 100]
+
+        // --- GRANATOWY PASEK TYTUŁOWY (imitacja offer-title-block) ---
+        $titleTable = $section->addTable([
+            'width' => 9360,
+            'unit' => \PhpOffice\PhpWord\SimpleType\TblWidth::TWIP,
+            'cellMarginLeft' => 100,
+            'cellMarginRight' => 100,
+            'cellMarginTop' => 80,
+            'cellMarginBottom' => 80,
+        ]);
+        $titleTable->addRow(null, ['cantSplit' => true]);
+
+        // Lewa komórka: tytuł + numer oferty
+        $titleLeftCell = $titleTable->addCell(5800, ['bgColor' => '0F295F', 'valign' => 'center']);
+        $titleLeftCell->addText(
+            'OFERTA HANDLOWA',
+            ['size' => 7, 'color' => 'BBCAFF', 'allCaps' => true],
+            ['spaceAfter' => 20]
         );
-        
         if (!empty($offerTitle)) {
-            $section->addText(
+            $titleLeftCell->addText(
                 $offerTitle,
-                ['bold' => true, 'size' => 12],
-                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER, 'spaceAfter' => 200]
+                ['bold' => true, 'size' => 13, 'color' => 'FFFFFF'],
+                ['spaceAfter' => 20]
             );
+        }
+        $titleLeftCell->addText(
+            'Nr: ' . $offerNumber . '   |   Data: ' . $offerDateFormatted,
+            ['size' => 8, 'color' => 'BBCAFF'],
+            ['spaceAfter' => 0]
+        );
+
+        // Prawa komórka: nazwa klienta
+        $customerNameForTitle = $offer->customer_name ?? '';
+        $titleRightCell = $titleTable->addCell(3560, ['bgColor' => '0F295F', 'valign' => 'center']);
+        if ($customerNameForTitle) {
+            $titleRightCell->addText(
+                'KLIENT',
+                ['size' => 7, 'color' => 'BBCAFF', 'allCaps' => true],
+                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT, 'spaceAfter' => 20]
+            );
+            $titleRightCell->addText(
+                $customerNameForTitle,
+                ['bold' => true, 'size' => 12, 'color' => 'FFFFFF'],
+                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT, 'spaceAfter' => 0]
+            );
+        }
+
+        $section->addTextBreak(1);
+
+        // --- DANE KLIENTA (box jeśli są szczegóły) ---
+        $hasCustomerDetails = $offer->customer_nip || $offer->customer_address || $offer->customer_phone || $offer->customer_email;
+        if ($customerNameForTitle || $hasCustomerDetails) {
+            $section->addText('Dane klienta:', ['bold' => true, 'size' => 10, 'color' => '0F295F'], ['spaceAfter' => 40]);
+            $customerInfoTable = $section->addTable([
+                'borderSize' => 4, 'borderColor' => 'DDE2EF',
+                'cellMarginLeft' => 80, 'cellMarginRight' => 80, 'cellMarginTop' => 40, 'cellMarginBottom' => 40,
+            ]);
+            $customerInfoTable->addRow();
+            $ciCell = $customerInfoTable->addCell(9360, ['bgColor' => 'F8F9FF']);
+            if ($customerNameForTitle) {
+                $ciCell->addText($customerNameForTitle, ['bold' => true, 'size' => 10], ['spaceAfter' => 20]);
+            }
+            if ($offer->customer_nip) {
+                $ciCell->addText('NIP: ' . $offer->customer_nip, ['size' => 9], ['spaceAfter' => 10]);
+            }
+            if ($offer->customer_address) {
+                $ciCell->addText($offer->customer_address, ['size' => 9], ['spaceAfter' => 10]);
+            }
+            $cityLine = trim(($offer->customer_postal_code ?? '') . ' ' . ($offer->customer_city ?? ''));
+            if ($cityLine) {
+                $ciCell->addText($cityLine, ['size' => 9], ['spaceAfter' => 10]);
+            }
+            if ($offer->customer_phone) {
+                $ciCell->addText('Tel: ' . $offer->customer_phone, ['size' => 9], ['spaceAfter' => 10]);
+            }
+            if ($offer->customer_email) {
+                $ciCell->addText($offer->customer_email, ['size' => 9], ['spaceAfter' => 0]);
+            }
+            $section->addTextBreak(1);
         }
         
         // Opis oferty
@@ -6757,59 +6821,67 @@ class PartController extends Controller
 
         $renderSectionTable = function (string $sectionTitle, array $items) use ($section) {
             $items = collect($items)
-                ->filter(function ($item) {
-                    return is_array($item);
-                })
-                ->filter(function ($item) {
-                    return trim((string)($item['name'] ?? '')) !== ''
-                        || trim((string)($item['type'] ?? '')) !== ''
-                        || ((float)($item['price'] ?? 0)) > 0
-                        || ((float)($item['quantity'] ?? 0)) > 0;
-                })
+                ->filter(fn($item) => is_array($item))
+                ->filter(fn($item) =>
+                    trim((string)($item['name'] ?? '')) !== ''
+                    || ((float)($item['price'] ?? 0)) > 0
+                    || ((float)($item['quantity'] ?? 0)) > 0
+                )
                 ->values()
                 ->all();
 
             if (empty($items)) {
-                return;
+                return 0.0;
             }
 
-            $section->addText($sectionTitle . ':', ['bold' => true, 'size' => 11], ['spaceAfter' => 100]);
+            // Tytuł sekcji — styl jak w PDF (tło #eef1fa, obramowanie navy)
+            $section->addText(
+                $sectionTitle,
+                ['bold' => true, 'size' => 10, 'color' => '0F295F'],
+                ['spaceAfter' => 0, 'spaceBefore' => 120, 'shading' => ['type' => 'clear', 'color' => 'auto', 'fill' => 'EEF1FA']]
+            );
+
             $table = $section->addTable([
-                'borderSize' => 6,
-                'borderColor' => 'CCCCCC',
-                'cellMargin' => 40,
-                'alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::CENTER,
+                'borderSize' => 4,
+                'borderColor' => 'C8D0E0',
+                'cellMarginLeft' => 60,
+                'cellMarginRight' => 60,
+                'cellMarginTop' => 50,
+                'cellMarginBottom' => 50,
             ]);
             $table->addRow();
-            $cellStyleHeader = ['bgColor' => 'E0E0E0', 'valign' => 'center'];
-            $table->addCell(3000, $cellStyleHeader)->addText('Nazwa', ['bold' => true, 'size' => 9]);
-            $table->addCell(2500, $cellStyleHeader)->addText('Opis', ['bold' => true, 'size' => 9]);
-            $table->addCell(1000, $cellStyleHeader)->addText('Ilość', ['bold' => true, 'size' => 9]);
-            $table->addCell(1500, $cellStyleHeader)->addText('Dostawca', ['bold' => true, 'size' => 9]);
-            $table->addCell(1200, $cellStyleHeader)->addText('Cena netto', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-            $table->addCell(1200, $cellStyleHeader)->addText('Wartość', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            $hdr = ['bgColor' => 'F0F3FA', 'valign' => 'center'];
+            $table->addCell(3200, $hdr)->addText('Nazwa',      ['bold' => true, 'size' => 8, 'color' => '333333']);
+            $table->addCell(2400, $hdr)->addText('Opis',       ['bold' => true, 'size' => 8, 'color' => '333333']);
+            $table->addCell(700,  $hdr)->addText('Ilość',      ['bold' => true, 'size' => 8, 'color' => '333333'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            $table->addCell(1100, $hdr)->addText('Cena jedn.', ['bold' => true, 'size' => 8, 'color' => '333333'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            $table->addCell(1100, $hdr)->addText('Wartość',    ['bold' => true, 'size' => 8, 'color' => '333333'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
 
             $rowIndex = 0;
+            $sectionTotal = 0.0;
             foreach ($items as $item) {
                 $rowIndex++;
-                $quantity = (float)($item['quantity'] ?? 1);
-                if ($quantity <= 0) {
-                    $quantity = 1;
-                }
+                $qty   = max((float)($item['quantity'] ?? 1), 0);
                 $price = (float)($item['price'] ?? 0);
-                $value = $quantity * $price;
+                $value = $qty * $price;
+                $sectionTotal += $value;
 
                 $table->addRow();
-                $cellStyle = ($rowIndex % 2 === 0) ? ['bgColor' => 'F5F5F5', 'valign' => 'center'] : ['valign' => 'center'];
-                $table->addCell(3000, $cellStyle)->addText((string)($item['name'] ?? ''), ['size' => 9]);
-                $table->addCell(2500, $cellStyle)->addText((string)($item['type'] ?? ''), ['size' => 9]);
-                $table->addCell(1000, $cellStyle)->addText((string)$quantity, ['size' => 9]);
-                $table->addCell(1500, $cellStyle)->addText((string)($item['supplier'] ?? ''), ['size' => 9]);
-                $table->addCell(1200, $cellStyle)->addText(number_format($price, 2, ',', ' ') . ' zł', ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-                $table->addCell(1200, $cellStyle)->addText(number_format($value, 2, ',', ' ') . ' zł', ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+                $cellStyle = ($rowIndex % 2 === 0) ? ['bgColor' => 'F9FAFF', 'valign' => 'top'] : ['valign' => 'top'];
+                $table->addCell(3200, $cellStyle)->addText((string)($item['name'] ?? ''),        ['size' => 8]);
+                $table->addCell(2400, $cellStyle)->addText((string)($item['description'] ?? ($item['type'] ?? '')), ['size' => 8]);
+                $table->addCell(700,  $cellStyle)->addText(number_format($qty, 2, ',', ' '),      ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+                $table->addCell(1100, $cellStyle)->addText(number_format($price, 2, ',', ' ') . ' zł', ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+                $table->addCell(1100, $cellStyle)->addText(number_format($value, 2, ',', ' ') . ' zł', ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
             }
+            // Wiersz sumy sekcji
+            $table->addRow();
+            $subtotalStyle = ['bgColor' => 'EEF1FA', 'valign' => 'center'];
+            $table->addCell(7300, $subtotalStyle)->addText('Suma ' . $sectionTitle . ':',  ['bold' => true, 'size' => 8, 'color' => '0F295F'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            $table->addCell(1100, $subtotalStyle)->addText(number_format($sectionTotal, 2, ',', ' ') . ' zł', ['bold' => true, 'size' => 8, 'color' => '0F295F'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
 
             $section->addTextBreak(1);
+            return $sectionTotal;
         };
 
         if ($servicesEnabled) {
@@ -6834,31 +6906,33 @@ class PartController extends Controller
             $renderSectionTable($customSectionName, $items);
         }
 
-        // Suma końcowa
+        // --- SUMA KOŃCOWA (styl jak w PDF – prawa strona) ---
         $section->addTextBreak(1);
-        $sumTable = $section->addTable([
-            'alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::CENTER,
-        ]);
-        $sumTable->addRow();
-        $sumTable->addCell(6000)->addText('');
-        $sumTable->addCell(2000, ['bgColor' => 'E8E8E8', 'valign' => 'center'])->addText('SUMA: ' . number_format($offer->total_price, 2, ',', ' ') . ' zł', ['bold' => true, 'size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-
-        // Informacja kontaktowa
-        $section->addTextBreak(3);
-        $section->addText(
-            'W razie pytań prosimy o kontakt:',
-            ['size' => 9, 'italic' => true],
-            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]
-        );
-
-        $section->addTextBreak(1);
-        $section->addText('Pozdrawiam,', ['size' => 11], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-        if ($companySettings && $companySettings->email) {
-            $section->addText('email: ' . $companySettings->email, ['size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT, 'spaceAfter' => 0]);
+        $grandTable = $section->addTable(['alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::RIGHT]);
+        if (($offer->profit_amount ?? 0) > 0) {
+            $grandTable->addRow();
+            $grandTable->addCell(3200, ['bgColor' => 'F8F9FF', 'borderSize' => 4, 'borderColor' => 'DDE2EF'])
+                ->addText('Suma netto (koszty):', ['size' => 9, 'color' => '555555'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+            $grandTable->addCell(2160, ['bgColor' => 'FFFFFF', 'borderSize' => 4, 'borderColor' => 'DDE2EF'])
+                ->addText(number_format((float)$offer->total_price - (float)$offer->profit_amount, 2, ',', ' ') . ' zł', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            $grandTable->addRow();
+            $grandTable->addCell(3200, ['bgColor' => 'F8F9FF', 'borderSize' => 4, 'borderColor' => 'DDE2EF'])
+                ->addText('Zysk (' . number_format((float)($offer->profit_percent ?? 0), 2, ',', ' ') . '%):', ['size' => 9, 'color' => '555555'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+            $grandTable->addCell(2160, ['bgColor' => 'FFFFFF', 'borderSize' => 4, 'borderColor' => 'DDE2EF'])
+                ->addText(number_format((float)$offer->profit_amount, 2, ',', ' ') . ' zł', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
         }
-        if ($companySettings && $companySettings->phone) {
-            $section->addText('nr. tel.: ' . $companySettings->phone, ['size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-        }
+        $grandTable->addRow(null, ['cantSplit' => true]);
+        $grandTable->addCell(3200, ['bgColor' => '0F295F', 'borderSize' => 4, 'borderColor' => '0F295F'])
+            ->addText('Łączna cena oferty:', ['bold' => true, 'size' => 10, 'color' => 'FFFFFF'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+        $grandTable->addCell(2160, ['bgColor' => '0F295F', 'borderSize' => 4, 'borderColor' => '0F295F'])
+            ->addText(number_format((float)$offer->total_price, 2, ',', ' ') . ' zł', ['bold' => true, 'size' => 12, 'color' => 'FFFFFF'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+
+        // --- PODPIS I PIECZĘĆ (prawa strona, jak w PDF) ---
+        $section->addTextBreak(4);
+        $signTable = $section->addTable(['alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::RIGHT]);
+        $signTable->addRow();
+        $signCell = $signTable->addCell(3800, ['borderTopSize' => 8, 'borderTopColor' => '888888', 'valign' => 'center']);
+        $signCell->addText('Podpis i pieczęć', ['size' => 9, 'color' => '555555'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
 
         // Nazwa pliku: numer oferty + opis
         $fileName = $offerNumber;

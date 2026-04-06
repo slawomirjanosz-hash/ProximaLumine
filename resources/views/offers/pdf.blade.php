@@ -1,3 +1,27 @@
+@php
+    // Resolve logo for dompdf (supports data URI and file path)
+    $pdfLogoSrc = null;
+    if ($company && $company->logo) {
+        if (str_starts_with($company->logo, 'data:image')) {
+            $pdfLogoSrc = $company->logo; // data URI works directly in dompdf
+        } else {
+            $tryPaths = [
+                storage_path('app/public/' . $company->logo),
+                public_path($company->logo),
+                public_path('storage/' . $company->logo),
+            ];
+            foreach ($tryPaths as $tryPath) {
+                if (file_exists($tryPath)) {
+                    $pdfLogoSrc = 'file://' . str_replace('\\', '/', $tryPath);
+                    break;
+                }
+            }
+        }
+    }
+    if (!$pdfLogoSrc && file_exists(public_path('logo.png'))) {
+        $pdfLogoSrc = 'file://' . str_replace('\\', '/', public_path('logo.png'));
+    }
+@endphp
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -9,17 +33,22 @@
         body { font-family: DejaVu Sans, sans-serif; font-size: 10pt; color: #1a1a1a; background: #fff; }
         .page { padding: 28px 32px; }
 
-        /* HEADER */
-        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; border-bottom: 2px solid #0F295F; padding-bottom: 16px; }
-        .header-logo img { max-height: 56px; max-width: 180px; }
-        .header-company { text-align: right; font-size: 8.5pt; color: #444; line-height: 1.5; }
-        .header-company .company-name { font-size: 11pt; font-weight: bold; color: #0F295F; }
+        /* HEADER – logo left + company name at logo height, details right */
+        .header { display: table; width: 100%; margin-bottom: 24px; border-bottom: 2px solid #0F295F; padding-bottom: 14px; }
+        .header-left { display: table-cell; vertical-align: middle; width: 55%; }
+        .header-logo img { max-height: 54px; max-width: 170px; display: block; }
+        .header-company-name { font-size: 11pt; font-weight: bold; color: #0F295F; margin-top: 5px; }
+        .header-right { display: table-cell; vertical-align: top; text-align: right; font-size: 8.5pt; color: #444; line-height: 1.6; }
 
-        /* OFFER TITLE */
-        .offer-title-block { background: #0F295F; color: #fff; padding: 12px 18px; border-radius: 4px; margin-bottom: 20px; }
+        /* OFFER TITLE – flex: left=title+nr, right=customer name */
+        .offer-title-block { background: #0F295F; color: #fff; padding: 12px 18px; border-radius: 4px; margin-bottom: 20px; display: table; width: 100%; }
+        .offer-title-left { display: table-cell; vertical-align: middle; }
+        .offer-title-right { display: table-cell; vertical-align: middle; text-align: right; white-space: nowrap; padding-left: 16px; }
         .offer-title-block .label { font-size: 8pt; text-transform: uppercase; letter-spacing: 1px; opacity: 0.75; }
         .offer-title-block .title { font-size: 14pt; font-weight: bold; margin-top: 2px; }
         .offer-title-block .number { font-size: 9pt; opacity: 0.85; margin-top: 3px; }
+        .offer-title-block .customer-label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.7; }
+        .offer-title-block .customer-name { font-size: 12pt; font-weight: bold; margin-top: 3px; }
 
         /* INFO GRID */
         .info-grid { display: flex; gap: 16px; margin-bottom: 20px; }
@@ -43,9 +72,6 @@
         table.items tbody tr:nth-child(even) { background: #f9faff; }
         table.items tbody tr.subtotal td { border-top: 2px solid #c8d0e0; font-weight: bold; background: #eef1fa; }
 
-        /* CUSTOM SECTIONS */
-        .custom-section-name { font-size: 9pt; font-weight: bold; color: #0F295F; margin-top: 4px; padding: 4px 8px; background: #f0f3fa; border-left: 3px solid #0F295F; }
-
         /* TOTALS */
         .totals-block { margin-top: 20px; display: flex; justify-content: flex-end; }
         .totals-table { border-collapse: collapse; min-width: 260px; }
@@ -61,10 +87,10 @@
         .schedule-row { font-size: 9pt; color: #333; padding: 3px 0; border-bottom: 1px solid #eaedf5; display: flex; justify-content: space-between; }
         .schedule-row:last-child { border-bottom: none; }
 
-        /* FOOTER */
-        .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #dde2ef; display: flex; justify-content: space-between; font-size: 8pt; color: #888; }
-        .footer .sign-block { text-align: center; min-width: 140px; }
-        .footer .sign-block .sign-line { border-top: 1px solid #aaa; width: 140px; margin: 30px auto 5px; }
+        /* FOOTER – signature on the right only */
+        .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #dde2ef; display: flex; justify-content: flex-end; }
+        .footer .sign-block { text-align: center; min-width: 160px; font-size: 9pt; color: #555; }
+        .footer .sign-block .sign-line { border-top: 1px solid #888; width: 160px; margin: 36px auto 6px; }
 
         .page-break { page-break-after: always; }
     </style>
@@ -72,18 +98,18 @@
 <body>
 <div class="page">
 
-    {{-- HEADER --}}
+    {{-- HEADER: logo + company name left / company details right --}}
     <div class="header">
-        <div class="header-logo">
-            @if($company && $company->logo && file_exists(public_path($company->logo)))
-                <img src="{{ public_path($company->logo) }}" alt="Logo">
-            @elseif(file_exists(public_path('logo.png')))
-                <img src="{{ public_path('logo.png') }}" alt="Logo">
+        <div class="header-left">
+            @if($pdfLogoSrc)
+                <img src="{{ $pdfLogoSrc }}" alt="Logo">
+            @endif
+            @if($company && $company->name)
+                <div class="header-company-name">{{ $company->name }}</div>
             @endif
         </div>
-        <div class="header-company">
+        <div class="header-right">
             @if($company)
-                <div class="company-name">{{ $company->name }}</div>
                 @if($company->address)<div>{{ $company->address }}</div>@endif
                 @if($company->postal_code || $company->city)<div>{{ $company->postal_code }} {{ $company->city }}</div>@endif
                 @if($company->nip)<div>NIP: {{ $company->nip }}</div>@endif
@@ -93,18 +119,26 @@
         </div>
     </div>
 
-    {{-- OFFER TITLE BLOCK --}}
+    {{-- OFFER TITLE BLOCK: title+nr left | customer name right --}}
     <div class="offer-title-block">
-        <div class="label">Oferta handlowa</div>
-        <div class="title">{{ $offer->offer_title }}</div>
-        <div class="number">Nr: {{ $offer->offer_number }} &nbsp;|&nbsp; Data: {{ $offer->offer_date ? $offer->offer_date->format('d.m.Y') : '' }}</div>
+        <div class="offer-title-left">
+            <div class="label">Oferta handlowa</div>
+            <div class="title">{{ $offer->offer_title }}</div>
+            <div class="number">Nr: {{ $offer->offer_number }} &nbsp;|&nbsp; Data: {{ $offer->offer_date ? $offer->offer_date->format('d.m.Y') : '' }}</div>
+        </div>
+        @if($offer->customer_name)
+        <div class="offer-title-right">
+            <div class="customer-label">Klient</div>
+            <div class="customer-name">{{ $offer->customer_name }}</div>
+        </div>
+        @endif
     </div>
 
-    {{-- INFO GRID --}}
+    {{-- INFO GRID (customer details + CRM deal) --}}
     <div class="info-grid">
-        @if($offer->customer_name || $offer->customer_nip || $offer->customer_address)
+        @if($offer->customer_nip || $offer->customer_address || $offer->customer_phone || $offer->customer_email)
         <div class="info-box">
-            <div class="box-title">Klient</div>
+            <div class="box-title">Dane klienta</div>
             @if($offer->customer_name)<div class="row"><b>{{ $offer->customer_name }}</b></div>@endif
             @if($offer->customer_nip)<div class="row">NIP: {{ $offer->customer_nip }}</div>@endif
             @if($offer->customer_address)<div class="row">{{ $offer->customer_address }}</div>@endif
@@ -345,11 +379,8 @@
     </div>
     @endif
 
-    {{-- FOOTER --}}
+    {{-- FOOTER – signature and stamp on the right --}}
     <div class="footer">
-        <div style="color:#888; font-size:8pt;">
-            Dokument wygenerowany: {{ now()->format('d.m.Y H:i') }}
-        </div>
         <div class="sign-block">
             <div class="sign-line"></div>
             <div>Podpis i pieczęć</div>
