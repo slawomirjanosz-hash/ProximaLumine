@@ -1668,6 +1668,189 @@ class PartController extends Controller
             ->with('finance_orders_feedback', true);
     }
 
+    public function importProjectOrdersPdf(Request $request, \App\Models\Project $project)
+    {
+        $request->validate([
+            'pdf_file' => 'required|file|mimes:pdf|max:20480',
+        ]);
+
+        if (!class_exists(\Smalot\PdfParser\Parser::class)) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brak biblioteki smalot/pdfparser. Uruchom: composer require smalot/pdfparser')
+                ->with('finance_orders_feedback', true);
+        }
+
+        try {
+            $parser = new \Smalot\PdfParser\Parser();
+            $pdf    = $parser->parseFile($request->file('pdf_file')->getRealPath());
+            $text   = $pdf->getText();
+        } catch (\Throwable $e) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Nie udało się odczytać pliku PDF: ' . $e->getMessage())
+                ->with('finance_orders_feedback', true);
+        }
+
+        // ---- helpers ----
+        $toDate = function (string $raw): ?string {
+            $raw = trim($raw);
+            // dd.mm.yyyy  or  dd-mm-yyyy  or  yyyy-mm-dd
+            if (preg_match('/^(\d{2})[.\-\/](\d{2})[.\-\/](\d{4})$/', $raw, $m)) {
+                return $m[3] . '-' . $m[2] . '-' . $m[1];
+            }
+            if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $raw, $m)) {
+                return $raw;
+            }
+            return null;
+        };
+
+        $cleanAmount = function (string $raw): ?float {
+            $raw = preg_replace('/\s+/', '', $raw);
+            // 1.234,56  →  1234.56
+            if (preg_match('/^\d{1,3}(\.\d{3})*(,\d+)?$/', $raw)) {
+                $raw = str_replace('.', '', $raw);
+                $raw = str_replace(',', '.', $raw);
+            } else {
+                // 1 234,56  or  1234.56  or  1234,56
+                $raw = str_replace(',', '.', $raw);
+            }
+            $val = filter_var($raw, FILTER_VALIDATE_FLOAT);
+            return ($val !== false && $val >= 0) ? $val : null;
+        };
+
+        // ---- extract fields ----
+        $parsed = [];
+
+        // Date (Data zamówienia / Data)
+        if (preg_match('/(?:data\s+zam[oó]wienia|data\s+wystawienia|data\s+[\w]+)\s*[:\.\-]\s*(\d{2}[.\-\/]\d{2}[.\-\/]\d{4}|\d{4}-\d{2}-\d{2})/iu', $text, $m)) {
+            $parsed['date'] = $toDate($m[1]);
+        } elseif (preg_match('/\b(\d{2}[.\-]\d{2}[.\-]\d{4})\b/', $text, $m)) {
+            $parsed['date'] = $toDate($m[1]);
+        }
+
+        // Order number
+        if (preg_match('/(?:nr|numer|nr\.?)\s+zam[oó]wienia\s*[:\.\-]?\s*([A-Z0-9\/\\\\\-_\.]+)/iu', $text, $m)) {
+            $parsed['order_number'] = trim($m[1]);
+        } elseif (preg_match('/(?:zam[oó]wienie|zamow\.?)\s*[:\.\-]?\s*(?:nr\.?\s*)?([A-Z0-9\/\\\\\-_\.]+)/iu', $text, $m)) {
+            $parsed['order_number'] = trim($m[1]);
+        } elseif (preg_match('/\b(ZAM[\/\-\\\\.][A-Z0-9\/\-_\.]+)/iu', $text, $m)) {
+            $parsed['order_number'] = trim($m[1]);
+        }
+
+        // Net amount  (Razem netto / Wartość netto / Kwota netto / NETTO)
+        if (preg_match('/(?:razem\s+netto|warto[sś][cć]\s+netto|kwota\s+netto|suma\s+netto|do\s+zap[łl]aty\s+netto|ogó[łl]em\s+netto|netto)\s*[:\.\-]?\s*([\d\s]+[,\.]\d{2})\s*(?:z[łl]|PLN)?/iu', $text, $m)) {
+            $parsed['amount_net'] = $cleanAmount($m[1]);
+        }
+
+        // Payment deadline
+        if (preg_match('/(?:termin\s+p[łl]atno[sś]ci|termin\s+zap[łl]aty|p[łl]atno[sś][cć]|zap[łl]ata)\s*[:\.\-]?\s*(\d{2}[.\-\/]\d{2}[.\-\/]\d{4}|\d{4}-\d{2}-\d{2})/iu', $text, $m)) {
+            $parsed['payment_date'] = $toDate($m[1]);
+        }
+
+        // Delivery deadline
+        if (preg_match('/(?:termin\s+dostawy|termin\s+realizacji|dostawa|realizacja)\s*[:\.\-]?\s*(\d{2}[.\-\/]\d{2}[.\-\/]\d{4}|\d{4}-\d{2}-\d{2})/iu', $text, $m)) {
+            $parsed['delivery_date'] = $toDate($m[1]);
+        }
+
+        // Items / description — collect lines that look like ordered items
+        // (lines with amount, unit, quantity — typical order table rows)
+        $lines = preg_split('/\r\n|\r|\n/', $text);
+        $itemLines = [];
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+            // Skip header-like and total-like lines
+            if (preg_match('/(?:razem|suma|razem netto|ogó[łl]em|termin|p[łl]atno|data|numer|strona|faktura|zam[oó]wienie|nabywca|dostawca|kupuj[aą]cy|sprzedaj[aą]cy)/iu', $line)) {
+                continue;
+            }
+            // Keep lines that contain a price-like pattern (digits with comma/dot)
+            if (preg_match('/\d[\d\s]*[,\.]\d{2}/', $line)) {
+                $itemLines[] = $line;
+            }
+        }
+        $parsed['items'] = implode("\n", array_slice($itemLines, 0, 30));
+
+        // ---- check table columns ----
+        $hasDocumentNumberColumn = $this->hasColumnSafe('project_finance', 'document_number');
+        $hasDescriptionColumn    = $this->hasColumnSafe('project_finance', 'description');
+        $hasPaymentDateColumn    = $this->hasColumnSafe('project_finance', 'payment_date');
+        $hasOrderColumn          = $this->hasColumnSafe('project_finance', 'order');
+
+        // ---- if all required fields found, store directly ----
+        $orderNumber = $parsed['order_number'] ?? null;
+        $date        = $parsed['date'] ?? null;
+        $amountNet   = $parsed['amount_net'] ?? null;
+        $paymentDate = $parsed['payment_date'] ?? null;
+        $items       = $parsed['items'] ?? '';
+        $deliveryStr = isset($parsed['delivery_date']) ? ' Termin dostawy: ' . $parsed['delivery_date'] : '';
+        $description = trim($items . $deliveryStr);
+
+        if ($orderNumber && $date && $amountNet !== null) {
+            $nextOrder = $hasOrderColumn
+                ? (int) (\App\Models\ProjectFinance::where('project_id', $project->id)->max('order') ?? 0)
+                : 0;
+
+            $createPayload = [
+                'project_id' => $project->id,
+                'type'       => 'expense',
+                'category'   => 'materials',
+                'name'       => mb_substr($orderNumber, 0, 255),
+                'amount'     => $amountNet,
+                'date'       => $date,
+                'status'     => 'ordered',
+            ];
+            if ($hasDocumentNumberColumn) {
+                $createPayload['document_number'] = mb_substr($orderNumber, 0, 255);
+            }
+            if ($hasDescriptionColumn) {
+                $createPayload['description'] = $description !== '' ? mb_substr($description, 0, 2000) : null;
+            }
+            if ($hasPaymentDateColumn && $paymentDate) {
+                $createPayload['payment_date'] = $paymentDate;
+            }
+            if ($hasOrderColumn) {
+                $createPayload['order'] = $nextOrder + 1;
+            }
+
+            \App\Models\ProjectFinance::create($this->filterExistingColumns('project_finance', $createPayload));
+
+            $msg = 'Zaimportowano zamówienie z PDF: ' . $orderNumber . '.';
+            if ($description !== '') {
+                $msg .= ' Opis: ' . mb_substr($description, 0, 120) . (mb_strlen($description) > 120 ? '…' : '');
+            }
+            if (isset($parsed['delivery_date'])) {
+                $msg .= ' Termin dostawy: ' . $parsed['delivery_date'] . '.';
+            }
+
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('success', $msg)
+                ->with('finance_orders_feedback', true);
+        }
+
+        // ---- partial parse — show what was found ----
+        $found = [];
+        if ($date)         { $found[] = 'Data: ' . $date; }
+        if ($orderNumber)  { $found[] = 'Nr zamówienia: ' . $orderNumber; }
+        if ($amountNet !== null) { $found[] = 'Kwota netto: ' . number_format($amountNet, 2, ',', ' ') . ' zł'; }
+        if ($paymentDate)  { $found[] = 'Termin płatności: ' . $paymentDate; }
+        if (isset($parsed['delivery_date'])) { $found[] = 'Termin dostawy: ' . $parsed['delivery_date']; }
+
+        $missing = [];
+        if (!$date)            { $missing[] = 'data'; }
+        if (!$orderNumber)     { $missing[] = 'nr zamówienia'; }
+        if ($amountNet === null) { $missing[] = 'kwota netto'; }
+
+        $msg = 'PDF odczytany, ale nie znaleziono wszystkich wymaganych danych (' . implode(', ', $missing) . '). '
+             . 'Znaleziono: ' . (count($found) ? implode(', ', $found) : 'nic') . '. '
+             . 'Dodaj zamówienie ręcznie korzystając z wyodrębnionych danych.';
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('error', $msg)
+            ->with('finance_orders_feedback', true)
+            ->with('pdf_parsed', $parsed);
+    }
+
     // EKSPORT LISTY PRODUKTOW W PROJEKCIE DO XLSX
     public function exportProjectProductsXlsx(\App\Models\Project $project)
     {

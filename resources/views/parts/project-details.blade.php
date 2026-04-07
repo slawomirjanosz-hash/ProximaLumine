@@ -1163,6 +1163,35 @@
                 </div>
 
                 <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                    <h4 class="font-semibold text-gray-800 mb-1">Import zamówienia z PDF</h4>
+                    <p class="text-xs text-gray-500 mb-3">Wgraj plik PDF zamówienia — system automatycznie wyodrębni datę, numer, pozycje, kwotę netto, termin płatności i dostawy.</p>
+                    @error('pdf_file')
+                        <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">{{ $message }}</div>
+                    @enderror
+                    @if(session('finance_orders_feedback') && session('pdf_parsed'))
+                        @php $pp = session('pdf_parsed'); @endphp
+                        <div class="mb-3 p-3 rounded border border-yellow-200 bg-yellow-50 text-yellow-900 text-xs">
+                            <strong>Dane wyodrębnione z PDF (uzupełnij brakujące ręcznie poniżej):</strong>
+                            <ul class="mt-1 space-y-0.5">
+                                @if(!empty($pp['date']))<li>Data: {{ $pp['date'] }}</li>@endif
+                                @if(!empty($pp['order_number']))<li>Nr zamówienia: {{ $pp['order_number'] }}</li>@endif
+                                @if(isset($pp['amount_net']))<li>Kwota netto: {{ number_format($pp['amount_net'], 2, ',', ' ') }} zł</li>@endif
+                                @if(!empty($pp['payment_date']))<li>Termin płatności: {{ $pp['payment_date'] }}</li>@endif
+                                @if(!empty($pp['delivery_date']))<li>Termin dostawy: {{ $pp['delivery_date'] }}</li>@endif
+                                @if(!empty($pp['items']))<li>Pozycje:<pre class="whitespace-pre-wrap mt-1 text-xs text-gray-700">{{ $pp['items'] }}</pre></li>@endif
+                            </ul>
+                        </div>
+                    @endif
+                    <form action="{{ route('magazyn.projects.orders.importPdf', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row gap-2 md:items-center">
+                        @csrf
+                        <input type="file" name="pdf_file" accept=".pdf" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
+                        <button type="submit" class="px-4 py-2 bg-rose-600 text-white rounded hover:bg-rose-700 text-sm font-semibold">
+                            📄 Importuj z PDF
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
                     <h4 class="font-semibold text-gray-800 mb-3">Dodaj zamówienie</h4>
                     @if(session('success') && session('finance_orders_feedback'))
                         <div class="mb-3 p-3 rounded border border-green-200 bg-green-50 text-green-800 text-sm">
