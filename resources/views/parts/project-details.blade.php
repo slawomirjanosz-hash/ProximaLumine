@@ -2272,6 +2272,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const PROJECT_ID = {{ $project->id }};
     const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
     const isProjectReadonly = ['warranty','archived'].includes('{{ $project->status }}');
+    const projectEndDateStr = @json($project->finished_at ? $project->finished_at->format('Y-m-d') : null);
+    const projectEndDate = projectEndDateStr ? (function() { const p = projectEndDateStr.split('-'); return new Date(+p[0], +p[1]-1, +p[2]); })() : null;
     let frappeGanttInstance = null;
     let frappeTasks = [];
     let editingTaskId = null;
@@ -2547,11 +2549,115 @@ document.addEventListener('DOMContentLoaded', function() {
             frappeGanttInstance = new Gantt("#frappe-gantt", frappeTasks, ganttConfig);
             renderTaskList();
             applyOverdueTaskStyles();
+            drawProjectEndLine();
+            addTaskHoverTooltips();
             console.log('✅ Frappe Gantt zrenderowany!');
         } catch(error) {
             console.error('❌ Błąd Frappe Gantt:', error);
             document.getElementById('frappe-gantt').innerHTML = '<div class="text-red-500 p-4">Błąd: ' + error.message + '</div>';
         }
+    }
+
+    function drawProjectEndLine() {
+        if (!projectEndDate || !frappeGanttInstance) return;
+        const svg = document.querySelector('#frappe-gantt svg');
+        if (!svg) return;
+        const prev = svg.querySelector('.gantt-project-end-group');
+        if (prev) prev.remove();
+
+        const ganttStart = frappeGanttInstance.gantt_start;
+        if (!ganttStart) return;
+        const step = frappeGanttInstance.options.step;
+        const colWidth = frappeGanttInstance.options.column_width;
+        const diffHours = (projectEndDate.getTime() - new Date(ganttStart).getTime()) / 3600000;
+        const x = Math.round((diffHours / step) * colWidth);
+        if (x < 0) return;
+
+        const svgHeight = parseInt(svg.getAttribute('height') || svg.getBoundingClientRect().height || 400);
+
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.classList.add('gantt-project-end-group');
+        g.style.pointerEvents = 'none';
+
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x); line.setAttribute('y1', 0);
+        line.setAttribute('x2', x); line.setAttribute('y2', svgHeight);
+        line.setAttribute('stroke', '#dc2626');
+        line.setAttribute('stroke-width', '1.5');
+        line.setAttribute('stroke-dasharray', '6,4');
+        line.setAttribute('opacity', '0.75');
+        g.appendChild(line);
+
+        const d = projectEndDate;
+        const label = d.getDate().toString().padStart(2,'0') + '.' + (d.getMonth()+1).toString().padStart(2,'0') + '.' + d.getFullYear();
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', x - 36); rect.setAttribute('y', 2);
+        rect.setAttribute('width', 72); rect.setAttribute('height', 16);
+        rect.setAttribute('rx', 3); rect.setAttribute('fill', '#dc2626');
+        rect.setAttribute('opacity', '0.85');
+        g.appendChild(rect);
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', x); text.setAttribute('y', 14);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('fill', '#ffffff');
+        text.setAttribute('font-size', '9');
+        text.setAttribute('font-family', 'sans-serif');
+        text.textContent = label;
+        g.appendChild(text);
+
+        svg.appendChild(g);
+    }
+
+    function addTaskHoverTooltips() {
+        let tooltip = document.getElementById('gantt-task-tooltip');
+        if (!tooltip) {
+            tooltip = document.createElement('div');
+            tooltip.id = 'gantt-task-tooltip';
+            tooltip.style.cssText = 'position:fixed;z-index:10000;background:#1e293b;color:#f1f5f9;border-radius:7px;padding:10px 14px;font-size:12px;line-height:1.7;pointer-events:none;display:none;box-shadow:0 6px 18px rgba(0,0,0,0.35);min-width:180px;';
+            document.body.appendChild(tooltip);
+        }
+        let tooltipTimer = null;
+
+        document.querySelectorAll('#frappe-gantt .bar-wrapper').forEach(wrapper => {
+            // clone to remove old listeners
+            const fresh = wrapper.cloneNode(true);
+            wrapper.parentNode.replaceChild(fresh, wrapper);
+
+            fresh.addEventListener('mouseenter', function(e) {
+                const taskId = this.getAttribute('data-id');
+                const task = frappeTasks.find(t => String(t.id) === String(taskId))
+                           || frappeTasks[Array.from(document.querySelectorAll('#frappe-gantt .bar-wrapper')).indexOf(this)];
+                if (!task) return;
+                tooltipTimer = setTimeout(() => {
+                    const start = task._start instanceof Date ? task._start : parseDate(task.start);
+                    const end   = task._end   instanceof Date ? task._end   : parseDate(task.end);
+                    const progress = Math.round(Number(task.progress || 0));
+                    const fmtStart = start.toLocaleDateString('pl-PL');
+                    const fmtEnd   = end.toLocaleDateString('pl-PL');
+                    tooltip.innerHTML =
+                        '<div style="font-weight:700;margin-bottom:5px;font-size:13px;">' + task.name + '</div>' +
+                        '<div>▶ Rozpoczęcie: <strong>' + fmtStart + '</strong></div>' +
+                        '<div>◼ Zakończenie: <strong>' + fmtEnd + '</strong></div>' +
+                        '<div style="margin-top:4px;">✅ Wykonanie: <strong style="color:#4ade80;">' + progress + '%</strong></div>';
+                    tooltip.style.display = 'block';
+                    const box = this.getBoundingClientRect();
+                    const ttW = tooltip.offsetWidth;
+                    const ttH = tooltip.offsetHeight;
+                    let left = box.left + box.width / 2 - ttW / 2;
+                    let top  = box.top - ttH - 8;
+                    if (left < 4) left = 4;
+                    if (left + ttW > window.innerWidth - 4) left = window.innerWidth - ttW - 4;
+                    if (top < 4) top = box.bottom + 8;
+                    tooltip.style.left = left + 'px';
+                    tooltip.style.top  = top  + 'px';
+                }, 1000);
+            });
+            fresh.addEventListener('mouseleave', function() {
+                clearTimeout(tooltipTimer);
+                tooltip.style.display = 'none';
+            });
+        });
     }
 
     function isTaskOverdue(task) {
