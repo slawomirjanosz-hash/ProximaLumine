@@ -41,6 +41,7 @@ class GanttTaskController extends Controller
                 'progress' => 'integer',
                 'dependencies' => 'nullable|string',
                 'order' => 'integer',
+                'description' => 'nullable|string',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Log::error('❌ Gantt: Błąd walidacji przy tworzeniu zadania', [
@@ -91,6 +92,7 @@ class GanttTaskController extends Controller
                 'progress' => 'integer',
                 'dependencies' => 'nullable|string',
                 'order' => 'integer',
+                'description' => 'nullable|string',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Log::error('❌ Gantt: Błąd walidacji przy aktualizacji zadania', [

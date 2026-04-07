@@ -2132,6 +2132,10 @@
                 </select>
                 <p class="text-xs text-gray-500 mt-1">Wybierz zadanie, po którym to zadanie może się rozpocząć</p>
             </div>
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Opis (opcjonalny)</label>
+                <textarea id="task-description-input" class="w-full border rounded px-3 py-2 text-sm" rows="3" placeholder="Opis zadania, notatki..."></textarea>
+            </div>
             <div class="flex gap-2 justify-end">
                 <button type="button" id="modal-cancel" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
                     Anuluj
@@ -2197,6 +2201,13 @@
     #frappe-gantt .bar-wrapper.overdue-task .bar-label {
         fill: #7f1d1d !important;
         font-weight: 700;
+    }
+
+    /* Gdy etykieta nie mieści się w okienku, Frappe Gantt dodaje klasę .big —
+       wyświetl ją po prawej stronie czarną czcionką */
+    #frappe-gantt .bar-label.big {
+        fill: #111111 !important;
+        font-weight: 600;
     }
 
     .finance-fixed-row {
@@ -2375,6 +2386,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const duration = Math.ceil((task.end - task.start) / (1000 * 60 * 60 * 24)) + 1;
                 document.getElementById('task-duration-input').value = duration;
                 document.getElementById('task-progress-input').value = task.progress || 0;
+                document.getElementById('task-description-input').value = task.description || '';
                 deleteBtn.style.display = 'inline-block';
             }
         } else {
@@ -2385,6 +2397,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('task-end-input').value = formatDateForInput(today);
             document.getElementById('task-duration-input').value = 1;
             document.getElementById('task-progress-input').value = 0;
+            document.getElementById('task-description-input').value = '';
             deleteBtn.style.display = 'none';
         }
         updateDependencySelect();
@@ -2644,7 +2657,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         '<div style="font-weight:700;margin-bottom:5px;font-size:13px;">' + task.name + '</div>' +
                         '<div>▶ Rozpoczęcie: <strong>' + fmtStart + '</strong></div>' +
                         '<div>◼ Zakończenie: <strong>' + fmtEnd + '</strong></div>' +
-                        '<div style="margin-top:4px;">✅ Wykonanie: <strong style="color:#4ade80;">' + progress + '%</strong></div>';
+                        '<div style="margin-top:4px;">✅ Wykonanie: <strong style="color:#4ade80;">' + progress + '%</strong></div>' +
+                        (task.description ? '<div style="margin-top:6px;border-top:1px solid #334155;padding-top:5px;color:#cbd5e1;font-size:11px;">' + task.description.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>' : '');
                     tooltip.style.display = 'block';
                     const box = this.getBoundingClientRect();
                     const ttW = tooltip.offsetWidth;
@@ -2694,6 +2708,7 @@ document.addEventListener('DOMContentLoaded', function() {
         html += '<div class="overflow-x-auto"><table class="w-full text-sm border border-gray-200">';
         html += '<thead class="bg-gray-50"><tr>';
         html += '<th class="px-3 py-2 text-left border-b">Zadanie</th>';
+        html += '<th class="px-3 py-2 text-left border-b">Opis</th>';
         html += '<th class="px-3 py-2 text-left border-b">Termin</th>';
         html += '<th class="px-3 py-2 text-left border-b">Wykonanie</th>';
         html += '<th class="px-3 py-2 text-left border-b">Status</th>';
@@ -2711,6 +2726,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             html += `<tr class="${rowClass} border-b border-gray-100">
                 <td class="px-3 py-2 font-semibold">${task.name}</td>
+                <td class="px-3 py-2 text-xs text-gray-500 max-w-[200px]">${task.description ? '<span title="' + task.description.replace(/"/g, '&quot;') + '">' + (task.description.length > 60 ? task.description.substring(0, 60) + '…' : task.description) + '</span>' : '<span class="text-gray-300">—</span>'}</td>
                 <td class="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">${formatDateForInput(end)}</td>
                 <td class="px-3 py-2">
                     <div class="flex items-center gap-2 min-w-[180px]">
@@ -2871,7 +2887,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     start: parseDate(t.start),
                     end: parseDate(t.end),
                     progress: t.progress || 0,
-                    dependencies: t.dependencies || ''
+                    dependencies: t.dependencies || '',
+                    description: t.description || ''
                 }));
             
             console.log('✅ Załadowano ' + frappeTasks.length + ' zadań z bazy (z ' + tasksArray.length + ' otrzymanych)');
@@ -2971,6 +2988,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 end: task.end instanceof Date ? task.end.toISOString().split('T')[0] : task.end,
                 progress: task.progress || 0,
                 dependencies: task.dependencies || '',
+                description: task.description || '',
                 order: frappeTasks.length
             })
         })
@@ -3109,6 +3127,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const end = parseDate(document.getElementById('task-end-input').value);
         const progress = parseInt(document.getElementById('task-progress-input').value) || 0;
         const dependency = document.getElementById('task-dependency-input').value;
+        const description = document.getElementById('task-description-input').value.trim();
         
         if (editingTaskId) {
             const taskIndex = frappeTasks.findIndex(t => t.id == editingTaskId);
@@ -3124,6 +3143,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 frappeTasks[taskIndex].end = end;
                 frappeTasks[taskIndex].progress = progress;
                 frappeTasks[taskIndex].dependencies = dependency;
+                frappeTasks[taskIndex].description = description;
                 
                 // Przesuń wszystkie zadania zależne od tego zadania
                 if (startDiff !== 0 || endDiff !== 0) {
@@ -3151,7 +3171,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     start: start.toISOString().split('T')[0],
                     end: end.toISOString().split('T')[0],
                     progress: progress,
-                    dependencies: dependency
+                    dependencies: dependency,
+                    description: description
                 }).then(() => {
                     renderGantt();
                     hideTaskModal();
@@ -3163,7 +3184,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 start: start,
                 end: end,
                 progress: progress,
-                dependencies: dependency
+                dependencies: dependency,
+                description: description
             };
             createTaskInDB(newTask).then(data => {
                 frappeTasks.push({
@@ -3172,7 +3194,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     start: parseDate(data.start),
                     end: parseDate(data.end),
                     progress: data.progress,
-                    dependencies: data.dependencies || ''
+                    dependencies: data.dependencies || '',
+                    description: data.description || ''
                 });
                 renderGantt();
                 hideTaskModal();

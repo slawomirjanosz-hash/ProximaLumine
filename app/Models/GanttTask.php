@@ -9,7 +9,7 @@ class GanttTask extends Model
 {
     use HasFactory;
     protected $fillable = [
-        'project_id', 'name', 'start', 'end', 'progress', 'dependencies', 'order'
+        'project_id', 'name', 'start', 'end', 'progress', 'dependencies', 'order', 'description'
     ];
     protected $casts = [
         'start' => 'date',
