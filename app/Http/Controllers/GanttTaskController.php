@@ -42,6 +42,7 @@ class GanttTaskController extends Controller
                 'dependencies' => 'nullable|string',
                 'order' => 'integer',
                 'description' => 'nullable|string',
+                'assignee' => 'nullable|string|max:255',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Log::error('❌ Gantt: Błąd walidacji przy tworzeniu zadania', [
@@ -93,6 +94,8 @@ class GanttTaskController extends Controller
                 'dependencies' => 'nullable|string',
                 'order' => 'integer',
                 'description' => 'nullable|string',
+                'assignee' => 'nullable|string|max:255',
+                'completed_at' => 'nullable|date',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Log::error('❌ Gantt: Błąd walidacji przy aktualizacji zadania', [
@@ -109,8 +112,8 @@ class GanttTaskController extends Controller
             }
         }
         
-        // Auto-set/clear completed_at based on progress
-        if (isset($data['progress'])) {
+        // Auto-set/clear completed_at based on progress (unless admin explicitly passes completed_at)
+        if (isset($data['progress']) && !array_key_exists('completed_at', $data)) {
             if ((int)$data['progress'] >= 100 && $task->completed_at === null) {
                 $data['completed_at'] = now()->toDateString();
             } elseif ((int)$data['progress'] < 100) {

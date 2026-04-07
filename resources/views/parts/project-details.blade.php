@@ -2136,6 +2136,17 @@
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Opis (opcjonalny)</label>
                 <textarea id="task-description-input" class="w-full border rounded px-3 py-2 text-sm" rows="3" placeholder="Opis zadania, notatki..."></textarea>
             </div>
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Osoba odpowiedzialna</label>
+                <input type="text" id="task-assignee-input" class="w-full border rounded px-3 py-2 text-sm" placeholder="Imię i nazwisko lub inicjały">
+            </div>
+            @if(auth()->user() && auth()->user()->is_admin)
+            <div class="mb-4 hidden" id="completed-at-row">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Data wykonania <span class="text-xs text-gray-400">(admin)</span></label>
+                <input type="date" id="task-completed-at-input" class="w-full border rounded px-3 py-2 text-sm">
+                <p class="text-xs text-gray-500 mt-1">Zmiana daty zaktualizuje liczbę dni przed/po terminie.</p>
+            </div>
+            @endif
             <div class="flex gap-2 justify-end">
                 <button type="button" id="modal-cancel" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
                     Anuluj
@@ -2295,6 +2306,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const PROJECT_ID = {{ $project->id }};
     const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
     const isProjectReadonly = ['warranty','archived'].includes('{{ $project->status }}');
+    const IS_ADMIN = {{ auth()->user() && auth()->user()->is_admin ? 'true' : 'false' }};
     const projectEndDateStr = @json($project->finished_at ? $project->finished_at->format('Y-m-d') : null);
     const projectEndDate = projectEndDateStr ? (function() { const p = projectEndDateStr.split('-'); return new Date(+p[0], +p[1]-1, +p[2]); })() : null;
     let frappeGanttInstance = null;
@@ -2394,6 +2406,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('task-duration-input').value = duration;
                 document.getElementById('task-progress-input').value = task.progress || 0;
                 document.getElementById('task-description-input').value = task.description || '';
+                document.getElementById('task-assignee-input').value = task.assignee || '';
+                // Admin: date-of-completion + completed_at row visibility
+                const completedAtRow = document.getElementById('completed-at-row');
+                const progressInput = document.getElementById('task-progress-input');
+                if (Number(task.progress || 0) >= 100) {
+                    if (completedAtRow) {
+                        completedAtRow.classList.remove('hidden');
+                        const cInput = document.getElementById('task-completed-at-input');
+                        if (cInput) cInput.value = task.completed_at ? String(task.completed_at).substring(0, 10) : '';
+                    }
+                    // Lock progress for non-admin; admin can still change it
+                    if (!IS_ADMIN) {
+                        progressInput.setAttribute('readonly', 'readonly');
+                        progressInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+                    } else {
+                        progressInput.removeAttribute('readonly');
+                        progressInput.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                    }
+                } else {
+                    if (completedAtRow) completedAtRow.classList.add('hidden');
+                    progressInput.removeAttribute('readonly');
+                    progressInput.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                }
                 deleteBtn.style.display = 'inline-block';
             }
         } else {
@@ -2405,6 +2440,12 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('task-duration-input').value = 1;
             document.getElementById('task-progress-input').value = 0;
             document.getElementById('task-description-input').value = '';
+            document.getElementById('task-assignee-input').value = '';
+            const completedAtRow = document.getElementById('completed-at-row');
+            if (completedAtRow) completedAtRow.classList.add('hidden');
+            const progressInput = document.getElementById('task-progress-input');
+            progressInput.removeAttribute('readonly');
+            progressInput.classList.remove('bg-gray-100', 'cursor-not-allowed');
             deleteBtn.style.display = 'none';
         }
         updateDependencySelect();
@@ -2759,6 +2800,7 @@ document.addEventListener('DOMContentLoaded', function() {
         html += '<div class="overflow-x-auto"><table class="w-full text-sm border border-gray-200">';
         html += '<thead class="bg-gray-50"><tr>';
         html += '<th class="px-3 py-2 text-left border-b">Zadanie</th>';
+        html += '<th class="px-3 py-2 text-left border-b">Osoba</th>';
         html += '<th class="px-3 py-2 text-left border-b">Opis</th>';
         html += '<th class="px-3 py-2 text-left border-b">Termin</th>';
         html += '<th class="px-3 py-2 text-left border-b">Wykonanie</th>';
@@ -2789,8 +2831,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 daysCell = `<span class="text-blue-700 font-semibold text-xs" title="${daysInfo.days} dni do terminu">${daysInfo.label}</span>`;
             }
 
+            const isDone = daysInfo.status === 'done';
+            const sliderDisabled = isProjectReadonly || (isDone && !IS_ADMIN);
+
             html += `<tr class="${rowClass} border-b border-gray-100">
                 <td class="px-3 py-2 font-semibold">${task.name}</td>
+                <td class="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">${task.assignee ? '<span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">' + task.assignee + '</span>' : '<span class="text-gray-300">—</span>'}</td>
                 <td class="px-3 py-2 text-xs text-gray-500 max-w-[200px]">${task.description ? '<span title="' + task.description.replace(/"/g, '&quot;') + '">' + (task.description.length > 60 ? task.description.substring(0, 60) + '…' : task.description) + '</span>' : '<span class="text-gray-300">—</span>'}</td>
                 <td class="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">${formatDateForInput(end)}</td>
                 <td class="px-3 py-2">
@@ -2801,8 +2847,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             max="100"
                             value="${progressValue}"
                             data-idx="${idx}"
-                            class="task-progress-slider w-full h-2 rounded-lg appearance-none cursor-pointer"
-                            ${isProjectReadonly ? 'disabled' : ''}
+                            class="task-progress-slider w-full h-2 rounded-lg appearance-none ${sliderDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}"
+                            ${sliderDisabled ? 'disabled' : ''}
                         >
                         <span class="task-progress-label text-xs font-bold ${overdue ? 'text-red-700' : 'text-gray-800'} whitespace-nowrap">${progressValue}%</span>
                     </div>
@@ -2810,8 +2856,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td class="px-3 py-2">${statusBadge}</td>
                 <td class="px-3 py-2 text-center">${daysCell}</td>
                 <td class="px-3 py-2">
-                    <div class="flex gap-1 justify-end">
+                    <div class="flex gap-1 justify-end flex-wrap">
                         <button class="edit-task-row px-2 py-1 bg-blue-600 text-white rounded text-xs ${isProjectReadonly ? 'opacity-50 cursor-not-allowed' : ''}" data-id="${task.id}" ${isProjectReadonly ? 'disabled' : ''}>✏️</button>
+                        ${IS_ADMIN && isDone ? '<button class="unmark-done-btn px-2 py-1 bg-amber-500 text-white rounded text-xs" data-idx="' + idx + '" title="Przywróć jako niewykonane">↩</button>' : ''}
                         <button class="move-task-up px-2 py-1 bg-gray-200 rounded text-xs" data-idx="${idx}">⬆️</button>
                         <button class="move-task-down px-2 py-1 bg-gray-200 rounded text-xs" data-idx="${idx}">⬇️</button>
                     </div>
@@ -2869,6 +2916,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (taskId) {
                     showTaskModal(taskId.toString());
                 }
+            });
+        });
+
+        // Admin: "Przywróć jako niewykonane" button
+        container.querySelectorAll('.unmark-done-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const idx = parseInt(this.dataset.idx);
+                const task = frappeTasks[idx];
+                if (!task) return;
+                if (!confirm('Przywrócić zadanie "' + task.name + '" jako niewykonane (postęp 0%)?')) return;
+                task.progress = 0;
+                task.completed_at = null;
+                updateTaskInDB(task.id, { progress: 0 }).then(() => { renderGantt(); });
             });
         });
 
@@ -2962,7 +3022,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     progress: t.progress || 0,
                     dependencies: t.dependencies || '',
                     description: t.description || '',
-                    completed_at: t.completed_at || null
+                    completed_at: t.completed_at || null,
+                    assignee: t.assignee || ''
                 }));
             
             console.log('✅ Załadowano ' + frappeTasks.length + ' zadań z bazy (z ' + tasksArray.length + ' otrzymanych)');
@@ -3063,6 +3124,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 progress: task.progress || 0,
                 dependencies: task.dependencies || '',
                 description: task.description || '',
+                assignee: task.assignee || '',
                 order: frappeTasks.length
             })
         })
@@ -3202,6 +3264,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const progress = parseInt(document.getElementById('task-progress-input').value) || 0;
         const dependency = document.getElementById('task-dependency-input').value;
         const description = document.getElementById('task-description-input').value.trim();
+        const assignee = document.getElementById('task-assignee-input').value.trim();
+        const completedAtInput = document.getElementById('task-completed-at-input');
+        const completedAtRaw = completedAtInput ? completedAtInput.value : null;
         
         if (editingTaskId) {
             const taskIndex = frappeTasks.findIndex(t => t.id == editingTaskId);
@@ -3218,6 +3283,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 frappeTasks[taskIndex].progress = progress;
                 frappeTasks[taskIndex].dependencies = dependency;
                 frappeTasks[taskIndex].description = description;
+                frappeTasks[taskIndex].assignee = assignee;
+                // Handle completed_at: admin can override; non-admin: auto
+                if (IS_ADMIN && completedAtRaw) {
+                    frappeTasks[taskIndex].completed_at = completedAtRaw;
+                } else if (progress < 100) {
+                    frappeTasks[taskIndex].completed_at = null;
+                }
                 
                 // Przesuń wszystkie zadania zależne od tego zadania
                 if (startDiff !== 0 || endDiff !== 0) {
@@ -3246,8 +3318,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     end: end.toISOString().split('T')[0],
                     progress: progress,
                     dependencies: dependency,
-                    description: description
-                }).then(() => {
+                    description: description,
+                    assignee: assignee,
+                    ...(IS_ADMIN && completedAtRaw ? { completed_at: completedAtRaw } : {})
+                }).then(updatedTask => {
+                    if (updatedTask && updatedTask.completed_at !== undefined) {
+                        frappeTasks[taskIndex].completed_at = updatedTask.completed_at;
+                    }
                     renderGantt();
                     hideTaskModal();
                 });
@@ -3259,7 +3336,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 end: end,
                 progress: progress,
                 dependencies: dependency,
-                description: description
+                description: description,
+                assignee: assignee
             };
             createTaskInDB(newTask).then(data => {
                 frappeTasks.push({
@@ -3270,7 +3348,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     progress: data.progress,
                     dependencies: data.dependencies || '',
                     description: data.description || '',
-                    completed_at: data.completed_at || null
+                    completed_at: data.completed_at || null,
+                    assignee: data.assignee || ''
                 });
                 renderGantt();
                 hideTaskModal();
