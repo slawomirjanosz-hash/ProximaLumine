@@ -3493,9 +3493,10 @@ class PartController extends Controller
                 'minimum_stock' => 'nullable|integer|min:0',
                 'location'    => 'nullable|string|max:10',
                 'category_id' => 'required|exists:categories,id',
-                'net_price'   => 'nullable|numeric|min:0',
-                'currency'    => 'nullable|in:PLN,EUR,$',
-                'qr_code'     => 'nullable|string',
+                'net_price'      => 'nullable|numeric|min:0',
+                'catalog_price'  => 'nullable|numeric|min:0',
+                'currency'       => 'nullable|in:PLN,EUR,$',
+                'qr_code'        => 'nullable|string',
                 'last_modified_by' => 'nullable|exists:users,id',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -3554,6 +3555,9 @@ class PartController extends Controller
             }
             if (array_key_exists('net_price', $data)) {
                 $part->net_price = $data['net_price'];
+            }
+            if (array_key_exists('catalog_price', $data)) {
+                $part->catalog_price = $data['catalog_price'];
             }
             if (array_key_exists('currency', $data)) {
                 $part->currency = $data['currency'];

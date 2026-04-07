@@ -679,7 +679,7 @@ Route::get('/api/parts/catalog', function (Illuminate\Http\Request $request) {
     try {
         $parts = \App\Models\Part::with('category')
             ->orderBy('name')
-            ->get(['id', 'name', 'description', 'net_price', 'supplier', 'quantity', 'category_id']);
+            ->get(['id', 'name', 'description', 'net_price', 'catalog_price', 'supplier', 'quantity', 'category_id']);
         
         if (app()->environment('production')) {
             \Log::info('API parts/catalog - Success', [
@@ -695,6 +695,7 @@ Route::get('/api/parts/catalog', function (Illuminate\Http\Request $request) {
                 'name' => $part->name,
                 'description' => $part->description,
                 'net_price' => $part->net_price,
+                'catalog_price' => $part->catalog_price,
                 'supplier' => $part->supplier,
                 'quantity' => $part->quantity,
                 'category_id' => $part->category_id,

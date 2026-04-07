@@ -573,6 +573,7 @@
                                 <th class="p-2 text-left">Dostawca</th>
                                 <th class="p-2 text-left">Ilość</th>
                                 <th class="p-2 text-left">Cena</th>
+                                <th class="p-2 text-left">Cena kat.</th>
                             </tr>
                         </thead>
                         <tbody id="catalog-parts-list">
@@ -1446,7 +1447,7 @@
                 
                 // Wyświetl komunikat o błędzie w tabeli
                 const tbody = document.getElementById('catalog-parts-list');
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-600">
+                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-red-600">
                     Nie udało się załadować katalogu: ${error.message}<br>
                     <small>Sprawdz konsolę przeglądarki (F12) aby zobaczyć szczegóły.</small>
                 </td></tr>`;
@@ -1459,7 +1460,7 @@
             const tbody = document.getElementById('catalog-parts-list');
             
             if (filteredParts.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Nie znaleziono części</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500">Nie znaleziono części</td></tr>';
                 return;
             }
             
@@ -1472,6 +1473,7 @@
                             data-name="${escapeHtml(part.name)}"
                             data-supplier="${escapeHtml(part.supplier || '')}"
                             data-price="${part.net_price || 0}"
+                            data-catalog-price="${part.catalog_price != null ? part.catalog_price : (part.net_price || 0)}"
                             onchange="updateSelectedCount()">
                     </td>
                     <td class="p-2 font-medium">${escapeHtml(part.name)}</td>
@@ -1479,6 +1481,7 @@
                     <td class="p-2">${escapeHtml(part.supplier || '-')}</td>
                     <td class="p-2">${part.quantity || 0}</td>
                     <td class="p-2 font-medium">${parseFloat(part.net_price || 0).toFixed(2)} zł</td>
+                    <td class="p-2 text-gray-500">${parseFloat(part.catalog_price != null ? part.catalog_price : (part.net_price || 0)).toFixed(2)} zł</td>
                 </tr>
             `).join('');
         }
@@ -1540,6 +1543,7 @@
                 const name = checkbox.dataset.name;
                 const supplier = checkbox.dataset.supplier;
                 const price = checkbox.dataset.price;
+                const catalogPrice = checkbox.dataset.catalogPrice != null ? checkbox.dataset.catalogPrice : price;
                 
                 // Pobierz tabelę dla odpowiedniej sekcji
                 const table = document.getElementById(`${section}-table`);
@@ -1562,6 +1566,7 @@
                     <td class="p-1"><input type="number" min="1" value="1" name="${fieldPrefix}[quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                     <td class="p-1"><input type="text" name="${fieldPrefix}[supplier]" value="${supplier}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                     <td class="p-1"><input type="number" step="0.01" name="${fieldPrefix}[price]" value="${price}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
+                    <td class="p-1"><input type="number" step="0.01" name="${fieldPrefix}[catalog_price]" value="${catalogPrice}" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                     <td class="p-1"><input type="number" step="0.01" name="${fieldPrefix}[value]" value="${price}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
                     <td class="p-1"><button type="button" onclick="removeRow(this, '${section}')" class="text-red-600 hover:text-red-800">✕</button></td>
                 `;

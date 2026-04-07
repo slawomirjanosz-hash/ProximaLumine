@@ -108,6 +108,18 @@
                             class="border p-2 rounded w-full"
                         >
                     </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-semibold mb-1">Cena katalogowa</label>
+                        <input
+                            id="part-catalog-price"
+                            name="catalog_price"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Cena katalogowa"
+                            class="border p-2 rounded w-full"
+                        >
+                    </div>
                     <div style="width: 100px;">
                         <label class="block text-sm font-semibold mb-1">Waluta</label>
                         <select
@@ -1599,6 +1611,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const minStockInput = document.querySelector('input[name="minimum_stock"]');
         const locationInput = document.querySelector('input[name="location"]');
         const priceInput = document.getElementById('part-net-price');
+        const catalogPriceInput = document.getElementById('part-catalog-price');
         const currencySelect = document.getElementById('part-currency');
         const supplierSelect = document.getElementById('part-supplier');
         const categorySelect = document.querySelector('select[name="category_id"]');
@@ -1609,6 +1622,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (minStockInput) minStockInput.value = part.minimum_stock || 0;
         if (locationInput) locationInput.value = part.location || '';
         if (priceInput && part.net_price) priceInput.value = part.net_price;
+        if (catalogPriceInput) {
+            if (part.catalog_price) {
+                catalogPriceInput.value = part.catalog_price;
+            } else if (part.net_price) {
+                catalogPriceInput.value = part.net_price;
+            }
+        }
         if (currencySelect && part.currency) currencySelect.value = part.currency;
         if (supplierSelect && part.supplier) supplierSelect.value = part.supplier;
         if (categorySelect && part.category_id) categorySelect.value = part.category_id;
@@ -1616,6 +1636,25 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Formularz wypełniony!');
     }
 });
+
+// Sync catalog_price with net_price when catalog_price is empty
+(function() {
+    const netPriceInput     = document.getElementById('part-net-price');
+    const catalogPriceInput = document.getElementById('part-catalog-price');
+    if (!netPriceInput || !catalogPriceInput) return;
+
+    netPriceInput.addEventListener('input', function () {
+        // Only sync if catalog price hasn't been manually set
+        if (catalogPriceInput.dataset.manuallySet !== '1') {
+            catalogPriceInput.value = this.value;
+        }
+    });
+
+    // Mark catalog price as manually set when user edits it
+    catalogPriceInput.addEventListener('input', function () {
+        this.dataset.manuallySet = this.value !== '' ? '1' : '0';
+    });
+})();
 </script>
 
 {{-- MODAL DO SKANOWANIA KODÓW QR --}}

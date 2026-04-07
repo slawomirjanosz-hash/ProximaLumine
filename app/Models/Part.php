@@ -18,6 +18,7 @@ class Part extends Model
         'minimum_stock',
         'location',
         'net_price',
+        'catalog_price',
         'currency',
         'supplier',
         'last_modified_by',

@@ -733,6 +733,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                                 <th class="p-2 text-left w-[17%]">Dostawca</th>
                                 <th class="p-2 text-left w-20">Ilość</th>
                                 <th class="p-2 text-left w-24">Cena netto</th>
+                                <th class="p-2 text-left w-24">Cena kat.</th>
                             </tr>
                         </thead>
                         <tbody id="catalog-parts-list"></tbody>
@@ -951,7 +952,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 
                 // Wyświetl komunikat o błędzie w tabeli
                 const tbody = document.getElementById('catalog-parts-list');
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-600">
+                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-red-600">
                     Nie udało się załadować katalogu: ${error.message}<br>
                     <small>Sprawdz konsolę przeglądarki (F12) aby zobaczyć szczegóły.</small>
                 </td></tr>`;
@@ -964,7 +965,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             const tbody = document.getElementById('catalog-parts-list');
             
             if (filteredParts.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Nie znaleziono części</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500">Nie znaleziono części</td></tr>';
                 return;
             }
             
@@ -978,6 +979,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                             data-description="${escapeHtml(part.description || '')}"
                             data-supplier="${escapeHtml(part.supplier || '')}"
                             data-price="${part.net_price || 0}"
+                            data-catalog-price="${part.catalog_price != null ? part.catalog_price : (part.net_price || 0)}"
                             onchange="updateSelectedCount()">
                     </td>
                     <td class="p-2 font-medium"><div class="break-words" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${escapeHtml(part.name)}</div></td>
@@ -985,6 +987,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                     <td class="p-2"><div class="break-words" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${escapeHtml(part.supplier || '-')}</div></td>
                     <td class="p-2">${part.quantity || 0}</td>
                     <td class="p-2 font-medium">${parseFloat(part.net_price || 0).toFixed(2)} zł</td>
+                    <td class="p-2 text-gray-500">${parseFloat(part.catalog_price != null ? part.catalog_price : (part.net_price || 0)).toFixed(2)} zł</td>
                 </tr>
             `).join('');
         }
@@ -1047,6 +1050,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 const description = checkbox.dataset.description || '';
                 const supplier = checkbox.dataset.supplier;
                 const price = checkbox.dataset.price;
+                const catalogPrice = checkbox.dataset.catalogPrice != null ? checkbox.dataset.catalogPrice : price;
                 const safeName = escapeHtml(name || '');
                 const safeDescription = escapeHtml(description || '');
                 const safeSupplier = escapeHtml(supplier || '');
@@ -1078,6 +1082,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                     <td class="p-1"><input type="number" min="1" value="1" name="${fieldPrefix}[quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                     <td class="p-1"><select name="${fieldPrefix}[supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                     <td class="p-1"><input type="number" step="0.01" name="${fieldPrefix}[price]" value="${price}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
+                    <td class="p-1"><input type="number" step="0.01" name="${fieldPrefix}[catalog_price]" value="${catalogPrice}" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                     <td class="p-1"><input type="text" name="${fieldPrefix}[value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
                     <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Wyżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Niżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="removeRow(this, '${section}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                 `;
