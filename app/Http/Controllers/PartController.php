@@ -7240,7 +7240,7 @@ class PartController extends Controller
 
         // --- SUMA KOŃCOWA (styl jak w PDF – prawa strona) ---
         $section->addTextBreak(1);
-        $grandTable = $section->addTable(['alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::RIGHT]);
+        $grandTable = $section->addTable(['alignment' => 'right']);
         if (($offer->profit_amount ?? 0) > 0) {
             $grandTable->addRow();
             $grandTable->addCell(3200, ['bgColor' => 'F8F9FF', 'borderSize' => 4, 'borderColor' => 'DDE2EF'])

@@ -160,7 +160,7 @@
     @if($offer->offer_description)
     <div class="description-block">
         <div class="desc-title">Opis oferty</div>
-        {{ $offer->offer_description }}
+        {!! $offer->offer_description !!}
     </div>
     @endif
 
