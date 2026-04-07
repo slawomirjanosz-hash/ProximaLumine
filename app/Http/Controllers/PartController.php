@@ -3961,6 +3961,7 @@ class PartController extends Controller
             'location' => 'nullable|string|max:10',
             'qr_code' => 'nullable|string|max:255',
             'net_price' => 'nullable|numeric|min:0',
+            'catalog_price' => 'nullable|numeric|min:0',
             'currency' => 'required|in:PLN,EUR,$',
             'supplier' => 'nullable|string|max:255',
         ]);
@@ -3975,6 +3976,7 @@ class PartController extends Controller
             'location' => $request->location,
             'qr_code' => $request->qr_code,
             'net_price' => $request->net_price,
+            'catalog_price' => $request->catalog_price,
             'currency' => $request->currency,
             'supplier' => $request->supplier,
             'last_modified_by' => auth()->id(),

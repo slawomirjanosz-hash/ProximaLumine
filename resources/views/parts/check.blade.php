@@ -184,6 +184,11 @@
                     Produkty <span class="sort-icon">▲</span>
                 </th>
                 @endif
+                @if($catalogSettings->show_description ?? true)
+                <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="description" style="max-width:14rem;">
+                    Opis <span class="sort-icon">▲</span>
+                </th>
+                @endif
                 @if($catalogSettings->show_supplier)
                 <th class="border p-1 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="supplier" style="width: 5.5rem;">
                     Dost. <span class="sort-icon">▲</span>
@@ -266,6 +271,13 @@
                     {{-- CZĘŚĆ --}}
                     <td class="border p-1 text-xs max-w-[10rem] truncate" title="{{ $p->name }}">
                         {{ $p->name }}
+                    </td>
+                    @endif
+
+                    @if($catalogSettings->show_description ?? true)
+                    {{-- OPIS --}}
+                    <td class="border p-1 text-xs text-gray-700 max-w-[14rem] truncate" title="{{ $p->description ?? '' }}">
+                        {{ $p->description ?: '-' }}
                     </td>
                     @endif
 
@@ -440,6 +452,7 @@
                                         data-part-minimum-stock="{{ $p->minimum_stock ?? 0 }}"
                                         data-part-location="{{ $p->location ?? '' }}"
                                         data-part-price="{{ $p->net_price ?? '' }}"
+                                        data-part-catalog-price="{{ $p->catalog_price ?? '' }}"
                                         data-part-currency="{{ $p->currency ?? 'PLN' }}"
                                         data-part-supplier="{{ $p->supplier ?? '' }}"
                                         data-part-category-id="{{ $p->category_id }}"
@@ -588,6 +601,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const partSupplier = btn.getAttribute('data-part-supplier') || '';
         const partCategoryId = btn.getAttribute('data-part-category-id');
         const partQrCode = btn.getAttribute('data-part-qr-code') || '';
+        const partCatalogPrice = btn.getAttribute('data-part-catalog-price') || '';
 
         // Build options
         const categoriesOptions = categoriesData.map(cat => 
@@ -657,6 +671,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div>
                             <label class="block text-sm font-medium mb-2">Cena netto</label>
                             <input type="number" name="net_price" step="0.01" min="0" value="${partPrice}" class="w-full px-3 py-2 border rounded" placeholder="0.00">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Cena katalogowa</label>
+                            <input type="number" name="catalog_price" step="0.01" min="0" value="${partCatalogPrice}" class="w-full px-3 py-2 border rounded" placeholder="0.00">
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-2">Waluta *</label>
@@ -731,11 +749,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             document.getElementById('cancel-edit-btn').addEventListener('click', function() {
                 container.innerHTML = '';
-            });
-            document.getElementById('edit-modal-bg').addEventListener('click', function(e) {
-                if (e.target.id === 'edit-modal-bg') {
-                    container.innerHTML = '';
-                }
             });
         }
     }
