@@ -1518,6 +1518,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/projekty/{project}/zamowienia/import-excel', [PartController::class, 'importProjectOrdersExcel'])->name('magazyn.projects.orders.importExcel')->middleware('auth');
     Route::post('/projekty/{project}/zamowienia/import-pdf', [PartController::class, 'importProjectOrdersPdf'])->name('magazyn.projects.orders.importPdf')->middleware('auth');
     Route::post('/projekty/{project}/zamowienia/{finance}/status', [PartController::class, 'updateProjectOrderStatus'])->name('magazyn.projects.orders.status')->middleware('auth');
+    Route::put('/projekty/{project}/zamowienia/{finance}', [PartController::class, 'updateProjectOrder'])->name('magazyn.projects.orders.update')->middleware('auth');
+    Route::delete('/projekty/{project}/zamowienia/{finance}', [PartController::class, 'destroyProjectOrder'])->name('magazyn.projects.orders.destroy')->middleware('auth');
     Route::get('/projekty/{project}/eksport-produkty-xlsx', [PartController::class, 'exportProjectProductsXlsx'])->name('magazyn.projects.exportProductsXlsx')->middleware('auth');
     Route::get('/projekty/{project}/eksport-produkty-csv', [PartController::class, 'exportProjectProductsCsv'])->name('magazyn.projects.exportProductsCsv')->middleware('auth');
     Route::get('/projekty/{project}/eksport-produkty-diagnostics', [PartController::class, 'projectExportDiagnostics'])->name('magazyn.projects.exportProductsDiagnostics')->middleware('auth');

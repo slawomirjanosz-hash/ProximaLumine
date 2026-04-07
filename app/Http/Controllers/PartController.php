@@ -1777,7 +1777,7 @@ class PartController extends Controller
         $hasPaymentDateColumn    = $this->hasColumnSafe('project_finance', 'payment_date');
         $hasOrderColumn          = $this->hasColumnSafe('project_finance', 'order');
 
-        // ---- if all required fields found, store directly ----
+        // ---- always save with whatever was found, using sensible defaults ----
         $orderNumber = $parsed['order_number'] ?? null;
         $date        = $parsed['date'] ?? null;
         $amountNet   = $parsed['amount_net'] ?? null;
@@ -1786,69 +1786,130 @@ class PartController extends Controller
         $deliveryStr = isset($parsed['delivery_date']) ? ' Termin dostawy: ' . $parsed['delivery_date'] : '';
         $description = trim($items . $deliveryStr);
 
-        if ($orderNumber && $date && $amountNet !== null) {
-            $nextOrder = $hasOrderColumn
-                ? (int) (\App\Models\ProjectFinance::where('project_id', $project->id)->max('order') ?? 0)
-                : 0;
+        // defaults for missing fields
+        $orderNumber = $orderNumber ?? ('PDF-' . date('Ymd-His'));
+        $date        = $date ?? now()->format('Y-m-d');
+        $amountNet   = $amountNet ?? 0.00;
 
-            $createPayload = [
-                'project_id' => $project->id,
-                'type'       => 'expense',
-                'category'   => 'materials',
-                'name'       => mb_substr($orderNumber, 0, 255),
-                'amount'     => $amountNet,
-                'date'       => $date,
-                'status'     => 'ordered',
-            ];
-            if ($hasDocumentNumberColumn) {
-                $createPayload['document_number'] = mb_substr($orderNumber, 0, 255);
-            }
-            if ($hasDescriptionColumn) {
-                $createPayload['description'] = $description !== '' ? mb_substr($description, 0, 2000) : null;
-            }
-            if ($hasPaymentDateColumn && $paymentDate) {
-                $createPayload['payment_date'] = $paymentDate;
-            }
-            if ($hasOrderColumn) {
-                $createPayload['order'] = $nextOrder + 1;
-            }
+        $nextOrder = $hasOrderColumn
+            ? (int) (\App\Models\ProjectFinance::where('project_id', $project->id)->max('order') ?? 0)
+            : 0;
 
-            \App\Models\ProjectFinance::create($this->filterExistingColumns('project_finance', $createPayload));
+        $createPayload = [
+            'project_id' => $project->id,
+            'type'       => 'expense',
+            'category'   => 'materials',
+            'name'       => mb_substr($orderNumber, 0, 255),
+            'amount'     => $amountNet,
+            'date'       => $date,
+            'status'     => 'ordered',
+        ];
+        if ($hasDocumentNumberColumn) {
+            $createPayload['document_number'] = mb_substr($orderNumber, 0, 255);
+        }
+        if ($hasDescriptionColumn) {
+            $createPayload['description'] = $description !== '' ? mb_substr($description, 0, 2000) : null;
+        }
+        if ($hasPaymentDateColumn && $paymentDate) {
+            $createPayload['payment_date'] = $paymentDate;
+        }
+        if ($hasOrderColumn) {
+            $createPayload['order'] = $nextOrder + 1;
+        }
 
-            $msg = 'Zaimportowano zamówienie z PDF: ' . $orderNumber . '.';
-            if ($description !== '') {
-                $msg .= ' Opis: ' . mb_substr($description, 0, 120) . (mb_strlen($description) > 120 ? '…' : '');
-            }
-            if (isset($parsed['delivery_date'])) {
-                $msg .= ' Termin dostawy: ' . $parsed['delivery_date'] . '.';
-            }
+        \App\Models\ProjectFinance::create($this->filterExistingColumns('project_finance', $createPayload));
 
+        $missing = [];
+        if (!($parsed['date'] ?? null))         { $missing[] = 'data'; }
+        if (!($parsed['order_number'] ?? null)) { $missing[] = 'nr zamówienia'; }
+        if (!isset($parsed['amount_net']))      { $missing[] = 'kwota netto'; }
+        if (!($parsed['payment_date'] ?? null)) { $missing[] = 'termin płatności'; }
+
+        $msg = 'Zamówienie z PDF zostało dodane';
+        if (count($missing)) {
+            $msg .= ' (uzupełnij brakujące dane: ' . implode(', ', $missing) . ')';
+        }
+        $msg .= '.';
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', $msg)
+            ->with('finance_orders_feedback', true);
+    }
+
+    public function updateProjectOrder(Request $request, \App\Models\Project $project, \App\Models\ProjectFinance $finance)
+    {
+        $financeCategory = $this->hasColumnSafe('project_finance', 'category') ? $finance->category : null;
+        if ((int) $finance->project_id !== (int) $project->id || !in_array($financeCategory, ['materials', 'services'], true)) {
             return redirect()->route('magazyn.projects.show', $project->id)
-                ->with('success', $msg)
+                ->with('error', 'Nie znaleziono wskazanego zamówienia.')
                 ->with('finance_orders_feedback', true);
         }
 
-        // ---- partial parse — show what was found ----
-        $found = [];
-        if ($date)         { $found[] = 'Data: ' . $date; }
-        if ($orderNumber)  { $found[] = 'Nr zamówienia: ' . $orderNumber; }
-        if ($amountNet !== null) { $found[] = 'Kwota netto: ' . number_format($amountNet, 2, ',', ' ') . ' zł'; }
-        if ($paymentDate)  { $found[] = 'Termin płatności: ' . $paymentDate; }
-        if (isset($parsed['delivery_date'])) { $found[] = 'Termin dostawy: ' . $parsed['delivery_date']; }
+        $request->validate([
+            'order_date'        => 'required|date',
+            'order_number'      => 'required|string|max:255',
+            'order_category'    => 'required|in:materials,services',
+            'order_description' => 'nullable|string|max:2000',
+            'order_amount_net'  => 'required',
+            'order_payment_date'=> 'nullable|date',
+            'order_status'      => 'required|in:Opłacono,Nie opłacono,Oczekiwanie',
+        ]);
 
-        $missing = [];
-        if (!$date)            { $missing[] = 'data'; }
-        if (!$orderNumber)     { $missing[] = 'nr zamówienia'; }
-        if ($amountNet === null) { $missing[] = 'kwota netto'; }
+        $amount = $this->parseImportedAmount($request->input('order_amount_net'));
+        if ($amount === null || $amount < 0) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->withErrors(['order_amount_net' => 'Podaj poprawną kwotę netto.'])
+                ->with('finance_orders_feedback', true);
+        }
 
-        $msg = 'PDF odczytany, ale nie znaleziono wszystkich wymaganych danych (' . implode(', ', $missing) . '). '
-             . 'Znaleziono: ' . (count($found) ? implode(', ', $found) : 'nic') . '. '
-             . 'Dodaj zamówienie ręcznie korzystając z wyodrębnionych danych.';
+        $statusLabel = (string) $request->input('order_status');
+        $status = $statusLabel === 'Opłacono'
+            ? 'paid'
+            : ($statusLabel === 'Oczekiwanie' ? 'ordered' : 'pending');
+
+        $orderNumber = trim((string) $request->input('order_number'));
+        $category    = (string) $request->input('order_category');
+        $description = trim((string) $request->input('order_description', ''));
+
+        $updatePayload = [
+            'category' => $category,
+            'name'     => mb_substr($orderNumber, 0, 255),
+            'amount'   => $amount,
+            'date'     => $request->input('order_date'),
+            'status'   => $status,
+        ];
+
+        if ($this->hasColumnSafe('project_finance', 'document_number')) {
+            $updatePayload['document_number'] = $orderNumber !== '' ? mb_substr($orderNumber, 0, 255) : null;
+        }
+        if ($this->hasColumnSafe('project_finance', 'description')) {
+            $updatePayload['description'] = $description !== '' ? $description : null;
+        }
+        if ($this->hasColumnSafe('project_finance', 'payment_date')) {
+            $updatePayload['payment_date'] = $request->input('order_payment_date') ?: null;
+        }
+
+        $finance->update($this->filterExistingColumns('project_finance', $updatePayload));
 
         return redirect()->route('magazyn.projects.show', $project->id)
-            ->with('error', $msg)
-            ->with('finance_orders_feedback', true)
-            ->with('pdf_parsed', $parsed);
+            ->with('success', 'Zamówienie zostało zaktualizowane.')
+            ->with('finance_orders_feedback', true);
+    }
+
+    public function destroyProjectOrder(Request $request, \App\Models\Project $project, \App\Models\ProjectFinance $finance)
+    {
+        $financeCategory = $this->hasColumnSafe('project_finance', 'category') ? $finance->category : null;
+        if ((int) $finance->project_id !== (int) $project->id || !in_array($financeCategory, ['materials', 'services'], true)) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Nie znaleziono wskazanego zamówienia.')
+                ->with('finance_orders_feedback', true);
+        }
+
+        $finance->delete();
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', 'Zamówienie zostało usunięte.')
+            ->with('finance_orders_feedback', true);
     }
 
     // EKSPORT LISTY PRODUKTOW W PROJEKCIE DO XLSX

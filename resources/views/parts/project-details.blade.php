@@ -1273,6 +1273,7 @@
                                     <th class="px-2 py-2 text-right">Kwota netto</th>
                                     <th class="px-2 py-2 text-left">Termin płatności</th>
                                     <th class="px-2 py-2 text-left">Status</th>
+                                    <th class="px-2 py-2 text-center">Akcje</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1300,6 +1301,7 @@
 
                                         $orderDescription = (string) ($orderRow['description'] ?? '');
                                         $orderDescriptionShort = \Illuminate\Support\Str::limit($orderDescription, 40, '…');
+                                        $orderRowId = (int) ($orderRow['id'] ?? 0);
                                     @endphp
                                     <tr class="bg-white even:bg-gray-50/80">
                                         <td class="px-2 py-2 whitespace-nowrap">{{ $orderRow['date'] ?? '' }}</td>
@@ -1309,7 +1311,7 @@
                                         <td class="px-2 py-2 text-right whitespace-nowrap">{{ ($orderRow['amount_net'] ?? '') !== '' ? number_format((float) str_replace(',', '.', $orderRow['amount_net']), 2, ',', ' ') : '' }}</td>
                                         <td class="px-2 py-2 whitespace-nowrap">{{ $orderRow['payment_date'] ?? '' }}</td>
                                         <td class="px-2 py-2 whitespace-nowrap">
-                                            <form action="{{ route('magazyn.projects.orders.status', [$project->id, $orderRow['id']]) }}" method="POST" class="inline-block">
+                                            <form action="{{ route('magazyn.projects.orders.status', [$project->id, $orderRowId]) }}" method="POST" class="inline-block">
                                                 @csrf
                                                 <select name="order_status" class="px-2 py-1 rounded border border-gray-300 text-xs font-semibold {{ $orderStatusClass }}" onchange="this.form.submit()">
                                                     <option value="Opłacono" {{ $orderStatus === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
@@ -1318,10 +1320,30 @@
                                                 </select>
                                             </form>
                                         </td>
+                                        <td class="px-2 py-2 text-center whitespace-nowrap">
+                                            <button type="button"
+                                                class="order-edit-btn px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-semibold"
+                                                data-id="{{ $orderRowId }}"
+                                                data-date="{{ $orderRow['date'] ?? '' }}"
+                                                data-number="{{ $orderRow['order_number'] ?? '' }}"
+                                                data-category="{{ $orderRow['category'] ?? 'materials' }}"
+                                                data-description="{{ $orderDescription }}"
+                                                data-amount="{{ $orderRow['amount_net'] ?? '' }}"
+                                                data-payment-date="{{ $orderRow['payment_date'] ?? '' }}"
+                                                data-status="{{ $orderStatus }}"
+                                                data-url="{{ route('magazyn.projects.orders.update', [$project->id, $orderRowId]) }}"
+                                            >✏️ Edytuj</button>
+                                            <button type="button"
+                                                class="order-delete-btn px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-semibold ml-1"
+                                                data-id="{{ $orderRowId }}"
+                                                data-number="{{ $orderRow['order_number'] ?? '' }}"
+                                                data-url="{{ route('magazyn.projects.orders.destroy', [$project->id, $orderRowId]) }}"
+                                            >🗑️ Usuń</button>
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="px-2 py-3 text-center text-gray-500">Brak zamówień.</td>
+                                        <td colspan="8" class="px-2 py-3 text-center text-gray-500">Brak zamówień.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -1338,6 +1360,131 @@
     {{-- KONIEC KONTENERA PRZESUWANYCH SEKCJI --}}
     
 </div>
+
+{{-- MODAL EDYCJI ZAMÓWIENIA --}}
+<div id="order-edit-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" style="display:none!important">
+    <div class="bg-white rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl">
+        <h3 class="text-base font-bold mb-4 text-gray-800">Edytuj zamówienie</h3>
+        <form id="order-edit-form" method="POST" class="space-y-3">
+            @csrf
+            @method('PUT')
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-gray-600 mb-1">Data</label>
+                    <input type="date" name="order_date" id="oe-date" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-600 mb-1">Nr zamówienia</label>
+                    <input type="text" name="order_number" id="oe-number" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-600 mb-1">Typ</label>
+                    <select name="order_category" id="oe-category" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                        <option value="materials">Materiały</option>
+                        <option value="services">Usługi</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-600 mb-1">Kwota netto</label>
+                    <input type="text" name="order_amount_net" id="oe-amount" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="0,00">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-600 mb-1">Termin płatności</label>
+                    <input type="date" name="order_payment_date" id="oe-payment-date" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-600 mb-1">Status</label>
+                    <select name="order_status" id="oe-status" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                        <option value="Oczekiwanie">Oczekiwanie</option>
+                        <option value="Nie opłacono">Nie opłacono</option>
+                        <option value="Opłacono">Opłacono</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-600 mb-1">Opis</label>
+                <textarea name="order_description" id="oe-description" rows="3" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="Opis zamówienia / pozycje"></textarea>
+            </div>
+            <div class="flex gap-2 justify-end pt-2">
+                <button type="button" id="order-edit-cancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm">Anuluj</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-semibold">💾 Zapisz zmiany</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- MODAL USUNIĘCIA ZAMÓWIENIA --}}
+<div id="order-delete-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" style="display:none!important">
+    <div class="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
+        <h3 class="text-base font-bold mb-3 text-gray-800">Usuń zamówienie</h3>
+        <p class="text-sm text-gray-700 mb-4">Czy na pewno chcesz usunąć zamówienie <strong id="order-delete-number"></strong>?</p>
+        <form id="order-delete-form" method="POST">
+            @csrf
+            @method('DELETE')
+            <div class="flex gap-2 justify-end">
+                <button type="button" id="order-delete-cancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm">Anuluj</button>
+                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-semibold">🗑️ Usuń</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    // ---- Edit modal ----
+    const editModal   = document.getElementById('order-edit-modal');
+    const editForm    = document.getElementById('order-edit-form');
+    const editCancel  = document.getElementById('order-edit-cancel');
+
+    document.querySelectorAll('.order-edit-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            editForm.action = btn.dataset.url;
+            document.getElementById('oe-date').value         = btn.dataset.date || '';
+            document.getElementById('oe-number').value       = btn.dataset.number || '';
+            document.getElementById('oe-category').value     = btn.dataset.category || 'materials';
+            document.getElementById('oe-description').value  = btn.dataset.description || '';
+            document.getElementById('oe-amount').value       = btn.dataset.amount || '';
+            document.getElementById('oe-payment-date').value = btn.dataset.paymentDate || '';
+            document.getElementById('oe-status').value       = btn.dataset.status || 'Oczekiwanie';
+            editModal.style.removeProperty('display');
+            editModal.classList.remove('hidden');
+            editModal.classList.add('flex');
+        });
+    });
+
+    function closeEditModal() {
+        editModal.classList.add('hidden');
+        editModal.classList.remove('flex');
+        editModal.style.setProperty('display', 'none', 'important');
+    }
+    if (editCancel) editCancel.addEventListener('click', closeEditModal);
+    editModal.addEventListener('click', function (e) { if (e.target === editModal) closeEditModal(); });
+
+    // ---- Delete modal ----
+    const deleteModal  = document.getElementById('order-delete-modal');
+    const deleteForm   = document.getElementById('order-delete-form');
+    const deleteNumber = document.getElementById('order-delete-number');
+    const deleteCancel = document.getElementById('order-delete-cancel');
+
+    document.querySelectorAll('.order-delete-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            deleteForm.action = btn.dataset.url;
+            deleteNumber.textContent = btn.dataset.number || '';
+            deleteModal.style.removeProperty('display');
+            deleteModal.classList.remove('hidden');
+            deleteModal.classList.add('flex');
+        });
+    });
+
+    function closeDeleteModal() {
+        deleteModal.classList.add('hidden');
+        deleteModal.classList.remove('flex');
+        deleteModal.style.setProperty('display', 'none', 'important');
+    }
+    if (deleteCancel) deleteCancel.addEventListener('click', closeDeleteModal);
+    deleteModal.addEventListener('click', function (e) { if (e.target === deleteModal) closeDeleteModal(); });
+})();
+</script>
 
 {{-- MODAL ZAKOŃCZENIA PROJEKTU --}}
 <div id="finish-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
