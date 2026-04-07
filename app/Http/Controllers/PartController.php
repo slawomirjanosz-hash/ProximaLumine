@@ -293,10 +293,21 @@ class PartController extends Controller
     private function mapStatusToLabel(string $status): string
     {
         return match ($status) {
-            'paid' => 'Opłacono',
-            'pending' => 'Nie opłacono',
-            'ordered' => 'Oczekiwanie',
-            default => 'Nie opłacono',
+            'paid'     => 'Opłacono',
+            'pending'  => 'Nie opłacono',
+            'ordered'  => 'Oczekiwanie',
+            'received' => 'Zrealizowane',
+            default    => 'Nie opłacono',
+        };
+    }
+
+    private function mapOrderStatusFromLabel(string $label): string
+    {
+        return match ($label) {
+            'Opłacono'     => 'paid',
+            'Oczekiwanie'  => 'ordered',
+            'Zrealizowane' => 'received',
+            default        => 'pending',
         };
     }
 
@@ -916,21 +927,23 @@ class PartController extends Controller
                     ->values()
                     ->all();
 
+                $hasSupplierColumnOrders = $this->hasColumnSafe('project_finance', 'supplier');
                 $orderRows = \App\Models\ProjectFinance::where('project_id', $project->id)
                     ->whereIn('category', ['materials', 'services'])
                     ->orderByDesc('date')
                     ->orderByDesc('id')
                     ->get()
-                    ->map(function ($item) use ($hasDocumentNumberColumn, $hasDescriptionColumn, $hasPaymentDateColumn, $hasStatusColumn) {
+                    ->map(function ($item) use ($hasDocumentNumberColumn, $hasDescriptionColumn, $hasPaymentDateColumn, $hasStatusColumn, $hasSupplierColumnOrders) {
                         return [
-                            'id' => $item->id,
-                            'date' => $item->date ? \Carbon\Carbon::parse($item->date)->format('Y-m-d') : '',
+                            'id'           => $item->id,
+                            'date'         => $item->date ? \Carbon\Carbon::parse($item->date)->format('Y-m-d') : '',
                             'order_number' => $hasDocumentNumberColumn ? trim((string) ($item->document_number ?? '')) : trim((string) ($item->name ?? '')),
-                            'category' => (string) ($item->category ?? 'materials'),
-                            'description' => $hasDescriptionColumn ? trim((string) ($item->description ?? '')) : '',
-                            'amount_net' => $item->amount !== null ? number_format((float) $item->amount, 2, '.', '') : '',
+                            'category'     => (string) ($item->category ?? 'materials'),
+                            'description'  => $hasDescriptionColumn ? trim((string) ($item->description ?? '')) : '',
+                            'amount_net'   => $item->amount !== null ? number_format((float) $item->amount, 2, '.', '') : '',
                             'payment_date' => ($hasPaymentDateColumn && $item->payment_date) ? \Carbon\Carbon::parse($item->payment_date)->format('Y-m-d') : '',
-                            'status' => $this->mapStatusToLabel((string) (($hasStatusColumn ? $item->status : 'ordered') ?? 'ordered')),
+                            'status'       => $this->mapStatusToLabel((string) (($hasStatusColumn ? $item->status : 'ordered') ?? 'ordered')),
+                            'supplier'     => $hasSupplierColumnOrders ? trim((string) ($item->supplier ?? '')) : '',
                         ];
                     })
                     ->values()
@@ -1571,13 +1584,14 @@ class PartController extends Controller
         $hasPaymentDateColumn = $this->hasColumnSafe('project_finance', 'payment_date');
 
         $request->validate([
-            'order_date' => 'required|date',
-            'order_number' => 'required|string|max:255',
-            'order_category' => 'required|in:materials,services',
+            'order_date'        => 'required|date',
+            'order_number'      => 'required|string|max:255',
+            'order_category'    => 'required|in:materials,services',
             'order_description' => 'nullable|string|max:2000',
-            'order_amount_net' => 'required',
-            'order_payment_date' => 'required|date',
-            'order_status' => 'required|in:Opłacono,Nie opłacono,Oczekiwanie',
+            'order_supplier'    => 'nullable|string|max:255',
+            'order_amount_net'  => 'required',
+            'order_payment_date'=> 'required|date',
+            'order_status'      => 'required|in:Opłacono,Nie opłacono,Oczekiwanie,Zrealizowane',
         ]);
 
         $amount = $this->parseImportedAmount($request->input('order_amount_net'));
@@ -1589,25 +1603,24 @@ class PartController extends Controller
         }
 
         $statusLabel = (string) $request->input('order_status');
-        $status = $statusLabel === 'Opłacono'
-            ? 'paid'
-            : ($statusLabel === 'Oczekiwanie' ? 'ordered' : 'pending');
+        $status      = $this->mapOrderStatusFromLabel($statusLabel);
 
         $orderNumber = trim((string) $request->input('order_number'));
         $description = trim((string) $request->input('order_description', ''));
-        $category = (string) $request->input('order_category');
+        $category    = (string) $request->input('order_category');
+        $supplierInput = trim((string) $request->input('order_supplier', ''));
         $nextOrder = $hasOrderColumn
             ? (int) (\App\Models\ProjectFinance::where('project_id', $project->id)->max('order') ?? 0)
             : 0;
 
         $createPayload = [
             'project_id' => $project->id,
-            'type' => 'expense',
-            'category' => $category,
-            'name' => mb_substr($orderNumber !== '' ? $orderNumber : 'Zamówienie', 0, 255),
-            'amount' => $amount,
-            'date' => $request->input('order_date'),
-            'status' => $status,
+            'type'       => 'expense',
+            'category'   => $category,
+            'name'       => mb_substr($orderNumber !== '' ? $orderNumber : 'Zamówienie', 0, 255),
+            'amount'     => $amount,
+            'date'       => $request->input('order_date'),
+            'status'     => $status,
         ];
 
         if ($hasDocumentNumberColumn) {
@@ -1622,6 +1635,9 @@ class PartController extends Controller
         if ($hasOrderColumn) {
             $createPayload['order'] = $nextOrder + 1;
         }
+        if ($this->hasColumnSafe('project_finance', 'supplier') && $supplierInput !== '') {
+            $createPayload['supplier'] = mb_substr($supplierInput, 0, 255);
+        }
 
         \App\Models\ProjectFinance::create($this->filterExistingColumns('project_finance', $createPayload));
 
@@ -1633,7 +1649,7 @@ class PartController extends Controller
     public function updateProjectOrderStatus(Request $request, \App\Models\Project $project, \App\Models\ProjectFinance $finance)
     {
         $request->validate([
-            'order_status' => 'required|in:Opłacono,Nie opłacono,Oczekiwanie',
+            'order_status' => 'required|in:Opłacono,Nie opłacono,Oczekiwanie,Zrealizowane',
         ]);
 
         $financeCategory = $this->hasColumnSafe('project_finance', 'category') ? $finance->category : null;
@@ -1643,14 +1659,9 @@ class PartController extends Controller
                 ->with('finance_orders_feedback', true);
         }
 
-        $statusLabel = (string) $request->input('order_status');
-        $status = $statusLabel === 'Opłacono'
-            ? 'paid'
-            : ($statusLabel === 'Oczekiwanie' ? 'ordered' : 'pending');
+        $status = $this->mapOrderStatusFromLabel((string) $request->input('order_status'));
 
-        $finance->update([
-            'status' => $status,
-        ]);
+        $finance->update(['status' => $status]);
 
         return redirect()->route('magazyn.projects.show', $project->id)
             ->with('success', 'Status zamówienia został zaktualizowany.')
@@ -1693,7 +1704,6 @@ class PartController extends Controller
         // ---- helpers ----
         $toDate = function (string $raw): ?string {
             $raw = trim($raw);
-            // dd.mm.yyyy  or  dd-mm-yyyy  or  yyyy-mm-dd
             if (preg_match('/^(\d{2})[.\-\/](\d{2})[.\-\/](\d{4})$/', $raw, $m)) {
                 return $m[3] . '-' . $m[2] . '-' . $m[1];
             }
@@ -1705,12 +1715,10 @@ class PartController extends Controller
 
         $cleanAmount = function (string $raw): ?float {
             $raw = preg_replace('/\s+/', '', $raw);
-            // 1.234,56  →  1234.56
             if (preg_match('/^\d{1,3}(\.\d{3})*(,\d+)?$/', $raw)) {
                 $raw = str_replace('.', '', $raw);
                 $raw = str_replace(',', '.', $raw);
             } else {
-                // 1 234,56  or  1234.56  or  1234,56
                 $raw = str_replace(',', '.', $raw);
             }
             $val = filter_var($raw, FILTER_VALIDATE_FLOAT);
@@ -1720,7 +1728,7 @@ class PartController extends Controller
         // ---- extract fields ----
         $parsed = [];
 
-        // Date (Data zamówienia / Data)
+        // Date
         if (preg_match('/(?:data\s+zam[oó]wienia|data\s+wystawienia|data\s+[\w]+)\s*[:\.\-]\s*(\d{2}[.\-\/]\d{2}[.\-\/]\d{4}|\d{4}-\d{2}-\d{2})/iu', $text, $m)) {
             $parsed['date'] = $toDate($m[1]);
         } elseif (preg_match('/\b(\d{2}[.\-]\d{2}[.\-]\d{4})\b/', $text, $m)) {
@@ -1736,9 +1744,41 @@ class PartController extends Controller
             $parsed['order_number'] = trim($m[1]);
         }
 
-        // Net amount  (Razem netto / Wartość netto / Kwota netto / NETTO)
-        if (preg_match('/(?:razem\s+netto|warto[sś][cć]\s+netto|kwota\s+netto|suma\s+netto|do\s+zap[łl]aty\s+netto|ogó[łl]em\s+netto|netto)\s*[:\.\-]?\s*([\d\s]+[,\.]\d{2})\s*(?:z[łl]|PLN)?/iu', $text, $m)) {
-            $parsed['amount_net'] = $cleanAmount($m[1]);
+        // NIP — szuka 10 cyfr (z opcjonalnymi myślnikami/spacjami, format XXX-XXX-XX-XX lub XXXXXXXXXX)
+        // Priorytet: NIP dostawcy/sprzedawcy (sekcja sprzedawcy)
+        $nipRaw = null;
+        if (preg_match('/(?:sprzedawca|sprzedaj[aą]cy|dostawca|wystawca|firma|wykonawca).*?(?:NIP|nip)\s*[:\-]?\s*([\d]{3}[\-\s]?[\d]{3}[\-\s]?[\d]{2}[\-\s]?[\d]{2}|[\d]{10})/isu', $text, $m)) {
+            $nipRaw = preg_replace('/[\s\-]/', '', $m[1]);
+        } elseif (preg_match('/(?:NIP|nip)\s*[:\-]?\s*([\d]{3}[\-\s]?[\d]{3}[\-\s]?[\d]{2}[\-\s]?[\d]{2}|[\d]{10})/u', $text, $m)) {
+            $nipRaw = preg_replace('/[\s\-]/', '', $m[1]);
+        }
+        if ($nipRaw && strlen($nipRaw) === 10 && ctype_digit($nipRaw)) {
+            $parsed['nip'] = $nipRaw;
+        }
+
+        // Net amount — próbuj kilka wzorców, weź największą wartość (suma zamówienia, nie pozycji)
+        $amountCandidates = [];
+        $amountPattern = '/([\d]{1,3}(?:[\s\.][\d]{3})*[\,\.][\d]{2})\s*(?:z[łl]|PLN)?/u';
+        // Priorytet: konkretne etykiety
+        foreach ([
+            '/(?:razem\s+netto|warto[sś][cć]\s+zamówienia\s+netto|suma\s+netto|łączna\s+kwota\s+netto|kwota\s+netto\s+razem|netto\s+razem|total\s+net|ogółem\s+netto)\s*[:\.\-]?\s*([\d\s]+[,\.]\d{2})/iu',
+            '/(?:razem|do\s+zapłaty\s+netto|wartość\s+netto|kwota\s+netto)\s*[:\.\-]?\s*([\d\s]+[,\.]\d{2})/iu',
+        ] as $pattern) {
+            if (preg_match_all($pattern, $text, $matches)) {
+                foreach ($matches[1] as $raw) {
+                    $v = $cleanAmount($raw);
+                    if ($v !== null && $v > 0) {
+                        $amountCandidates[] = $v;
+                    }
+                }
+                if (!empty($amountCandidates)) {
+                    break;
+                }
+            }
+        }
+        if (!empty($amountCandidates)) {
+            // Weź największą wartość (całkowita kwota zamówienia > pozycje)
+            $parsed['amount_net'] = max($amountCandidates);
         }
 
         // Payment deadline
@@ -1751,33 +1791,65 @@ class PartController extends Controller
             $parsed['delivery_date'] = $toDate($m[1]);
         }
 
-        // Items / description — collect lines that look like ordered items
-        // (lines with amount, unit, quantity — typical order table rows)
+        // Items / description
         $lines = preg_split('/\r\n|\r|\n/', $text);
         $itemLines = [];
         foreach ($lines as $line) {
             $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            // Skip header-like and total-like lines
-            if (preg_match('/(?:razem|suma|razem netto|ogó[łl]em|termin|p[łl]atno|data|numer|strona|faktura|zam[oó]wienie|nabywca|dostawca|kupuj[aą]cy|sprzedaj[aą]cy)/iu', $line)) {
-                continue;
-            }
-            // Keep lines that contain a price-like pattern (digits with comma/dot)
+            if ($line === '') { continue; }
+            if (preg_match('/(?:razem|suma|ogó[łl]em|termin|p[łl]atno|data|numer|strona|faktura|zam[oó]wienie|nabywca|dostawca|kupuj[aą]cy|sprzedaj[aą]cy)/iu', $line)) { continue; }
             if (preg_match('/\d[\d\s]*[,\.]\d{2}/', $line)) {
                 $itemLines[] = $line;
             }
         }
         $parsed['items'] = implode("\n", array_slice($itemLines, 0, 30));
 
+        // ---- NIP → GUS Biała Lista → nazwa firmy + dopasowanie w DB ----
+        $resolvedSupplierName = null;
+        if (!empty($parsed['nip'])) {
+            $nip = $parsed['nip'];
+            // 1. Szukaj w bazie własnych dostawców po NIP
+            $dbSupplier = \App\Models\Supplier::where('nip', $nip)->first();
+            if ($dbSupplier) {
+                $resolvedSupplierName = $dbSupplier->name;
+                $parsed['supplier_source'] = 'db';
+            } else {
+                // 2. Zapytaj Białą Listę VAT MF (bezpłatne API, bez autoryzacji)
+                try {
+                    $dateParam = now()->format('Y-m-d');
+                    $response  = \Illuminate\Support\Facades\Http::timeout(6)
+                        ->get("https://wl-api.mf.gov.pl/api/search/nip/{$nip}?date={$dateParam}");
+                    if ($response->successful()) {
+                        $data = $response->json();
+                        $apiName = $data['result']['subject']['name'] ?? null;
+                        if ($apiName) {
+                            $apiName = trim((string) $apiName);
+                            $parsed['supplier_gus'] = $apiName;
+                            // Sprawdź czy jest w DB po nazwie (case-insensitive, częściowe dopasowanie)
+                            $dbByName = \App\Models\Supplier::whereRaw('LOWER(name) = ?', [mb_strtolower($apiName)])->first();
+                            if (!$dbByName) {
+                                $dbByName = \App\Models\Supplier::whereRaw('LOWER(name) LIKE ?', ['%' . mb_strtolower($apiName) . '%'])->first();
+                            }
+                            $resolvedSupplierName = $dbByName ? $dbByName->name : $apiName;
+                            $parsed['supplier_source'] = $dbByName ? 'db' : 'gus';
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // API niedostępne — kontynuuj bez nazwy
+                    \Log::info('Biała Lista API error for NIP ' . $nip . ': ' . $e->getMessage());
+                }
+            }
+            $parsed['supplier_name'] = $resolvedSupplierName;
+        }
+
         // ---- check table columns ----
         $hasDocumentNumberColumn = $this->hasColumnSafe('project_finance', 'document_number');
         $hasDescriptionColumn    = $this->hasColumnSafe('project_finance', 'description');
         $hasPaymentDateColumn    = $this->hasColumnSafe('project_finance', 'payment_date');
         $hasOrderColumn          = $this->hasColumnSafe('project_finance', 'order');
+        $hasSupplierColumnPdf    = $this->hasColumnSafe('project_finance', 'supplier');
 
-        // ---- always save with whatever was found, using sensible defaults ----
+        // ---- zawsze zapisz z dostępnymi danymi ----
         $orderNumber = $parsed['order_number'] ?? null;
         $date        = $parsed['date'] ?? null;
         $amountNet   = $parsed['amount_net'] ?? null;
@@ -1786,7 +1858,6 @@ class PartController extends Controller
         $deliveryStr = isset($parsed['delivery_date']) ? ' Termin dostawy: ' . $parsed['delivery_date'] : '';
         $description = trim($items . $deliveryStr);
 
-        // defaults for missing fields
         $orderNumber = $orderNumber ?? ('PDF-' . date('Ymd-His'));
         $date        = $date ?? now()->format('Y-m-d');
         $amountNet   = $amountNet ?? 0.00;
@@ -1816,6 +1887,9 @@ class PartController extends Controller
         if ($hasOrderColumn) {
             $createPayload['order'] = $nextOrder + 1;
         }
+        if ($hasSupplierColumnPdf && $resolvedSupplierName !== null) {
+            $createPayload['supplier'] = mb_substr($resolvedSupplierName, 0, 255);
+        }
 
         \App\Models\ProjectFinance::create($this->filterExistingColumns('project_finance', $createPayload));
 
@@ -1826,14 +1900,22 @@ class PartController extends Controller
         if (!($parsed['payment_date'] ?? null)) { $missing[] = 'termin płatności'; }
 
         $msg = 'Zamówienie z PDF zostało dodane';
+        if (!empty($parsed['nip'])) {
+            $src = $parsed['supplier_source'] ?? null;
+            $supplierInfo = $resolvedSupplierName
+                ? ($src === 'db' ? 'dostawca z bazy: ' : 'dostawca z GUS: ') . $resolvedSupplierName
+                : 'NIP ' . $parsed['nip'] . ' — nie znaleziono w GUS';
+            $msg .= '. ' . ucfirst($supplierInfo);
+        }
         if (count($missing)) {
-            $msg .= ' (uzupełnij brakujące dane: ' . implode(', ', $missing) . ')';
+            $msg .= '. Uzupełnij brakujące dane: ' . implode(', ', $missing);
         }
         $msg .= '.';
 
         return redirect()->route('magazyn.projects.show', $project->id)
             ->with('success', $msg)
-            ->with('finance_orders_feedback', true);
+            ->with('finance_orders_feedback', true)
+            ->with('pdf_parsed', $parsed);
     }
 
     public function updateProjectOrder(Request $request, \App\Models\Project $project, \App\Models\ProjectFinance $finance)
@@ -1852,7 +1934,7 @@ class PartController extends Controller
             'order_description' => 'nullable|string|max:2000',
             'order_amount_net'  => 'required',
             'order_payment_date'=> 'nullable|date',
-            'order_status'      => 'required|in:Opłacono,Nie opłacono,Oczekiwanie',
+            'order_status'      => 'required|in:Opłacono,Nie opłacono,Oczekiwanie,Zrealizowane',
         ]);
 
         $amount = $this->parseImportedAmount($request->input('order_amount_net'));
@@ -1862,11 +1944,7 @@ class PartController extends Controller
                 ->with('finance_orders_feedback', true);
         }
 
-        $statusLabel = (string) $request->input('order_status');
-        $status = $statusLabel === 'Opłacono'
-            ? 'paid'
-            : ($statusLabel === 'Oczekiwanie' ? 'ordered' : 'pending');
-
+        $status      = $this->mapOrderStatusFromLabel((string) $request->input('order_status'));
         $orderNumber = trim((string) $request->input('order_number'));
         $category    = (string) $request->input('order_category');
         $description = trim((string) $request->input('order_description', ''));
@@ -1887,6 +1965,10 @@ class PartController extends Controller
         }
         if ($this->hasColumnSafe('project_finance', 'payment_date')) {
             $updatePayload['payment_date'] = $request->input('order_payment_date') ?: null;
+        }
+        if ($this->hasColumnSafe('project_finance', 'supplier')) {
+            $supplierEdit = trim((string) $request->input('order_supplier', ''));
+            $updatePayload['supplier'] = $supplierEdit !== '' ? mb_substr($supplierEdit, 0, 255) : null;
         }
 
         $finance->update($this->filterExistingColumns('project_finance', $updatePayload));

@@ -1179,6 +1179,8 @@
                                 @if(!empty($pp['payment_date']))<li>Termin płatności: {{ $pp['payment_date'] }}</li>@endif
                                 @if(!empty($pp['delivery_date']))<li>Termin dostawy: {{ $pp['delivery_date'] }}</li>@endif
                                 @if(!empty($pp['items']))<li>Pozycje:<pre class="whitespace-pre-wrap mt-1 text-xs text-gray-700">{{ $pp['items'] }}</pre></li>@endif
+                                @if(!empty($pp['nip']))<li>NIP dostawcy: {{ $pp['nip'] }}</li>@endif
+                                @if(!empty($pp['supplier_name']))<li>Dostawca ({{ ($pp['supplier_source'] ?? 'gus') === 'db' ? 'z bazy danych' : 'z GUS' }}): {{ $pp['supplier_name'] }}</li>@endif
                             </ul>
                         </div>
                     @endif
@@ -1248,7 +1250,12 @@
                                     <option value="Oczekiwanie" {{ old('order_status', 'Oczekiwanie') === 'Oczekiwanie' ? 'selected' : '' }}>Oczekiwanie</option>
                                     <option value="Nie opłacono" {{ old('order_status') === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
                                     <option value="Opłacono" {{ old('order_status') === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
+                                    <option value="Zrealizowane" {{ old('order_status') === 'Zrealizowane' ? 'selected' : '' }}>Zrealizowane</option>
                                 </select>
+                            </div>
+                            <div class="finance-field finance-field-flex">
+                                <label class="block text-xs text-gray-600 mb-1">Dostawca</label>
+                                <input type="text" name="order_supplier" value="{{ old('order_supplier') }}" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="Nazwa dostawcy">
                             </div>
                         </div>
 
@@ -1269,6 +1276,7 @@
                                     <th class="px-2 py-2 text-left">Data</th>
                                     <th class="px-2 py-2 text-left">Nr zamówienia</th>
                                     <th class="px-2 py-2 text-left">Typ</th>
+                                    <th class="px-2 py-2 text-left">Dostawca</th>
                                     <th class="px-2 py-2 text-left">Opis</th>
                                     <th class="px-2 py-2 text-right">Kwota netto</th>
                                     <th class="px-2 py-2 text-left">Termin płatności</th>
@@ -1297,16 +1305,19 @@
                                             $orderStatusClass = 'bg-red-100 text-red-800';
                                         } elseif ($orderStatus === 'Oczekiwanie') {
                                             $orderStatusClass = 'bg-amber-100 text-amber-800';
+                                        } elseif ($orderStatus === 'Zrealizowane') {
+                                            $orderStatusClass = 'bg-gray-200 text-gray-500 line-through';
                                         }
 
                                         $orderDescription = (string) ($orderRow['description'] ?? '');
                                         $orderDescriptionShort = \Illuminate\Support\Str::limit($orderDescription, 40, '…');
                                         $orderRowId = (int) ($orderRow['id'] ?? 0);
                                     @endphp
-                                    <tr class="bg-white even:bg-gray-50/80">
+                                    <tr class="bg-white even:bg-gray-50/80{{ ($orderRow['status'] ?? '') === 'Zrealizowane' ? ' opacity-60' : '' }}">
                                         <td class="px-2 py-2 whitespace-nowrap">{{ $orderRow['date'] ?? '' }}</td>
                                         <td class="px-2 py-2">{{ $orderRow['order_number'] ?? '' }}</td>
                                         <td class="px-2 py-2">{{ ($orderRow['category'] ?? 'materials') === 'services' ? 'Usługi' : 'Materiały' }}</td>
+                                        <td class="px-2 py-2 text-gray-700">{{ $orderRow['supplier'] ?? '' }}</td>
                                         <td class="px-2 py-2" title="{{ $orderDescription }}">{{ $orderDescriptionShort }}</td>
                                         <td class="px-2 py-2 text-right whitespace-nowrap">{{ ($orderRow['amount_net'] ?? '') !== '' ? number_format((float) str_replace(',', '.', $orderRow['amount_net']), 2, ',', ' ') : '' }}</td>
                                         <td class="px-2 py-2 whitespace-nowrap">{{ $orderRow['payment_date'] ?? '' }}</td>
@@ -1317,6 +1328,7 @@
                                                     <option value="Opłacono" {{ $orderStatus === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
                                                     <option value="Nie opłacono" {{ $orderStatus === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
                                                     <option value="Oczekiwanie" {{ $orderStatus === 'Oczekiwanie' ? 'selected' : '' }}>Oczekiwanie</option>
+                                                    <option value="Zrealizowane" {{ $orderStatus === 'Zrealizowane' ? 'selected' : '' }}>Zrealizowane</option>
                                                 </select>
                                             </form>
                                         </td>
@@ -1327,6 +1339,7 @@
                                                 data-date="{{ $orderRow['date'] ?? '' }}"
                                                 data-number="{{ $orderRow['order_number'] ?? '' }}"
                                                 data-category="{{ $orderRow['category'] ?? 'materials' }}"
+                                                data-supplier="{{ $orderRow['supplier'] ?? '' }}"
                                                 data-description="{{ $orderDescription }}"
                                                 data-amount="{{ $orderRow['amount_net'] ?? '' }}"
                                                 data-payment-date="{{ $orderRow['payment_date'] ?? '' }}"
@@ -1343,7 +1356,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="8" class="px-2 py-3 text-center text-gray-500">Brak zamówień.</td>
+                                        <td colspan="9" class="px-2 py-3 text-center text-gray-500">Brak zamówień.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -1398,7 +1411,12 @@
                         <option value="Oczekiwanie">Oczekiwanie</option>
                         <option value="Nie opłacono">Nie opłacono</option>
                         <option value="Opłacono">Opłacono</option>
+                        <option value="Zrealizowane">Zrealizowane</option>
                     </select>
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs text-gray-600 mb-1">Dostawca</label>
+                    <input type="text" name="order_supplier" id="oe-supplier" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="Nazwa dostawcy">
                 </div>
             </div>
             <div>
@@ -1446,6 +1464,7 @@
             document.getElementById('oe-amount').value       = btn.dataset.amount || '';
             document.getElementById('oe-payment-date').value = btn.dataset.paymentDate || '';
             document.getElementById('oe-status').value       = btn.dataset.status || 'Oczekiwanie';
+            document.getElementById('oe-supplier').value     = btn.dataset.supplier || '';
             editModal.style.removeProperty('display');
             editModal.classList.remove('hidden');
             editModal.classList.add('flex');
