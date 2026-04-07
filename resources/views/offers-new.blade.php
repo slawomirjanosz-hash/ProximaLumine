@@ -453,7 +453,6 @@
                                     <tr class="bg-gray-100">
                                         <th class="p-1 border text-center w-8">Lp.</th>
                                         <th class="p-1 border text-left">Etap / Milestone</th>
-                                        <th class="p-1 border text-left w-28">Termin</th>
                                         <th class="p-1 border text-left">Opis</th>
                                         <th class="p-1 border w-6"></th>
                                     </tr>
@@ -1051,7 +1050,6 @@
             tr.innerHTML = `
                 <td class="p-1 border text-center text-gray-500 text-xs">${idx + 1}</td>
                 <td class="p-1 border"><input type="text" name="schedule[${idx}][milestone]" value="${escapeHtml(milestone||'')}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                <td class="p-1 border"><input type="date" name="schedule[${idx}][date]" value="${date||''}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                 <td class="p-1 border"><input type="text" name="schedule[${idx}][description]" value="${escapeHtml(description||'')}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                 <td class="p-1 border text-center"><button type="button" onclick="this.closest('tr').remove(); reindexSchedule()" class="text-red-600 hover:text-red-800 text-xs">✕</button></td>
             `;
@@ -1480,8 +1478,8 @@
                     <td class="p-2 text-gray-600">${escapeHtml(part.description || '-')}</td>
                     <td class="p-2">${escapeHtml(part.supplier || '-')}</td>
                     <td class="p-2">${part.quantity || 0}</td>
-                    <td class="p-2 font-medium">${parseFloat(part.net_price || 0).toFixed(2)} zł</td>
-                    <td class="p-2 text-gray-500">${parseFloat(part.catalog_price != null ? part.catalog_price : (part.net_price || 0)).toFixed(2)} zł</td>
+                    <td class="p-2 font-medium">${formatPrice(parseFloat(part.net_price || 0))}</td>
+                    <td class="p-2 text-gray-500">${formatPrice(parseFloat(part.catalog_price != null ? part.catalog_price : (part.net_price || 0)))}</td>
                 </tr>
             `).join('');
         }
