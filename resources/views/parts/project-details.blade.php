@@ -51,7 +51,7 @@
     
     {{-- INFORMACJE O PROJEKCIE --}}
     <div class="bg-gray-50 border rounded p-4 mb-6">
-        <div class="flex flex-wrap items-center gap-6 mb-4">
+        <div class="flex flex-wrap items-center gap-6">
             <div>
                 <span class="text-sm font-semibold text-gray-600">Nr projektu:</span>
                 <span class="text-lg ml-1">{{ $project->project_number }}</span>
@@ -83,22 +83,21 @@
                     @endif
                 </span>
             </div>
-        </div>
-        
-        {{-- PRZYCISKI AKCJI --}}
-        <div class="mt-4 flex gap-2 justify-end">
-            @if(!in_array($project->status, ['warranty','archived']))
-                <a href="{{ route('magazyn.editProject', $project->id) }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                    Edytuj projekt
-                </a>
-                @if($project->status === 'in_progress')
-                <button id="finish-project-btn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                    Zakończ projekt
-                </button>
+            {{-- PRZYCISKI AKCJI inline --}}
+            <div class="ml-auto flex gap-2 items-center">
+                @if(!in_array($project->status, ['warranty','archived']))
+                    <a href="{{ route('magazyn.editProject', $project->id) }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">
+                        Edytuj projekt
+                    </a>
+                    @if($project->status === 'in_progress')
+                    <button id="finish-project-btn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">
+                        Zakończ projekt
+                    </button>
+                    @endif
+                @else
+                    <span class="text-gray-400 text-sm">Projekt zamknięty – tylko podgląd</span>
                 @endif
-            @else
-                <span class="text-gray-400 text-sm">Projekt zamknięty – tylko podgląd</span>
-            @endif
+            </div>
         </div>
     </div>
 
@@ -811,7 +810,10 @@
             @endif
 
             <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-                <h4 class="font-semibold text-gray-800 mb-2">Import kosztów z Excela</h4>
+                <h4 class="font-semibold text-gray-800 mb-2">
+                    Import kosztów z Excela
+                    <span class="cursor-help font-normal text-sm ml-1" title="Oczekiwane kolumny: Data / Data księgowania, Podmiot / Przedmiot / Dostawca, Dokument, Kwota netto, Opis, Status, Data płatności. Inne kolumny są ignorowane, a brakujące kolumny zostaną uzupełnione pustą wartością.">ℹ️</span>
+                </h4>
                 @if(!($hasFinanceGroupColumn ?? false))
                     <div class="mb-3 p-3 rounded border border-amber-200 bg-amber-50 text-amber-800 text-sm">
                         Brak kolumny <strong>finance_group</strong> w bazie. Uruchom migracje na Railway, inaczej grupy nie będą zapisywane.
@@ -847,31 +849,33 @@
                         {{ $message }}
                     </div>
                 @enderror
-                <p class="text-xs text-gray-500 mb-3">
-                    Oczekiwane kolumny: Data / Data księgowania, Podmiot / Przedmiot / Dostawca, Dokument, Kwota netto, Opis, Status, Data płatności. Inne kolumny są ignorowane, a brakujące kolumny zostaną uzupełnione pustą wartością.
-                </p>
-
-                <form action="{{ route('magazyn.projects.importCostsExcel.groups.add', $project->id) }}" method="POST" class="mb-3 flex flex-col md:flex-row gap-2 md:items-center">
-                    @csrf
-                    <input type="text" name="group_name" value="{{ old('group_name') }}" placeholder="Nowa grupa (np. Materiały)" class="px-2.5 py-1.5 border border-gray-300 rounded bg-white text-xs min-w-[220px]">
-                    <button type="submit" class="px-3 py-1.5 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-xs font-semibold">➕ Dodaj grupę</button>
-                </form>
-
-                <form id="costs-import-form" action="{{ route('magazyn.projects.importCostsExcel', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row gap-2 md:items-center md:flex-wrap">
-                    @csrf
-                    <input id="costs-file-input" type="file" name="costs_file" accept=".xlsx,.xls,.csv" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm {{ empty($existingCostGroups) ? 'opacity-60 cursor-not-allowed' : '' }}" {{ empty($existingCostGroups) ? 'disabled' : '' }}>
-                    <select id="costs-group-existing" name="costs_group_existing" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm min-w-[220px]">
-                        <option value="">Wybierz istniejącą grupę</option>
-                        @foreach($existingCostGroups as $existingCostGroup)
-                            <option value="{{ $existingCostGroup }}" {{ old('costs_group_existing') === $existingCostGroup ? 'selected' : '' }}>{{ $existingCostGroup }}</option>
-                        @endforeach
-                    </select>
-                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-semibold">
-                        📥 Importuj koszty
-                    </button>
-                </form>
-                <p class="text-xs text-gray-500 mt-2">Najpierw dodaj grupę przyciskiem „Dodaj grupę”, potem wybierz ją z listy i zaimportuj plik.</p>
-                @if(empty($existingCostGroups))
+                <div class="flex flex-wrap gap-2 items-center">
+                    <form id="costs-import-form" action="{{ route('magazyn.projects.importCostsExcel', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-wrap gap-2 items-center">
+                        @csrf
+                        <input id="costs-file-input" type="file" name="costs_file" accept=".xlsx,.xls,.csv" required
+                            class="px-3 py-2 border border-gray-300 rounded bg-white text-sm {{ empty($existingCostGroups) ? 'opacity-60 cursor-not-allowed' : '' }}"
+                            {{ empty($existingCostGroups) ? 'disabled' : '' }}
+                            title="{{ empty($existingCostGroups) ? 'Aby wybrać plik, najpierw dodaj co najmniej jedną grupę.' : '' }}">
+                        <select id="costs-group-existing" name="costs_group_existing" required
+                            class="px-3 py-2 border border-gray-300 rounded bg-white text-sm min-w-[180px]"
+                            title="Najpierw dodaj grupę, potem wybierz ją z listy i zaimportuj plik.">
+                            <option value="">Wybierz istniejącą grupę</option>
+                            @foreach($existingCostGroups as $existingCostGroup)
+                                <option value="{{ $existingCostGroup }}" {{ old('costs_group_existing') === $existingCostGroup ? 'selected' : '' }}>{{ $existingCostGroup }}</option>
+                            @endforeach
+                        </select>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-semibold">
+                            📥 Importuj koszty
+                        </button>
+                    </form>
+                    <div class="border-l border-gray-300 self-stretch mx-1 hidden md:block" style="min-height:2rem;"></div>
+                    <form action="{{ route('magazyn.projects.importCostsExcel.groups.add', $project->id) }}" method="POST" class="flex gap-2 items-center">
+                        @csrf
+                        <input type="text" name="group_name" value="{{ old('group_name') }}" placeholder="Nowa nazwa grupy" class="px-2.5 py-1.5 border border-gray-300 rounded bg-white text-xs min-w-[180px]">
+                        <button type="submit" class="px-3 py-1.5 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-xs font-semibold whitespace-nowrap">➕ Dodaj grupę</button>
+                    </form>
+                </div>
+                                @if(empty($existingCostGroups))
                     <p class="text-xs text-amber-700 mt-1">Aby wybrać plik, najpierw dodaj co najmniej jedną grupę.</p>
                 @endif
             </div>
@@ -883,11 +887,9 @@
                     id="imported-costs-search"
                     placeholder="Szukaj po wszystkich kolumnach..."
                     class="w-full md:w-96 px-3 py-2 border border-gray-300 rounded bg-white text-sm"
+                    title="Wyszukiwarka aktywuje się po zaimportowaniu pierwszych pozycji."
                     {{ empty($importedCostRows ?? []) ? 'disabled' : '' }}
                 >
-                @if(empty($importedCostRows ?? []))
-                    <p class="mt-1 text-xs text-gray-500">Wyszukiwarka aktywuje się po zaimportowaniu pierwszych pozycji.</p>
-                @endif
             </div>
 
             @if(!empty($importedCostRows ?? []))
@@ -990,7 +992,10 @@
                 </form>
 
                 @if(($importedCostMeta['preview_truncated'] ?? false) === true)
-                <p class="text-xs text-amber-700 mt-2">Wyświetlono pierwsze 300 wierszy podglądu.</p>
+                <div class="text-xs text-amber-700 mt-2 flex items-center gap-1">
+                    <span title="Tabela wyświetla maksymalnie 300 wierszy. Pełne dane są zapisane w bazie.">⚠️</span>
+                    Wyświetlono pierwsze 300 wierszy podglądu.
+                </div>
                 @endif
             </div>
             @endif

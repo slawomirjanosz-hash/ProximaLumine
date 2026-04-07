@@ -176,8 +176,8 @@
     <table class="w-full border border-collapse text-xs">
         <thead>
             <tr class="bg-gray-100">
-                <th class="border p-2 text-center text-xs">
-                    <input type="checkbox" id="select-all" class="w-4 h-4 cursor-pointer" title="Zaznacz wszystkie">
+                <th class="border p-0.5 text-center text-xs" style="width:1.25rem;">
+                    <input type="checkbox" id="select-all" class="w-3.5 h-3.5 cursor-pointer" title="Zaznacz wszystkie">
                 </th>
                 @if($catalogSettings->show_product)
                 <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="name" style="max-width:10rem;">
@@ -233,7 +233,7 @@
                 </th>
                 @endif
                 @if($showActionColumn && $catalogSettings->show_actions)
-                    <th class="border p-1 text-center text-xs whitespace-nowrap" style="width: 5rem;">Akcja</th>
+                    <th class="border p-1 text-center text-xs whitespace-nowrap" style="width:9rem;">Akcja</th>
                 @endif
             </tr>
         </thead>
@@ -258,8 +258,8 @@
                     data-minimum="{{ $p->minimum_stock ?? 0 }}"
                     data-user="{{ strtolower($p->lastModifiedBy ? $p->lastModifiedBy->short_name : '-') }}">
                     {{-- CHECKBOX --}}
-                    <td class="border p-2 text-center">
-                        <input type="checkbox" name="part_ids[]" value="{{ $p->id }}" class="part-checkbox w-4 h-4 cursor-pointer" form="bulk-delete-form">
+                    <td class="border p-0.5 text-center">
+                        <input type="checkbox" name="part_ids[]" value="{{ $p->id }}" class="part-checkbox w-3.5 h-3.5 cursor-pointer" form="bulk-delete-form">
                     </td>
 
                     @if($catalogSettings->show_product)
@@ -397,9 +397,7 @@
                                 </button>
                             @else
                                 {{-- Standardowe akcje dla katalogu --}}
-                            <div class="flex flex-col gap-0.5">
-                                {{-- Rząd 1: ➕ ➖ 📋 --}}
-                                <div class="flex gap-0.5">
+                            <div class="flex gap-0.5 items-center">
                                     {{-- ➕ --}}
                                     <form method="POST" action="{{ route('parts.add') }}">
                                         @csrf
@@ -430,10 +428,7 @@
                                         @csrf
                                         <button class="bg-teal-100 hover:bg-teal-200 px-1 py-0.5 rounded text-xs" title="Kopiuj część">📋</button>
                                     </form>
-                                </div>
 
-                                {{-- Rząd 2: ✏️ ❌ --}}
-                                <div class="flex gap-0.5">
                                     {{-- ✏️ EDYCJA --}}
                                     <button type="button"
                                         class="bg-blue-100 hover:bg-blue-200 px-1 py-0.5 rounded text-xs edit-part-btn"
@@ -459,7 +454,6 @@
                                         @method('DELETE')
                                         <button class="bg-gray-200 hover:bg-gray-300 px-1 py-0.5 rounded text-xs">❌</button>
                                     </form>
-                                </div>
                             </div>
                             @endif
                         </td>
