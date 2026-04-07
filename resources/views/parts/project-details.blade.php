@@ -2203,11 +2203,18 @@
         font-weight: 700;
     }
 
-    /* Gdy etykieta nie mieści się w okienku, Frappe Gantt dodaje klasę .big —
-       wyświetl ją po prawej stronie czarną czcionką */
+    /* Gdy etykieta nie mieści się w okienku — wyświetl po prawej, czarna czcionka */
     #frappe-gantt .bar-label.big {
         fill: #111111 !important;
         font-weight: 600;
+    }
+    /* Zapobiegaj przycinaniu etykiet wystających poza okienko */
+    #frappe-gantt svg,
+    #frappe-gantt .gantt svg {
+        overflow: visible !important;
+    }
+    #frappe-gantt .bar-group {
+        overflow: visible !important;
     }
 
     .finance-fixed-row {
@@ -2569,6 +2576,7 @@ document.addEventListener('DOMContentLoaded', function() {
             applyOverdueTaskStyles();
             drawProjectEndLine();
             addTaskHoverTooltips();
+            fixGanttBarLabels();
             console.log('✅ Frappe Gantt zrenderowany!');
         } catch(error) {
             console.error('❌ Błąd Frappe Gantt:', error);
@@ -2625,6 +2633,25 @@ document.addEventListener('DOMContentLoaded', function() {
         g.appendChild(text);
 
         svg.appendChild(g);
+    }
+
+    function fixGanttBarLabels() {
+        document.querySelectorAll('#frappe-gantt .bar-wrapper').forEach(function(wrapper) {
+            const bar = wrapper.querySelector('.bar');
+            const label = wrapper.querySelector('.bar-label');
+            if (!bar || !label) return;
+            const barW = parseFloat(bar.getAttribute('width') || 0);
+            const barX = parseFloat(bar.getAttribute('x') || 0);
+            try {
+                const lw = label.getBBox().width;
+                if (lw > barW - 8) {
+                    label.setAttribute('x', barX + barW + 5);
+                    label.setAttribute('text-anchor', 'start');
+                    label.style.fill = '#111111';
+                    label.classList.add('big');
+                }
+            } catch(e) {}
+        });
     }
 
     function addTaskHoverTooltips() {
@@ -2687,6 +2714,30 @@ document.addEventListener('DOMContentLoaded', function() {
         return progressValue < 100 && taskEnd < today;
     }
 
+    function getTaskDaysInfo(task) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const end = task.end instanceof Date ? task.end : parseDate(task.end);
+        const progress = Number(task.progress || 0);
+        if (progress >= 100) {
+            let completedAt = null;
+            if (task.completed_at) {
+                const raw = typeof task.completed_at === 'string' ? task.completed_at : String(task.completed_at);
+                completedAt = new Date(raw.substring(0, 10) + 'T00:00:00');
+            }
+            if (!completedAt || isNaN(completedAt.getTime())) {
+                completedAt = today;
+            }
+            const days = Math.round((end - completedAt) / (1000 * 60 * 60 * 24));
+            const label = days > 0 ? `+${days}` : `${days}`;
+            return { status: 'done', days, label };
+        } else {
+            const days = Math.round((end - today) / (1000 * 60 * 60 * 24));
+            const label = days > 0 ? `+${days}` : `${days}`;
+            return { status: days >= 0 ? 'ok' : 'overdue', days, label };
+        }
+    }
+
     function applyOverdueTaskStyles() {
         const wrappers = document.querySelectorAll('#frappe-gantt .bar-wrapper');
         wrappers.forEach((wrapper, idx) => {
@@ -2712,17 +2763,31 @@ document.addEventListener('DOMContentLoaded', function() {
         html += '<th class="px-3 py-2 text-left border-b">Termin</th>';
         html += '<th class="px-3 py-2 text-left border-b">Wykonanie</th>';
         html += '<th class="px-3 py-2 text-left border-b">Status</th>';
+        html += '<th class="px-3 py-2 text-center border-b">Dni</th>';
         html += '<th class="px-3 py-2 text-right border-b">Akcje</th>';
         html += '</tr></thead><tbody>';
 
         frappeTasks.forEach((task, idx) => {
             const end = task.end instanceof Date ? task.end : parseDate(task.end);
             const progressValue = Math.max(0, Math.min(100, Number(task.progress || 0)));
-            const overdue = isTaskOverdue(task);
-            const rowClass = overdue ? 'bg-red-50' : 'bg-white';
-            const statusBadge = overdue
-                ? '<span class="px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-semibold">Po terminie</span>'
-                : '<span class="px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-xs font-semibold">Termin OK</span>';
+            const daysInfo = getTaskDaysInfo(task);
+            const overdue = daysInfo.status === 'overdue';
+            const rowClass = overdue ? 'bg-red-50' : (daysInfo.status === 'done' ? 'bg-green-50/40' : 'bg-white');
+
+            let statusBadge, daysCell;
+            if (daysInfo.status === 'done') {
+                statusBadge = '<span class="px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-xs font-semibold">✓ Wykonano</span>';
+                const daysColor = daysInfo.days >= 0 ? 'text-green-700' : 'text-red-700';
+                const daysTitle = daysInfo.days > 0 ? `${daysInfo.days} dni przed terminem`
+                                : (daysInfo.days < 0 ? `${Math.abs(daysInfo.days)} dni po terminie` : 'dokładnie w terminie');
+                daysCell = `<span class="${daysColor} font-semibold text-xs" title="${daysTitle}">${daysInfo.label}</span>`;
+            } else if (daysInfo.status === 'overdue') {
+                statusBadge = '<span class="px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-semibold">Po terminie</span>';
+                daysCell = `<span class="text-red-700 font-semibold text-xs" title="${Math.abs(daysInfo.days)} dni po terminie">${daysInfo.label}</span>`;
+            } else {
+                statusBadge = '<span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold">Termin OK</span>';
+                daysCell = `<span class="text-blue-700 font-semibold text-xs" title="${daysInfo.days} dni do terminu">${daysInfo.label}</span>`;
+            }
 
             html += `<tr class="${rowClass} border-b border-gray-100">
                 <td class="px-3 py-2 font-semibold">${task.name}</td>
@@ -2743,6 +2808,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </td>
                 <td class="px-3 py-2">${statusBadge}</td>
+                <td class="px-3 py-2 text-center">${daysCell}</td>
                 <td class="px-3 py-2">
                     <div class="flex gap-1 justify-end">
                         <button class="edit-task-row px-2 py-1 bg-blue-600 text-white rounded text-xs ${isProjectReadonly ? 'opacity-50 cursor-not-allowed' : ''}" data-id="${task.id}" ${isProjectReadonly ? 'disabled' : ''}>✏️</button>
@@ -2779,7 +2845,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 task.progress = nextProgress;
 
                 updateTaskInDB(task.id, { progress: nextProgress })
-                    .then(() => {
+                    .then(updatedTask => {
+                        if (updatedTask && updatedTask.completed_at !== undefined) {
+                            task.completed_at = updatedTask.completed_at;
+                        } else if (nextProgress >= 100 && !task.completed_at) {
+                            task.completed_at = new Date().toISOString().split('T')[0];
+                        } else if (nextProgress < 100) {
+                            task.completed_at = null;
+                        }
                         renderGantt();
                     })
                     .catch(() => {
@@ -2888,7 +2961,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     end: parseDate(t.end),
                     progress: t.progress || 0,
                     dependencies: t.dependencies || '',
-                    description: t.description || ''
+                    description: t.description || '',
+                    completed_at: t.completed_at || null
                 }));
             
             console.log('✅ Załadowano ' + frappeTasks.length + ' zadań z bazy (z ' + tasksArray.length + ' otrzymanych)');
@@ -3195,7 +3269,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     end: parseDate(data.end),
                     progress: data.progress,
                     dependencies: data.dependencies || '',
-                    description: data.description || ''
+                    description: data.description || '',
+                    completed_at: data.completed_at || null
                 });
                 renderGantt();
                 hideTaskModal();

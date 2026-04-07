@@ -109,6 +109,15 @@ class GanttTaskController extends Controller
             }
         }
         
+        // Auto-set/clear completed_at based on progress
+        if (isset($data['progress'])) {
+            if ((int)$data['progress'] >= 100 && $task->completed_at === null) {
+                $data['completed_at'] = now()->toDateString();
+            } elseif ((int)$data['progress'] < 100) {
+                $data['completed_at'] = null;
+            }
+        }
+
         $task->update($data);
         
         \Log::info('✅ Gantt: Zaktualizowano zadanie', [
