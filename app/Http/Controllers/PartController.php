@@ -7261,7 +7261,7 @@ class PartController extends Controller
 
         // --- PODPIS I PIECZĘĆ (prawa strona, jak w PDF) ---
         $section->addTextBreak(4);
-        $signTable = $section->addTable(['alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::RIGHT]);
+        $signTable = $section->addTable(['alignment' => 'right']);
         $signTable->addRow();
         $signCell = $signTable->addCell(3800, ['borderTopSize' => 8, 'borderTopColor' => '888888', 'valign' => 'center']);
         $signCell->addText('Podpis i pieczęć', ['size' => 9, 'color' => '555555'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);

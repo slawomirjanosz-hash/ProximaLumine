@@ -648,7 +648,7 @@ function getSupplierSummary() {
 
         const valueField = row.querySelector('input[name$="[value]"]');
         const supplierName = (supplierField.value || '').trim() || 'Inne';
-        const value = parseFloat(valueField?.value || '0') || 0;
+        const value = parseFloat((valueField?.value || '0').replace(/[\s\u00a0]/g, '').replace(',', '.')) || 0;
 
         if (!supplierTotals[supplierName]) {
             supplierTotals[supplierName] = 0;
