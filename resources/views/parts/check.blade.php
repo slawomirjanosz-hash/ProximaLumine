@@ -13,7 +13,7 @@
 {{-- MENU --}}
 @include('parts.menu')
 
-<div class="max-w-6xl mx-auto mt-6">
+<div class="px-4 mt-6">
     <a href="/" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 hover:shadow transition-all text-gray-700 font-medium">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
@@ -24,18 +24,18 @@
 
 {{-- KOMUNIKAT BŁĘDU / SUKCES --}}
 @if(session('success'))
-    <div class="max-w-6xl mx-auto mt-4 bg-green-100 text-green-800 p-2 rounded">
+    <div class="px-4 mt-4 bg-green-100 text-green-800 p-2 rounded">
         {{ session('success') }}
     </div>
 @endif
 
 @if(session('error'))
-    <div class="max-w-6xl mx-auto mt-4 bg-red-100 text-red-800 p-2 rounded">
+    <div class="px-4 mt-4 bg-red-100 text-red-800 p-2 rounded">
         {{ session('error') }}
     </div>
 @endif
 
-<div class="max-w-6xl mx-auto bg-white p-6 rounded shadow mt-6">
+<div class="w-full px-4 bg-white p-6 rounded shadow mt-6">
 @endif
 
 @php
@@ -180,13 +180,8 @@
                     <input type="checkbox" id="select-all" class="w-4 h-4 cursor-pointer" title="Zaznacz wszystkie">
                 </th>
                 @if($catalogSettings->show_product)
-                <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap min-w-[8rem] max-w-[12rem] sortable" data-column="name">
+                <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap sortable" data-column="name" style="max-width:10rem;">
                     Produkty <span class="sort-icon">▲</span>
-                </th>
-                @endif
-                @if($catalogSettings->show_description)
-                <th class="border p-2 cursor-pointer hover:bg-gray-200 text-xs whitespace-nowrap min-w-[8rem] max-w-[14rem] sortable" data-column="description">
-                    Opis <span class="sort-icon">▲</span>
                 </th>
                 @endif
                 @if($catalogSettings->show_supplier)
@@ -238,7 +233,7 @@
                 </th>
                 @endif
                 @if($showActionColumn && $catalogSettings->show_actions)
-                    <th class="border p-1 text-center text-xs whitespace-nowrap" style="width: 3.5rem;">Akcja</th>
+                    <th class="border p-1 text-center text-xs whitespace-nowrap" style="width: 5rem;">Akcja</th>
                 @endif
             </tr>
         </thead>
@@ -269,15 +264,8 @@
 
                     @if($catalogSettings->show_product)
                     {{-- CZĘŚĆ --}}
-                    <td class="border p-2">
+                    <td class="border p-1 text-xs max-w-[10rem] truncate" title="{{ $p->name }}">
                         {{ $p->name }}
-                    </td>
-                    @endif
-
-                    @if($catalogSettings->show_description)
-                    {{-- OPIS --}}
-                    <td class="border p-2 text-xs text-gray-700">
-                        {{ $p->description ?? '-' }}
                     </td>
                     @endif
 
@@ -409,79 +397,69 @@
                                 </button>
                             @else
                                 {{-- Standardowe akcje dla katalogu --}}
-                            <div class="grid grid-cols-2 gap-0.5">
-                                {{-- ➕ --}}
-                                <form method="POST" action="{{ route('parts.add') }}">
-                                    @csrf
-                                    <input type="hidden" name="name" value="{{ $p->name }}">
-                                    <input type="hidden" name="category_id" value="{{ $p->category_id }}">
-                                    <input type="hidden" name="quantity" value="1">
-                                    <input type="hidden" name="redirect_to" value="check">
-                                    <input type="hidden" name="search" value="{{ request('search') }}">
-                                    <input type="hidden" name="filter_category_id" value="{{ request('category_id') }}">
+                            <div class="flex flex-col gap-0.5">
+                                {{-- Rząd 1: ➕ ➖ 📋 --}}
+                                <div class="flex gap-0.5">
+                                    {{-- ➕ --}}
+                                    <form method="POST" action="{{ route('parts.add') }}">
+                                        @csrf
+                                        <input type="hidden" name="name" value="{{ $p->name }}">
+                                        <input type="hidden" name="category_id" value="{{ $p->category_id }}">
+                                        <input type="hidden" name="quantity" value="1">
+                                        <input type="hidden" name="redirect_to" value="check">
+                                        <input type="hidden" name="search" value="{{ request('search') }}">
+                                        <input type="hidden" name="filter_category_id" value="{{ request('category_id') }}">
+                                        <button class="bg-gray-200 hover:bg-gray-300 px-1 py-0.5 rounded text-xs">➕</button>
+                                    </form>
 
-                                    <button class="bg-gray-200 hover:bg-gray-300 px-1 py-0.5 rounded text-xs w-full">
-                                        ➕
-                                    </button>
-                                </form>
+                                    {{-- ➖ --}}
+                                    <form method="POST" action="{{ route('parts.remove') }}">
+                                        @csrf
+                                        <input type="hidden" name="name" value="{{ $p->name }}">
+                                        <input type="hidden" name="quantity" value="1">
+                                        <input type="hidden" name="redirect_to" value="check">
+                                        <input type="hidden" name="search" value="{{ request('search') }}">
+                                        <input type="hidden" name="filter_category_id" value="{{ request('category_id') }}">
+                                        <button class="bg-gray-200 hover:bg-gray-300 px-1 py-0.5 rounded text-xs">➖</button>
+                                    </form>
 
-                                {{-- ➖ --}}
-                                <form method="POST" action="{{ route('parts.remove') }}">
-                                    @csrf
-                                    <input type="hidden" name="name" value="{{ $p->name }}">
-                                    <input type="hidden" name="quantity" value="1">
-                                    <input type="hidden" name="redirect_to" value="check">
-                                    <input type="hidden" name="search" value="{{ request('search') }}">
-                                    <input type="hidden" name="filter_category_id" value="{{ request('category_id') }}">
+                                    {{-- 📋 KOPIUJ --}}
+                                    <form method="POST"
+                                          action="{{ route('parts.copy', $p->id) }}"
+                                          onsubmit="return confirm('Skopiować część {{ addslashes($p->name) }}?');">
+                                        @csrf
+                                        <button class="bg-teal-100 hover:bg-teal-200 px-1 py-0.5 rounded text-xs" title="Kopiuj część">📋</button>
+                                    </form>
+                                </div>
 
-                                    <button class="bg-gray-200 hover:bg-gray-300 px-1 py-0.5 rounded text-xs w-full">
-                                        ➖
-                                    </button>
-                                </form>
+                                {{-- Rząd 2: ✏️ ❌ --}}
+                                <div class="flex gap-0.5">
+                                    {{-- ✏️ EDYCJA --}}
+                                    <button type="button"
+                                        class="bg-blue-100 hover:bg-blue-200 px-1 py-0.5 rounded text-xs edit-part-btn"
+                                        data-part-id="{{ $p->id }}"
+                                        data-part-name="{{ $p->name }}"
+                                        data-part-description="{{ $p->description ?? '' }}"
+                                        data-part-quantity="{{ $p->quantity }}"
+                                        data-part-unit="{{ $p->unit ?? '' }}"
+                                        data-part-minimum-stock="{{ $p->minimum_stock ?? 0 }}"
+                                        data-part-location="{{ $p->location ?? '' }}"
+                                        data-part-price="{{ $p->net_price ?? '' }}"
+                                        data-part-currency="{{ $p->currency ?? 'PLN' }}"
+                                        data-part-supplier="{{ $p->supplier ?? '' }}"
+                                        data-part-category-id="{{ $p->category_id }}"
+                                        data-part-qr-code="{{ $p->qr_code ?? '' }}"
+                                        title="Edytuj produkt">✏️</button>
 
-
-
-                                {{-- ✏️ EDYCJA (NEW) --}}
-                                <button type="button"
-                                    class="bg-blue-100 hover:bg-blue-200 px-1 py-0.5 rounded text-xs w-full edit-part-btn"
-                                    data-part-id="{{ $p->id }}"
-                                    data-part-name="{{ $p->name }}"
-                                    data-part-description="{{ $p->description ?? '' }}"
-                                    data-part-quantity="{{ $p->quantity }}"
-                                    data-part-unit="{{ $p->unit ?? '' }}"
-                                    data-part-minimum-stock="{{ $p->minimum_stock ?? 0 }}"
-                                    data-part-location="{{ $p->location ?? '' }}"
-                                    data-part-price="{{ $p->net_price ?? '' }}"
-                                    data-part-currency="{{ $p->currency ?? 'PLN' }}"
-                                    data-part-supplier="{{ $p->supplier ?? '' }}"
-                                    data-part-category-id="{{ $p->category_id }}"
-                                    data-part-qr-code="{{ $p->qr_code ?? '' }}"
-                                    title="Edytuj produkt">
-                                    ✏️
-                                </button>
-
-                                {{-- ❌ --}}
-                                <form method="POST"
-                                      action="{{ route('parts.destroy', $p->id) }}"
-                                      onsubmit="return confirm('Usunąć część z bazy danych?');">
-                                    @csrf
-                                    @method('DELETE')
-
-                                    <button class="bg-gray-200 hover:bg-gray-300 px-1 py-0.5 rounded text-xs w-full">
-                                        ❌
-                                    </button>
-                                </form>
-
-                                {{-- 📋 KOPIUJ --}}
-                                <form method="POST"
-                                      action="{{ route('parts.copy', $p->id) }}"
-                                      class="col-span-2"
-                                      onsubmit="return confirm('Skopiować część {{ addslashes($p->name) }}?');">
-                                    @csrf
-                                    <button class="bg-teal-100 hover:bg-teal-200 px-1 py-0.5 rounded text-xs w-full" title="Kopiuj część">
-                                        📋 Kopiuj
-                                    </button>
-                                </form>
+                                    {{-- ❌ --}}
+                                    <form method="POST"
+                                          action="{{ route('parts.destroy', $p->id) }}"
+                                          onsubmit="return confirm('Usunąć część z bazy danych?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="bg-gray-200 hover:bg-gray-300 px-1 py-0.5 rounded text-xs">❌</button>
+                                    </form>
+                                </div>
                             </div>
                             @endif
                         </td>
