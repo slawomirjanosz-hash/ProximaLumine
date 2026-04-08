@@ -942,6 +942,7 @@ Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/nowa', func
             'services_enabled' => $request->input('services_enabled', '1') === '1',
             'works_enabled' => $request->input('works_enabled', '1') === '1',
             'materials_enabled' => $request->input('materials_enabled', '1') === '1',
+            'show_unit_prices' => $request->input('show_unit_prices', '1') === '1',
         ]),
         'total_price' => $totalPrice + floatval($request->input('profit_amount', 0)),
         'profit_percent' => floatval($request->input('profit_percent', 0)),
@@ -1110,8 +1111,9 @@ Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/{offer}/edit
     $servicesEnabled = array_key_exists('services_enabled', $customSections) ? (bool)$customSections['services_enabled'] : true;
     $worksEnabled = array_key_exists('works_enabled', $customSections) ? (bool)$customSections['works_enabled'] : true;
     $materialsEnabled = array_key_exists('materials_enabled', $customSections) ? (bool)$customSections['materials_enabled'] : true;
+    $showUnitPrices = array_key_exists('show_unit_prices', $customSections) ? (bool)$customSections['show_unit_prices'] : true;
 
-    return view('offers-edit', compact('offer', 'companies', 'suppliers', 'deals', 'servicesName', 'worksName', 'materialsName', 'servicesEnabled', 'worksEnabled', 'materialsEnabled'));
+    return view('offers-edit', compact('offer', 'companies', 'suppliers', 'deals', 'servicesName', 'worksName', 'materialsName', 'servicesEnabled', 'worksEnabled', 'materialsEnabled', 'showUnitPrices'));
 })->name('offers.edit');
 
 Route::middleware(['auth', 'permission:view_offers'])->put('/wyceny/{offer}', function (Illuminate\Http\Request $request, \App\Models\Offer $offer) {
@@ -1206,6 +1208,7 @@ Route::middleware(['auth', 'permission:view_offers'])->put('/wyceny/{offer}', fu
             'services_enabled' => $request->input('services_enabled', '1') === '1',
             'works_enabled' => $request->input('works_enabled', '1') === '1',
             'materials_enabled' => $request->input('materials_enabled', '1') === '1',
+            'show_unit_prices' => $request->input('show_unit_prices', '1') === '1',
         ]),
         'total_price' => $totalPrice + floatval($request->input('profit_amount', 0)),
         'profit_percent' => floatval($request->input('profit_percent', 0)),

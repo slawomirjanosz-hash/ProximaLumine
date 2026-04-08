@@ -21,6 +21,7 @@
     if (!$pdfLogoSrc && file_exists(public_path('logo.png'))) {
         $pdfLogoSrc = 'file://' . str_replace('\\', '/', public_path('logo.png'));
     }
+    $showUnitPrices = $showUnitPrices ?? true;
 @endphp
 <!DOCTYPE html>
 <html lang="pl">
@@ -177,7 +178,7 @@
                 <th style="width:40%">Nazwa</th>
                 <th>Opis</th>
                 <th class="right" style="width:70px">Ilość</th>
-                <th class="right" style="width:80px">Cena jedn.</th>
+                @if($showUnitPrices)<th class="right" style="width:80px">Cena jedn.</th>@endif
                 <th class="right" style="width:90px">Wartość</th>
             </tr></thead>
             <tbody>
@@ -193,12 +194,12 @@
                     <td>{{ $row['name'] ?? '' }}</td>
                     <td>{{ $row['description'] ?? '' }}</td>
                     <td class="right">{{ number_format($qty, 2, ',', ' ') }}</td>
-                    <td class="right">{{ number_format($price, 2, ',', ' ') }} zł</td>
+                    @if($showUnitPrices)<td class="right">{{ number_format($price, 2, ',', ' ') }} zł</td>@endif
                     <td class="right">{{ number_format($val, 2, ',', ' ') }} zł</td>
                 </tr>
             @endforeach
             <tr class="subtotal">
-                <td colspan="4" class="right">Suma usługi:</td>
+                <td colspan="{{ $showUnitPrices ? 4 : 3 }}" class="right">Suma usługi:</td>
                 <td class="right">{{ number_format($servTotal, 2, ',', ' ') }} zł</td>
             </tr>
             </tbody>
@@ -219,7 +220,7 @@
                 <th style="width:40%">Nazwa</th>
                 <th>Opis</th>
                 <th class="right" style="width:70px">Ilość</th>
-                <th class="right" style="width:80px">Cena jedn.</th>
+                @if($showUnitPrices)<th class="right" style="width:80px">Cena jedn.</th>@endif
                 <th class="right" style="width:90px">Wartość</th>
             </tr></thead>
             <tbody>
@@ -235,12 +236,12 @@
                     <td>{{ $row['name'] ?? '' }}</td>
                     <td>{{ $row['description'] ?? '' }}</td>
                     <td class="right">{{ number_format($qty, 2, ',', ' ') }}</td>
-                    <td class="right">{{ number_format($price, 2, ',', ' ') }} zł</td>
+                    @if($showUnitPrices)<td class="right">{{ number_format($price, 2, ',', ' ') }} zł</td>@endif
                     <td class="right">{{ number_format($val, 2, ',', ' ') }} zł</td>
                 </tr>
             @endforeach
             <tr class="subtotal">
-                <td colspan="4" class="right">Suma roboty:</td>
+                <td colspan="{{ $showUnitPrices ? 4 : 3 }}" class="right">Suma roboty:</td>
                 <td class="right">{{ number_format($worksTotal, 2, ',', ' ') }} zł</td>
             </tr>
             </tbody>
@@ -261,7 +262,7 @@
                 <th style="width:40%">Nazwa</th>
                 <th>Opis</th>
                 <th class="right" style="width:70px">Ilość</th>
-                <th class="right" style="width:80px">Cena jedn.</th>
+                @if($showUnitPrices)<th class="right" style="width:80px">Cena jedn.</th>@endif
                 <th class="right" style="width:90px">Wartość</th>
             </tr></thead>
             <tbody>
@@ -277,12 +278,12 @@
                     <td>{{ $row['name'] ?? '' }}</td>
                     <td>{{ $row['description'] ?? '' }}</td>
                     <td class="right">{{ number_format($qty, 2, ',', ' ') }}</td>
-                    <td class="right">{{ number_format($price, 2, ',', ' ') }} zł</td>
+                    @if($showUnitPrices)<td class="right">{{ number_format($price, 2, ',', ' ') }} zł</td>@endif
                     <td class="right">{{ number_format($val, 2, ',', ' ') }} zł</td>
                 </tr>
             @endforeach
             <tr class="subtotal">
-                <td colspan="4" class="right">Suma materiały:</td>
+                <td colspan="{{ $showUnitPrices ? 4 : 3 }}" class="right">Suma materiały:</td>
                 <td class="right">{{ number_format($matsTotal, 2, ',', ' ') }} zł</td>
             </tr>
             </tbody>
@@ -304,7 +305,7 @@
                     <th style="width:40%">Nazwa</th>
                     <th>Opis</th>
                     <th class="right" style="width:70px">Ilość</th>
-                    <th class="right" style="width:80px">Cena jedn.</th>
+                    @if($showUnitPrices)<th class="right" style="width:80px">Cena jedn.</th>@endif
                     <th class="right" style="width:90px">Wartość</th>
                 </tr></thead>
                 <tbody>
@@ -320,12 +321,12 @@
                         <td>{{ $row['name'] ?? '' }}</td>
                         <td>{{ $row['description'] ?? '' }}</td>
                         <td class="right">{{ number_format($qty, 2, ',', ' ') }}</td>
-                        <td class="right">{{ number_format($price, 2, ',', ' ') }} zł</td>
+                        @if($showUnitPrices)<td class="right">{{ number_format($price, 2, ',', ' ') }} zł</td>@endif
                         <td class="right">{{ number_format($val, 2, ',', ' ') }} zł</td>
                     </tr>
                 @endforeach
                 <tr class="subtotal">
-                    <td colspan="4" class="right">Suma {{ $cs['name'] ?? '' }}:</td>
+                    <td colspan="{{ $showUnitPrices ? 4 : 3 }}" class="right">Suma {{ $cs['name'] ?? '' }}:</td>
                     <td class="right">{{ number_format($csTotal, 2, ',', ' ') }} zł</td>
                 </tr>
                 </tbody>
@@ -337,16 +338,6 @@
     {{-- TOTALS --}}
     <div class="totals-block">
         <table class="totals-table">
-            @if(($offer->profit_amount ?? 0) > 0)
-            <tr>
-                <td>Suma netto (koszty):</td>
-                <td>{{ number_format((float)($offer->total_price) - (float)($offer->profit_amount), 2, ',', ' ') }} zł</td>
-            </tr>
-            <tr>
-                <td>Zysk ({{ number_format((float)($offer->profit_percent ?? 0), 2, ',', ' ') }}%):</td>
-                <td>{{ number_format((float)($offer->profit_amount), 2, ',', ' ') }} zł</td>
-            </tr>
-            @endif
             <tr class="grand">
                 <td>Łączna cena oferty:</td>
                 <td>{{ number_format((float)$offer->total_price, 2, ',', ' ') }} zł</td>

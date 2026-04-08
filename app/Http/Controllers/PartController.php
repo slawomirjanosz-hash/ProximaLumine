@@ -6859,7 +6859,10 @@ class PartController extends Controller
         $offer = \App\Models\Offer::findOrFail($offerId);
         $company = \App\Models\CompanySetting::first();
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('offers.pdf', compact('offer', 'company'))
+        $customSectionsForPdf = is_array($offer->custom_sections) ? $offer->custom_sections : [];
+        $showUnitPrices = array_key_exists('show_unit_prices', $customSectionsForPdf) ? (bool)$customSectionsForPdf['show_unit_prices'] : true;
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('offers.pdf', compact('offer', 'company', 'showUnitPrices'))
             ->setPaper('a4', 'portrait');
 
         $filename = 'Oferta_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $offer->offer_number) . '.pdf';
@@ -7150,8 +7153,9 @@ class PartController extends Controller
         $servicesEnabled = array_key_exists('services_enabled', $customSectionsRaw) ? (bool)$customSectionsRaw['services_enabled'] : true;
         $worksEnabled = array_key_exists('works_enabled', $customSectionsRaw) ? (bool)$customSectionsRaw['works_enabled'] : true;
         $materialsEnabled = array_key_exists('materials_enabled', $customSectionsRaw) ? (bool)$customSectionsRaw['materials_enabled'] : true;
+        $showUnitPrices = array_key_exists('show_unit_prices', $customSectionsRaw) ? (bool)$customSectionsRaw['show_unit_prices'] : true;
 
-        $renderSectionTable = function (string $sectionTitle, array $items) use ($section) {
+        $renderSectionTable = function (string $sectionTitle, array $items) use ($section, $showUnitPrices) {
             $items = collect($items)
                 ->filter(fn($item) => is_array($item))
                 ->filter(fn($item) =>
@@ -7186,7 +7190,9 @@ class PartController extends Controller
             $table->addCell(3200, $hdr)->addText('Nazwa',      ['bold' => true, 'size' => 8, 'color' => '333333']);
             $table->addCell(2400, $hdr)->addText('Opis',       ['bold' => true, 'size' => 8, 'color' => '333333']);
             $table->addCell(700,  $hdr)->addText('Ilość',      ['bold' => true, 'size' => 8, 'color' => '333333'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-            $table->addCell(1100, $hdr)->addText('Cena jedn.', ['bold' => true, 'size' => 8, 'color' => '333333'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            if ($showUnitPrices) {
+                $table->addCell(1100, $hdr)->addText('Cena jedn.', ['bold' => true, 'size' => 8, 'color' => '333333'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            }
             $table->addCell(1100, $hdr)->addText('Wartość',    ['bold' => true, 'size' => 8, 'color' => '333333'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
 
             $rowIndex = 0;
@@ -7203,13 +7209,16 @@ class PartController extends Controller
                 $table->addCell(3200, $cellStyle)->addText((string)($item['name'] ?? ''),        ['size' => 8]);
                 $table->addCell(2400, $cellStyle)->addText((string)($item['description'] ?? ($item['type'] ?? '')), ['size' => 8]);
                 $table->addCell(700,  $cellStyle)->addText(number_format($qty, 2, ',', ' '),      ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-                $table->addCell(1100, $cellStyle)->addText(number_format($price, 2, ',', ' ') . ' zł', ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+                if ($showUnitPrices) {
+                    $table->addCell(1100, $cellStyle)->addText(number_format($price, 2, ',', ' ') . ' zł', ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+                }
                 $table->addCell(1100, $cellStyle)->addText(number_format($value, 2, ',', ' ') . ' zł', ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
             }
             // Wiersz sumy sekcji
             $table->addRow();
             $subtotalStyle = ['bgColor' => 'EEF1FA', 'valign' => 'center'];
-            $table->addCell(7300, $subtotalStyle)->addText('Suma ' . $sectionTitle . ':',  ['bold' => true, 'size' => 8, 'color' => '0F295F'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+            $subtotalLabelWidth = $showUnitPrices ? 7300 : 6300;
+            $table->addCell($subtotalLabelWidth, $subtotalStyle)->addText('Suma ' . $sectionTitle . ':',  ['bold' => true, 'size' => 8, 'color' => '0F295F'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
             $table->addCell(1100, $subtotalStyle)->addText(number_format($sectionTotal, 2, ',', ' ') . ' zł', ['bold' => true, 'size' => 8, 'color' => '0F295F'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
 
             $section->addTextBreak(1);
@@ -7241,18 +7250,6 @@ class PartController extends Controller
         // --- SUMA KOŃCOWA (styl jak w PDF – prawa strona) ---
         $section->addTextBreak(1);
         $grandTable = $section->addTable(['alignment' => 'right']);
-        if (($offer->profit_amount ?? 0) > 0) {
-            $grandTable->addRow();
-            $grandTable->addCell(3200, ['bgColor' => 'F8F9FF', 'borderSize' => 4, 'borderColor' => 'DDE2EF'])
-                ->addText('Suma netto (koszty):', ['size' => 9, 'color' => '555555'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-            $grandTable->addCell(2160, ['bgColor' => 'FFFFFF', 'borderSize' => 4, 'borderColor' => 'DDE2EF'])
-                ->addText(number_format((float)$offer->total_price - (float)$offer->profit_amount, 2, ',', ' ') . ' zł', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-            $grandTable->addRow();
-            $grandTable->addCell(3200, ['bgColor' => 'F8F9FF', 'borderSize' => 4, 'borderColor' => 'DDE2EF'])
-                ->addText('Zysk (' . number_format((float)($offer->profit_percent ?? 0), 2, ',', ' ') . '%):', ['size' => 9, 'color' => '555555'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-            $grandTable->addCell(2160, ['bgColor' => 'FFFFFF', 'borderSize' => 4, 'borderColor' => 'DDE2EF'])
-                ->addText(number_format((float)$offer->profit_amount, 2, ',', ' ') . ' zł', ['bold' => true, 'size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
-        }
         $grandTable->addRow(null, ['cantSplit' => true]);
         $grandTable->addCell(3200, ['bgColor' => '0F295F', 'borderSize' => 4, 'borderColor' => '0F295F'])
             ->addText('Łączna cena oferty:', ['bold' => true, 'size' => 10, 'color' => 'FFFFFF'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);

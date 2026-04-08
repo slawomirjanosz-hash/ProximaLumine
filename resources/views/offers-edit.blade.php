@@ -139,6 +139,19 @@
                     </div>
                 </div>
 
+                <!-- Ustawienia dokumentów (PDF / Word) -->
+                <div class="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded">
+                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                        <input type="checkbox" id="show-unit-prices-checkbox"
+                            onchange="document.getElementById('show-unit-prices-input').value = this.checked ? '1' : '0'"
+                            @if($showUnitPrices) checked @endif
+                            class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                        <span class="text-sm font-medium text-gray-700">Pokaż ceny jednostkowe w PDF / Word</span>
+                    </label>
+                    <input type="hidden" id="show-unit-prices-input" name="show_unit_prices" value="{{ $showUnitPrices ? '1' : '0' }}">
+                    <span class="text-xs text-gray-400">(gdy odznaczone — w dokumencie widoczna jest tylko cena końcowa)</span>
+                </div>
+
                 <!-- Sekcja Usługi -->
                 <div id="section-services" class="border border-gray-300 rounded" @if(!$servicesEnabled) style="display:none;" @endif>
                     <div class="flex items-center justify-between p-4 bg-gray-50">
