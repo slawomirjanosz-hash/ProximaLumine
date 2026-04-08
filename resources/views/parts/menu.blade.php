@@ -642,21 +642,30 @@ function toggleSubmenu(id) {
             btn.textContent = 'Logowanie...';
             errorBox.style.display = 'none';
 
-            // Pobierz świeży token CSRF z meta tagu
-            var csrfMeta = document.querySelector('meta[name="csrf-token"]');
-            var csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+            // Najpierw odśwież sesję i CSRF token przez GET /login, dopiero potem POST
+            _origFetch('/login', { credentials: 'same-origin', cache: 'no-store' })
+                .then(function (r) { return r.text(); })
+                .then(function (html) {
+                    // Wyciągnij świeży token z formularza na stronie logowania
+                    var tokenMatch = html.match(/name="_token"[^>]+value="([^"]+)"/);
+                    if (!tokenMatch) tokenMatch = html.match(/value="([^"]+)"[^>]+name="_token"/);
+                    var freshToken = tokenMatch ? tokenMatch[1] : '';
+                    // Zaktualizuj meta tag
+                    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                    if (csrfMeta && freshToken) csrfMeta.setAttribute('content', freshToken);
 
-            _origFetch('/login', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body: JSON.stringify({ email: email, password: password })
-            })
+                    return _origFetch('/login', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': freshToken,
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify({ email: email, password: password, _token: freshToken })
+                    });
+                })
             .then(function (response) {
                 if (response.ok || response.status === 200) {
                     // Zalogowano – odśwież stronę
