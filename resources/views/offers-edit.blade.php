@@ -1864,31 +1864,13 @@ function prepareSaveAndStay() {
 document.addEventListener('input',  function(e) { if (e.target.closest('form')) { _formChanged = true; _updateSaveBtn(); } });
 document.addEventListener('change', function(e) { if (e.target.closest('form')) { _formChanged = true; _updateSaveBtn(); } });
 function handleBack() {
-    // Spróbuj wrócić w historii, jeśli nie działa, przekieruj ręcznie
-    if (!_formChanged) {
-        if (window.history.length > 1) {
-            history.back();
-            setTimeout(function() {
-                if (window.location.pathname === '/wyceny/' || window.location.pathname.includes('/wyceny/')) return;
-                window.location.href = '/wyceny';
-            }, 300);
-        } else {
-            window.location.href = '/wyceny';
+    if (_formChanged) {
+        if (!confirm('Czy na pewno chcesz wyjść bez zapisywania?')) {
+            return;
         }
-        return;
-    }
-    if (confirm('Czy na pewno chcesz wyjść bez zapisywania?')) {
         _formChanged = false;
-        if (window.history.length > 1) {
-            history.back();
-            setTimeout(function() {
-                if (window.location.pathname === '/wyceny/' || window.location.pathname.includes('/wyceny/')) return;
-                window.location.href = '/wyceny';
-            }, 300);
-        } else {
-            window.location.href = '/wyceny';
-        }
     }
+    window.location.href = '/wyceny';
 }
 window.addEventListener('beforeunload', function(e) {
     if (_formChanged && !_isSaving) { e.preventDefault(); e.returnValue = ''; }
