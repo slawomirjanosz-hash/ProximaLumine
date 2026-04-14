@@ -148,13 +148,6 @@
             @if($offer->customer_email)<div class="row">{{ $offer->customer_email }}</div>@endif
         </div>
         @endif
-        @if($offer->crmDeal)
-        <div class="info-box">
-            <div class="box-title">Szansa CRM</div>
-            <div class="row"><b>{{ $offer->crmDeal->name }}</b></div>
-            @if($offer->crmDeal->company)<div class="row">{{ $offer->crmDeal->company->name }}</div>@endif
-        </div>
-        @endif
     </div>
 
     {{-- DESCRIPTION --}}
