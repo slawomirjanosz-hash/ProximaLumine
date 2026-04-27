@@ -749,101 +749,307 @@
                 $hasChartData = !empty($allChartData);
             @endphp
             <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-                <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('span').textContent = this.nextElementSibling.classList.contains('hidden') ? '▶' : '▼'"
+                <button type="button"
+                    onclick="(function(btn){var p=btn.nextElementSibling;p.classList.toggle('hidden');btn.querySelector('span').textContent=p.classList.contains('hidden')?'▶':'▼';if(!p.classList.contains('hidden')&&!btn.dataset.cfInit){btn.dataset.cfInit='1';if(typeof window.initCashflowChart==='function')window.initCashflowChart();}})(this)"
                     class="flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-gray-900 w-full text-left mb-1">
                     <span>▶</span> Wykres kosztów i przychodów (cash flow)
                 </button>
                 <div class="hidden">
                     @if($hasChartData)
-                    <div class="mt-3" style="position:relative; height:280px;">
+                    {{-- Kontrolki okresu i nawigacji --}}
+                    <div class="flex flex-wrap items-center gap-1 mt-3 mb-2">
+                        <div class="flex rounded border border-gray-200 overflow-hidden text-xs font-medium">
+                            <button class="cashflow-mode-btn px-3 py-1.5 hover:bg-gray-100 border-r border-gray-200" data-mode="day">Dzień</button>
+                            <button class="cashflow-mode-btn px-3 py-1.5 hover:bg-gray-100 border-r border-gray-200" data-mode="week">Tydzień</button>
+                            <button class="cashflow-mode-btn px-3 py-1.5 bg-indigo-600 text-white border-r border-gray-200" data-mode="month">Miesiąc</button>
+                            <button class="cashflow-mode-btn px-3 py-1.5 hover:bg-gray-100" data-mode="year">Rok</button>
+                        </div>
+                        <button id="cashflow-prev" class="px-3 py-1.5 bg-gray-100 rounded border border-gray-200 text-xs hover:bg-gray-200 font-medium ml-1">‹ Wcześniej</button>
+                        <span id="cashflow-range-label" class="text-xs text-gray-600 font-semibold px-2 py-1 bg-gray-50 rounded border border-gray-200 min-w-[170px] text-center"></span>
+                        <button id="cashflow-next" class="px-3 py-1.5 bg-gray-100 rounded border border-gray-200 text-xs hover:bg-gray-200 font-medium">Dalej ›</button>
+                        <button id="cashflow-reset" class="px-3 py-1.5 bg-gray-100 rounded border border-gray-200 text-xs hover:bg-gray-200 ml-auto">↺ Resetuj</button>
+                    </div>
+                    {{-- Główny wykres --}}
+                    <div style="position:relative; height:260px;">
                         <canvas id="cashflow-chart"></canvas>
                     </div>
+                    {{-- Przegląd / brush --}}
+                    <div class="mt-2">
+                        <p class="text-xs text-gray-400 mb-1">Przegląd całości — przeciągnij, aby przybliżyć zakres:</p>
+                        <div id="cashflow-brush-wrap" style="position:relative; height:54px; user-select:none;">
+                            <canvas id="cashflow-overview-chart" style="position:absolute; top:0; left:0; width:100%; height:100%;"></canvas>
+                            <div id="cashflow-brush-sel" style="position:absolute; top:0; height:100%; display:none; background:rgba(99,102,241,0.14); border-left:2px solid #6366f1; border-right:2px solid #6366f1; pointer-events:none;"></div>
+                            <div id="cashflow-brush-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; cursor:crosshair;"></div>
+                        </div>
+                    </div>
                     <script>
-                    (function() {
+                    (function(){
                         const rawData = @json($allChartData);
-                        rawData.sort((a, b) => a.date.localeCompare(b.date));
+                        if (!rawData || !rawData.length) return;
+                        rawData.sort((a,b) => a.date.localeCompare(b.date));
 
-                        const dateMap = new Map();
-                        rawData.forEach(t => {
-                            if (!dateMap.has(t.date)) dateMap.set(t.date, { income: 0, expense: 0 });
-                            const e = dateMap.get(t.date);
-                            if (t.type === 'income') e.income += t.amount;
-                            else e.expense += t.amount;
-                        });
+                        const minDateStr = rawData[0].date;
+                        const maxDateStr = rawData[rawData.length-1].date;
+                        const minTs = +new Date(minDateStr + 'T00:00:00');
+                        const maxTs = +new Date(maxDateStr + 'T00:00:00');
 
-                        const labels = [], incomeData = [], expenseData = [], balanceData = [];
-                        let cum = 0;
-                        dateMap.forEach((val, date) => {
-                            labels.push(new Date(date).toLocaleDateString('pl-PL'));
-                            incomeData.push(val.income);
-                            expenseData.push(val.expense);
-                            cum += (val.income - val.expense);
-                            balanceData.push(cum);
-                        });
+                        const MONTHS_PL = ['Sty','Lut','Mar','Kwi','Maj','Cze','Lip','Sie','Wrz','Paź','Lis','Gru'];
 
-                        function initCashflowChart() {
+                        function parseDate(str) {
+                            const p = str.split('-');
+                            return new Date(+p[0], +p[1]-1, +p[2]);
+                        }
+                        function fmtDate(d) { return d.toLocaleDateString('pl-PL'); }
+                        function fmtAmt(v) { return v.toFixed(2).replace('.',',') + ' zł'; }
+
+                        function getPeriodKey(dateStr, mode) {
+                            if (mode === 'day') return dateStr;
+                            if (mode === 'month') return dateStr.slice(0,7);
+                            if (mode === 'year') return dateStr.slice(0,4);
+                            if (mode === 'week') {
+                                const d = parseDate(dateStr);
+                                const dayOff = (d.getDay()+6)%7;
+                                const mon = new Date(d); mon.setDate(d.getDate()-dayOff);
+                                const y=mon.getFullYear(), m=String(mon.getMonth()+1).padStart(2,'0'), dd=String(mon.getDate()).padStart(2,'0');
+                                return y+'-'+m+'-'+dd;
+                            }
+                        }
+
+                        function getLabelForKey(key, mode) {
+                            if (mode === 'day') return fmtDate(parseDate(key));
+                            if (mode === 'month') { const [y,m]=key.split('-'); return MONTHS_PL[+m-1]+' '+y; }
+                            if (mode === 'year') return key;
+                            if (mode === 'week') {
+                                const d=parseDate(key), e=new Date(d); e.setDate(d.getDate()+6);
+                                return fmtDate(d)+'–'+fmtDate(e);
+                            }
+                        }
+
+                        function groupData(mode, filterStart, filterEnd) {
+                            const map = new Map();
+                            rawData.forEach(t => {
+                                const ts = +new Date(t.date+'T00:00:00');
+                                if (filterStart && ts < filterStart.getTime()) return;
+                                if (filterEnd && ts > filterEnd.getTime()) return;
+                                const key = getPeriodKey(t.date, mode);
+                                if (!map.has(key)) map.set(key, {income:0, expense:0});
+                                const e = map.get(key);
+                                if (t.type === 'income') e.income += t.amount;
+                                else e.expense += t.amount;
+                            });
+                            return [...map.entries()].sort((a,b) => a[0].localeCompare(b[0])).map(([k,v]) => ({key:k,...v}));
+                        }
+
+                        const overviewGrouped = groupData('month', null, null);
+
+                        let currentMode = 'month';
+                        let windowStart = null, windowEnd = null;
+                        let mainChart = null, overviewChart = null;
+
+                        function getDefaultWindow(mode) {
+                            const minD = parseDate(minDateStr), maxD = parseDate(maxDateStr);
+                            if (mode === 'year') return { start: new Date(minD.getFullYear(),0,1), end: new Date(maxD.getFullYear(),11,31) };
+                            const end = new Date(maxD);
+                            let start;
+                            if (mode === 'month') { start = new Date(end.getFullYear()-1, end.getMonth()+1, 1); }
+                            else if (mode === 'week') { start = new Date(end); start.setDate(end.getDate()-83); }
+                            else { start = new Date(end); start.setDate(end.getDate()-29); }
+                            return { start, end };
+                        }
+
+                        function buildMainData() {
+                            const g = groupData(currentMode, windowStart, windowEnd);
+                            const labels = g.map(d => getLabelForKey(d.key, currentMode));
+                            const income = g.map(d => d.income);
+                            const expense = g.map(d => d.expense);
+                            const balance = [];
+                            let cum = 0;
+                            g.forEach(d => { cum += d.income - d.expense; balance.push(cum); });
+                            return { labels, income, expense, balance };
+                        }
+
+                        function updateRangeLabel() {
+                            const el = document.getElementById('cashflow-range-label');
+                            if (!el) return;
+                            if (currentMode === 'year') {
+                                el.textContent = windowStart.getFullYear() + ' – ' + windowEnd.getFullYear();
+                            } else {
+                                el.textContent = fmtDate(windowStart) + ' – ' + fmtDate(windowEnd);
+                            }
+                        }
+
+                        function updateModeButtons() {
+                            document.querySelectorAll('.cashflow-mode-btn').forEach(btn => {
+                                const active = btn.dataset.mode === currentMode;
+                                btn.classList.toggle('bg-indigo-600', active);
+                                btn.classList.toggle('text-white', active);
+                                btn.classList.remove('hover:bg-gray-100');
+                                if (!active) btn.classList.add('hover:bg-gray-100');
+                            });
+                        }
+
+                        function updateMainChart() {
+                            if (!mainChart) return;
+                            const { labels, income, expense, balance } = buildMainData();
+                            mainChart.data.labels = labels;
+                            mainChart.data.datasets[0].data = income;
+                            mainChart.data.datasets[1].data = expense;
+                            mainChart.data.datasets[2].data = balance;
+                            mainChart.update('none');
+                        }
+
+                        function initMainChart() {
                             const canvas = document.getElementById('cashflow-chart');
                             if (!canvas || !window.Chart) return;
-                            new Chart(canvas, {
+                            const { labels, income, expense, balance } = buildMainData();
+                            mainChart = new Chart(canvas, {
                                 type: 'bar',
                                 data: {
-                                    labels: labels,
+                                    labels,
                                     datasets: [
-                                        {
-                                            label: 'Przychody',
-                                            data: incomeData,
-                                            backgroundColor: 'rgba(34, 197, 94, 0.6)',
-                                            borderColor: 'rgb(34, 197, 94)',
-                                            borderWidth: 1,
-                                            order: 2
-                                        },
-                                        {
-                                            label: 'Wydatki',
-                                            data: expenseData,
-                                            backgroundColor: 'rgba(239, 68, 68, 0.6)',
-                                            borderColor: 'rgb(239, 68, 68)',
-                                            borderWidth: 1,
-                                            order: 2
-                                        },
-                                        {
-                                            label: 'Bilans narastająco',
-                                            data: balanceData,
-                                            type: 'line',
-                                            borderColor: 'rgb(59, 130, 246)',
-                                            backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                                            borderWidth: 2,
-                                            fill: true,
-                                            tension: 0.3,
-                                            pointRadius: 4,
-                                            order: 1
-                                        }
+                                        { label: 'Przychody', data: income, backgroundColor: 'rgba(34,197,94,0.6)', borderColor: 'rgb(34,197,94)', borderWidth: 1, order: 2 },
+                                        { label: 'Wydatki', data: expense, backgroundColor: 'rgba(239,68,68,0.6)', borderColor: 'rgb(239,68,68)', borderWidth: 1, order: 2 },
+                                        { label: 'Bilans narastająco', data: balance, type: 'line', borderColor: 'rgb(99,102,241)', backgroundColor: 'rgba(99,102,241,0.07)', borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3, order: 1 }
                                     ]
                                 },
                                 options: {
-                                    responsive: true,
-                                    maintainAspectRatio: false,
+                                    responsive: true, maintainAspectRatio: false,
+                                    animation: { duration: 200 },
                                     plugins: {
                                         legend: { display: true, position: 'top' },
-                                        tooltip: {
-                                            callbacks: {
-                                                label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2).replace('.', ',') + ' zł'
-                                            }
-                                        }
+                                        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmtAmt(ctx.parsed.y) } }
                                     },
-                                    scales: {
-                                        y: {
-                                            ticks: { callback: v => v.toFixed(0) + ' zł' }
-                                        }
-                                    }
+                                    scales: { y: { ticks: { callback: v => v.toFixed(0) + ' zł' } } }
                                 }
                             });
                         }
 
-                        if (document.readyState === 'loading') {
-                            document.addEventListener('DOMContentLoaded', initCashflowChart);
-                        } else {
-                            initCashflowChart();
+                        function initOverviewChart() {
+                            const canvas = document.getElementById('cashflow-overview-chart');
+                            if (!canvas || !window.Chart) return;
+                            overviewChart = new Chart(canvas, {
+                                type: 'bar',
+                                data: {
+                                    labels: overviewGrouped.map(d => d.key),
+                                    datasets: [
+                                        { data: overviewGrouped.map(d => d.income), backgroundColor: 'rgba(34,197,94,0.45)', borderWidth: 0 },
+                                        { data: overviewGrouped.map(d => d.expense), backgroundColor: 'rgba(239,68,68,0.4)', borderWidth: 0 }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true, maintainAspectRatio: false, animation: false,
+                                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                                    scales: { x: { display: false, stacked: false }, y: { display: false } }
+                                }
+                            });
                         }
+
+                        function fractionFromTs(ts) {
+                            if (maxTs === minTs) return 0;
+                            return Math.max(0, Math.min(1, (ts - minTs) / (maxTs - minTs)));
+                        }
+                        function tsFromFraction(frac) {
+                            return minTs + frac * (maxTs - minTs);
+                        }
+
+                        function updateBrushSelection() {
+                            const sel = document.getElementById('cashflow-brush-sel');
+                            const wrap = document.getElementById('cashflow-brush-wrap');
+                            if (!sel || !wrap || !windowStart || !windowEnd) return;
+                            const W = wrap.offsetWidth; if (W === 0) return;
+                            const f1 = fractionFromTs(windowStart.getTime());
+                            const f2 = fractionFromTs(windowEnd.getTime());
+                            sel.style.display = 'block';
+                            sel.style.left = Math.round(f1 * W) + 'px';
+                            sel.style.width = Math.max(4, Math.round((f2 - f1) * W)) + 'px';
+                        }
+
+                        function initBrush() {
+                            const overlay = document.getElementById('cashflow-brush-overlay');
+                            const wrap = document.getElementById('cashflow-brush-wrap');
+                            if (!overlay || !wrap) return;
+                            let dragging = false, dragF1 = 0;
+
+                            function getF(e) {
+                                const rect = wrap.getBoundingClientRect();
+                                const cx = e.touches ? e.touches[0].clientX : e.clientX;
+                                return Math.max(0, Math.min(1, (cx - rect.left) / wrap.offsetWidth));
+                            }
+                            function drawLive(f1, f2) {
+                                const sel = document.getElementById('cashflow-brush-sel');
+                                const W = wrap.offsetWidth;
+                                const a = Math.min(f1,f2), b = Math.max(f1,f2);
+                                sel.style.display = 'block';
+                                sel.style.left = Math.round(a*W)+'px';
+                                sel.style.width = Math.max(4, Math.round((b-a)*W))+'px';
+                            }
+                            function applyBrush(f1raw, f2raw) {
+                                const f1 = Math.min(f1raw,f2raw), f2 = Math.max(f1raw,f2raw);
+                                if (f2 - f1 < 0.01) return;
+                                const t1 = tsFromFraction(f1), t2 = tsFromFraction(f2);
+                                const spanDays = (t2 - t1) / 86400000;
+                                if (spanDays <= 45) currentMode = 'day';
+                                else if (spanDays <= 120) currentMode = 'week';
+                                else if (spanDays <= 800) currentMode = 'month';
+                                else currentMode = 'year';
+                                windowStart = new Date(t1); windowEnd = new Date(t2);
+                                updateModeButtons(); updateMainChart(); updateBrushSelection(); updateRangeLabel();
+                            }
+
+                            overlay.addEventListener('mousedown', e => { dragging=true; dragF1=getF(e); e.preventDefault(); });
+                            document.addEventListener('mousemove', e => { if (!dragging) return; drawLive(dragF1, getF(e)); });
+                            document.addEventListener('mouseup', e => { if (!dragging) return; dragging=false; applyBrush(dragF1, getF(e)); });
+                            overlay.addEventListener('touchstart', e => { dragging=true; dragF1=getF(e); e.preventDefault(); }, {passive:false});
+                            overlay.addEventListener('touchmove', e => { if (!dragging) return; drawLive(dragF1, getF(e)); e.preventDefault(); }, {passive:false});
+                            overlay.addEventListener('touchend', e => {
+                                if (!dragging) return; dragging=false;
+                                const last = e.changedTouches && e.changedTouches[0];
+                                if (!last) return;
+                                const rect = wrap.getBoundingClientRect();
+                                applyBrush(dragF1, Math.max(0, Math.min(1, (last.clientX-rect.left)/wrap.offsetWidth)));
+                            });
+                        }
+
+                        window.initCashflowChart = function() {
+                            const w = getDefaultWindow(currentMode);
+                            windowStart = w.start; windowEnd = w.end;
+                            initMainChart();
+                            initOverviewChart();
+                            setTimeout(function() {
+                                updateBrushSelection();
+                                updateRangeLabel();
+                                updateModeButtons();
+                                initBrush();
+                            }, 60);
+
+                            document.querySelectorAll('.cashflow-mode-btn').forEach(btn => {
+                                btn.addEventListener('click', function() {
+                                    currentMode = this.dataset.mode;
+                                    const w = getDefaultWindow(currentMode);
+                                    windowStart = w.start; windowEnd = w.end;
+                                    updateModeButtons(); updateMainChart(); updateBrushSelection(); updateRangeLabel();
+                                });
+                            });
+                            document.getElementById('cashflow-prev').addEventListener('click', function() {
+                                if (currentMode === 'year') return;
+                                const span = windowEnd.getTime() - windowStart.getTime();
+                                windowStart = new Date(windowStart.getTime() - span);
+                                windowEnd = new Date(windowEnd.getTime() - span);
+                                updateMainChart(); updateBrushSelection(); updateRangeLabel();
+                            });
+                            document.getElementById('cashflow-next').addEventListener('click', function() {
+                                if (currentMode === 'year') return;
+                                const span = windowEnd.getTime() - windowStart.getTime();
+                                windowStart = new Date(windowStart.getTime() + span);
+                                windowEnd = new Date(windowEnd.getTime() + span);
+                                updateMainChart(); updateBrushSelection(); updateRangeLabel();
+                            });
+                            document.getElementById('cashflow-reset').addEventListener('click', function() {
+                                const w = getDefaultWindow(currentMode);
+                                windowStart = w.start; windowEnd = w.end;
+                                updateMainChart(); updateBrushSelection(); updateRangeLabel();
+                            });
+                        };
                     })();
                     </script>
                     @else
