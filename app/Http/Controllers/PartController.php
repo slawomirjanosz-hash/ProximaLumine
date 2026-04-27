@@ -592,14 +592,21 @@ class PartController extends Controller
     {
         $orderSettings = \DB::table('order_settings')->first();
         $orderNamePreview = $orderSettings ? $this->generateOrderNamePreview($orderSettings) : 'Zamówienie';
-        
+
+        $projectOrders = \App\Models\Order::with(['user', 'project'])
+            ->whereNotNull('project_id')
+            ->orderBy('issued_at', 'desc')
+            ->get();
+
         return view('parts.orders', [
-            'parts' => Part::with(['category', 'lastModifiedBy'])->orderBy('name')->get(),
-            'categories' => Category::all(),
-            'suppliers' => \App\Models\Supplier::where('is_supplier', true)->orderBy('name')->get(),
-            'orderSettings' => $orderSettings,
+            'parts'            => Part::with(['category', 'lastModifiedBy'])->orderBy('name')->get(),
+            'categories'       => Category::all(),
+            'suppliers'        => \App\Models\Supplier::where('is_supplier', true)->orderBy('name')->get(),
+            'orderSettings'    => $orderSettings,
             'orderNamePreview' => $orderNamePreview,
-            'orders' => \App\Models\Order::with(['user', 'receivedBy'])->orderBy('issued_at', 'desc')->get(),
+            'orders'           => \App\Models\Order::with(['user', 'receivedBy'])->whereNull('project_id')->orderBy('issued_at', 'desc')->get(),
+            'projectOrders'    => $projectOrders,
+            'projects'         => \App\Models\Project::orderBy('name')->get(['id', 'name', 'project_number']),
         ]);
     }
 
@@ -5424,6 +5431,111 @@ class PartController extends Controller
                 ? 'Zamówienie zostało utworzone' 
                 : 'Utworzono ' . count($createdOrders) . ' zamówienia dla różnych dostawców',
             'orders' => $createdOrders
+        ]);
+    }
+
+    // UTWÓRZ ZAMÓWIENIE DO PROJEKTU
+    public function createProjectOrder(Request $request, $projectId)
+    {
+        $request->validate([
+            'order_name'            => 'required|string|max:255',
+            'products'              => 'required|array|min:1',
+            'products.*.name'       => 'required|string',
+            'products.*.quantity'   => 'required|integer|min:1',
+            'supplier'              => 'nullable|string|max:255',
+            'supplier_offer_number' => 'nullable|string|max:255',
+            'payment_method'        => 'nullable|string|max:100',
+            'payment_days'          => 'nullable|string|max:100',
+            'delivery_time'         => 'nullable|string|max:100',
+            'order_date'            => 'nullable|date',
+            'payment_date'          => 'nullable|date',
+            'category'              => 'nullable|string|in:materials,services',
+        ]);
+
+        $project = \App\Models\Project::findOrFail($projectId);
+        $products = $request->input('products');
+        $orderName = $request->input('order_name');
+        $supplierName = $request->input('supplier');
+        $category = $request->input('category', 'materials');
+
+        // Oblicz sumę netto ze wszystkich pozycji
+        $totalNet = 0;
+        foreach ($products as $product) {
+            $price = (float) str_replace(',', '.', $product['price'] ?? 0);
+            $qty   = (int) ($product['quantity'] ?? 1);
+            $totalNet += $price * $qty;
+        }
+
+        // Jeśli brak dostawcy w prośbie, wez z pierwszej pozycji
+        if (empty($supplierName)) {
+            foreach ($products as $product) {
+                if (!empty($product['supplier'])) {
+                    $supplierName = $product['supplier'];
+                    break;
+                }
+            }
+        }
+
+        // Utwórz rekord w tabeli orders
+        $order = \App\Models\Order::create([
+            'project_id'            => $project->id,
+            'order_number'          => $orderName,
+            'supplier'              => $supplierName,
+            'products'              => $products,
+            'supplier_offer_number' => $request->input('supplier_offer_number'),
+            'payment_method'        => $request->input('payment_method'),
+            'payment_days'          => $request->input('payment_days'),
+            'delivery_time'         => $request->input('delivery_time'),
+            'issued_at'             => now(),
+            'user_id'               => auth()->id(),
+        ]);
+
+        // Utwórz rekord w harmonogramie finansowym projektu (zakładka Zamówienia)
+        if ($this->hasColumnSafe('project_finance', 'supplier')) {
+            \App\Models\ProjectFinance::create([
+                'project_id'      => $project->id,
+                'type'            => 'expense',
+                'category'        => $category,
+                'name'            => $orderName,
+                'document_number' => $orderName,
+                'supplier'        => $supplierName ?? '',
+                'description'     => implode(', ', array_filter(array_column($products, 'name'))),
+                'amount'          => $totalNet,
+                'date'            => $request->input('order_date') ?? now()->format('Y-m-d'),
+                'payment_date'    => $request->input('payment_date'),
+                'status'          => 'not_sent',
+            ]);
+        } else {
+            \App\Models\ProjectFinance::create([
+                'project_id'      => $project->id,
+                'type'            => 'expense',
+                'category'        => $category,
+                'name'            => $orderName,
+                'document_number' => $orderName,
+                'description'     => implode(', ', array_filter(array_column($products, 'name'))),
+                'amount'          => $totalNet,
+                'date'            => $request->input('order_date') ?? now()->format('Y-m-d'),
+                'payment_date'    => $request->input('payment_date'),
+                'status'          => 'not_sent',
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Zamówienie projektowe zostało utworzone',
+            'order'   => [
+                'id'           => $order->id,
+                'order_number' => $order->order_number,
+                'supplier'     => $order->supplier,
+                'issued_at'    => $order->issued_at->format('Y-m-d H:i:s'),
+                'products'     => $order->products,
+                'total_net'    => number_format($totalNet, 2, '.', ''),
+                'category'     => $category,
+                'delivery_time'         => $order->delivery_time,
+                'supplier_offer_number' => $order->supplier_offer_number,
+                'payment_method'        => $order->payment_method,
+                'payment_days'          => $order->payment_days,
+            ],
         ]);
     }
 

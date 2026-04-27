@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Order extends Model
 {
     protected $fillable = [
+        'project_id',
         'order_number',
         'supplier',
         'status',
@@ -35,5 +36,10 @@ class Order extends Model
     public function receivedBy()
     {
         return $this->belongsTo(User::class, 'received_by_user_id');
+    }
+
+    public function project()
+    {
+        return $this->belongsTo(\App\Models\Project::class);
     }
 }

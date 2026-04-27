@@ -309,6 +309,230 @@ $orderNamePreview = generateOrderNamePreview($orderSettings ?? null);
         </div>
     </div>
 
+    {{-- SEKCJA: ZAMÓWIENIE DO PROJEKTU (ROZWIJALNA) --}}
+    <div class="bg-white rounded shadow mb-6 border border-indigo-200">
+        <button type="button" class="collapsible-btn w-full flex items-center gap-2 p-6 cursor-pointer hover:bg-indigo-50" data-target="project-order-content">
+            <span class="toggle-arrow text-lg">▶</span>
+            <h3 class="text-lg font-semibold text-indigo-800">🏗️ Zamówienie do projektu</h3>
+        </button>
+        <div id="project-order-content" class="collapsible-content hidden p-6 border-t border-indigo-200">
+
+            {{-- FORMULARZ TWORZENIA ZAMÓWIENIA DO PROJEKTU --}}
+            <div class="mb-6 pb-6 border-b">
+                <h4 class="font-semibold text-sm mb-4">Nowe zamówienie do projektu</h4>
+
+                {{-- Wybór projektu i podstawowe dane --}}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Projekt <span class="text-red-500">*</span></label>
+                        <select id="proj-order-project" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                            <option value="">-- wybierz projekt --</option>
+                            @foreach($projects as $proj)
+                                <option value="{{ $proj->id }}">{{ $proj->project_number }} – {{ $proj->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Nazwa / numer zamówienia <span class="text-red-500">*</span></label>
+                        <input type="text" id="proj-order-name" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="ZAM/2026/...">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Dostawca</label>
+                        <input type="text" id="proj-order-supplier" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="Nazwa dostawcy">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Typ zamówienia</label>
+                        <select id="proj-order-category" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                            <option value="materials">Materiały</option>
+                            <option value="services">Usługi</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Data zamówienia</label>
+                        <input type="date" id="proj-order-date" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" value="{{ date('Y-m-d') }}">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Termin płatności</label>
+                        <input type="date" id="proj-order-payment-date" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Forma płatności</label>
+                        <div class="flex gap-2">
+                            <select id="proj-order-payment-method" class="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm">
+                                <option value="">-- wybierz --</option>
+                                <option value="gotówka">Gotówka</option>
+                                <option value="przelew" selected>Przelew</option>
+                                <option value="przedpłata">Przedpłata</option>
+                            </select>
+                            <input type="text" id="proj-order-payment-days" value="14 dni" class="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="np. 14 dni">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Termin dostawy</label>
+                        <input type="text" id="proj-order-delivery" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="np. 14 dni">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Oferta dostawcy nr</label>
+                        <input type="text" id="proj-order-supplier-offer" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="e-mail">
+                    </div>
+                </div>
+
+                {{-- Pozycje zamówienia --}}
+                <div class="mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h5 class="font-semibold text-sm">Pozycje zamówienia</h5>
+                        <div class="flex gap-2">
+                            <button type="button" id="proj-order-add-custom-line"
+                                class="px-3 py-1 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-700 font-semibold">
+                                ➕ Dodaj własną pozycję
+                            </button>
+                            <button type="button" id="proj-order-add-from-catalog-btn"
+                                class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 font-semibold">
+                                📦 Dodaj z magazynu
+                            </button>
+                        </div>
+                    </div>
+
+                    {{-- Tabela pozycji --}}
+                    <div class="w-full overflow-x-auto rounded border border-gray-200">
+                        <table class="w-full border-collapse text-xs" id="proj-order-lines-table">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="border-b p-2 text-left">Nazwa / Opis</th>
+                                    <th class="border-b p-2 text-left">Dostawca</th>
+                                    <th class="border-b p-2 text-center" style="width:70px;">Ilość</th>
+                                    <th class="border-b p-2 text-center" style="width:110px;">Cena netto</th>
+                                    <th class="border-b p-2 text-center" style="width:70px;">Waluta</th>
+                                    <th class="border-b p-2 text-center" style="width:90px;">Suma netto</th>
+                                    <th class="border-b p-2 text-center" style="width:40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="proj-order-lines-tbody">
+                                <tr id="proj-order-empty-row">
+                                    <td colspan="7" class="p-3 text-center text-gray-400 italic">Brak pozycji — dodaj własną lub z magazynu</td>
+                                </tr>
+                            </tbody>
+                            <tfoot>
+                                <tr class="bg-gray-50 font-semibold">
+                                    <td colspan="5" class="p-2 text-right text-xs">Suma netto:</td>
+                                    <td class="p-2 text-center text-xs" id="proj-order-total">0,00 PLN</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    {{-- Katalog magazynowy (ukryty, pokazuje się po kliknięciu "Dodaj z magazynu") --}}
+                    <div id="proj-order-catalog-wrap" class="hidden mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                        <div class="flex items-center gap-2 mb-2">
+                            <input type="text" id="proj-order-catalog-search" placeholder="Szukaj po nazwie produktu…" class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs">
+                            <button type="button" id="proj-order-catalog-close" class="text-gray-500 hover:text-red-600 text-xs font-bold">✕ Zamknij</button>
+                        </div>
+                        <div class="w-full overflow-x-auto rounded border border-gray-200 max-h-56 overflow-y-auto">
+                            <table class="w-full border-collapse text-xs">
+                                <thead class="bg-blue-100 sticky top-0">
+                                    <tr>
+                                        <th class="border-b p-1 text-left">Produkt</th>
+                                        <th class="border-b p-1 text-left">Opis</th>
+                                        <th class="border-b p-1 text-center">Dostawca</th>
+                                        <th class="border-b p-1 text-center">Cena netto</th>
+                                        <th class="border-b p-1 text-center">Stan</th>
+                                        <th class="border-b p-1 text-center"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="proj-order-catalog-tbody">
+                                    @foreach($parts as $p)
+                                    @php
+                                        $sup = $suppliers->firstWhere('name', $p->supplier);
+                                        $supShort = $sup ? ($sup->short_name ?? $sup->name) : ($p->supplier ?? '');
+                                    @endphp
+                                    <tr class="proj-catalog-row bg-white even:bg-gray-50"
+                                        data-name="{{ $p->name }}"
+                                        data-desc="{{ $p->description ?? '' }}"
+                                        data-supplier="{{ $p->supplier ?? '' }}"
+                                        data-supplier-short="{{ $supShort }}"
+                                        data-price="{{ $p->net_price ?? '' }}"
+                                        data-currency="{{ $p->currency ?? 'PLN' }}"
+                                        data-qty="{{ $p->quantity }}">
+                                        <td class="border-b p-1">{{ $p->name }}</td>
+                                        <td class="border-b p-1 text-gray-600">{{ $p->description ?? '-' }}</td>
+                                        <td class="border-b p-1 text-center">{{ $supShort ?: '-' }}</td>
+                                        <td class="border-b p-1 text-center">{{ $p->net_price ? $p->net_price . ' ' . ($p->currency ?? 'PLN') : '-' }}</td>
+                                        <td class="border-b p-1 text-center font-bold {{ ($p->minimum_stock > 0 && $p->quantity < $p->minimum_stock) ? 'text-red-600' : '' }}">{{ $p->quantity }}</td>
+                                        <td class="border-b p-1 text-center">
+                                            <button type="button" class="proj-catalog-add-btn px-2 py-0.5 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-700">Dodaj</button>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" id="proj-order-submit-btn"
+                    class="px-5 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-semibold">
+                    📦 Utwórz zamówienie do projektu
+                </button>
+            </div>
+
+            {{-- LISTA ZAMÓWIEŃ PROJEKTOWYCH --}}
+            <div>
+                <h4 class="font-semibold text-sm mb-3">Wystawione zamówienia projektowe</h4>
+                <div class="w-full overflow-x-auto rounded border border-gray-200">
+                    <table class="w-full border-collapse text-xs" id="proj-orders-issued-table">
+                        <thead class="bg-indigo-50">
+                            <tr>
+                                <th class="border-b p-2 text-left">Numer zamówienia</th>
+                                <th class="border-b p-2 text-left">Projekt</th>
+                                <th class="border-b p-2 text-left">Dostawca</th>
+                                <th class="border-b p-2 text-center">Data</th>
+                                <th class="border-b p-2 text-center">Suma netto</th>
+                                <th class="border-b p-2 text-center">Akcje</th>
+                            </tr>
+                        </thead>
+                        <tbody id="proj-orders-issued-tbody">
+                            @forelse($projectOrders as $po)
+                            @php
+                                $poTotal = 0;
+                                foreach (($po->products ?? []) as $pp) {
+                                    $poTotal += (float) str_replace(',', '.', $pp['price'] ?? 0) * (int) ($pp['quantity'] ?? 1);
+                                }
+                            @endphp
+                            <tr class="bg-white even:bg-gray-50/80">
+                                <td class="border-b p-2 font-mono">{{ $po->order_number }}</td>
+                                <td class="border-b p-2">{{ $po->project->project_number ?? '' }} {{ $po->project->name ?? '-' }}</td>
+                                <td class="border-b p-2">{{ $po->supplier ?? '-' }}</td>
+                                <td class="border-b p-2 text-center">{{ $po->issued_at->format('Y-m-d') }}</td>
+                                <td class="border-b p-2 text-center">{{ number_format($poTotal, 2, ',', ' ') }} PLN</td>
+                                <td class="border-b p-2 text-center">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <a href="/magazyn/zamowienia/{{ $po->id }}/generate-word"
+                                           class="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-gray-800 rounded text-xs"
+                                           title="Pobierz Word">📄 Word</a>
+                                        <a href="/magazyn/zamowienia/{{ $po->id }}/generate-pdf"
+                                           class="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-gray-800 rounded text-xs"
+                                           title="Pobierz PDF">📄 PDF</a>
+                                        <button type="button"
+                                            class="proj-order-delete-btn px-2 py-1 bg-red-100 hover:bg-red-200 text-gray-800 rounded text-xs"
+                                            data-order-id="{{ $po->id }}"
+                                            data-order-number="{{ $po->order_number }}">🗑️</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr id="proj-orders-empty-row">
+                                <td colspan="6" class="p-3 text-center text-gray-400 italic">Brak zamówień projektowych</td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
     {{-- SEKCJA: WYSTAWIONE ZAMÓWIENIA (ROZWIJALNA) --}}
     <div class="bg-white rounded shadow mb-6 border">
         <button type="button" class="collapsible-btn w-full flex items-center gap-2 p-6 cursor-pointer hover:bg-gray-50" data-target="receive-order-content">
@@ -1832,6 +2056,297 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log('Orders page JavaScript initialization complete');
+
+    // =====================================================================
+    // ZAMÓWIENIA DO PROJEKTU
+    // =====================================================================
+    (function() {
+        let projLines = []; // [{id, name, description, supplier, price, currency, quantity}]
+        let projLineIdCounter = 0;
+
+        function generateProjLineId() { return ++projLineIdCounter; }
+
+        function calcLineTotal(line) {
+            const p = parseFloat(String(line.price).replace(',', '.')) || 0;
+            const q = parseInt(line.quantity) || 1;
+            return p * q;
+        }
+
+        function renderProjLines() {
+            const tbody = document.getElementById('proj-order-lines-tbody');
+            const totalEl = document.getElementById('proj-order-total');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+
+            if (projLines.length === 0) {
+                tbody.innerHTML = '<tr id="proj-order-empty-row"><td colspan="7" class="p-3 text-center text-gray-400 italic">Brak pozycji — dodaj własną lub z magazynu</td></tr>';
+                if (totalEl) totalEl.textContent = '0,00 PLN';
+                return;
+            }
+
+            let totalNet = 0;
+            projLines.forEach(function(line) {
+                const lineTotal = calcLineTotal(line);
+                totalNet += lineTotal;
+                const tr = document.createElement('tr');
+                tr.className = 'bg-white even:bg-gray-50';
+                tr.innerHTML = `
+                    <td class="border-b p-1">
+                        <input type="text" class="w-full px-1 py-0.5 border border-gray-300 rounded text-xs proj-line-name" data-id="${line.id}" value="${escHtml(line.name)}" placeholder="Nazwa / Opis">
+                    </td>
+                    <td class="border-b p-1">
+                        <input type="text" class="w-full px-1 py-0.5 border border-gray-300 rounded text-xs proj-line-supplier" data-id="${line.id}" value="${escHtml(line.supplier)}" placeholder="Dostawca">
+                    </td>
+                    <td class="border-b p-1 text-center">
+                        <input type="number" min="1" class="w-14 px-1 py-0.5 border border-gray-300 rounded text-xs text-center proj-line-qty" data-id="${line.id}" value="${parseInt(line.quantity)||1}">
+                    </td>
+                    <td class="border-b p-1 text-center">
+                        <input type="text" class="w-20 px-1 py-0.5 border border-gray-300 rounded text-xs text-center proj-line-price" data-id="${line.id}" value="${escHtml(line.price)}" placeholder="0.00">
+                    </td>
+                    <td class="border-b p-1 text-center">
+                        <select class="px-1 py-0.5 border border-gray-300 rounded text-xs proj-line-currency" data-id="${line.id}">
+                            <option value="PLN" ${line.currency==='PLN'?'selected':''}>PLN</option>
+                            <option value="EUR" ${line.currency==='EUR'?'selected':''}>EUR</option>
+                            <option value="USD" ${line.currency==='USD'?'selected':''}>USD</option>
+                        </select>
+                    </td>
+                    <td class="border-b p-1 text-center font-semibold text-xs" id="proj-line-total-${line.id}">${lineTotal.toFixed(2).replace('.', ',')} ${line.currency||'PLN'}</td>
+                    <td class="border-b p-1 text-center">
+                        <button type="button" class="proj-line-remove-btn text-red-600 hover:text-red-800 font-bold text-base leading-none" data-id="${line.id}" title="Usuń pozycję">×</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if (totalEl) totalEl.textContent = totalNet.toFixed(2).replace('.', ',') + ' PLN';
+
+            // Attach inline change listeners
+            tbody.querySelectorAll('.proj-line-name').forEach(function(el) {
+                el.addEventListener('input', function() { updateLineField(this.dataset.id, 'name', this.value); });
+            });
+            tbody.querySelectorAll('.proj-line-supplier').forEach(function(el) {
+                el.addEventListener('input', function() { updateLineField(this.dataset.id, 'supplier', this.value); });
+            });
+            tbody.querySelectorAll('.proj-line-qty').forEach(function(el) {
+                el.addEventListener('input', function() { updateLineField(this.dataset.id, 'quantity', this.value); recalcLineTotals(); });
+            });
+            tbody.querySelectorAll('.proj-line-price').forEach(function(el) {
+                el.addEventListener('input', function() { updateLineField(this.dataset.id, 'price', this.value); recalcLineTotals(); });
+            });
+            tbody.querySelectorAll('.proj-line-currency').forEach(function(el) {
+                el.addEventListener('change', function() { updateLineField(this.dataset.id, 'currency', this.value); recalcLineTotals(); });
+            });
+            tbody.querySelectorAll('.proj-line-remove-btn').forEach(function(el) {
+                el.addEventListener('click', function() {
+                    const id = parseInt(this.dataset.id);
+                    projLines = projLines.filter(function(l) { return l.id !== id; });
+                    renderProjLines();
+                });
+            });
+        }
+
+        function updateLineField(id, field, value) {
+            const idNum = parseInt(id);
+            const line = projLines.find(function(l) { return l.id === idNum; });
+            if (line) line[field] = value;
+        }
+
+        function recalcLineTotals() {
+            let totalNet = 0;
+            projLines.forEach(function(line) {
+                const lt = calcLineTotal(line);
+                totalNet += lt;
+                const el = document.getElementById('proj-line-total-' + line.id);
+                if (el) el.textContent = lt.toFixed(2).replace('.', ',') + ' ' + (line.currency || 'PLN');
+            });
+            const totalEl = document.getElementById('proj-order-total');
+            if (totalEl) totalEl.textContent = totalNet.toFixed(2).replace('.', ',') + ' PLN';
+        }
+
+        function escHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        // Dodaj własną pozycję
+        const addCustomBtn = document.getElementById('proj-order-add-custom-line');
+        if (addCustomBtn) {
+            addCustomBtn.addEventListener('click', function() {
+                projLines.push({ id: generateProjLineId(), name: '', description: '', supplier: '', price: '', currency: 'PLN', quantity: 1 });
+                renderProjLines();
+            });
+        }
+
+        // Pokaż/ukryj katalog
+        const addFromCatalogBtn = document.getElementById('proj-order-add-from-catalog-btn');
+        const catalogWrap = document.getElementById('proj-order-catalog-wrap');
+        const catalogCloseBtn = document.getElementById('proj-order-catalog-close');
+        const catalogSearch = document.getElementById('proj-order-catalog-search');
+
+        if (addFromCatalogBtn && catalogWrap) {
+            addFromCatalogBtn.addEventListener('click', function() {
+                catalogWrap.classList.toggle('hidden');
+                if (!catalogWrap.classList.contains('hidden') && catalogSearch) {
+                    catalogSearch.focus();
+                }
+            });
+        }
+        if (catalogCloseBtn && catalogWrap) {
+            catalogCloseBtn.addEventListener('click', function() { catalogWrap.classList.add('hidden'); });
+        }
+
+        // Filtrowanie katalogu
+        if (catalogSearch) {
+            catalogSearch.addEventListener('input', function() {
+                const q = this.value.toLowerCase();
+                document.querySelectorAll('.proj-catalog-row').forEach(function(row) {
+                    const match = row.dataset.name.toLowerCase().includes(q) || (row.dataset.desc || '').toLowerCase().includes(q);
+                    row.style.display = match ? '' : 'none';
+                });
+            });
+        }
+
+        // Dodaj z katalogu
+        document.addEventListener('click', function(e) {
+            if (!e.target.classList.contains('proj-catalog-add-btn')) return;
+            const row = e.target.closest('tr.proj-catalog-row');
+            if (!row) return;
+            projLines.push({
+                id:          generateProjLineId(),
+                name:        row.dataset.name || '',
+                description: row.dataset.desc || '',
+                supplier:    row.dataset.supplier || '',
+                price:       row.dataset.price || '',
+                currency:    row.dataset.currency || 'PLN',
+                quantity:    1,
+            });
+            renderProjLines();
+            if (catalogWrap) catalogWrap.classList.add('hidden');
+            if (catalogSearch) catalogSearch.value = '';
+            document.querySelectorAll('.proj-catalog-row').forEach(function(r) { r.style.display = ''; });
+        });
+
+        // Usuń zamówienie projektowe
+        document.addEventListener('click', function(e) {
+            if (!e.target.classList.contains('proj-order-delete-btn')) return;
+            const btn = e.target;
+            const orderId = btn.dataset.orderId;
+            const orderNumber = btn.dataset.orderNumber;
+            if (!confirm('Czy na pewno usunąć zamówienie "' + orderNumber + '"?')) return;
+            fetch('/magazyn/zamowienia/' + orderId, {
+                method: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+            }).then(function(r) { return r.json(); }).then(function() {
+                const row = btn.closest('tr');
+                if (row) row.remove();
+                const tbody = document.getElementById('proj-orders-issued-tbody');
+                if (tbody && tbody.querySelectorAll('tr').length === 0) {
+                    tbody.innerHTML = '<tr id="proj-orders-empty-row"><td colspan="6" class="p-3 text-center text-gray-400 italic">Brak zamówień projektowych</td></tr>';
+                }
+                showNotification('Zamówienie zostało usunięte', 'success');
+            }).catch(function() { alert('Błąd usuwania zamówienia.'); });
+        });
+
+        // Złóż zamówienie
+        const submitBtn = document.getElementById('proj-order-submit-btn');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', function() {
+                const projectId = document.getElementById('proj-order-project').value;
+                const orderName = (document.getElementById('proj-order-name').value || '').trim();
+
+                if (!projectId) { alert('Wybierz projekt'); return; }
+                if (!orderName) { alert('Podaj numer/nazwę zamówienia'); return; }
+                if (projLines.length === 0) { alert('Dodaj co najmniej jedną pozycję'); return; }
+
+                // Pobierz zaktualizowane wartości z DOM przed wysłaniem
+                const tbody = document.getElementById('proj-order-lines-tbody');
+                if (tbody) {
+                    tbody.querySelectorAll('.proj-line-name').forEach(function(el) { updateLineField(el.dataset.id, 'name', el.value); });
+                    tbody.querySelectorAll('.proj-line-supplier').forEach(function(el) { updateLineField(el.dataset.id, 'supplier', el.value); });
+                    tbody.querySelectorAll('.proj-line-qty').forEach(function(el) { updateLineField(el.dataset.id, 'quantity', el.value); });
+                    tbody.querySelectorAll('.proj-line-price').forEach(function(el) { updateLineField(el.dataset.id, 'price', el.value); });
+                    tbody.querySelectorAll('.proj-line-currency').forEach(function(el) { updateLineField(el.dataset.id, 'currency', el.value); });
+                }
+
+                const products = projLines.map(function(l) {
+                    return { name: l.name, supplier: l.supplier, price: l.price, currency: l.currency || 'PLN', quantity: parseInt(l.quantity) || 1 };
+                });
+
+                const payload = {
+                    order_name:            orderName,
+                    products:              products,
+                    supplier:              (document.getElementById('proj-order-supplier').value || '').trim(),
+                    category:              document.getElementById('proj-order-category').value || 'materials',
+                    order_date:            document.getElementById('proj-order-date').value || '',
+                    payment_date:          document.getElementById('proj-order-payment-date').value || '',
+                    payment_method:        document.getElementById('proj-order-payment-method').value || '',
+                    payment_days:          document.getElementById('proj-order-payment-days').value || '',
+                    delivery_time:         document.getElementById('proj-order-delivery').value || '',
+                    supplier_offer_number: document.getElementById('proj-order-supplier-offer').value || '',
+                };
+
+                submitBtn.disabled = true;
+                submitBtn.textContent = '⏳ Tworzenie…';
+
+                fetch('/projekty/' + projectId + '/zamowienia/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    body: JSON.stringify(payload),
+                })
+                .then(function(r) { if (!r.ok) throw new Error('Błąd serwera'); return r.json(); })
+                .then(function(data) {
+                    showNotification(data.message || 'Zamówienie zostało utworzone', 'success');
+
+                    // Dodaj do tabeli
+                    const issuedTbody = document.getElementById('proj-orders-issued-tbody');
+                    const emptyRow = document.getElementById('proj-orders-empty-row');
+                    if (emptyRow) emptyRow.remove();
+
+                    const order = data.order;
+                    const totalPln = parseFloat(order.total_net || 0).toFixed(2).replace('.', ',');
+                    const projectSelect = document.getElementById('proj-order-project');
+                    const projectLabel = projectSelect ? (projectSelect.options[projectSelect.selectedIndex] || {}).text || '' : '';
+
+                    const newRow = document.createElement('tr');
+                    newRow.className = 'bg-white even:bg-gray-50/80';
+                    newRow.innerHTML = `
+                        <td class="border-b p-2 font-mono">${order.order_number}</td>
+                        <td class="border-b p-2">${escHtml(projectLabel)}</td>
+                        <td class="border-b p-2">${escHtml(order.supplier||'-')}</td>
+                        <td class="border-b p-2 text-center">${order.issued_at.substring(0,10)}</td>
+                        <td class="border-b p-2 text-center">${totalPln} PLN</td>
+                        <td class="border-b p-2 text-center">
+                            <div class="flex items-center justify-center gap-1">
+                                <a href="/magazyn/zamowienia/${order.id}/generate-word" class="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-gray-800 rounded text-xs">📄 Word</a>
+                                <a href="/magazyn/zamowienia/${order.id}/generate-pdf" class="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-gray-800 rounded text-xs">📄 PDF</a>
+                                <button type="button" class="proj-order-delete-btn px-2 py-1 bg-red-100 hover:bg-red-200 text-gray-800 rounded text-xs"
+                                    data-order-id="${order.id}" data-order-number="${escHtml(order.order_number)}">🗑️</button>
+                            </div>
+                        </td>
+                    `;
+                    if (issuedTbody) issuedTbody.insertBefore(newRow, issuedTbody.firstChild);
+
+                    // Reset formularza
+                    projLines = [];
+                    renderProjLines();
+                    document.getElementById('proj-order-name').value = '';
+                    document.getElementById('proj-order-supplier').value = '';
+                    document.getElementById('proj-order-project').value = '';
+                    document.getElementById('proj-order-payment-date').value = '';
+                })
+                .catch(function(err) {
+                    console.error(err);
+                    alert('Wystąpił błąd podczas tworzenia zamówienia.');
+                })
+                .finally(function() {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '📦 Utwórz zamówienie do projektu';
+                });
+            });
+        }
+    })();
+
 });
 </script>
 

@@ -1500,6 +1500,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/magazyn/zamowienia/{order}', [PartController::class, 'deleteOrder'])->name('magazyn.order.delete')->middleware('permission:orders');
     Route::post('/magazyn/zamowienia/delete-multiple', [PartController::class, 'deleteMultipleOrders'])->name('magazyn.order.deleteMultiple')->middleware('permission:orders');
     Route::post('/magazyn/zamowienia/{order}/receive', [PartController::class, 'receiveOrder'])->name('magazyn.order.receive')->middleware('permission:orders');
+    Route::post('/projekty/{project}/zamowienia/create', [PartController::class, 'createProjectOrder'])->name('magazyn.project.order.create')->middleware('auth');
 
     Route::delete('/parts/{part}', [PartController::class, 'destroy'])->name('parts.destroy')->middleware('permission:settings');
     Route::post('/parts/{part}/copy', [PartController::class, 'copyPart'])->name('parts.copy')->middleware('permission:add');
