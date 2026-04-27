@@ -1411,9 +1411,10 @@
                                         <span class="import-display px-2 py-0.5 rounded text-xs font-semibold {{ $costStatusClass }}">{{ $costStatus }}</span>
                                         @endif
                                         <select name="rows[{{ $rowId }}][status]" class="import-input hidden w-full px-1.5 py-1 rounded border border-gray-300 bg-white text-xs" disabled>
-                                            <option value="Opłacono" {{ $costStatus === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
-                                            <option value="Nie opłacono" {{ $costStatus === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
-                                            <option value="Oczekiwanie" {{ ($importedRow['status'] ?? '') === 'Oczekiwanie' ? 'selected' : '' }}>Oczekiwanie</option>
+                                            <option value="Nie wysłano" {{ ($costStatus === 'Oczekiwanie' || $costStatus === 'Nie wysłano') ? 'selected' : '' }}>Nie wysłano</option>
+                                            <option value="Wysłano" {{ ($costStatus === 'Nie opłacono' || $costStatus === 'Wysłano') ? 'selected' : '' }}>Wysłano</option>
+                                            <option value="W trakcie" {{ ($costStatus === 'Opłacono' || $costStatus === 'W trakcie') ? 'selected' : '' }}>W trakcie</option>
+                                            <option value="Zrealizowany" {{ ($costStatus === 'Zrealizowane' || $costStatus === 'Zrealizowany') ? 'selected' : '' }}>Zrealizowany</option>
                                         </select>
                                     </td>
                                     <td class="px-2 py-2 truncate whitespace-nowrap">
@@ -1714,10 +1715,10 @@
                             <div class="finance-field finance-field-status">
                                 <label class="block text-xs text-gray-600 mb-1">Status</label>
                                 <select name="order_status" required class="finance-status-select px-2 py-1.5 border border-gray-300 rounded text-sm">
-                                    <option value="Oczekiwanie" {{ old('order_status', 'Oczekiwanie') === 'Oczekiwanie' ? 'selected' : '' }}>Oczekiwanie</option>
-                                    <option value="Nie opłacono" {{ old('order_status') === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
-                                    <option value="Opłacono" {{ old('order_status') === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
-                                    <option value="Zrealizowane" {{ old('order_status') === 'Zrealizowane' ? 'selected' : '' }}>Zrealizowane</option>
+                                    <option value="Nie wysłano" {{ old('order_status', 'Nie wysłano') === 'Nie wysłano' ? 'selected' : '' }}>Nie wysłano</option>
+                                    <option value="Wysłano" {{ old('order_status') === 'Wysłano' ? 'selected' : '' }}>Wysłano</option>
+                                    <option value="W trakcie" {{ old('order_status') === 'W trakcie' ? 'selected' : '' }}>W trakcie</option>
+                                    <option value="Zrealizowany" {{ old('order_status') === 'Zrealizowany' ? 'selected' : '' }}>Zrealizowany</option>
                                 </select>
                             </div>
                             <div class="finance-field finance-field-flex">
@@ -1766,11 +1767,18 @@
                                         }
 
                                         $orderStatusClass = 'bg-gray-100 text-gray-700';
-                                        if ($orderStatus === 'Opłacono') {
+                                        if ($orderStatus === 'Zrealizowany') {
                                             $orderStatusClass = 'bg-green-100 text-green-800';
-                                        } elseif ($orderStatus === 'Nie opłacono') {
+                                        } elseif ($orderStatus === 'W trakcie') {
+                                            $orderStatusClass = 'bg-blue-100 text-blue-800';
+                                        } elseif ($orderStatus === 'Wysłano') {
                                             $orderStatusClass = 'bg-amber-100 text-amber-800';
-                                        } elseif ($orderStatus === 'Oczekiwanie') {
+                                        } elseif ($orderStatus === 'Nie wysłano') {
+                                            $orderStatusClass = 'bg-gray-100 text-gray-700';
+                                        // backward compat
+                                        } elseif ($orderStatus === 'Opłacono') {
+                                            $orderStatusClass = 'bg-green-100 text-green-800';
+                                        } elseif ($orderStatus === 'Nie opłacono' || $orderStatus === 'Oczekiwanie') {
                                             $orderStatusClass = 'bg-amber-100 text-amber-800';
                                         } elseif ($orderStatus === 'Zrealizowane') {
                                             $orderStatusClass = 'bg-gray-200 text-gray-500 line-through';
@@ -1792,10 +1800,10 @@
                                             <form action="{{ route('magazyn.projects.orders.status', [$project->id, $orderRowId]) }}" method="POST" class="inline-block">
                                                 @csrf
                                                 <select name="order_status" class="px-2 py-1 rounded border border-gray-300 text-xs font-semibold {{ $orderStatusClass }}" onchange="this.form.submit()">
-                                                    <option value="Opłacono" {{ $orderStatus === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
-                                                    <option value="Nie opłacono" {{ $orderStatus === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
-                                                    <option value="Oczekiwanie" {{ $orderStatus === 'Oczekiwanie' ? 'selected' : '' }}>Oczekiwanie</option>
-                                                    <option value="Zrealizowane" {{ $orderStatus === 'Zrealizowane' ? 'selected' : '' }}>Zrealizowane</option>
+                                                    <option value="Nie wysłano" {{ $orderStatus === 'Nie wysłano' || $orderStatus === 'Oczekiwanie' ? 'selected' : '' }}>Nie wysłano</option>
+                                                    <option value="Wysłano" {{ $orderStatus === 'Wysłano' || $orderStatus === 'Nie opłacono' ? 'selected' : '' }}>Wysłano</option>
+                                                    <option value="W trakcie" {{ $orderStatus === 'W trakcie' || $orderStatus === 'Opłacono' ? 'selected' : '' }}>W trakcie</option>
+                                                    <option value="Zrealizowany" {{ $orderStatus === 'Zrealizowany' || $orderStatus === 'Zrealizowane' ? 'selected' : '' }}>Zrealizowany</option>
                                                 </select>
                                             </form>
                                         </td>
@@ -1875,10 +1883,10 @@
                 <div>
                     <label class="block text-xs text-gray-600 mb-1">Status</label>
                     <select name="order_status" id="oe-status" required class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
-                        <option value="Oczekiwanie">Oczekiwanie</option>
-                        <option value="Nie opłacono">Nie opłacono</option>
-                        <option value="Opłacono">Opłacono</option>
-                        <option value="Zrealizowane">Zrealizowane</option>
+                        <option value="Nie wysłano">Nie wysłano</option>
+                        <option value="Wysłano">Wysłano</option>
+                        <option value="W trakcie">W trakcie</option>
+                        <option value="Zrealizowany">Zrealizowany</option>
                     </select>
                 </div>
                 <div class="col-span-2">

@@ -298,17 +298,27 @@ class PartController extends Controller
             'ordered'  => 'Oczekiwanie',
             'received' => 'Zrealizowane',
             'planned'  => 'Planowana',
-            default    => 'Nie opłacono',
+            // Nowe statusy zamówień
+            'not_sent' => 'Nie wysłano',
+            'sent'     => 'Wysłano',
+            'in_progress' => 'W trakcie',
+            'completed'   => 'Zrealizowany',
+            default    => 'Nie wysłano',
         };
     }
 
     private function mapOrderStatusFromLabel(string $label): string
     {
         return match ($label) {
-            'Opłacono'     => 'paid',
-            'Oczekiwanie'  => 'ordered',
-            'Zrealizowane' => 'received',
-            default        => 'pending',
+            'Nie wysłano'  => 'not_sent',
+            'Wysłano'      => 'sent',
+            'W trakcie'    => 'in_progress',
+            'Zrealizowany' => 'completed',
+            // stare wartości (backward compat)
+            'Opłacono'     => 'in_progress',
+            'Oczekiwanie'  => 'not_sent',
+            'Zrealizowane' => 'completed',
+            default        => 'not_sent',
         };
     }
 
@@ -981,7 +991,8 @@ class PartController extends Controller
                 }
 
                 if ($hasStatusColumn) {
-                    $orderedQuery->where('status', 'ordered');
+                    // Zrealizowany (completed) przeszedł na faktury — nie wliczamy go w koszty zamówień
+                    $orderedQuery->whereNotIn('status', ['completed', 'received']);
                 }
 
                 $financeSummary['ordered_materials_services'] = (float) $orderedQuery->sum('amount');
@@ -1729,7 +1740,7 @@ class PartController extends Controller
             'order_supplier'    => 'nullable|string|max:255',
             'order_amount_net'  => 'required',
             'order_payment_date'=> 'required|date',
-            'order_status'      => 'required|in:Opłacono,Nie opłacono,Oczekiwanie,Zrealizowane',
+            'order_status'      => 'required|in:Nie wysłano,Wysłano,W trakcie,Zrealizowany',
         ]);
 
         $amount = $this->parseImportedAmount($request->input('order_amount_net'));
@@ -1787,7 +1798,7 @@ class PartController extends Controller
     public function updateProjectOrderStatus(Request $request, \App\Models\Project $project, \App\Models\ProjectFinance $finance)
     {
         $request->validate([
-            'order_status' => 'required|in:Opłacono,Nie opłacono,Oczekiwanie,Zrealizowane',
+            'order_status' => 'required|in:Nie wysłano,Wysłano,W trakcie,Zrealizowany',
         ]);
 
         $financeCategory = $this->hasColumnSafe('project_finance', 'category') ? $finance->category : null;
@@ -2072,7 +2083,7 @@ class PartController extends Controller
             'order_description' => 'nullable|string|max:2000',
             'order_amount_net'  => 'required',
             'order_payment_date'=> 'nullable|date',
-            'order_status'      => 'required|in:Opłacono,Nie opłacono,Oczekiwanie,Zrealizowane',
+            'order_status'      => 'required|in:Nie wysłano,Wysłano,W trakcie,Zrealizowany',
         ]);
 
         $amount = $this->parseImportedAmount($request->input('order_amount_net'));
