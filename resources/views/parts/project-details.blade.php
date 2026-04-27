@@ -1614,32 +1614,19 @@
             </div>
 
             <div id="finance-tab-orders" class="finance-tab-content hidden">
-                <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-                    <h4 class="font-semibold text-gray-800 mb-3">Import zamówień z Excela</h4>
+                {{-- Import kompaktowy: Excel + PDF w jednej linii --}}
+                <div class="bg-white border border-gray-200 rounded-lg p-3 mb-4">
+                    <h4 class="font-semibold text-gray-800 text-sm mb-2">Import zamówień</h4>
                     @error('orders_file')
-                        <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
-                            {{ $message }}
-                        </div>
+                        <div class="mb-2 p-2 rounded border border-red-200 bg-red-50 text-red-800 text-xs">{{ $message }}</div>
                     @enderror
-                    <form action="{{ route('magazyn.projects.orders.importExcel', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row gap-2 md:items-center">
-                        @csrf
-                        <input type="file" name="orders_file" accept=".xlsx,.xls,.csv" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
-                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-semibold">
-                            📥 Importuj zamówienia
-                        </button>
-                    </form>
-                </div>
-
-                <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-                    <h4 class="font-semibold text-gray-800 mb-1">Import zamówienia z PDF</h4>
-                    <p class="text-xs text-gray-500 mb-3">Wgraj plik PDF zamówienia — system automatycznie wyodrębni datę, numer, pozycje, kwotę netto, termin płatności i dostawy.</p>
                     @error('pdf_file')
-                        <div class="mb-3 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">{{ $message }}</div>
+                        <div class="mb-2 p-2 rounded border border-red-200 bg-red-50 text-red-800 text-xs">{{ $message }}</div>
                     @enderror
                     @if(session('finance_orders_feedback') && session('pdf_parsed'))
                         @php $pp = session('pdf_parsed'); @endphp
-                        <div class="mb-3 p-3 rounded border border-yellow-200 bg-yellow-50 text-yellow-900 text-xs">
-                            <strong>Dane wyodrębnione z PDF (uzupełnij brakujące ręcznie poniżej):</strong>
+                        <div class="mb-2 p-2 rounded border border-yellow-200 bg-yellow-50 text-yellow-900 text-xs">
+                            <strong>Dane wyodrębnione z PDF:</strong>
                             <ul class="mt-1 space-y-0.5">
                                 @if(!empty($pp['date']))<li>Data: {{ $pp['date'] }}</li>@endif
                                 @if(!empty($pp['order_number']))<li>Nr zamówienia: {{ $pp['order_number'] }}</li>@endif
@@ -1652,13 +1639,27 @@
                             </ul>
                         </div>
                     @endif
-                    <form action="{{ route('magazyn.projects.orders.importPdf', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row gap-2 md:items-center">
-                        @csrf
-                        <input type="file" name="pdf_file" accept=".pdf" required class="px-3 py-2 border border-gray-300 rounded bg-white text-sm">
-                        <button type="submit" class="px-4 py-2 bg-rose-600 text-white rounded hover:bg-rose-700 text-sm font-semibold">
-                            📄 Importuj z PDF
-                        </button>
-                    </form>
+                    <div class="flex flex-wrap items-end gap-3">
+                        {{-- Excel --}}
+                        <form action="{{ route('magazyn.projects.orders.importExcel', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex items-center gap-1.5">
+                            @csrf
+                            <span class="text-xs text-gray-500 font-medium whitespace-nowrap">Excel:</span>
+                            <input type="file" name="orders_file" accept=".xlsx,.xls,.csv" required class="px-2 py-1 border border-gray-300 rounded bg-white text-xs">
+                            <button type="submit" class="px-2.5 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-semibold whitespace-nowrap">📥 Importuj</button>
+                        </form>
+                        <div class="w-px bg-gray-300 self-stretch hidden sm:block"></div>
+                        {{-- PDF --}}
+                        <form action="{{ route('magazyn.projects.orders.importPdf', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex items-center gap-1.5">
+                            @csrf
+                            <span class="text-xs text-gray-500 font-medium whitespace-nowrap">PDF:</span>
+                            <input type="file" name="pdf_file" accept=".pdf" required class="px-2 py-1 border border-gray-300 rounded bg-white text-xs">
+                            <button type="submit"
+                                class="px-2.5 py-1 bg-rose-600 text-white rounded hover:bg-rose-700 text-xs font-semibold whitespace-nowrap"
+                                title="Wgraj plik PDF zamówienia — system automatycznie wyodrębni datę, numer, pozycje, kwotę netto, termin płatności i dostawy.">
+                                📄 Importuj z PDF
+                            </button>
+                        </form>
+                    </div>
                 </div>
 
                 <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
@@ -1721,9 +1722,50 @@
                                     <option value="Zrealizowany" {{ old('order_status') === 'Zrealizowany' ? 'selected' : '' }}>Zrealizowany</option>
                                 </select>
                             </div>
-                            <div class="finance-field finance-field-flex">
+                            {{-- Supplier picker --}}
+                            <div class="finance-field finance-field-flex" id="supplier-picker-wrap">
                                 <label class="block text-xs text-gray-600 mb-1">Dostawca</label>
-                                <input type="text" name="order_supplier" value="{{ old('order_supplier') }}" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="Nazwa dostawcy">
+                                <div class="flex gap-1 items-center">
+                                    <div class="relative flex-1">
+                                        <input type="text" id="order-supplier-input" name="order_supplier" value="{{ old('order_supplier') }}"
+                                            autocomplete="off"
+                                            class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                            placeholder="Nazwa lub NIP…">
+                                        <div id="supplier-dropdown" class="hidden absolute z-50 left-0 top-full mt-0.5 w-72 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded shadow-lg text-xs"></div>
+                                    </div>
+                                    <button type="button" id="supplier-nip-toggle"
+                                        class="px-2 py-1.5 bg-gray-100 border border-gray-300 rounded text-xs hover:bg-gray-200 whitespace-nowrap"
+                                        title="Wpisz NIP i pobierz dane z GUS">NIP/GUS</button>
+                                </div>
+                                {{-- NIP panel (hidden by default) --}}
+                                <div id="supplier-nip-panel" class="hidden mt-1.5 p-2 border border-blue-200 bg-blue-50 rounded text-xs space-y-1.5">
+                                    <div class="flex gap-1 items-center">
+                                        <input type="text" id="supplier-nip-input" maxlength="13"
+                                            class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs" placeholder="Wpisz NIP (10 cyfr)">
+                                        <button type="button" id="supplier-nip-fetch"
+                                            class="px-2.5 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-semibold whitespace-nowrap">
+                                            🔍 Pobierz z GUS
+                                        </button>
+                                    </div>
+                                    <div id="supplier-nip-result" class="hidden p-2 bg-white border border-gray-200 rounded space-y-1">
+                                        <div id="supplier-nip-result-name" class="font-semibold text-gray-800"></div>
+                                        <div id="supplier-nip-result-detail" class="text-gray-600"></div>
+                                        <div class="flex gap-1 pt-1 flex-wrap">
+                                            <button type="button" id="supplier-nip-use"
+                                                class="px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-xs font-semibold">
+                                                ✔ Użyj tej nazwy
+                                            </button>
+                                            <button type="button" id="supplier-nip-save-db"
+                                                class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-semibold hidden">
+                                                💾 Dodaj do bazy
+                                            </button>
+                                            <span id="supplier-nip-in-db-badge" class="hidden px-2 py-1 bg-green-100 text-green-800 rounded text-xs">✓ Jest w bazie</span>
+                                        </div>
+                                        <div id="supplier-nip-save-status" class="text-xs text-gray-600 hidden"></div>
+                                    </div>
+                                    <div id="supplier-nip-error" class="hidden text-red-600 text-xs"></div>
+                                    <div id="supplier-nip-loading" class="hidden text-blue-600 text-xs">⏳ Pobieranie danych…</div>
+                                </div>
                             </div>
                         </div>
 
@@ -1848,6 +1890,162 @@
     {{-- KONIEC KONTENERA PRZESUWANYCH SEKCJI --}}
     
 </div>
+
+{{-- SUPPLIER PICKER JS --}}
+<script>
+(function () {
+    var input      = document.getElementById('order-supplier-input');
+    var dropdown   = document.getElementById('supplier-dropdown');
+    var nipToggle  = document.getElementById('supplier-nip-toggle');
+    var nipPanel   = document.getElementById('supplier-nip-panel');
+    var nipInput   = document.getElementById('supplier-nip-input');
+    var nipFetch   = document.getElementById('supplier-nip-fetch');
+    var nipResult  = document.getElementById('supplier-nip-result');
+    var nipName    = document.getElementById('supplier-nip-result-name');
+    var nipDetail  = document.getElementById('supplier-nip-result-detail');
+    var nipUse     = document.getElementById('supplier-nip-use');
+    var nipSaveDb  = document.getElementById('supplier-nip-save-db');
+    var nipInDb    = document.getElementById('supplier-nip-in-db-badge');
+    var nipSaveSt  = document.getElementById('supplier-nip-save-status');
+    var nipError   = document.getElementById('supplier-nip-error');
+    var nipLoading = document.getElementById('supplier-nip-loading');
+
+    if (!input) return;
+
+    var _gusData = null;
+
+    // --- Autocomplete from DB ---
+    var debTimer = null;
+    input.addEventListener('input', function () {
+        clearTimeout(debTimer);
+        var q = this.value.trim();
+        if (q.length < 2) { hideDropdown(); return; }
+        debTimer = setTimeout(function () { fetchSuppliers(q); }, 220);
+    });
+    input.addEventListener('focus', function () {
+        if (this.value.trim().length >= 2) fetchSuppliers(this.value.trim());
+    });
+
+    function fetchSuppliers(q) {
+        fetch('{{ route("api.order-suppliers") }}?q=' + encodeURIComponent(q), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        }).then(function (r) { return r.json(); }).then(function (res) {
+            if (!res.success || !res.data.length) { hideDropdown(); return; }
+            showDropdown(res.data);
+        }).catch(function () { hideDropdown(); });
+    }
+
+    function showDropdown(items) {
+        dropdown.innerHTML = '';
+        items.forEach(function (s) {
+            var div = document.createElement('div');
+            div.className = 'px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0';
+            div.innerHTML = '<span class="font-semibold">' + escHtml(s.name) + '</span>'
+                + (s.nip ? ' <span class="text-gray-400 ml-1">' + escHtml(s.nip) + '</span>' : '')
+                + (s.city ? '<div class="text-gray-500">' + escHtml(s.city) + '</div>' : '');
+            div.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                input.value = s.name;
+                hideDropdown();
+            });
+            dropdown.appendChild(div);
+        });
+        dropdown.classList.remove('hidden');
+    }
+
+    function hideDropdown() { dropdown.classList.add('hidden'); }
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('#supplier-picker-wrap')) hideDropdown();
+    });
+
+    // --- NIP toggle ---
+    nipToggle.addEventListener('click', function () {
+        nipPanel.classList.toggle('hidden');
+        nipResult.classList.add('hidden');
+        nipError.classList.add('hidden');
+    });
+
+    // --- GUS fetch ---
+    nipFetch.addEventListener('click', function () {
+        var nip = nipInput.value.replace(/[^0-9]/g, '');
+        if (nip.length !== 10) { showNipError('NIP musi mieć dokładnie 10 cyfr.'); return; }
+        nipError.classList.add('hidden');
+        nipResult.classList.add('hidden');
+        nipLoading.classList.remove('hidden');
+        fetch('{{ route("api.order-supplier.nip") }}?nip=' + nip, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        }).then(function (r) { return r.json(); }).then(function (res) {
+            nipLoading.classList.add('hidden');
+            if (!res.success) { showNipError(res.message || 'Nie znaleziono firmy.'); return; }
+            _gusData = res.data;
+            nipName.textContent = res.data.name;
+            var detail = [];
+            if (res.data.nip) detail.push('NIP: ' + res.data.nip);
+            if (res.data.address) detail.push(res.data.address);
+            if (res.data.postal_code || res.data.city) detail.push((res.data.postal_code + ' ' + res.data.city).trim());
+            nipDetail.textContent = detail.join(' | ');
+            if (res.in_db) {
+                nipSaveDb.classList.add('hidden');
+                nipInDb.classList.remove('hidden');
+            } else {
+                nipSaveDb.classList.remove('hidden');
+                nipInDb.classList.add('hidden');
+            }
+            nipSaveSt.classList.add('hidden');
+            nipResult.classList.remove('hidden');
+        }).catch(function () {
+            nipLoading.classList.add('hidden');
+            showNipError('Błąd połączenia z serwerem.');
+        });
+    });
+
+    nipInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); nipFetch.click(); } });
+
+    nipUse.addEventListener('click', function () {
+        if (_gusData) { input.value = _gusData.name; nipPanel.classList.add('hidden'); }
+    });
+
+    nipSaveDb.addEventListener('click', function () {
+        if (!_gusData) return;
+        nipSaveDb.disabled = true;
+        nipSaveSt.textContent = 'Zapisywanie…';
+        nipSaveSt.classList.remove('hidden');
+        var token = document.querySelector('meta[name="csrf-token"]');
+        fetch('{{ route("api.order-supplier.save") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': token ? token.getAttribute('content') : ''
+            },
+            body: JSON.stringify(_gusData)
+        }).then(function (r) { return r.json(); }).then(function (res) {
+            nipSaveDb.disabled = false;
+            if (res.success) {
+                nipSaveSt.textContent = '✓ ' + res.message;
+                nipSaveDb.classList.add('hidden');
+                nipInDb.classList.remove('hidden');
+                input.value = _gusData.name;
+            } else {
+                nipSaveSt.textContent = '✗ ' + (res.message || 'Błąd zapisu.');
+            }
+        }).catch(function () {
+            nipSaveDb.disabled = false;
+            nipSaveSt.textContent = '✗ Błąd połączenia.';
+        });
+    });
+
+    function showNipError(msg) {
+        nipError.textContent = msg;
+        nipError.classList.remove('hidden');
+        nipResult.classList.add('hidden');
+    }
+    function escHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+})();
+</script>
 
 {{-- MODAL EDYCJI ZAMÓWIENIA --}}
 <div id="order-edit-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" style="display:none!important">

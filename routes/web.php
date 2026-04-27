@@ -1520,6 +1520,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/projekty/{project}/faktury-wystawione', [PartController::class, 'storeIssuedProjectInvoice'])->name('magazyn.projects.issuedInvoices.store')->middleware('auth');
     Route::post('/projekty/{project}/faktury-wystawione/import-excel', [PartController::class, 'importIssuedProjectInvoicesExcel'])->name('magazyn.projects.issuedInvoices.importExcel')->middleware('auth');
     Route::post('/projekty/{project}/faktury-wystawione/{finance}/status', [PartController::class, 'updateIssuedProjectInvoiceStatus'])->name('magazyn.projects.issuedInvoices.status')->middleware('auth');
+    // Supplier API for order supplier picker
+    Route::get('/api/order-suppliers', [PartController::class, 'apiOrderSuppliersList'])->name('api.order-suppliers')->middleware('auth');
+    Route::get('/api/order-supplier/nip', [PartController::class, 'apiOrderSupplierNipLookup'])->name('api.order-supplier.nip')->middleware('auth');
+    Route::post('/api/order-supplier/save', [PartController::class, 'apiOrderSupplierSave'])->name('api.order-supplier.save')->middleware('auth');
     Route::post('/projekty/{project}/zamowienia', [PartController::class, 'storeProjectOrder'])->name('magazyn.projects.orders.store')->middleware('auth');
     Route::post('/projekty/{project}/zamowienia/import-excel', [PartController::class, 'importProjectOrdersExcel'])->name('magazyn.projects.orders.importExcel')->middleware('auth');
     Route::post('/projekty/{project}/zamowienia/import-pdf', [PartController::class, 'importProjectOrdersPdf'])->name('magazyn.projects.orders.importPdf')->middleware('auth');

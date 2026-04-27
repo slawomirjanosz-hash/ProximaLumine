@@ -9260,4 +9260,140 @@ class PartController extends Controller
         $project = \App\Models\Project::where('public_gantt_token', $token)->firstOrFail();
         return view('parts.public-gantt', compact('project', 'token'));
     }
+
+    // -----------------------------------------------------------------------
+    // Order supplier picker API
+    // -----------------------------------------------------------------------
+
+    public function apiOrderSuppliersList(Request $request)
+    {
+        try {
+            $q = trim((string) $request->get('q', ''));
+            $query = \App\Models\Supplier::orderBy('name');
+            if ($q !== '') {
+                $query->where(function ($qb) use ($q) {
+                    $qb->where('name', 'like', '%' . $q . '%')
+                       ->orWhere('nip', 'like', '%' . $q . '%');
+                });
+            }
+            $suppliers = $query->limit(50)->get(['id', 'name', 'nip', 'city']);
+            return response()->json(['success' => true, 'data' => $suppliers]);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => true, 'data' => []]);
+        }
+    }
+
+    public function apiOrderSupplierNipLookup(Request $request)
+    {
+        $nip = preg_replace('/[^0-9]/', '', (string) $request->get('nip', ''));
+        if (strlen($nip) !== 10) {
+            return response()->json(['success' => false, 'message' => 'NIP musi mieć 10 cyfr.']);
+        }
+
+        // Check DB first
+        try {
+            $dbSupplier = \App\Models\Supplier::where('nip', 'like', '%' . $nip . '%')->first();
+            if ($dbSupplier) {
+                return response()->json([
+                    'success'  => true,
+                    'source'   => 'db',
+                    'in_db'    => true,
+                    'data'     => [
+                        'name'        => $dbSupplier->name,
+                        'nip'         => $dbSupplier->nip ?? $nip,
+                        'address'     => $dbSupplier->address ?? '',
+                        'city'        => $dbSupplier->city ?? '',
+                        'postal_code' => $dbSupplier->postal_code ?? '',
+                        'phone'       => $dbSupplier->phone ?? '',
+                        'email'       => $dbSupplier->email ?? '',
+                    ],
+                ]);
+            }
+        } catch (\Throwable $e) { /* ignore */ }
+
+        $formatName = function ($name) {
+            $name = str_replace('SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ', 'SP. Z O. O.', $name);
+            return str_replace('SPÓŁKA AKCYJNA', 'S.A.', $name);
+        };
+        $formatNip = function ($n) {
+            if (strlen($n) === 10) {
+                return substr($n, 0, 3) . '-' . substr($n, 3, 3) . '-' . substr($n, 6, 2) . '-' . substr($n, 8, 2);
+            }
+            return $n;
+        };
+
+        try {
+            // CEIDG
+            $url = "https://dane.biznes.gov.pl/api/ceidg/v2/firmy?nip={$nip}&status=aktywny";
+            $ch = curl_init();
+            curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 8, CURLOPT_SSL_VERIFYPEER => false, CURLOPT_HTTPHEADER => ['Accept: application/json', 'User-Agent: Mozilla/5.0']]);
+            $resp = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+            if ($code === 200 && $resp) {
+                $d = json_decode($resp, true);
+                if (!empty($d['firmy'][0])) {
+                    $c = $d['firmy'][0];
+                    $addr = trim(($c['adres']['ulica'] ?? '') . ' ' . ($c['adres']['nrNieruchomosci'] ?? '') . (isset($c['adres']['nrLokalu']) ? '/' . $c['adres']['nrLokalu'] : ''));
+                    return response()->json(['success' => true, 'source' => 'ceidg', 'in_db' => false, 'data' => ['name' => $formatName($c['nazwa'] ?? ''), 'nip' => $formatNip($nip), 'address' => $addr, 'city' => $c['adres']['miejscowosc'] ?? '', 'postal_code' => $c['adres']['kodPocztowy'] ?? '', 'phone' => is_array($c['telefony'] ?? null) ? ($c['telefony'][0] ?? '') : ($c['telefony'] ?? ''), 'email' => is_array($c['adresy_email'] ?? null) ? ($c['adresy_email'][0] ?? '') : ($c['adresy_email'] ?? '')]]);
+                }
+            }
+            // Biała lista VAT
+            $url = "https://wl-api.mf.gov.pl/api/search/nip/{$nip}?date=" . date('Y-m-d');
+            $ch = curl_init();
+            curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 8, CURLOPT_SSL_VERIFYPEER => false]);
+            $resp = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+            if ($code === 200 && $resp) {
+                $d = json_decode($resp, true);
+                if (isset($d['result']['subject'])) {
+                    $s = $d['result']['subject'];
+                    $addrStr = $s['workingAddress'] ?? $s['residenceAddress'] ?? '';
+                    $addr = $city = $postal = '';
+                    if ($addrStr) {
+                        $parts = explode(',', $addrStr, 2);
+                        $addr = trim($parts[0] ?? '');
+                        if (isset($parts[1]) && preg_match('/^(\d{2}-\d{3})\s+(.+)$/', trim($parts[1]), $m)) {
+                            $postal = $m[1]; $city = $m[2];
+                        } else {
+                            $city = trim($parts[1] ?? '');
+                        }
+                    }
+                    return response()->json(['success' => true, 'source' => 'vat', 'in_db' => false, 'data' => ['name' => $formatName($s['name'] ?? ''), 'nip' => $formatNip($nip), 'address' => $addr, 'city' => $city, 'postal_code' => $postal, 'phone' => '', 'email' => '']]);
+                }
+            }
+            return response()->json(['success' => false, 'message' => 'Nie znaleziono firmy o podanym NIP.']);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => 'Błąd pobierania danych: ' . $e->getMessage()]);
+        }
+    }
+
+    public function apiOrderSupplierSave(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'nip'  => 'nullable|string|max:30',
+        ]);
+        try {
+            $nip = trim((string) $request->input('nip', ''));
+            // Prevent duplicate by NIP
+            if ($nip !== '') {
+                $exists = \App\Models\Supplier::where('nip', $nip)->orWhere('nip', preg_replace('/[^0-9]/', '', $nip))->first();
+                if ($exists) {
+                    return response()->json(['success' => true, 'message' => 'Dostawca już istnieje w bazie.', 'id' => $exists->id]);
+                }
+            }
+            $supplier = \App\Models\Supplier::create([
+                'name'        => trim((string) $request->input('name')),
+                'nip'         => $nip ?: null,
+                'address'     => trim((string) $request->input('address', '')),
+                'city'        => trim((string) $request->input('city', '')),
+                'postal_code' => trim((string) $request->input('postal_code', '')),
+                'phone'       => trim((string) $request->input('phone', '')),
+                'email'       => trim((string) $request->input('email', '')),
+                'is_supplier' => true,
+                'is_client'   => false,
+            ]);
+            return response()->json(['success' => true, 'message' => 'Dostawca zapisany.', 'id' => $supplier->id]);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => 'Błąd zapisu: ' . $e->getMessage()]);
+        }
+    }
 }
