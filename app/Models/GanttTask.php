@@ -9,7 +9,7 @@ class GanttTask extends Model
 {
     use HasFactory;
     protected $fillable = [
-        'project_id', 'name', 'start', 'end', 'progress', 'dependencies', 'order', 'description', 'completed_at', 'assignee'
+        'project_id', 'name', 'start', 'end', 'progress', 'dependencies', 'order', 'description', 'completed_at', 'assignee', 'assigned_user_id'
     ];
     protected $casts = [
         'start' => 'date',
@@ -20,5 +20,8 @@ class GanttTask extends Model
     ];
     public function project() {
         return $this->belongsTo(Project::class);
+    }
+    public function assignedUser() {
+        return $this->belongsTo(\App\Models\User::class, 'assigned_user_id');
     }
 }

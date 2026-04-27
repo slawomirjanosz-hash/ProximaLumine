@@ -193,7 +193,22 @@
                     </thead>
                     <tbody>
                         @forelse($tasks as $task)
-                            <tr class="hover:bg-gray-50 {{ $task->isOverdue() ? 'bg-red-50' : '' }}">
+                            @php
+                                $rowClass = '';
+                                $dueCellClass = '';
+                                if ($task->isOverdue()) {
+                                    $rowClass = 'bg-red-50';
+                                    $dueCellClass = 'text-red-600 font-bold';
+                                } elseif ($task->due_date && $task->status !== 'zakonczone') {
+                                    $total = $task->created_at->diffInSeconds($task->due_date);
+                                    $remaining = now()->diffInSeconds($task->due_date, false);
+                                    if ($total > 0 && $remaining > 0 && ($remaining / $total) < 0.2) {
+                                        $rowClass = 'bg-orange-50';
+                                        $dueCellClass = 'text-orange-700 font-semibold';
+                                    }
+                                }
+                            @endphp
+                            <tr class="hover:bg-gray-50 {{ $rowClass }}">
                                 <td class="border p-2">
                                     <div class="font-semibold">{{ $task->title }}</div>
                                     <div class="text-sm text-gray-600">{{ $task->company->name ?? '' }} {{ $task->deal ? '• ' . $task->deal->name : '' }}</div>
@@ -210,7 +225,7 @@
                                     </span>
                                 </td>
                                 <td class="border p-2">{{ ucfirst(str_replace('_', ' ', $task->status)) }}</td>
-                                <td class="border p-2 {{ $task->isOverdue() ? 'text-red-600 font-bold' : '' }}">
+                                <td class="border p-2 {{ $dueCellClass }}">
                                     {{ $task->due_date ? $task->due_date->format('d.m.Y H:i') : '-' }}
                                 </td>
                                 <td class="border p-2">{{ $task->assignedTo->short_name ?? $task->assignedTo->name ?? 'Nie przypisane' }}</td>

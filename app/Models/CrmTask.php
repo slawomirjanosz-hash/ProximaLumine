@@ -12,7 +12,7 @@ class CrmTask extends Model
     protected $fillable = [
         'title', 'description', 'type', 'priority', 'status',
         'due_date', 'completed_at', 'assigned_to',
-        'deal_id', 'created_by'
+        'deal_id', 'created_by', 'project_id', 'gantt_task_id'
     ];
 
     protected $casts = [

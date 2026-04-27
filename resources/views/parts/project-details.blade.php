@@ -2800,7 +2800,12 @@
             </div>
             <div class="mb-4">
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Osoba odpowiedzialna</label>
-                <input type="text" id="task-assignee-input" class="w-full border rounded px-3 py-2 text-sm" placeholder="Imię i nazwisko lub inicjały">
+                <div class="relative">
+                    <input type="text" id="task-assignee-input" class="w-full border rounded px-3 py-2 text-sm" placeholder="Wpisz imię lub inicjały..." autocomplete="off">
+                    <input type="hidden" id="task-assignee-user-id" value="">
+                    <ul id="assignee-dropdown" class="absolute z-50 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-48 overflow-y-auto hidden text-sm"></ul>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Wybierz z listy, aby automatycznie utworzyć zadanie w CRM.</p>
             </div>
             @if(auth()->user() && auth()->user()->is_admin)
             <div class="mb-4 hidden" id="completed-at-row">
@@ -3051,6 +3056,70 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // -------- Picker osoby odpowiedzialnej (użytkownicy systemu) --------
+    let ganttUsers = [];
+    fetch('/api/users-for-gantt', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.json())
+        .then(users => { ganttUsers = users; })
+        .catch(() => {});
+
+    const assigneeInput = document.getElementById('task-assignee-input');
+    const assigneeUserId = document.getElementById('task-assignee-user-id');
+    const assigneeDropdown = document.getElementById('assignee-dropdown');
+
+    function renderAssigneeDropdown(filter) {
+        const lower = filter.toLowerCase();
+        const filtered = ganttUsers.filter(u =>
+            u.name.toLowerCase().includes(lower) ||
+            (u.short_name && u.short_name.toLowerCase().includes(lower))
+        );
+        assigneeDropdown.innerHTML = '';
+        if (filtered.length === 0) {
+            assigneeDropdown.classList.add('hidden');
+            return;
+        }
+        // Opcja wyczyszczenia wyboru
+        const clearLi = document.createElement('li');
+        clearLi.textContent = '— Brak przypisania —';
+        clearLi.className = 'px-3 py-2 cursor-pointer hover:bg-gray-100 text-gray-400 italic';
+        clearLi.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            assigneeInput.value = '';
+            assigneeUserId.value = '';
+            assigneeDropdown.classList.add('hidden');
+        });
+        assigneeDropdown.appendChild(clearLi);
+        filtered.forEach(u => {
+            const li = document.createElement('li');
+            li.textContent = u.display;
+            li.className = 'px-3 py-2 cursor-pointer hover:bg-blue-50';
+            li.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                assigneeInput.value = u.display;
+                assigneeUserId.value = u.id;
+                assigneeDropdown.classList.add('hidden');
+            });
+            assigneeDropdown.appendChild(li);
+        });
+        assigneeDropdown.classList.remove('hidden');
+    }
+
+    if (assigneeInput) {
+        assigneeInput.addEventListener('input', function() {
+            if (this.value.length === 0) {
+                assigneeUserId.value = '';
+            }
+            renderAssigneeDropdown(this.value);
+        });
+        assigneeInput.addEventListener('focus', function() {
+            renderAssigneeDropdown(this.value);
+        });
+        assigneeInput.addEventListener('blur', function() {
+            setTimeout(() => assigneeDropdown.classList.add('hidden'), 150);
+        });
+    }
+    // -------- Koniec pickera --------
+
     function showTaskModal(taskId = null) {
         const modal = document.getElementById('frappe-task-modal');
         const form = document.getElementById('frappe-task-form');
@@ -3069,6 +3138,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('task-progress-input').value = task.progress || 0;
                 document.getElementById('task-description-input').value = task.description || '';
                 document.getElementById('task-assignee-input').value = task.assignee || '';
+                document.getElementById('task-assignee-user-id').value = task.assigned_user_id || '';
+                // Jeśli zapisany user_id — pokaż display name z listy
+                if (task.assigned_user_id) {
+                    const found = ganttUsers.find(u => u.id == task.assigned_user_id);
+                    if (found) document.getElementById('task-assignee-input').value = found.display;
+                }
                 // Admin: date-of-completion + completed_at row visibility
                 const completedAtRow = document.getElementById('completed-at-row');
                 const progressInput = document.getElementById('task-progress-input');
@@ -3103,6 +3178,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('task-progress-input').value = 0;
             document.getElementById('task-description-input').value = '';
             document.getElementById('task-assignee-input').value = '';
+            document.getElementById('task-assignee-user-id').value = '';
             const completedAtRow = document.getElementById('completed-at-row');
             if (completedAtRow) completedAtRow.classList.add('hidden');
             const progressInput = document.getElementById('task-progress-input');
@@ -3685,7 +3761,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     dependencies: t.dependencies || '',
                     description: t.description || '',
                     completed_at: t.completed_at || null,
-                    assignee: t.assignee || ''
+                    assignee: t.assignee || '',
+                    assigned_user_id: t.assigned_user_id || null
                 }));
             
             console.log('✅ Załadowano ' + frappeTasks.length + ' zadań z bazy (z ' + tasksArray.length + ' otrzymanych)');
@@ -3787,6 +3864,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 dependencies: task.dependencies || '',
                 description: task.description || '',
                 assignee: task.assignee || '',
+                assigned_user_id: task.assigned_user_id || null,
                 order: frappeTasks.length
             })
         })
@@ -3927,6 +4005,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const dependency = document.getElementById('task-dependency-input').value;
         const description = document.getElementById('task-description-input').value.trim();
         const assignee = document.getElementById('task-assignee-input').value.trim();
+        const assigneeUserId = parseInt(document.getElementById('task-assignee-user-id').value) || null;
         const completedAtInput = document.getElementById('task-completed-at-input');
         const completedAtRaw = completedAtInput ? completedAtInput.value : null;
         
@@ -3946,6 +4025,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 frappeTasks[taskIndex].dependencies = dependency;
                 frappeTasks[taskIndex].description = description;
                 frappeTasks[taskIndex].assignee = assignee;
+                frappeTasks[taskIndex].assigned_user_id = assigneeUserId;
                 // Handle completed_at: admin can override; non-admin: auto
                 if (IS_ADMIN && completedAtRaw) {
                     frappeTasks[taskIndex].completed_at = completedAtRaw;
@@ -3982,6 +4062,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     dependencies: dependency,
                     description: description,
                     assignee: assignee,
+                    assigned_user_id: assigneeUserId,
                     ...(IS_ADMIN && completedAtRaw ? { completed_at: completedAtRaw } : {})
                 }).then(updatedTask => {
                     if (updatedTask && updatedTask.completed_at !== undefined) {
@@ -3999,7 +4080,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 progress: progress,
                 dependencies: dependency,
                 description: description,
-                assignee: assignee
+                assignee: assignee,
+                assigned_user_id: assigneeUserId
             };
             createTaskInDB(newTask).then(data => {
                 frappeTasks.push({
@@ -4011,7 +4093,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     dependencies: data.dependencies || '',
                     description: data.description || '',
                     completed_at: data.completed_at || null,
-                    assignee: data.assignee || ''
+                    assignee: data.assignee || '',
+                    assigned_user_id: data.assigned_user_id || null
                 });
                 renderGantt();
                 hideTaskModal();

@@ -43,6 +43,7 @@ class GanttTaskController extends Controller
                 'order' => 'integer',
                 'description' => 'nullable|string',
                 'assignee' => 'nullable|string|max:255',
+                'assigned_user_id' => 'nullable|integer|exists:users,id',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Log::error('❌ Gantt: Błąd walidacji przy tworzeniu zadania', [
@@ -53,6 +54,11 @@ class GanttTaskController extends Controller
         
         $data['project_id'] = $project->id;
         $task = GanttTask::create($data);
+        
+        // Synchronizuj zadanie CRM jeśli przypisano użytkownika
+        if (!empty($data['assigned_user_id'])) {
+            $this->syncCrmTask($task, $project);
+        }
         
         \Log::info('✅ Gantt: Utworzono zadanie', [
             'task_id' => $task->id,
@@ -95,6 +101,7 @@ class GanttTaskController extends Controller
                 'order' => 'integer',
                 'description' => 'nullable|string',
                 'assignee' => 'nullable|string|max:255',
+                'assigned_user_id' => 'nullable|integer|exists:users,id',
                 'completed_at' => 'nullable|date',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -122,6 +129,15 @@ class GanttTaskController extends Controller
         }
 
         $task->update($data);
+
+        // Synchronizuj zadanie CRM
+        $task->refresh();
+        if (!empty($task->assigned_user_id)) {
+            $this->syncCrmTask($task, $project);
+        } elseif (array_key_exists('assigned_user_id', $data) && empty($data['assigned_user_id'])) {
+            // Odłączono użytkownika – usuń powiązane zadanie CRM
+            \App\Models\CrmTask::where('gantt_task_id', $task->id)->delete();
+        }
         
         \Log::info('✅ Gantt: Zaktualizowano zadanie', [
             'task_id' => $task->id,
@@ -148,6 +164,10 @@ class GanttTaskController extends Controller
         // Brak autoryzacji - każdy zalogowany użytkownik może usuwać
         $task = GanttTask::where('project_id', $project->id)->findOrFail($id);
         $taskName = $task->name;
+
+        // Usuń powiązane zadanie CRM (cascade usuwa przy on delete cascade, ale na wszelki wypadek)
+        \App\Models\CrmTask::where('gantt_task_id', $task->id)->delete();
+
         $task->delete();
         
         // Loguj zmianę
@@ -160,6 +180,73 @@ class GanttTaskController extends Controller
         ]);
         
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Tworzy lub aktualizuje zadanie CRM dla zadania Gantt z przypisanym użytkownikiem.
+     */
+    private function syncCrmTask(GanttTask $task, Project $project): void
+    {
+        if (!\Schema::hasTable('crm_tasks')) {
+            return;
+        }
+
+        $hasGanttColumn = \Schema::hasColumn('crm_tasks', 'gantt_task_id');
+        $hasProjectColumn = \Schema::hasColumn('crm_tasks', 'project_id');
+
+        $dueDate = $task->end instanceof \Carbon\Carbon ? $task->end : \Carbon\Carbon::parse($task->end);
+
+        $payload = [
+            'title' => $task->name,
+            'description' => $task->description ?? null,
+            'type' => 'zadanie',
+            'priority' => 'normalna',
+            'status' => 'do_zrobienia',
+            'due_date' => $dueDate->endOfDay(),
+            'assigned_to' => $task->assigned_user_id,
+            'created_by' => Auth::id() ?? $task->assigned_user_id,
+        ];
+
+        if ($hasProjectColumn) {
+            $payload['project_id'] = $project->id;
+        }
+
+        if ($hasGanttColumn) {
+            $existing = \App\Models\CrmTask::where('gantt_task_id', $task->id)->first();
+            if ($existing) {
+                // Tylko aktualizuj pola które mogą się zmienić, nie nadpisuj statusu
+                $existing->update([
+                    'title' => $payload['title'],
+                    'description' => $payload['description'],
+                    'due_date' => $payload['due_date'],
+                    'assigned_to' => $payload['assigned_to'],
+                ]);
+            } else {
+                $payload['gantt_task_id'] = $task->id;
+                \App\Models\CrmTask::create($payload);
+            }
+        } else {
+            \App\Models\CrmTask::create($payload);
+        }
+    }
+
+    /**
+     * Zwraca listę użytkowników do pickera osoby odpowiedzialnej w Gantt.
+     */
+    public function usersForGantt()
+    {
+        $users = \App\Models\User::orderBy('name')
+            ->select('id', 'name', 'first_name', 'last_name', 'short_name', 'email')
+            ->get()
+            ->map(fn ($u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'short_name' => $u->short_name ?? $u->name,
+                'email' => $u->email,
+                'display' => ($u->short_name ? $u->short_name . ' – ' : '') . $u->name,
+            ]);
+
+        return response()->json($users);
     }
 
     public function reorder(Request $request, $projectId)

@@ -36,6 +36,45 @@
     </div>
 
     @auth
+        @php
+            try {
+                $pendingTasksCount = 0;
+                $overdueTasksCount = 0;
+                if (\Schema::hasTable('crm_tasks')) {
+                    $pendingTasksCount = \App\Models\CrmTask::where('assigned_to', Auth::id())
+                        ->where('status', '!=', 'zakonczone')
+                        ->count();
+                    $overdueTasksCount = \App\Models\CrmTask::where('assigned_to', Auth::id())
+                        ->where('status', '!=', 'zakonczone')
+                        ->where('due_date', '<', now())
+                        ->count();
+                }
+            } catch (\Exception $e) {
+                $pendingTasksCount = 0;
+                $overdueTasksCount = 0;
+            }
+        @endphp
+        @if($overdueTasksCount > 0)
+            <div class="max-w-md mx-auto mb-4 p-4 bg-red-100 border border-red-400 text-red-800 rounded flex items-center gap-2">
+                <span class="text-xl">🔴</span>
+                <div>
+                    <strong>Masz {{ $overdueTasksCount }} zaległe zadanie{{ $overdueTasksCount == 1 ? '' : ($overdueTasksCount < 5 ? 'a' : '') }} do wykonania!</strong>
+                    @if(Auth::user()->can_crm || Auth::user()->email === 'proximalumine@gmail.com')
+                        <div class="text-sm mt-1"><a href="{{ route('crm') }}" class="underline font-semibold">Przejdź do CRM</a></div>
+                    @endif
+                </div>
+            </div>
+        @elseif($pendingTasksCount > 0)
+            <div class="max-w-md mx-auto mb-4 p-4 bg-orange-100 border border-orange-400 text-orange-800 rounded flex items-center gap-2">
+                <span class="text-xl">🟠</span>
+                <div>
+                    <strong>Masz {{ $pendingTasksCount }} zadanie{{ $pendingTasksCount == 1 ? '' : ($pendingTasksCount < 5 ? 'a' : '') }} do wykonania.</strong>
+                    @if(Auth::user()->can_crm || Auth::user()->email === 'proximalumine@gmail.com')
+                        <div class="text-sm mt-1"><a href="{{ route('crm') }}" class="underline font-semibold">Przejdź do CRM</a></div>
+                    @endif
+                </div>
+            </div>
+        @endif
         <div class="flex flex-col gap-4 justify-center items-center">
             @if(Auth::user()->email === 'proximalumine@gmail.com' || Auth::user()->can_view_magazyn)
                 <a href="{{ route('magazyn.check') }}"

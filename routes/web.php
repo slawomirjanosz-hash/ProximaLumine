@@ -2355,3 +2355,6 @@ Route::middleware(['auth'])->prefix('api/gantt')->group(function () {
     Route::delete('/{project}/{id}', [\App\Http\Controllers\GanttTaskController::class, 'destroy']);
     Route::post('/{project}/reorder', [\App\Http\Controllers\GanttTaskController::class, 'reorder']);
 });
+
+// Users list for Gantt assignee picker
+Route::middleware(['auth'])->get('/api/users-for-gantt', [\App\Http\Controllers\GanttTaskController::class, 'usersForGantt']);
