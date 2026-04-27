@@ -50,32 +50,32 @@
     </div>
     
     {{-- INFORMACJE O PROJEKCIE --}}
-    <div class="bg-gray-50 border rounded p-4 mb-6">
-        <div class="flex flex-wrap items-center gap-6">
-            <div>
-                <span class="text-sm font-semibold text-gray-600">Nr projektu:</span>
-                <span class="text-lg ml-1">{{ $project->project_number }}</span>
+    <div class="bg-white border border-gray-200 rounded-lg px-5 py-4 mb-6 shadow-sm">
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <div class="flex items-baseline gap-1">
+                <span class="text-sm font-semibold text-gray-500">Nr projektu:</span>
+                <span class="text-sm font-medium text-gray-900">{{ $project->project_number }}</span>
             </div>
-            <div>
-                <span class="text-sm font-semibold text-gray-600">Nazwa:</span>
-                <span class="text-lg ml-1">{{ $project->name }}</span>
+            <div class="flex items-baseline gap-1">
+                <span class="text-sm font-semibold text-gray-500">Nazwa:</span>
+                <span class="text-sm font-medium text-gray-900">{{ $project->name }}</span>
             </div>
-            <div>
-                <span class="text-sm font-semibold text-gray-600">Budżet:</span>
-                <span class="text-lg ml-1">{{ $project->budget ? number_format($project->budget, 2) . ' PLN' : '-' }}</span>
+            <div class="flex items-baseline gap-1">
+                <span class="text-sm font-semibold text-gray-500">Budżet:</span>
+                <span class="text-sm font-medium text-gray-900">{{ $project->budget ? number_format($project->budget, 2, ',', ' ') . ' PLN' : '-' }}</span>
             </div>
-            <div>
-                <span class="text-sm font-semibold text-gray-600">Status:</span>
-                <span class="text-lg ml-1">
+            <div class="flex items-baseline gap-1">
+                <span class="text-sm font-semibold text-gray-500">Status:</span>
+                <span class="text-sm font-medium text-gray-900">
                     @if($project->status === 'in_progress') W toku
                     @elseif($project->status === 'warranty') Na gwarancji
                     @elseif($project->status === 'archived') Archiwalny
                     @endif
                 </span>
             </div>
-            <div>
-                <span class="text-sm font-semibold text-gray-600">Osoba odpowiedzialna:</span>
-                <span class="text-lg ml-1">
+            <div class="flex items-baseline gap-1">
+                <span class="text-sm font-semibold text-gray-500">Osoba odpowiedzialna:</span>
+                <span class="text-sm font-medium text-gray-900">
                     @if(isset($project->responsibleUser) && $project->responsibleUser)
                         {{ $project->responsibleUser->name ?? ($project->responsibleUser->short_name ?? '-') }}
                     @else
@@ -86,11 +86,11 @@
             {{-- PRZYCISKI AKCJI inline --}}
             <div class="ml-auto flex gap-2 items-center">
                 @if(!in_array($project->status, ['warranty','archived']))
-                    <a href="{{ route('magazyn.editProject', $project->id) }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">
+                    <a href="{{ route('magazyn.editProject', $project->id) }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold">
                         Edytuj projekt
                     </a>
                     @if($project->status === 'in_progress')
-                    <button id="finish-project-btn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">
+                    <button id="finish-project-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm font-semibold">
                         Zakończ projekt
                     </button>
                     @endif
