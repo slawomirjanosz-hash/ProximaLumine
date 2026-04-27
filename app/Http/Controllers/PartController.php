@@ -339,6 +339,7 @@ class PartController extends Controller
             'summary',
             'frappe',
             'finance',
+            'project_orders',
         ];
     }
 
@@ -1009,6 +1010,10 @@ class PartController extends Controller
                 - $financeSummary['issued_invoices']
                 - $financeSummary['ordered_materials_services'];
 
+            $projectOrders = \App\Models\Order::where('project_id', $project->id)
+                ->orderByDesc('issued_at')
+                ->get();
+
             return view('parts.project-details', [
                 'project' => $project,
                 'removals' => $removals,
@@ -1026,6 +1031,7 @@ class PartController extends Controller
                 'importedCostDuplicates' => session('imported_project_costs_duplicates', []),
                 'financeSummary' => $financeSummary,
                 'projectVisibleSections' => $projectVisibleSections,
+                'projectOrders' => $projectOrders,
             ]);
         } catch (\Exception $e) {
             \Log::error('=== BŁĄD W showProject ===', [
@@ -1728,6 +1734,7 @@ class PartController extends Controller
 
     public function storeProjectOrder(Request $request, \App\Models\Project $project)
     {
+        try {
         if (!$this->hasTableSafe('project_finance') || !$this->hasColumnSafe('project_finance', 'category')) {
             return redirect()->route('magazyn.projects.show', $project->id)
                 ->with('error', 'Brakuje wymaganej tabeli/kolumn dla zamówień. Uruchom migracje na serwerze.')
@@ -1800,6 +1807,17 @@ class PartController extends Controller
         return redirect()->route('magazyn.projects.show', $project->id)
             ->with('success', 'Dodano zamówienie.')
             ->with('finance_orders_feedback', true);
+        } catch (\Throwable $e) {
+            \Log::error('storeProjectOrder error', [
+                'project_id' => $project->id,
+                'error' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+            ]);
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Błąd podczas zapisywania zamówienia: ' . $e->getMessage())
+                ->with('finance_orders_feedback', true);
+        }
     }
 
     public function updateProjectOrderStatus(Request $request, \App\Models\Project $project, \App\Models\ProjectFinance $finance)

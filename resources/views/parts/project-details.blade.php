@@ -103,7 +103,7 @@
 
     {{-- KONTENER NA PRZESUWALNE SEKCJE --}}
     @php
-        $visibleSections = $projectVisibleSections ?? ['pickup', 'changes', 'summary', 'frappe', 'finance'];
+        $visibleSections = $projectVisibleSections ?? ['pickup', 'changes', 'summary', 'frappe', 'finance', 'project_orders'];
     @endphp
     <div id="sortable-sections" class="space-y-8">
     
@@ -1885,7 +1885,219 @@
     </div>
     @endif
     {{-- KONIEC SEKCJI 4 --}}
-    
+
+    {{-- SEKCJA 5: ZAMÓWIENIA PROJEKTOWE --}}
+    @if(in_array('project_orders', $visibleSections, true))
+    <div id="section-project-orders" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="6">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="drag-handle cursor-move text-gray-400 hover:text-gray-600" draggable="true" title="Przeciągnij, aby zmienić kolejność">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                </svg>
+            </div>
+            <button type="button" id="toggle-proj-orders-section" class="text-gray-400 hover:text-gray-600 focus:outline-none">
+                <span id="toggle-proj-orders-arrow">▶</span>
+            </button>
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+                <span class="text-indigo-600">📋</span>
+                Zamówienia projektowe
+            </h3>
+        </div>
+        <div id="proj-orders-section-content" class="hidden">
+
+            {{-- Notification --}}
+            <div id="proj-ord-notification" class="hidden mb-3 p-3 rounded border text-sm"></div>
+
+            {{-- Form card --}}
+            <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                <h4 class="font-semibold text-gray-800 mb-3">Utwórz zamówienie z pozycjami</h4>
+                <div class="space-y-3">
+                    {{-- Row 1: order number, category, dates --}}
+                    <div class="flex flex-wrap gap-2">
+                        <div class="flex-1 min-w-[160px]">
+                            <label class="block text-xs text-gray-600 mb-1">Nr zamówienia</label>
+                            <input type="text" id="proj-ord-number" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="ZAM/{{ date('Y') }}/...">
+                        </div>
+                        <div class="w-32">
+                            <label class="block text-xs text-gray-600 mb-1">Kategoria</label>
+                            <select id="proj-ord-category" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                                <option value="materials">Materiały</option>
+                                <option value="services">Usługi</option>
+                            </select>
+                        </div>
+                        <div class="w-44">
+                            <label class="block text-xs text-gray-600 mb-1">Data zamówienia</label>
+                            <input type="date" id="proj-ord-date" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" value="{{ date('Y-m-d') }}">
+                        </div>
+                        <div class="w-44">
+                            <label class="block text-xs text-gray-600 mb-1">Termin płatności</label>
+                            <input type="date" id="proj-ord-payment-date" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm">
+                        </div>
+                    </div>
+                    {{-- Row 2: delivery, payment method, payment days, offer number --}}
+                    <div class="flex flex-wrap gap-2">
+                        <div class="flex-1 min-w-[120px]">
+                            <label class="block text-xs text-gray-600 mb-1">Termin dostawy</label>
+                            <input type="text" id="proj-ord-delivery" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="np. 14 dni">
+                        </div>
+                        <div class="flex-1 min-w-[120px]">
+                            <label class="block text-xs text-gray-600 mb-1">Forma płatności</label>
+                            <input type="text" id="proj-ord-payment-method" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="np. przelew">
+                        </div>
+                        <div class="w-28">
+                            <label class="block text-xs text-gray-600 mb-1">Dni płatności</label>
+                            <input type="text" id="proj-ord-payment-days" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="30">
+                        </div>
+                        <div class="flex-1 min-w-[140px]">
+                            <label class="block text-xs text-gray-600 mb-1">Nr oferty dostawcy</label>
+                            <input type="text" id="proj-ord-offer-number" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="OF/2026/...">
+                        </div>
+                    </div>
+                    {{-- Row 3: Supplier picker --}}
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Dostawca</label>
+                        <div id="proj-ord-supplier-wrap">
+                            <div class="flex gap-1 items-center">
+                                <div class="relative flex-1 max-w-sm">
+                                    <input type="text" id="proj-ord-supplier-input" autocomplete="off"
+                                        class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                        placeholder="Nazwa lub NIP…">
+                                    <div id="proj-ord-supplier-dropdown" class="hidden absolute z-50 left-0 top-full mt-0.5 w-72 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded shadow-lg text-xs"></div>
+                                </div>
+                                <button type="button" id="proj-ord-nip-toggle"
+                                    class="px-2 py-1.5 bg-gray-100 border border-gray-300 rounded text-xs hover:bg-gray-200 whitespace-nowrap"
+                                    title="Wpisz NIP i pobierz dane z GUS">NIP/GUS</button>
+                            </div>
+                            <div id="proj-ord-nip-panel" class="hidden mt-1.5 p-2 border border-blue-200 bg-blue-50 rounded text-xs space-y-1.5 max-w-md">
+                                <div class="flex gap-1 items-center">
+                                    <input type="text" id="proj-ord-nip-input" maxlength="13"
+                                        class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs" placeholder="Wpisz NIP (10 cyfr)">
+                                    <button type="button" id="proj-ord-nip-fetch"
+                                        class="px-2.5 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-semibold whitespace-nowrap">
+                                        🔍 Pobierz z GUS
+                                    </button>
+                                </div>
+                                <div id="proj-ord-nip-result" class="hidden p-2 bg-white border border-gray-200 rounded space-y-1">
+                                    <div id="proj-ord-nip-name" class="font-semibold text-gray-800"></div>
+                                    <div id="proj-ord-nip-detail" class="text-gray-600"></div>
+                                    <div class="flex gap-1 pt-1 flex-wrap">
+                                        <button type="button" id="proj-ord-nip-use"
+                                            class="px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-xs font-semibold">
+                                            ✔ Użyj tej nazwy
+                                        </button>
+                                        <button type="button" id="proj-ord-nip-save-db"
+                                            class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-semibold hidden">
+                                            💾 Dodaj do bazy
+                                        </button>
+                                        <span id="proj-ord-nip-in-db" class="hidden px-2 py-1 bg-green-100 text-green-800 rounded text-xs">✓ Jest w bazie</span>
+                                    </div>
+                                    <div id="proj-ord-nip-save-st" class="text-xs text-gray-600 hidden"></div>
+                                </div>
+                                <div id="proj-ord-nip-error" class="hidden text-red-600 text-xs"></div>
+                                <div id="proj-ord-nip-loading" class="hidden text-blue-600 text-xs">⏳ Pobieranie danych…</div>
+                            </div>
+                        </div>
+                    </div>
+                    {{-- Row 4: Line items --}}
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-semibold text-gray-700">Pozycje zamówienia</label>
+                            <button type="button" id="proj-ord-add-line"
+                                class="px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-xs font-semibold">
+                                ➕ Dodaj pozycję
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto rounded border border-gray-200">
+                            <table class="w-full text-xs">
+                                <thead>
+                                    <tr class="bg-gray-50 text-gray-700">
+                                        <th class="px-2 py-1.5 text-left">Nazwa</th>
+                                        <th class="px-2 py-1.5 text-right w-16">Ilość</th>
+                                        <th class="px-2 py-1.5 text-right w-24">Cena netto</th>
+                                        <th class="px-2 py-1.5 text-left w-16">Jedn.</th>
+                                        <th class="px-2 py-1.5 text-right w-24">Wartość</th>
+                                        <th class="px-2 py-1.5 w-8"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="proj-ord-lines-tbody">
+                                    <tr id="proj-ord-no-lines">
+                                        <td colspan="6" class="px-2 py-3 text-center text-gray-400">Brak pozycji. Kliknij „Dodaj pozycję".</td>
+                                    </tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr class="bg-gray-50 border-t border-gray-200">
+                                        <td colspan="4" class="px-2 py-1.5 text-right text-xs font-semibold text-gray-700">Suma netto:</td>
+                                        <td class="px-2 py-1.5 text-right text-xs font-bold text-gray-900" id="proj-ord-total">0,00 zł</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                    {{-- Submit --}}
+                    <div class="flex items-center gap-2 pt-1">
+                        <button type="button" id="proj-ord-submit"
+                            class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-semibold">
+                            📋 Utwórz zamówienie
+                        </button>
+                        <span id="proj-ord-submitting" class="hidden text-sm text-gray-500">⏳ Tworzenie…</span>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Existing project orders table --}}
+            <div class="bg-white border border-gray-200 rounded-lg p-4">
+                <h4 class="font-semibold text-gray-800 mb-3">Zamówienia do projektu</h4>
+                <div class="overflow-x-auto rounded border border-gray-200">
+                    <table class="w-full table-auto text-xs">
+                        <thead>
+                            <tr class="bg-gray-100 text-gray-800">
+                                <th class="px-2 py-2 text-left">Data</th>
+                                <th class="px-2 py-2 text-left">Nr zamówienia</th>
+                                <th class="px-2 py-2 text-left">Dostawca</th>
+                                <th class="px-2 py-2 text-left">Nr oferty</th>
+                                <th class="px-2 py-2 text-right">Wartość netto</th>
+                                <th class="px-2 py-2 text-center">Pobierz</th>
+                            </tr>
+                        </thead>
+                        <tbody id="proj-ord-table-tbody">
+                            @forelse(($projectOrders ?? []) as $pOrder)
+                            @php
+                                $pOrderTotal = 0;
+                                foreach ($pOrder->products ?? [] as $pProd) {
+                                    $pOrderTotal += (float) str_replace(',', '.', $pProd['price'] ?? 0) * (int) ($pProd['quantity'] ?? 1);
+                                }
+                            @endphp
+                            <tr class="bg-white even:bg-gray-50/80">
+                                <td class="px-2 py-2 whitespace-nowrap">{{ $pOrder->issued_at ? $pOrder->issued_at->format('Y-m-d') : '' }}</td>
+                                <td class="px-2 py-2">{{ $pOrder->order_number }}</td>
+                                <td class="px-2 py-2 text-gray-700">{{ $pOrder->supplier }}</td>
+                                <td class="px-2 py-2 text-gray-500">{{ $pOrder->supplier_offer_number }}</td>
+                                <td class="px-2 py-2 text-right whitespace-nowrap">{{ number_format($pOrderTotal, 2, ',', ' ') }} zł</td>
+                                <td class="px-2 py-2 text-center whitespace-nowrap">
+                                    <a href="{{ route('magazyn.order.generateWord', $pOrder->id) }}"
+                                        class="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-semibold mr-1"
+                                        title="Pobierz Word">📄 Word</a>
+                                    <a href="{{ route('magazyn.order.generatePdf', $pOrder->id) }}"
+                                        class="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-semibold"
+                                        title="Pobierz PDF">📄 PDF</a>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr id="proj-ord-empty-row">
+                                <td colspan="6" class="px-2 py-3 text-center text-gray-500">Brak zamówień projektowych.</td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    @endif
+    {{-- KONIEC SEKCJI 5 --}}
+
     </div>
     {{-- KONIEC KONTENERA PRZESUWANYCH SEKCJI --}}
     
@@ -2044,6 +2256,357 @@
     function escHtml(s) {
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
+})();
+</script>
+
+{{-- ZAMÓWIENIA PROJEKTOWE JS --}}
+<script>
+(function () {
+    // ---- Supplier picker for project orders section ----
+    var poInput      = document.getElementById('proj-ord-supplier-input');
+    var poDropdown   = document.getElementById('proj-ord-supplier-dropdown');
+    var poNipToggle  = document.getElementById('proj-ord-nip-toggle');
+    var poNipPanel   = document.getElementById('proj-ord-nip-panel');
+    var poNipInput   = document.getElementById('proj-ord-nip-input');
+    var poNipFetch   = document.getElementById('proj-ord-nip-fetch');
+    var poNipResult  = document.getElementById('proj-ord-nip-result');
+    var poNipName    = document.getElementById('proj-ord-nip-name');
+    var poNipDetail  = document.getElementById('proj-ord-nip-detail');
+    var poNipUse     = document.getElementById('proj-ord-nip-use');
+    var poNipSaveDb  = document.getElementById('proj-ord-nip-save-db');
+    var poNipInDb    = document.getElementById('proj-ord-nip-in-db');
+    var poNipSaveSt  = document.getElementById('proj-ord-nip-save-st');
+    var poNipError   = document.getElementById('proj-ord-nip-error');
+    var poNipLoading = document.getElementById('proj-ord-nip-loading');
+
+    var _poGusData = null;
+
+    function escHtmlPo(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    if (poInput) {
+        var poDebTimer = null;
+        poInput.addEventListener('input', function () {
+            clearTimeout(poDebTimer);
+            var q = this.value.trim();
+            if (q.length < 2) { poHideDropdown(); return; }
+            poDebTimer = setTimeout(function () { poFetchSuppliers(q); }, 220);
+        });
+        poInput.addEventListener('focus', function () {
+            if (this.value.trim().length >= 2) poFetchSuppliers(this.value.trim());
+        });
+    }
+
+    function poFetchSuppliers(q) {
+        fetch('{{ route("api.order-suppliers") }}?q=' + encodeURIComponent(q), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        }).then(function (r) { return r.json(); }).then(function (res) {
+            if (!res.success || !res.data.length) { poHideDropdown(); return; }
+            poShowDropdown(res.data);
+        }).catch(function () { poHideDropdown(); });
+    }
+
+    function poShowDropdown(items) {
+        if (!poDropdown) return;
+        poDropdown.innerHTML = '';
+        items.forEach(function (s) {
+            var div = document.createElement('div');
+            div.className = 'px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0';
+            div.innerHTML = '<span class="font-semibold">' + escHtmlPo(s.name) + '</span>'
+                + (s.nip ? ' <span class="text-gray-400 ml-1">' + escHtmlPo(s.nip) + '</span>' : '')
+                + (s.city ? '<div class="text-gray-500">' + escHtmlPo(s.city) + '</div>' : '');
+            div.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                poInput.value = s.name;
+                poHideDropdown();
+            });
+            poDropdown.appendChild(div);
+        });
+        poDropdown.classList.remove('hidden');
+    }
+
+    function poHideDropdown() { if (poDropdown) poDropdown.classList.add('hidden'); }
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('#proj-ord-supplier-wrap')) poHideDropdown();
+    });
+
+    if (poNipToggle) {
+        poNipToggle.addEventListener('click', function () {
+            if (!poNipPanel) return;
+            poNipPanel.classList.toggle('hidden');
+            if (poNipResult) poNipResult.classList.add('hidden');
+            if (poNipError) poNipError.classList.add('hidden');
+        });
+    }
+
+    if (poNipFetch) {
+        poNipFetch.addEventListener('click', function () {
+            var nip = poNipInput ? poNipInput.value.replace(/[^0-9]/g, '') : '';
+            if (nip.length !== 10) { poShowNipError('NIP musi mieć dokładnie 10 cyfr.'); return; }
+            if (poNipError) poNipError.classList.add('hidden');
+            if (poNipResult) poNipResult.classList.add('hidden');
+            if (poNipLoading) poNipLoading.classList.remove('hidden');
+            fetch('{{ route("api.order-supplier.nip") }}?nip=' + nip, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+            }).then(function (r) { return r.json(); }).then(function (res) {
+                if (poNipLoading) poNipLoading.classList.add('hidden');
+                if (!res.success) { poShowNipError(res.message || 'Nie znaleziono firmy.'); return; }
+                _poGusData = res.data;
+                if (poNipName) poNipName.textContent = res.data.name;
+                var detail = [];
+                if (res.data.nip) detail.push('NIP: ' + res.data.nip);
+                if (res.data.address) detail.push(res.data.address);
+                if (res.data.postal_code || res.data.city) detail.push((res.data.postal_code + ' ' + res.data.city).trim());
+                if (poNipDetail) poNipDetail.textContent = detail.join(' | ');
+                if (res.in_db) {
+                    if (poNipSaveDb) poNipSaveDb.classList.add('hidden');
+                    if (poNipInDb) poNipInDb.classList.remove('hidden');
+                } else {
+                    if (poNipSaveDb) poNipSaveDb.classList.remove('hidden');
+                    if (poNipInDb) poNipInDb.classList.add('hidden');
+                }
+                if (poNipSaveSt) poNipSaveSt.classList.add('hidden');
+                if (poNipResult) poNipResult.classList.remove('hidden');
+            }).catch(function () {
+                if (poNipLoading) poNipLoading.classList.add('hidden');
+                poShowNipError('Błąd połączenia z serwerem.');
+            });
+        });
+    }
+
+    if (poNipUse) {
+        poNipUse.addEventListener('click', function () {
+            if (_poGusData && poInput) { poInput.value = _poGusData.name; if (poNipPanel) poNipPanel.classList.add('hidden'); }
+        });
+    }
+
+    if (poNipSaveDb) {
+        poNipSaveDb.addEventListener('click', function () {
+            if (!_poGusData) return;
+            poNipSaveDb.disabled = true;
+            if (poNipSaveSt) { poNipSaveSt.textContent = 'Zapisywanie…'; poNipSaveSt.classList.remove('hidden'); }
+            var token = document.querySelector('meta[name="csrf-token"]');
+            fetch('{{ route("api.order-supplier.save") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': token ? token.getAttribute('content') : ''
+                },
+                body: JSON.stringify(_poGusData)
+            }).then(function (r) { return r.json(); }).then(function (res) {
+                poNipSaveDb.disabled = false;
+                if (res.success) {
+                    if (poNipSaveSt) poNipSaveSt.textContent = '✓ ' + res.message;
+                    poNipSaveDb.classList.add('hidden');
+                    if (poNipInDb) poNipInDb.classList.remove('hidden');
+                    if (poInput && _poGusData) poInput.value = _poGusData.name;
+                } else {
+                    if (poNipSaveSt) poNipSaveSt.textContent = '✗ ' + (res.message || 'Błąd zapisu.');
+                }
+            }).catch(function () {
+                poNipSaveDb.disabled = false;
+                if (poNipSaveSt) poNipSaveSt.textContent = '✗ Błąd połączenia.';
+            });
+        });
+    }
+
+    function poShowNipError(msg) {
+        if (poNipError) { poNipError.textContent = msg; poNipError.classList.remove('hidden'); }
+        if (poNipResult) poNipResult.classList.add('hidden');
+    }
+
+    // ---- Line items ----
+    var projLines = [];
+    var projLineIdx = 0;
+
+    function formatAmountPo(v) {
+        if (!v && v !== 0) return '';
+        return parseFloat(v).toFixed(2).replace('.', ',');
+    }
+
+    function renderProjLines() {
+        var tbody = document.getElementById('proj-ord-lines-tbody');
+        var noLines = document.getElementById('proj-ord-no-lines');
+        var totalEl = document.getElementById('proj-ord-total');
+        if (!tbody) return;
+
+        // Remove existing data rows
+        Array.from(tbody.querySelectorAll('tr.proj-line-row')).forEach(function (r) { r.remove(); });
+
+        var total = 0;
+        projLines.forEach(function (line, i) {
+            var val = (parseFloat(line.price) || 0) * (parseInt(line.quantity) || 0);
+            total += val;
+            var tr = document.createElement('tr');
+            tr.className = 'proj-line-row bg-white even:bg-gray-50/80';
+            tr.innerHTML =
+                '<td class="px-1 py-1"><input type="text" class="w-full px-1 py-1 border border-gray-200 rounded text-xs" value="' + escHtmlPo(line.name) + '" data-idx="' + i + '" data-field="name"></td>' +
+                '<td class="px-1 py-1"><input type="number" class="w-full px-1 py-1 border border-gray-200 rounded text-xs text-right" value="' + escHtmlPo(line.quantity) + '" min="1" data-idx="' + i + '" data-field="quantity"></td>' +
+                '<td class="px-1 py-1"><input type="text" class="w-full px-1 py-1 border border-gray-200 rounded text-xs text-right" value="' + escHtmlPo(line.price) + '" data-idx="' + i + '" data-field="price" placeholder="0,00"></td>' +
+                '<td class="px-1 py-1"><input type="text" class="w-full px-1 py-1 border border-gray-200 rounded text-xs" value="' + escHtmlPo(line.unit) + '" data-idx="' + i + '" data-field="unit" placeholder="szt."></td>' +
+                '<td class="px-1 py-1 text-right whitespace-nowrap font-semibold">' + formatAmountPo(val) + ' zł</td>' +
+                '<td class="px-1 py-1 text-center"><button type="button" class="proj-line-del text-red-500 hover:text-red-700 text-sm font-bold" data-idx="' + i + '">✕</button></td>';
+            tbody.appendChild(tr);
+        });
+
+        if (noLines) noLines.style.display = projLines.length === 0 ? '' : 'none';
+        if (totalEl) totalEl.textContent = formatAmountPo(total) + ' zł';
+
+        // Bind input changes
+        tbody.querySelectorAll('input[data-idx]').forEach(function (inp) {
+            inp.addEventListener('input', function () {
+                var idx = parseInt(this.dataset.idx);
+                var field = this.dataset.field;
+                if (projLines[idx] !== undefined) {
+                    projLines[idx][field] = this.value;
+                    // Re-render only value column
+                    var val2 = (parseFloat(projLines[idx].price) || 0) * (parseInt(projLines[idx].quantity) || 0);
+                    var row = this.closest('tr');
+                    if (row) {
+                        var valCell = row.cells[4];
+                        if (valCell) valCell.textContent = formatAmountPo(val2) + ' zł';
+                    }
+                    // Update total
+                    var t = 0;
+                    projLines.forEach(function (l) { t += (parseFloat(l.price) || 0) * (parseInt(l.quantity) || 0); });
+                    if (totalEl) totalEl.textContent = formatAmountPo(t) + ' zł';
+                }
+            });
+        });
+
+        // Bind delete buttons
+        tbody.querySelectorAll('.proj-line-del').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var idx = parseInt(this.dataset.idx);
+                projLines.splice(idx, 1);
+                renderProjLines();
+            });
+        });
+    }
+
+    var poAddLineBtn = document.getElementById('proj-ord-add-line');
+    if (poAddLineBtn) {
+        poAddLineBtn.addEventListener('click', function () {
+            projLines.push({ name: '', quantity: 1, price: '', unit: 'szt.' });
+            renderProjLines();
+            // Focus name input of last row
+            var tbody2 = document.getElementById('proj-ord-lines-tbody');
+            if (tbody2) {
+                var rows = tbody2.querySelectorAll('tr.proj-line-row');
+                if (rows.length > 0) {
+                    var lastInp = rows[rows.length - 1].querySelector('input');
+                    if (lastInp) lastInp.focus();
+                }
+            }
+        });
+    }
+
+    // ---- Form submission ----
+    var poSubmitBtn = document.getElementById('proj-ord-submit');
+    var poSubmitting = document.getElementById('proj-ord-submitting');
+    var poNotification = document.getElementById('proj-ord-notification');
+
+    function poShowNotification(msg, isError) {
+        if (!poNotification) return;
+        poNotification.textContent = msg;
+        poNotification.className = 'mb-3 p-3 rounded border text-sm ' + (isError
+            ? 'border-red-200 bg-red-50 text-red-800'
+            : 'border-green-200 bg-green-50 text-green-800');
+        poNotification.classList.remove('hidden');
+        setTimeout(function () { poNotification.classList.add('hidden'); }, 6000);
+    }
+
+    if (poSubmitBtn) {
+        poSubmitBtn.addEventListener('click', function () {
+            var orderName = document.getElementById('proj-ord-number') ? document.getElementById('proj-ord-number').value.trim() : '';
+            if (!orderName) { poShowNotification('Podaj numer zamówienia.', true); return; }
+            if (projLines.length === 0) { poShowNotification('Dodaj co najmniej jedną pozycję.', true); return; }
+            var hasEmpty = projLines.some(function (l) { return !l.name || !l.name.trim(); });
+            if (hasEmpty) { poShowNotification('Wypełnij nazwy wszystkich pozycji.', true); return; }
+
+            var payload = {
+                order_name: orderName,
+                category: document.getElementById('proj-ord-category') ? document.getElementById('proj-ord-category').value : 'materials',
+                order_date: document.getElementById('proj-ord-date') ? document.getElementById('proj-ord-date').value : '',
+                payment_date: document.getElementById('proj-ord-payment-date') ? document.getElementById('proj-ord-payment-date').value : null,
+                delivery_time: document.getElementById('proj-ord-delivery') ? document.getElementById('proj-ord-delivery').value : '',
+                payment_method: document.getElementById('proj-ord-payment-method') ? document.getElementById('proj-ord-payment-method').value : '',
+                payment_days: document.getElementById('proj-ord-payment-days') ? document.getElementById('proj-ord-payment-days').value : '',
+                supplier_offer_number: document.getElementById('proj-ord-offer-number') ? document.getElementById('proj-ord-offer-number').value : '',
+                supplier: poInput ? poInput.value.trim() : '',
+                products: projLines.map(function (l) {
+                    return { name: l.name, quantity: parseInt(l.quantity) || 1, price: l.price || '0', unit: l.unit || 'szt.' };
+                })
+            };
+
+            poSubmitBtn.disabled = true;
+            if (poSubmitting) poSubmitting.classList.remove('hidden');
+
+            var token = document.querySelector('meta[name="csrf-token"]');
+            fetch('{{ route("magazyn.project.order.create", $project->id) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': token ? token.getAttribute('content') : ''
+                },
+                body: JSON.stringify(payload)
+            }).then(function (r) { return r.json(); }).then(function (res) {
+                poSubmitBtn.disabled = false;
+                if (poSubmitting) poSubmitting.classList.add('hidden');
+                if (!res.success) { poShowNotification(res.message || 'Błąd tworzenia zamówienia.', true); return; }
+
+                poShowNotification('✓ Zamówienie ' + res.order.order_number + ' zostało utworzone.', false);
+
+                // Reset form
+                if (document.getElementById('proj-ord-number')) document.getElementById('proj-ord-number').value = '';
+                if (poInput) poInput.value = '';
+                if (document.getElementById('proj-ord-payment-date')) document.getElementById('proj-ord-payment-date').value = '';
+                if (document.getElementById('proj-ord-delivery')) document.getElementById('proj-ord-delivery').value = '';
+                if (document.getElementById('proj-ord-payment-method')) document.getElementById('proj-ord-payment-method').value = '';
+                if (document.getElementById('proj-ord-payment-days')) document.getElementById('proj-ord-payment-days').value = '';
+                if (document.getElementById('proj-ord-offer-number')) document.getElementById('proj-ord-offer-number').value = '';
+                projLines = [];
+                renderProjLines();
+
+                // Add row to table
+                var tbody3 = document.getElementById('proj-ord-table-tbody');
+                var emptyRow = document.getElementById('proj-ord-empty-row');
+                if (emptyRow) emptyRow.remove();
+                if (tbody3) {
+                    var o = res.order;
+                    var total3 = 0;
+                    if (o.products) o.products.forEach(function (p) {
+                        total3 += (parseFloat(p.price) || 0) * (parseInt(p.quantity) || 1);
+                    });
+                    var tr2 = document.createElement('tr');
+                    tr2.className = 'bg-white even:bg-gray-50/80';
+                    tr2.innerHTML =
+                        '<td class="px-2 py-2 whitespace-nowrap">' + escHtmlPo(o.issued_at ? o.issued_at.substring(0,10) : '') + '</td>' +
+                        '<td class="px-2 py-2">' + escHtmlPo(o.order_number) + '</td>' +
+                        '<td class="px-2 py-2 text-gray-700">' + escHtmlPo(o.supplier || '') + '</td>' +
+                        '<td class="px-2 py-2 text-gray-500">' + escHtmlPo(o.supplier_offer_number || '') + '</td>' +
+                        '<td class="px-2 py-2 text-right whitespace-nowrap">' + total3.toFixed(2).replace('.',',') + ' zł</td>' +
+                        '<td class="px-2 py-2 text-center whitespace-nowrap">' +
+                            '<a href="{{ url("/magazyn/zamowienia") }}/' + o.id + '/generate-word" class="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-semibold mr-1">📄 Word</a>' +
+                            '<a href="{{ url("/magazyn/zamowienia") }}/' + o.id + '/generate-pdf" class="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-semibold">📄 PDF</a>' +
+                        '</td>';
+                    tbody3.insertBefore(tr2, tbody3.firstChild);
+                }
+            }).catch(function () {
+                poSubmitBtn.disabled = false;
+                if (poSubmitting) poSubmitting.classList.add('hidden');
+                poShowNotification('Błąd połączenia z serwerem.', true);
+            });
+        });
+    }
+
+    // Initial render
+    renderProjLines();
 })();
 </script>
 
@@ -2416,6 +2979,19 @@
                 financeContent.classList.toggle('hidden');
                 financeArrow.textContent = financeContent.classList.contains('hidden') ? '▶' : '▼';
                 localStorage.setItem(financeSectionStateKey, financeContent.classList.contains('hidden') ? '0' : '1');
+            });
+        }
+
+        // Obsługa rozwijania sekcji Zamówienia projektowe
+        const projOrdersToggleBtn = document.getElementById('toggle-proj-orders-section');
+        const projOrdersContent = document.getElementById('proj-orders-section-content');
+        const projOrdersArrow = document.getElementById('toggle-proj-orders-arrow');
+        if (projOrdersToggleBtn && projOrdersContent && projOrdersArrow) {
+            projOrdersContent.classList.add('hidden');
+            projOrdersArrow.textContent = '▶';
+            projOrdersToggleBtn.addEventListener('click', function() {
+                projOrdersContent.classList.toggle('hidden');
+                projOrdersArrow.textContent = projOrdersContent.classList.contains('hidden') ? '▶' : '▼';
             });
         }
         
