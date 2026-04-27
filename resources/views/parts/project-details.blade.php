@@ -1192,13 +1192,10 @@
                                             $costStatusClass = $costStatus === 'Opłacono' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800';
                                         @endphp
                                         @if($rowId > 0)
-                                        <form action="{{ route('magazyn.projects.importedCosts.status', [$project->id, $rowId]) }}" method="POST" class="import-display inline-block">
-                                            @csrf
-                                            <select name="cost_status" class="px-2 py-1 rounded border border-gray-300 text-xs font-semibold {{ $costStatusClass }}" onchange="this.form.submit()">
-                                                <option value="Opłacono" {{ $costStatus === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
-                                                <option value="Nie opłacono" {{ $costStatus === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
-                                            </select>
-                                        </form>
+                                        <select name="cost_status_display" data-url="{{ route('magazyn.projects.importedCosts.status', [$project->id, $rowId]) }}" class="import-display cost-status-select px-2 py-1 rounded border border-gray-300 text-xs font-semibold {{ $costStatusClass }}">
+                                            <option value="Opłacono" {{ $costStatus === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
+                                            <option value="Nie opłacono" {{ $costStatus === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
+                                        </select>
                                         @else
                                         <span class="import-display px-2 py-0.5 rounded text-xs font-semibold {{ $costStatusClass }}">{{ $costStatus }}</span>
                                         @endif
@@ -1226,6 +1223,31 @@
                 </div>
                 @endif
             </div>
+
+            {{-- UKRYTY FORMULARZ ZMIANY STATUSU KOSZTU --}}
+            <form id="cost-status-change-form" method="POST" action="" class="hidden">
+                @csrf
+                <input type="hidden" name="cost_status" id="cost-status-change-value">
+            </form>
+            <script>
+            (function() {
+                function initCostStatusSelects() {
+                    document.querySelectorAll('.cost-status-select').forEach(function(sel) {
+                        sel.addEventListener('change', function() {
+                            var form = document.getElementById('cost-status-change-form');
+                            form.action = this.dataset.url;
+                            document.getElementById('cost-status-change-value').value = this.value;
+                            form.submit();
+                        });
+                    });
+                }
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initCostStatusSelects);
+                } else {
+                    initCostStatusSelects();
+                }
+            })();
+            </script>
             @endif
             </div>
 
