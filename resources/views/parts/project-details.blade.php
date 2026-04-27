@@ -3058,10 +3058,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // -------- Picker osoby odpowiedzialnej (użytkownicy systemu) --------
     let ganttUsers = [];
-    fetch('/api/users-for-gantt', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(r => r.json())
-        .then(users => { ganttUsers = users; })
-        .catch(() => {});
+    fetch('/api/users-for-gantt', { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+        .then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
+        .then(users => {
+            ganttUsers = Array.isArray(users) ? users : [];
+            console.log('✅ Załadowano ' + ganttUsers.length + ' użytkowników do pickera Gantt');
+        })
+        .catch(err => { console.warn('⚠️ Picker Gantt: nie udało się pobrać użytkowników:', err); });
 
     const assigneeInput = document.getElementById('task-assignee-input');
     const assigneeUserId = document.getElementById('task-assignee-user-id');

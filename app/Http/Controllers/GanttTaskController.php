@@ -235,15 +235,19 @@ class GanttTaskController extends Controller
      */
     public function usersForGantt()
     {
+        // Bezpieczne pobieranie kolumn — short_name może nie istnieć na Railway
+        $hasShortName = \Schema::hasColumn('users', 'short_name');
+        $cols = array_filter(['id', 'name', 'email', $hasShortName ? 'short_name' : null]);
+
         $users = \App\Models\User::orderBy('name')
-            ->select('id', 'name', 'first_name', 'last_name', 'short_name', 'email')
+            ->select(array_values($cols))
             ->get()
             ->map(fn ($u) => [
                 'id' => $u->id,
                 'name' => $u->name,
-                'short_name' => $u->short_name ?? $u->name,
+                'short_name' => $u->short_name ?? null,
                 'email' => $u->email,
-                'display' => ($u->short_name ? $u->short_name . ' – ' : '') . $u->name,
+                'display' => ($u->short_name ?? null) ? $u->short_name . ' – ' . $u->name : $u->name,
             ]);
 
         return response()->json($users);
