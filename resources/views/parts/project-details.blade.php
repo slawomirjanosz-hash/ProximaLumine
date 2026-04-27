@@ -731,6 +731,128 @@
                 </table>
             </div>
 
+            {{-- WYKRES CASHFLOW --}}
+            @php
+                $chartCostRows = collect($importedCostRows ?? [])
+                    ->filter(fn($r) => ($r['date'] ?? '') !== '' && ($r['amount_net'] ?? '') !== '')
+                    ->map(fn($r) => ['date' => $r['date'], 'amount' => (float) $r['amount_net'], 'type' => 'expense', 'label' => 'Faktura kosztowa'])
+                    ->values()->all();
+                $chartIssuedRows = collect($issuedInvoiceRows ?? [])
+                    ->filter(fn($r) => ($r['date'] ?? '') !== '' && ($r['amount_net'] ?? '') !== '')
+                    ->map(fn($r) => ['date' => $r['date'], 'amount' => (float) $r['amount_net'], 'type' => 'income', 'label' => 'Faktura wystawiona'])
+                    ->values()->all();
+                $chartOrderRows = collect($orderRows ?? [])
+                    ->filter(fn($r) => ($r['date'] ?? '') !== '' && ($r['amount_net'] ?? '') !== '')
+                    ->map(fn($r) => ['date' => $r['date'], 'amount' => (float) $r['amount_net'], 'type' => 'expense', 'label' => 'Zamówienie'])
+                    ->values()->all();
+                $allChartData = array_merge($chartCostRows, $chartIssuedRows, $chartOrderRows);
+                $hasChartData = !empty($allChartData);
+            @endphp
+            <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('span').textContent = this.nextElementSibling.classList.contains('hidden') ? '▶' : '▼'"
+                    class="flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-gray-900 w-full text-left mb-1">
+                    <span>▶</span> Wykres kosztów i przychodów (cash flow)
+                </button>
+                <div class="hidden">
+                    @if($hasChartData)
+                    <div class="mt-3" style="position:relative; height:280px;">
+                        <canvas id="cashflow-chart"></canvas>
+                    </div>
+                    <script>
+                    (function() {
+                        const rawData = @json($allChartData);
+                        rawData.sort((a, b) => a.date.localeCompare(b.date));
+
+                        const dateMap = new Map();
+                        rawData.forEach(t => {
+                            if (!dateMap.has(t.date)) dateMap.set(t.date, { income: 0, expense: 0 });
+                            const e = dateMap.get(t.date);
+                            if (t.type === 'income') e.income += t.amount;
+                            else e.expense += t.amount;
+                        });
+
+                        const labels = [], incomeData = [], expenseData = [], balanceData = [];
+                        let cum = 0;
+                        dateMap.forEach((val, date) => {
+                            labels.push(new Date(date).toLocaleDateString('pl-PL'));
+                            incomeData.push(val.income);
+                            expenseData.push(val.expense);
+                            cum += (val.income - val.expense);
+                            balanceData.push(cum);
+                        });
+
+                        function initCashflowChart() {
+                            const canvas = document.getElementById('cashflow-chart');
+                            if (!canvas || !window.Chart) return;
+                            new Chart(canvas, {
+                                type: 'bar',
+                                data: {
+                                    labels: labels,
+                                    datasets: [
+                                        {
+                                            label: 'Przychody',
+                                            data: incomeData,
+                                            backgroundColor: 'rgba(34, 197, 94, 0.6)',
+                                            borderColor: 'rgb(34, 197, 94)',
+                                            borderWidth: 1,
+                                            order: 2
+                                        },
+                                        {
+                                            label: 'Wydatki',
+                                            data: expenseData,
+                                            backgroundColor: 'rgba(239, 68, 68, 0.6)',
+                                            borderColor: 'rgb(239, 68, 68)',
+                                            borderWidth: 1,
+                                            order: 2
+                                        },
+                                        {
+                                            label: 'Bilans narastająco',
+                                            data: balanceData,
+                                            type: 'line',
+                                            borderColor: 'rgb(59, 130, 246)',
+                                            backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                                            borderWidth: 2,
+                                            fill: true,
+                                            tension: 0.3,
+                                            pointRadius: 4,
+                                            order: 1
+                                        }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: { display: true, position: 'top' },
+                                        tooltip: {
+                                            callbacks: {
+                                                label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2).replace('.', ',') + ' zł'
+                                            }
+                                        }
+                                    },
+                                    scales: {
+                                        y: {
+                                            ticks: { callback: v => v.toFixed(0) + ' zł' }
+                                        }
+                                    }
+                                }
+                            });
+                        }
+
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', initCashflowChart);
+                        } else {
+                            initCashflowChart();
+                        }
+                    })();
+                    </script>
+                    @else
+                    <p class="text-sm text-gray-500 mt-2">Brak danych do wyświetlenia wykresu. Dodaj faktury kosztowe, wystawione lub zamówienia.</p>
+                    @endif
+                </div>
+            </div>
+            {{-- KONIEC WYKRESU CASHFLOW --}}
+
             <div class="mb-4 border-b border-gray-200">
                 <div class="flex flex-wrap gap-2">
                     <button type="button" class="finance-tab-btn px-4 py-2 rounded-t bg-white border border-gray-200 border-b-white text-sm font-semibold" data-finance-tab-target="costs">Faktury kosztowe ({{ number_format((float)($financeSummary['cost_invoices'] ?? 0), 2, ',', ' ') }} zł)</button>
@@ -892,6 +1014,93 @@
                 >
             </div>
 
+            {{-- PODSUMOWANIE DUPLIKATÓW IMPORTU --}}
+            @if(!empty($importedCostMeta ?? []) && isset($importedCostMeta['existing_total_before']))
+            @php
+                $dupInserted = (int) ($importedCostMeta['inserted'] ?? 0);
+                $dupSkipped = (int) ($importedCostMeta['duplicate_skipped'] ?? 0);
+                $dupAmountInserted = (float) ($importedCostMeta['amount_inserted'] ?? 0);
+                $dupAmountDuplicates = (float) ($importedCostMeta['amount_duplicates'] ?? 0);
+                $dupExistingBefore = (float) ($importedCostMeta['existing_total_before'] ?? 0);
+                $dupTotalAfter = $dupExistingBefore + $dupAmountInserted;
+                $hasDuplicates = $dupSkipped > 0;
+            @endphp
+            <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                <h4 class="font-semibold text-gray-800 mb-3">Podsumowanie importu</h4>
+                <div class="overflow-x-auto">
+                    <table class="w-auto text-sm">
+                        <tbody>
+                            <tr class="bg-gray-50">
+                                <td class="px-3 py-2 font-semibold text-gray-700 whitespace-nowrap">Koszty w systemie przed importem:</td>
+                                <td class="pl-2 pr-3 py-2 text-right font-bold whitespace-nowrap text-gray-900">{{ number_format($dupExistingBefore, 2, ',', ' ') }} zł</td>
+                                <td class="px-3 py-2 text-xs text-gray-500">suma wszystkich wydatków projektu</td>
+                            </tr>
+                            <tr class="bg-emerald-50">
+                                <td class="px-3 py-2 font-semibold text-emerald-800 whitespace-nowrap">Zaimportowano nowych pozycji:</td>
+                                <td class="pl-2 pr-3 py-2 text-right font-bold whitespace-nowrap text-emerald-900">{{ number_format($dupAmountInserted, 2, ',', ' ') }} zł</td>
+                                <td class="px-3 py-2 text-xs text-emerald-700">{{ $dupInserted }} {{ $dupInserted === 1 ? 'pozycja' : ($dupInserted >= 2 && $dupInserted <= 4 ? 'pozycje' : 'pozycji') }}</td>
+                            </tr>
+                            @if($hasDuplicates)
+                            <tr class="bg-amber-50">
+                                <td class="px-3 py-2 font-semibold text-amber-800 whitespace-nowrap">Pominięto duplikatów:</td>
+                                <td class="pl-2 pr-3 py-2 text-right font-bold whitespace-nowrap text-amber-900">{{ number_format($dupAmountDuplicates, 2, ',', ' ') }} zł</td>
+                                <td class="px-3 py-2 text-xs text-amber-700">{{ $dupSkipped }} {{ $dupSkipped === 1 ? 'pozycja' : ($dupSkipped >= 2 && $dupSkipped <= 4 ? 'pozycje' : 'pozycji') }} — już w systemie (ten sam nr dokumentu i kwota netto)</td>
+                            </tr>
+                            @endif
+                            <tr class="bg-blue-50 border-t-2 border-blue-200">
+                                <td class="px-3 py-2 font-semibold text-blue-800 whitespace-nowrap">Koszty w systemie po imporcie:</td>
+                                <td class="pl-2 pr-3 py-2 text-right font-bold whitespace-nowrap text-blue-900">{{ number_format($dupTotalAfter, 2, ',', ' ') }} zł</td>
+                                <td class="px-3 py-2 text-xs text-blue-700">{{ $dupInserted > 0 ? '+' . number_format($dupAmountInserted, 2, ',', ' ') . ' zł względem stanu przed importem' : 'bez zmian' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                @if($hasDuplicates && !empty($importedCostDuplicates ?? []))
+                <div class="mt-4">
+                    <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden'); this.textContent = this.nextElementSibling.classList.contains('hidden') ? '▶ Pokaż pominięte duplikaty ({{ $dupSkipped }})' : '▼ Ukryj pominięte duplikaty ({{ $dupSkipped }})'"
+                        class="text-sm font-semibold text-amber-700 hover:text-amber-900 flex items-center gap-1 mb-2">
+                        ▶ Pokaż pominięte duplikaty ({{ $dupSkipped }})
+                    </button>
+                    <div class="hidden">
+                        <p class="text-xs text-gray-500 mb-2">Poniższe pozycje zostały pominięte, ponieważ rekord z tym samym numerem dokumentu i kwotą netto już istnieje w systemie.</p>
+                        <div class="w-full overflow-x-auto rounded border border-amber-200">
+                            <table class="w-full table-auto text-xs">
+                                <thead>
+                                    <tr class="bg-amber-100 text-amber-900">
+                                        <th class="px-2 py-2 text-left">Data</th>
+                                        <th class="px-2 py-2 text-left">Dostawca</th>
+                                        <th class="px-2 py-2 text-left">Dokument</th>
+                                        <th class="px-2 py-2 text-left">Grupa</th>
+                                        <th class="px-2 py-2 text-right">Kwota netto</th>
+                                        <th class="px-2 py-2 text-left">Opis</th>
+                                        <th class="px-2 py-2 text-left">Status</th>
+                                        <th class="px-2 py-2 text-left">Data płatności</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($importedCostDuplicates as $dupRow)
+                                    <tr class="bg-amber-50/60 even:bg-amber-50">
+                                        <td class="px-2 py-1.5 whitespace-nowrap">{{ $dupRow['date'] ?? '' }}</td>
+                                        <td class="px-2 py-1.5 truncate max-w-[150px]" title="{{ $dupRow['subject_or_supplier'] ?? '' }}">{{ $dupRow['subject_or_supplier'] ?? '' }}</td>
+                                        <td class="px-2 py-1.5">{{ $dupRow['document'] ?? '' }}</td>
+                                        <td class="px-2 py-1.5">{{ $dupRow['group'] ?? '' }}</td>
+                                        <td class="px-2 py-1.5 text-right whitespace-nowrap font-semibold">{{ ($dupRow['amount_net'] ?? '') !== '' ? number_format((float) $dupRow['amount_net'], 2, ',', ' ') : '' }} zł</td>
+                                        <td class="px-2 py-1.5 truncate max-w-[200px]" title="{{ $dupRow['description'] ?? '' }}">{{ \Illuminate\Support\Str::limit($dupRow['description'] ?? '', 40, '…') }}</td>
+                                        <td class="px-2 py-1.5 whitespace-nowrap">{{ $dupRow['status'] ?? '' }}</td>
+                                        <td class="px-2 py-1.5 whitespace-nowrap">{{ $dupRow['payment_date'] ?? '' }}</td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                @endif
+            </div>
+            @endif
+            {{-- KONIEC PODSUMOWANIA DUPLIKATÓW --}}
+
             @if(!empty($importedCostRows ?? []))
             <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -901,6 +1110,9 @@
                         Zaimportowano: <strong>{{ $importedCostMeta['inserted'] ?? 0 }}</strong>
                         @if(($importedCostMeta['skipped'] ?? 0) > 0)
                             | Pominięto: <strong>{{ $importedCostMeta['skipped'] ?? 0 }}</strong>
+                        @endif
+                        @if(($importedCostMeta['duplicate_skipped'] ?? 0) > 0)
+                            | Duplikatów: <strong>{{ $importedCostMeta['duplicate_skipped'] }}</strong>
                         @endif
                     </div>
                     @endif
@@ -913,6 +1125,8 @@
                         <button type="button" id="deselect-all-imported-costs" class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm">Odznacz wszystkie</button>
                         <button type="button" id="enable-edit-selected" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Edytuj zaznaczone</button>
                         <button type="submit" name="bulk_action" value="update" id="save-selected-edits" class="hidden px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">Zapisz edytowane</button>
+                        <button type="submit" name="bulk_action" value="mark_paid" class="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-sm" onclick="return confirm('Oznaczyć zaznaczone pozycje jako Opłacono?')">✅ Oznacz jako Opłacono</button>
+                        <button type="submit" name="bulk_action" value="mark_unpaid" class="px-3 py-1.5 bg-amber-500 text-white rounded hover:bg-amber-600 text-sm" onclick="return confirm('Oznaczyć zaznaczone pozycje jako Nie opłacono?')">🕐 Oznacz jako Nie opłacono</button>
                         <button type="submit" name="bulk_action" value="delete" class="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-sm" onclick="return confirm('Czy na pewno usunąć zaznaczone pozycje?')">Usuń zaznaczone</button>
                     </div>
 
@@ -973,10 +1187,24 @@
                                         <input type="text" name="rows[{{ $rowId }}][description]" value="{{ $importedRow['description'] ?? '' }}" class="import-input hidden w-full px-1.5 py-1 rounded border border-gray-300 bg-white text-xs" placeholder="Opis" disabled>
                                     </td>
                                     <td class="px-2 py-2 truncate">
-                                        <span class="import-display">{{ $importedRow['status'] ?? 'Nie opłacono' }}</span>
+                                        @php
+                                            $costStatus = $importedRow['status'] ?? 'Nie opłacono';
+                                            $costStatusClass = $costStatus === 'Opłacono' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800';
+                                        @endphp
+                                        @if($rowId > 0)
+                                        <form action="{{ route('magazyn.projects.importedCosts.status', [$project->id, $rowId]) }}" method="POST" class="import-display inline-block">
+                                            @csrf
+                                            <select name="cost_status" class="px-2 py-1 rounded border border-gray-300 text-xs font-semibold {{ $costStatusClass }}" onchange="this.form.submit()">
+                                                <option value="Opłacono" {{ $costStatus === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
+                                                <option value="Nie opłacono" {{ $costStatus === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
+                                            </select>
+                                        </form>
+                                        @else
+                                        <span class="import-display px-2 py-0.5 rounded text-xs font-semibold {{ $costStatusClass }}">{{ $costStatus }}</span>
+                                        @endif
                                         <select name="rows[{{ $rowId }}][status]" class="import-input hidden w-full px-1.5 py-1 rounded border border-gray-300 bg-white text-xs" disabled>
-                                            <option value="Opłacono" {{ ($importedRow['status'] ?? '') === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
-                                            <option value="Nie opłacono" {{ ($importedRow['status'] ?? '') === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
+                                            <option value="Opłacono" {{ $costStatus === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
+                                            <option value="Nie opłacono" {{ $costStatus === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
                                             <option value="Oczekiwanie" {{ ($importedRow['status'] ?? '') === 'Oczekiwanie' ? 'selected' : '' }}>Oczekiwanie</option>
                                         </select>
                                     </td>
@@ -1107,11 +1335,9 @@
                                             }
                                         }
 
-                                        $issuedStatusClass = 'bg-gray-100 text-gray-700';
+                                        $issuedStatusClass = 'bg-amber-100 text-amber-800';
                                         if ($issuedStatus === 'Opłacono') {
                                             $issuedStatusClass = 'bg-green-100 text-green-800';
-                                        } elseif ($issuedStatus === 'Nie opłacono' && $isIssuedOverdue) {
-                                            $issuedStatusClass = 'bg-red-100 text-red-800';
                                         }
                                     @endphp
                                     <tr class="bg-white even:bg-gray-50/80">
@@ -1301,8 +1527,8 @@
                                         $orderStatusClass = 'bg-gray-100 text-gray-700';
                                         if ($orderStatus === 'Opłacono') {
                                             $orderStatusClass = 'bg-green-100 text-green-800';
-                                        } elseif ($orderStatus === 'Nie opłacono' && $isOrderOverdue) {
-                                            $orderStatusClass = 'bg-red-100 text-red-800';
+                                        } elseif ($orderStatus === 'Nie opłacono') {
+                                            $orderStatusClass = 'bg-amber-100 text-amber-800';
                                         } elseif ($orderStatus === 'Oczekiwanie') {
                                             $orderStatusClass = 'bg-amber-100 text-amber-800';
                                         } elseif ($orderStatus === 'Zrealizowane') {

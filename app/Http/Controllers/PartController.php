@@ -610,9 +610,9 @@ class PartController extends Controller
         return view('parts.projects', [
             'users' => User::orderBy('name')->get(),
             'parts' => Part::with('category')->orderBy('name')->get(),
-            'inProgressProjects' => \App\Models\Project::where('status', 'in_progress')->with('responsibleUser')->get(),
-            'warrantyProjects' => \App\Models\Project::where('status', 'warranty')->with('responsibleUser')->get(),
-            'archivedProjects' => \App\Models\Project::where('status', 'archived')->with('responsibleUser')->get(),
+            'inProgressProjects' => \App\Models\Project::where('status', 'in_progress')->with(['responsibleUser', 'sourceOffer'])->get(),
+            'warrantyProjects' => \App\Models\Project::where('status', 'warranty')->with(['responsibleUser', 'sourceOffer'])->get(),
+            'archivedProjects' => \App\Models\Project::where('status', 'archived')->with(['responsibleUser', 'sourceOffer'])->get(),
             'availableProjectSections' => $this->getAvailableProjectSections(),
         ]);
     }
@@ -1004,6 +1004,7 @@ class PartController extends Controller
                 'issuedInvoiceRows' => $issuedInvoiceRows,
                 'orderRows' => $orderRows,
                 'importedCostMeta' => session('imported_project_costs_meta', []),
+                'importedCostDuplicates' => session('imported_project_costs_duplicates', []),
                 'financeSummary' => $financeSummary,
                 'projectVisibleSections' => $projectVisibleSections,
             ]);
@@ -1101,6 +1102,32 @@ class PartController extends Controller
         $importedRows = [];
         $inserted = 0;
         $skipped = 0;
+        $duplicateSkipped = 0;
+        $duplicateRows = [];
+        $amountInserted = 0.0;
+        $amountDuplicates = 0.0;
+
+        // Fetch existing (document_number, amount) pairs for duplicate detection
+        $existingDocAmountPairs = [];
+        if ($hasDocumentNumberColumn) {
+            \App\Models\ProjectFinance::where('project_id', $project->id)
+                ->where('type', 'expense')
+                ->whereNotNull('document_number')
+                ->where('document_number', '!=', '')
+                ->select('document_number', 'amount')
+                ->get()
+                ->each(function ($r) use (&$existingDocAmountPairs) {
+                    $key = mb_strtolower(trim((string) $r->document_number))
+                        . '___'
+                        . number_format((float) $r->amount, 2, '.', '');
+                    $existingDocAmountPairs[$key] = true;
+                });
+        }
+
+        // Sum of all expense costs already in the project before this import
+        $existingTotalBefore = (float) (\App\Models\ProjectFinance::where('project_id', $project->id)
+            ->where('type', 'expense')
+            ->sum('amount') ?? 0);
 
         $maxPreviewRows = 300;
         $nextOrder = $hasOrderColumn
@@ -1157,6 +1184,35 @@ class PartController extends Controller
                 'status' => $mappedStatus,
             ];
 
+            // Duplicate detection: skip rows whose document_number + amount already exist
+            $isDuplicate = false;
+            if ($hasDocumentNumberColumn && $document !== '') {
+                $dupKey = mb_strtolower($document)
+                    . '___'
+                    . number_format((float) $amountForDb, 2, '.', '');
+                if (isset($existingDocAmountPairs[$dupKey])) {
+                    $isDuplicate = true;
+                }
+            }
+
+            if ($isDuplicate) {
+                $duplicateSkipped++;
+                $amountDuplicates += (float) $amountForDb;
+                if (count($duplicateRows) < 300) {
+                    $duplicateRows[] = [
+                        'date' => $date,
+                        'subject_or_supplier' => $subjectOrSupplier,
+                        'document' => $document,
+                        'amount_net' => number_format((float) $amountForDb, 2, '.', ''),
+                        'description' => $description,
+                        'group' => $assignedGroup,
+                        'status' => $this->mapStatusToLabel($mappedStatus),
+                        'payment_date' => $paymentDate,
+                    ];
+                }
+                continue;
+            }
+
             if ($hasSupplierColumn) {
                 $createPayload['supplier'] = $subjectOrSupplier !== '' ? mb_substr($subjectOrSupplier, 0, 255) : null;
             }
@@ -1182,6 +1238,15 @@ class PartController extends Controller
             \App\Models\ProjectFinance::create($this->filterExistingColumns('project_finance', $createPayload));
 
             $inserted++;
+            $amountInserted += (float) $amountForDb;
+
+            // Register new entry in the duplicate-check set so same-file duplicates are also caught
+            if ($hasDocumentNumberColumn && $document !== '') {
+                $newKey = mb_strtolower($document)
+                    . '___'
+                    . number_format((float) $amountForDb, 2, '.', '');
+                $existingDocAmountPairs[$newKey] = true;
+            }
 
             if (count($importedRows) < $maxPreviewRows) {
                 $importedRows[] = [
@@ -1197,24 +1262,48 @@ class PartController extends Controller
             }
         }
 
-        if ($inserted === 0) {
+        if ($inserted === 0 && $duplicateSkipped === 0) {
             return redirect()->route('magazyn.projects.show', $project->id)
                 ->with('error', 'Nie zaimportowano żadnych pozycji. Sprawdź poprawność danych w pliku (data, przedmiot/dostawca, kwota netto).')
                 ->with('finance_import_feedback', true);
+        }
+
+        if ($inserted === 0 && $duplicateSkipped > 0) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', "Wszystkie {$duplicateSkipped} pozycji zostały pominięte — już istnieją w systemie (ten sam nr dokumentu i kwota netto).")
+                ->with('finance_import_feedback', true)
+                ->with('imported_project_costs_meta', [
+                    'inserted' => 0,
+                    'skipped' => $skipped,
+                    'duplicate_skipped' => $duplicateSkipped,
+                    'amount_inserted' => $amountInserted,
+                    'amount_duplicates' => $amountDuplicates,
+                    'existing_total_before' => $existingTotalBefore,
+                    'preview_truncated' => false,
+                ])
+                ->with('imported_project_costs_duplicates', $duplicateRows);
         }
 
         $successMessage = "Zaimportowano {$inserted} pozycji kosztowych z Excela.";
         if ($skipped > 0) {
             $successMessage .= " Pominięto {$skipped} pozycji bez daty lub kwoty netto.";
         }
+        if ($duplicateSkipped > 0) {
+            $successMessage .= " Wykryto i pominięto {$duplicateSkipped} duplikatów (ten sam nr dokumentu i kwota netto).";
+        }
 
         return redirect()->route('magazyn.projects.show', $project->id)
             ->with('success', $successMessage)
             ->with('finance_import_feedback', true)
             ->with('imported_project_costs', $importedRows)
+            ->with('imported_project_costs_duplicates', $duplicateRows)
             ->with('imported_project_costs_meta', [
                 'inserted' => $inserted,
                 'skipped' => $skipped,
+                'duplicate_skipped' => $duplicateSkipped,
+                'amount_inserted' => $amountInserted,
+                'amount_duplicates' => $amountDuplicates,
+                'existing_total_before' => $existingTotalBefore,
                 'preview_truncated' => $inserted > $maxPreviewRows,
             ]);
     }
@@ -1287,6 +1376,24 @@ class PartController extends Controller
                 ->with('finance_import_feedback', true);
         }
 
+        if ($action === 'mark_paid') {
+            $updated = $records->count();
+            \App\Models\ProjectFinance::whereIn('id', $records->pluck('id'))->update(['status' => 'paid']);
+
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('success', "Oznaczono {$updated} pozycji jako Opłacono.")
+                ->with('finance_import_feedback', true);
+        }
+
+        if ($action === 'mark_unpaid') {
+            $updated = $records->count();
+            \App\Models\ProjectFinance::whereIn('id', $records->pluck('id'))->update(['status' => 'pending']);
+
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('success', "Oznaczono {$updated} pozycji jako Nie opłacono.")
+                ->with('finance_import_feedback', true);
+        }
+
         if ($action !== 'update') {
             return redirect()->route('magazyn.projects.show', $project->id)
                 ->with('error', 'Nieznana akcja zbiorcza.')
@@ -1345,6 +1452,28 @@ class PartController extends Controller
 
         return redirect()->route('magazyn.projects.show', $project->id)
             ->with('success', "Zaktualizowano {$updated} zaznaczonych pozycji.")
+            ->with('finance_import_feedback', true);
+    }
+
+    public function updateImportedProjectCostStatus(Request $request, \App\Models\Project $project, \App\Models\ProjectFinance $finance)
+    {
+        $request->validate([
+            'cost_status' => 'required|in:Opłacono,Nie opłacono',
+        ]);
+
+        if ((int) $finance->project_id !== (int) $project->id || $finance->category !== 'excel_import') {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Nie znaleziono wskazanej pozycji kosztowej.')
+                ->with('finance_import_feedback', true);
+        }
+
+        $statusLabel = (string) $request->input('cost_status');
+        $finance->update([
+            'status' => $statusLabel === 'Opłacono' ? 'paid' : 'pending',
+        ]);
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', 'Status kosztu został zaktualizowany.')
             ->with('finance_import_feedback', true);
     }
 
@@ -6872,6 +7001,40 @@ class PartController extends Controller
         }
 
         return $pdf->stream($filename);
+    }
+
+    // GENERUJ PDF DLA PROJEKTU
+    public function generateProjectPdf(\App\Models\Project $project)
+    {
+        $project->load(['responsibleUser', 'sourceOffer']);
+        $company = \App\Models\CompanySetting::first();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('projects.pdf', compact('project', 'company'))
+            ->setPaper('a4', 'portrait');
+
+        $filename = 'Projekt_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $project->project_number) . '.pdf';
+
+        if (request()->boolean('download')) {
+            return $pdf->download($filename);
+        }
+
+        return $pdf->stream($filename);
+    }
+
+    // KOPIUJ PROJEKT
+    public function copyProject(\App\Models\Project $project)
+    {
+        $newProject = $project->replicate(['status', 'started_at', 'finished_at', 'public_gantt_token']);
+        $newProject->project_number = $project->project_number . '_kopia';
+        $newProject->name = $project->name . '_kopia';
+        $newProject->status = 'in_progress';
+        $newProject->started_at = now();
+        $newProject->finished_at = null;
+        $newProject->public_gantt_token = null;
+        $newProject->source_offer_id = $project->source_offer_id;
+        $newProject->save();
+
+        return redirect()->route('magazyn.projects')->with('success', 'Projekt "' . $project->name . '" został skopiowany.');
     }
 
     // GENERUJ DOKUMENT WORD DLA OFERTY

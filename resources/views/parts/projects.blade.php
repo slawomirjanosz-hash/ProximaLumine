@@ -12,7 +12,7 @@
 
 @include('parts.menu')
 
-<div class="max-w-6xl mx-auto mt-6">
+<div class="w-full px-4 mt-4">
     <a href="/" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 hover:shadow transition-all text-gray-700 font-medium">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
@@ -23,18 +23,18 @@
 
 {{-- KOMUNIKATY --}}
 @if(session('success'))
-    <div class="max-w-6xl mx-auto mt-4 bg-green-100 text-green-800 p-2 rounded">
-        {{ session('success') }}
+    <div class="w-full px-4 mt-3">
+        <div class="bg-green-100 text-green-800 p-2 rounded">{{ session('success') }}</div>
     </div>
 @endif
 
 @if(session('error'))
-    <div class="max-w-6xl mx-auto mt-4 bg-red-100 text-red-800 p-2 rounded">
-        {{ session('error') }}
+    <div class="w-full px-4 mt-3">
+        <div class="bg-red-100 text-red-800 p-2 rounded">{{ session('error') }}</div>
     </div>
 @endif
 
-<div class="max-w-6xl mx-auto bg-white p-6 rounded shadow mt-6">
+<div class="w-full px-4 pb-6 mt-4">
     
     <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-bold">Projekty</h2>
@@ -174,77 +174,102 @@
     
     {{-- SEKCJA: PROJEKTY W TOKU --}}
     <div id="section-in-progress" class="project-section">
-        <div class="bg-white rounded shadow border">
-            <div class="p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold">Projekty w toku</h3>
-                    @if(auth()->user()->email === 'proximalumine@gmail.com' && $inProgressProjects->count() > 0)
-                        <button type="button" id="delete-in-progress-btn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm hidden">
-                            🗑️ Usuń zaznaczone (0)
-                        </button>
-                    @endif
-                </div>
-                <form id="delete-in-progress-form" method="POST" action="{{ route('magazyn.projects.bulkDelete') }}">
-                    @csrf
-                    @method('DELETE')
-                    <table class="w-full border border-collapse text-xs">
-                        <thead class="bg-gray-100">
-                            <tr>
-                                @if(auth()->user()->email === 'proximalumine@gmail.com')
-                                    <th class="border p-2 w-10">
-                                        <input type="checkbox" class="select-all-in-progress w-4 h-4 cursor-pointer" title="Zaznacz wszystkie">
-                                    </th>
-                                @endif
-                                <th class="border p-2">Nr projektu</th>
-                                <th class="border p-2">Nazwa</th>
-                                <th class="border p-2">Budżet</th>
-                                <th class="border p-2">Osoba odpowiedzialna</th>
-                                <th class="border p-2">Akcje</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($inProgressProjects as $project)
-                                <tr>
-                                    @if(auth()->user()->email === 'proximalumine@gmail.com')
-                                        <td class="border p-2 text-center">
-                                            <input type="checkbox" name="project_ids[]" value="{{ $project->id }}" class="project-checkbox-in-progress w-4 h-4 cursor-pointer">
-                                        </td>
-                                    @endif
-                                    <td class="border p-2">{{ $project->project_number }}</td>
-                                    <td class="border p-2">{{ $project->name }}</td>
-                                    <td class="border p-2 text-right">{{ $project->budget ? number_format($project->budget, 2) . ' PLN' : '-' }}</td>
-                                    <td class="border p-2">{{ $project->responsibleUser->name ?? '-' }}</td>
-                                    <td class="border p-2 text-center">
-                                        <div class="flex items-center justify-center gap-2">
-                                            <a href="{{ route('magazyn.projects.show', $project->id) }}" class="text-blue-600 hover:underline text-sm">Szczegóły</a>
-                                            <a href="{{ route('magazyn.editProject', $project->id) }}" class="text-indigo-600 hover:underline text-sm">Edycja</a>
-                                            @if(auth()->user()->email === 'proximalumine@gmail.com')
-                                                <form action="{{ route('magazyn.deleteProject', $project->id) }}" method="POST" class="inline delete-project-form" data-project-name="{{ $project->name }}">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-semibold" title="Usuń projekt">🗑️</button>
-                                                </form>
-                                            @elseif(auth()->user()->is_admin && !in_array($project->status, ['warranty','archived']))
-                                                <form action="{{ route('magazyn.deleteProject', $project->id) }}" method="POST" class="inline delete-project-form" data-project-name="{{ $project->name }}">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-semibold" title="Usuń projekt">🗑️</button>
-                                                </form>
-                                            @endif
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="{{ auth()->user()->email === 'proximalumine@gmail.com' ? '6' : '5' }}" class="border p-4 text-center text-gray-500">Brak projektów w toku</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </form>
+        <div class="bg-white rounded shadow overflow-hidden">
+            <div class="flex justify-between items-center px-4 py-3 border-b">
+                <h3 class="text-lg font-semibold">Projekty w toku</h3>
+                @if(auth()->user()->email === 'proximalumine@gmail.com' && $inProgressProjects->count() > 0)
+                    <button type="button" id="delete-in-progress-btn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm hidden">
+                        🗑️ Usuń zaznaczone (0)
+                    </button>
+                @endif
             </div>
+            <form id="delete-in-progress-form" method="POST" action="{{ route('magazyn.projects.bulkDelete') }}">
+                @csrf
+                @method('DELETE')
+
+                @if($inProgressProjects->count() > 0)
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            @if(auth()->user()->email === 'proximalumine@gmail.com')
+                                <th class="p-2 text-center w-10">
+                                    <input type="checkbox" class="select-all-in-progress w-4 h-4 cursor-pointer" title="Zaznacz wszystkie">
+                                </th>
+                            @endif
+                            <th class="p-2 text-left text-xs whitespace-nowrap">Nr projektu</th>
+                            <th class="p-2 text-left text-sm w-2/5">Nazwa</th>
+                            <th class="p-2 text-left text-xs whitespace-nowrap">Oferta</th>
+                            <th class="p-2 text-left text-xs whitespace-nowrap">Data rozpoczęcia</th>
+                            <th class="p-2 text-left text-xs whitespace-nowrap">Data zakończenia</th>
+                            <th class="p-2 text-right text-sm whitespace-nowrap">Cena końcowa</th>
+                            <th class="p-2 text-left text-xs">Osoba odpowiedzialna</th>
+                            <th class="p-2 text-center text-xs w-28">Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($inProgressProjects as $project)
+                        <tr class="border-t hover:bg-gray-50">
+                            @if(auth()->user()->email === 'proximalumine@gmail.com')
+                                <td class="p-2 text-center">
+                                    <input type="checkbox" name="project_ids[]" value="{{ $project->id }}" class="project-checkbox-in-progress w-4 h-4 cursor-pointer">
+                                </td>
+                            @endif
+                            <td class="p-2 text-xs whitespace-nowrap font-mono">{{ $project->project_number }}</td>
+                            <td class="p-2 text-sm font-medium">{{ $project->name }}</td>
+                            <td class="p-2 text-xs whitespace-nowrap">
+                                @if($project->sourceOffer)
+                                    <div class="text-xs">
+                                        <div class="font-semibold text-blue-600">{{ $project->sourceOffer->offer_number }}</div>
+                                    </div>
+                                @else
+                                    <span class="text-gray-400">-</span>
+                                @endif
+                            </td>
+                            <td class="p-2 text-xs whitespace-nowrap">{{ $project->started_at ? $project->started_at->format('Y-m-d') : '-' }}</td>
+                            <td class="p-2 text-xs whitespace-nowrap">{{ $project->finished_at ? $project->finished_at->format('Y-m-d') : '-' }}</td>
+                            <td class="p-2 text-right font-bold text-sm whitespace-nowrap">{{ $project->budget ? number_format($project->budget, 2, ',', ' ') . ' zł' : '-' }}</td>
+                            <td class="p-2 text-xs">{{ $project->responsibleUser->name ?? '-' }}</td>
+                            <td class="p-2 text-center">
+                                <div class="flex gap-1 justify-center flex-nowrap">
+                                    <a href="{{ route('magazyn.projects.show', $project->id) }}" title="Szczegóły projektu" class="p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 inline-flex items-center">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    </a>
+                                    <a href="{{ route('magazyn.editProject', $project->id) }}" title="Edytuj projekt" class="p-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 inline-flex items-center">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                    </a>
+                                    <button type="button" onclick="openPdfPreview('{{ route('magazyn.projects.generatePdf', $project->id) }}')" title="Podgląd PDF" class="p-1.5 bg-red-600 text-white rounded hover:bg-red-700 inline-flex items-center">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    </button>
+                                    <form action="{{ route('magazyn.projects.copy', $project->id) }}" method="POST" class="inline">
+                                        @csrf
+                                        <button type="submit" title="Kopiuj projekt" class="p-1.5 bg-green-600 text-white rounded hover:bg-green-700 inline-flex items-center">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                        </button>
+                                    </form>
+                                    @if(auth()->user()->email === 'proximalumine@gmail.com' || (auth()->user()->is_admin && !in_array($project->status, ['warranty','archived'])))
+                                    <form action="{{ route('magazyn.deleteProject', $project->id) }}" method="POST" class="inline delete-project-form" data-project-name="{{ $project->name }}">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" title="Usuń projekt" class="p-1.5 bg-gray-600 text-white rounded hover:bg-gray-700 inline-flex items-center">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                        </button>
+                                    </form>
+                                    @endif
+                                </div>
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+                @else
+                <div class="text-center text-gray-400 text-base py-12">
+                    Brak projektów w toku
+                </div>
+                @endif
+            </form>
         </div>
     </div>
+    {{-- KONIEC SEKCJI: PROJEKTY W TOKU --}}
     
     {{-- SEKCJA: PROJEKTY NA GWARANCJI --}}
     <div id="section-warranty" class="project-section hidden">
@@ -519,7 +544,42 @@
             }
         });
     });
+
+    // PDF Preview Modal
+    function openPdfPreview(url) {
+        var modal = document.getElementById('pdf-preview-modal');
+        var iframe = document.getElementById('pdf-preview-iframe');
+        var dlLink = document.getElementById('pdf-download-link');
+        iframe.src = url;
+        dlLink.href = url + '?download=1';
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    function closePdfPreview() {
+        var modal = document.getElementById('pdf-preview-modal');
+        var iframe = document.getElementById('pdf-preview-iframe');
+        iframe.src = '';
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closePdfPreview();
+    });
 </script>
+
+{{-- PDF PREVIEW MODAL --}}
+<div id="pdf-preview-modal" style="display:none; position:fixed; inset:0; z-index:9998; background:rgba(0,0,0,0.75); align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:10px; width:92vw; max-width:960px; height:90vh; display:flex; flex-direction:column; box-shadow:0 24px 64px rgba(0,0,0,0.5);">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #e5e7eb; flex-shrink:0;">
+            <span style="font-weight:700; font-size:15px; color:#1f2937;">&#128196; Podgląd PDF</span>
+            <div style="display:flex; gap:8px;">
+                <a id="pdf-download-link" href="#" download style="padding:8px 16px; background:#2563eb; color:#fff; border-radius:6px; font-size:13px; font-weight:600; text-decoration:none;">&#8595; Pobierz PDF</a>
+                <button onclick="closePdfPreview()" style="padding:8px 14px; background:#ef4444; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;">&times; Zamknij</button>
+            </div>
+        </div>
+        <iframe id="pdf-preview-iframe" src="" style="flex:1; border:none; border-radius:0 0 10px 10px;"></iframe>
+    </div>
+</div>
 
 </body>
 </html>

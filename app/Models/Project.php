@@ -22,6 +22,7 @@ class Project extends Model
         'finished_at',
         'loaded_list_id',
         'public_gantt_token',
+        'source_offer_id',
     ];
 
     protected $casts = [
@@ -34,6 +35,11 @@ class Project extends Model
     public function responsibleUser()
     {
         return $this->belongsTo(User::class, 'responsible_user_id');
+    }
+
+    public function sourceOffer()
+    {
+        return $this->belongsTo(\App\Models\Offer::class, 'source_offer_id');
     }
 
     public function loadedList()

@@ -1038,6 +1038,7 @@ Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/{offer}/con
         'responsible_user_id' => auth()->id(),
         'status' => 'in_progress',
         'started_at' => now(),
+        'source_offer_id' => $offer->id,
     ]);
     
     return redirect()->route('magazyn.projects.show', $project)
@@ -1515,6 +1516,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/projekty/{project}/import-koszty-excel/grupy/dodaj', [PartController::class, 'addImportedProjectCostGroup'])->name('magazyn.projects.importCostsExcel.groups.add')->middleware('auth');
     Route::post('/projekty/{project}/import-koszty-excel/akcje-zbiorcze', [PartController::class, 'bulkManageImportedProjectCosts'])->name('magazyn.projects.importCostsExcel.bulk')->middleware('auth');
     Route::post('/projekty/{project}/import-koszty-excel/grupy', [PartController::class, 'manageImportedProjectCostGroups'])->name('magazyn.projects.importCostsExcel.groups')->middleware('auth');
+    Route::post('/projekty/{project}/koszty/{finance}/status', [PartController::class, 'updateImportedProjectCostStatus'])->name('magazyn.projects.importedCosts.status')->middleware('auth');
     Route::post('/projekty/{project}/faktury-wystawione', [PartController::class, 'storeIssuedProjectInvoice'])->name('magazyn.projects.issuedInvoices.store')->middleware('auth');
     Route::post('/projekty/{project}/faktury-wystawione/import-excel', [PartController::class, 'importIssuedProjectInvoicesExcel'])->name('magazyn.projects.issuedInvoices.importExcel')->middleware('auth');
     Route::post('/projekty/{project}/faktury-wystawione/{finance}/status', [PartController::class, 'updateIssuedProjectInvoiceStatus'])->name('magazyn.projects.issuedInvoices.status')->middleware('auth');
@@ -1537,6 +1539,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/projekty/{project}/return/{removal}', [PartController::class, 'returnProduct'])->name('magazyn.returnProduct')->middleware('auth');
     Route::post('/projekty/{project}/finish', [PartController::class, 'finishProject'])->name('magazyn.finishProject')->middleware('auth');
     Route::delete('/projekty/{project}', [PartController::class, 'deleteProject'])->name('magazyn.deleteProject')->middleware('auth');
+    Route::get('/projekty/{project}/generate-pdf', [PartController::class, 'generateProjectPdf'])->name('magazyn.projects.generatePdf')->middleware('auth');
+    Route::post('/projekty/{project}/copy', [PartController::class, 'copyProject'])->name('magazyn.projects.copy')->middleware('auth');
     Route::post('/projekty/{project}/toggle-authorization', [PartController::class, 'toggleProjectAuthorization'])->name('magazyn.projects.toggleAuthorization')->middleware('auth');
     Route::delete('/projekty/{project}/removal/{removal}', [PartController::class, 'removalDelete'])->name('magazyn.projects.removalDelete')->middleware('auth');
     Route::post('/projekty/{project}/save-as-list', [PartController::class, 'saveProjectAsList'])->name('magazyn.projects.saveAsList')->middleware('auth');
