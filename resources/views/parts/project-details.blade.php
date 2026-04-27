@@ -3354,6 +3354,7 @@ document.addEventListener('DOMContentLoaded', function() {
             renderTaskList();
             applyOverdueTaskStyles();
             drawProjectEndLine();
+            drawTodayLine();
             addTaskHoverTooltips();
             fixGanttBarLabels();
             console.log('✅ Frappe Gantt zrenderowany!');
@@ -3363,8 +3364,60 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function drawTodayLine() {
+        if (!frappeGanttInstance) return;
+        const svg = document.querySelector('#frappe-gantt svg');
+        if (!svg) return;
+        const prev = svg.querySelector('.gantt-today-group');
+        if (prev) prev.remove();
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const ganttStart = frappeGanttInstance.gantt_start;
+        if (!ganttStart) return;
+        const step = frappeGanttInstance.options.step;
+        const colWidth = frappeGanttInstance.options.column_width;
+        const diffHours = (today.getTime() - new Date(ganttStart).getTime()) / 3600000;
+        const x = Math.round((diffHours / step) * colWidth);
+        if (x < 0) return;
+
+        const svgHeight = parseInt(svg.getAttribute('height') || svg.getBoundingClientRect().height || 400);
+
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.classList.add('gantt-today-group');
+        g.style.pointerEvents = 'none';
+
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x); line.setAttribute('y1', 0);
+        line.setAttribute('x2', x); line.setAttribute('y2', svgHeight);
+        line.setAttribute('stroke', '#16a34a');
+        line.setAttribute('stroke-width', '1');
+        line.setAttribute('stroke-dasharray', '4,4');
+        line.setAttribute('opacity', '0.55');
+        g.appendChild(line);
+
+        const d = today;
+        const label = d.getDate().toString().padStart(2,'0') + '.' + (d.getMonth()+1).toString().padStart(2,'0');
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', x - 14); rect.setAttribute('y', 2);
+        rect.setAttribute('width', 28); rect.setAttribute('height', 14);
+        rect.setAttribute('rx', 3); rect.setAttribute('fill', '#16a34a');
+        rect.setAttribute('opacity', '0.7');
+        g.appendChild(rect);
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', x); text.setAttribute('y', 13);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('fill', '#ffffff');
+        text.setAttribute('font-size', '8');
+        text.setAttribute('font-family', 'sans-serif');
+        text.textContent = label;
+        g.appendChild(text);
+
+        svg.appendChild(g);
+    }
+
     function drawProjectEndLine() {
-        if (!projectEndDate || !frappeGanttInstance) return;
         const svg = document.querySelector('#frappe-gantt svg');
         if (!svg) return;
         const prev = svg.querySelector('.gantt-project-end-group');
