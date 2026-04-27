@@ -297,6 +297,7 @@ class PartController extends Controller
             'pending'  => 'Nie opłacono',
             'ordered'  => 'Oczekiwanie',
             'received' => 'Zrealizowane',
+            'planned'  => 'Planowana',
             default    => 'Nie opłacono',
         };
     }
@@ -1616,7 +1617,7 @@ class PartController extends Controller
             'issued_invoice_description' => 'nullable|string|max:2000',
             'issued_invoice_amount_net' => 'required',
             'issued_invoice_payment_date' => 'required|date',
-            'issued_invoice_status' => 'required|in:Opłacono,Nie opłacono',
+            'issued_invoice_status' => 'required|in:Opłacono,Nie opłacono,Planowana',
         ]);
 
         $amount = $this->parseImportedAmount($request->input('issued_invoice_amount_net'));
@@ -1628,7 +1629,11 @@ class PartController extends Controller
         }
 
         $statusLabel = (string) $request->input('issued_invoice_status');
-        $status = $statusLabel === 'Opłacono' ? 'paid' : 'pending';
+        $status = match ($statusLabel) {
+            'Opłacono' => 'paid',
+            'Planowana' => 'planned',
+            default => 'pending',
+        };
         $invoiceNumber = trim((string) $request->input('issued_invoice_number'));
         $description = trim((string) $request->input('issued_invoice_description', ''));
         $nextOrder = $hasOrderColumn
@@ -1679,7 +1684,7 @@ class PartController extends Controller
     public function updateIssuedProjectInvoiceStatus(Request $request, \App\Models\Project $project, \App\Models\ProjectFinance $finance)
     {
         $request->validate([
-            'issued_invoice_status' => 'required|in:Opłacono,Nie opłacono',
+            'issued_invoice_status' => 'required|in:Opłacono,Nie opłacono,Planowana',
         ]);
 
         $financeCategory = $this->hasColumnSafe('project_finance', 'category') ? $finance->category : null;
@@ -1691,7 +1696,11 @@ class PartController extends Controller
 
         $statusLabel = (string) $request->input('issued_invoice_status');
         $finance->update([
-            'status' => $statusLabel === 'Opłacono' ? 'paid' : 'pending',
+            'status' => match ($statusLabel) {
+                'Opłacono' => 'paid',
+                'Planowana' => 'planned',
+                default => 'pending',
+            },
         ]);
 
         return redirect()->route('magazyn.projects.show', $project->id)

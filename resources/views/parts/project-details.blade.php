@@ -739,7 +739,7 @@
                     ->values()->all();
                 $chartIssuedRows = collect($issuedInvoiceRows ?? [])
                     ->filter(fn($r) => ($r['date'] ?? '') !== '' && ($r['amount_net'] ?? '') !== '')
-                    ->map(fn($r) => ['date' => $r['date'], 'amount' => (float) $r['amount_net'], 'type' => 'income', 'label' => 'Faktura wystawiona'])
+                    ->map(fn($r) => ['date' => $r['date'], 'amount' => (float) $r['amount_net'], 'type' => ($r['status'] ?? '') === 'Planowana' ? 'planned_income' : 'income', 'label' => 'Faktura wystawiona'])
                     ->values()->all();
                 $chartOrderRows = collect($orderRows ?? [])
                     ->filter(fn($r) => ($r['date'] ?? '') !== '' && ($r['amount_net'] ?? '') !== '')
@@ -832,9 +832,10 @@
                                 if (filterStart && ts < filterStart.getTime()) return;
                                 if (filterEnd && ts > filterEnd.getTime()) return;
                                 const key = getPeriodKey(t.date, mode);
-                                if (!map.has(key)) map.set(key, {income:0, expense:0});
+                                if (!map.has(key)) map.set(key, {income:0, expense:0, planned:0});
                                 const e = map.get(key);
                                 if (t.type === 'income') e.income += t.amount;
+                                else if (t.type === 'planned_income') e.planned += t.amount;
                                 else e.expense += t.amount;
                             });
                             return [...map.entries()].sort((a,b) => a[0].localeCompare(b[0])).map(([k,v]) => ({key:k,...v}));
@@ -862,10 +863,11 @@
                             const labels = g.map(d => getLabelForKey(d.key, currentMode));
                             const income = g.map(d => d.income);
                             const expense = g.map(d => d.expense);
+                            const planned = g.map(d => d.planned);
                             const balance = [];
                             let cum = 0;
-                            g.forEach(d => { cum += d.income - d.expense; balance.push(cum); });
-                            return { labels, income, expense, balance };
+                            g.forEach(d => { cum += d.income + d.planned - d.expense; balance.push(cum); });
+                            return { labels, income, expense, planned, balance };
                         }
 
                         function updateRangeLabel() {
@@ -890,18 +892,19 @@
 
                         function updateMainChart() {
                             if (!mainChart) return;
-                            const { labels, income, expense, balance } = buildMainData();
+                            const { labels, income, expense, planned, balance } = buildMainData();
                             mainChart.data.labels = labels;
                             mainChart.data.datasets[0].data = income;
                             mainChart.data.datasets[1].data = expense;
-                            mainChart.data.datasets[2].data = balance;
+                            mainChart.data.datasets[2].data = planned;
+                            mainChart.data.datasets[3].data = balance;
                             mainChart.update('none');
                         }
 
                         function initMainChart() {
                             const canvas = document.getElementById('cashflow-chart');
                             if (!canvas || !window.Chart) return;
-                            const { labels, income, expense, balance } = buildMainData();
+                            const { labels, income, expense, planned, balance } = buildMainData();
                             mainChart = new Chart(canvas, {
                                 type: 'bar',
                                 data: {
@@ -909,6 +912,7 @@
                                     datasets: [
                                         { label: 'Przychody', data: income, backgroundColor: 'rgba(34,197,94,0.6)', borderColor: 'rgb(34,197,94)', borderWidth: 1, order: 2 },
                                         { label: 'Wydatki', data: expense, backgroundColor: 'rgba(239,68,68,0.6)', borderColor: 'rgb(239,68,68)', borderWidth: 1, order: 2 },
+                                        { label: 'Planowane przychody', data: planned, backgroundColor: 'rgba(139,92,246,0.35)', borderColor: 'rgb(139,92,246)', borderWidth: 2, borderDash: [4,4], order: 2 },
                                         { label: 'Bilans narastająco', data: balance, type: 'line', borderColor: 'rgb(99,102,241)', backgroundColor: 'rgba(99,102,241,0.07)', borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3, order: 1 }
                                     ]
                                 },
@@ -933,7 +937,8 @@
                                     labels: overviewGrouped.map(d => d.key),
                                     datasets: [
                                         { data: overviewGrouped.map(d => d.income), backgroundColor: 'rgba(34,197,94,0.45)', borderWidth: 0 },
-                                        { data: overviewGrouped.map(d => d.expense), backgroundColor: 'rgba(239,68,68,0.4)', borderWidth: 0 }
+                                        { data: overviewGrouped.map(d => d.expense), backgroundColor: 'rgba(239,68,68,0.4)', borderWidth: 0 },
+                                        { data: overviewGrouped.map(d => d.planned), backgroundColor: 'rgba(139,92,246,0.35)', borderWidth: 0 }
                                     ]
                                 },
                                 options: {
@@ -1521,8 +1526,9 @@
                             <div class="finance-field finance-field-status">
                                 <label class="block text-xs text-gray-600 mb-1">Status</label>
                                 <select name="issued_invoice_status" required class="finance-status-select px-2 py-1.5 border border-gray-300 rounded text-sm">
-                                    <option value="Opłacono" {{ old('issued_invoice_status') === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
                                     <option value="Nie opłacono" {{ old('issued_invoice_status', 'Nie opłacono') === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
+                                    <option value="Opłacono" {{ old('issued_invoice_status') === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
+                                    <option value="Planowana" {{ old('issued_invoice_status') === 'Planowana' ? 'selected' : '' }}>Planowana (brak fizycznej faktury)</option>
                                 </select>
                             </div>
                         </div>
@@ -1566,11 +1572,17 @@
                                         $issuedStatusClass = 'bg-amber-100 text-amber-800';
                                         if ($issuedStatus === 'Opłacono') {
                                             $issuedStatusClass = 'bg-green-100 text-green-800';
+                                        } elseif ($issuedStatus === 'Planowana') {
+                                            $issuedStatusClass = 'bg-violet-100 text-violet-800';
                                         }
+                                        $isPlannedInvoice = $issuedStatus === 'Planowana';
                                     @endphp
-                                    <tr class="bg-white even:bg-gray-50/80">
-                                        <td class="px-2 py-2 whitespace-nowrap">{{ $issuedInvoice['date'] ?? '' }}</td>
-                                        <td class="px-2 py-2">{{ $issuedInvoice['invoice_number'] ?? '' }}</td>
+                                    <tr class="bg-white even:bg-gray-50/80{{ $isPlannedInvoice ? ' border-l-4 border-violet-400' : '' }}">
+                                        <td class="px-2 py-2 whitespace-nowrap{{ $isPlannedInvoice ? ' italic' : '' }}">{{ $issuedInvoice['date'] ?? '' }}</td>
+                                        <td class="px-2 py-2{{ $isPlannedInvoice ? ' italic' : '' }}">
+                                            {{ $issuedInvoice['invoice_number'] ?? '' }}
+                                            @if($isPlannedInvoice)<span class="ml-1 inline-block px-1 py-0 rounded bg-violet-200 text-violet-800 text-xs font-bold">PLAN</span>@endif
+                                        </td>
                                         @php
                                             $issuedDescription = (string) ($issuedInvoice['description'] ?? '');
                                             $issuedDescriptionShort = \Illuminate\Support\Str::limit($issuedDescription, 40, '…');
@@ -1582,8 +1594,9 @@
                                             <form action="{{ route('magazyn.projects.issuedInvoices.status', [$project->id, $issuedInvoice['id']]) }}" method="POST" class="inline-block">
                                                 @csrf
                                                 <select name="issued_invoice_status" class="px-2 py-1 rounded border border-gray-300 text-xs font-semibold {{ $issuedStatusClass }}" onchange="this.form.submit()">
-                                                    <option value="Opłacono" {{ $issuedStatus === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
                                                     <option value="Nie opłacono" {{ $issuedStatus === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
+                                                    <option value="Opłacono" {{ $issuedStatus === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
+                                                    <option value="Planowana" {{ $issuedStatus === 'Planowana' ? 'selected' : '' }}>Planowana</option>
                                                 </select>
                                             </form>
                                         </td>
