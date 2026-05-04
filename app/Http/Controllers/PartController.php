@@ -707,6 +707,11 @@ class PartController extends Controller
                 'with_null_user' => $removals->whereNull('user')->count(),
             ]);
 
+            // Załaduj sourceOffer (klient z oferty)
+            if ($project->source_offer_id && !$project->relationLoaded('sourceOffer')) {
+                $project->load('sourceOffer');
+            }
+
             // Sprawdź responsibleUser PRZED przekazaniem do widoku
             $responsibleUser = null;
             if ($project->responsible_user_id) {
@@ -9655,15 +9660,22 @@ class PartController extends Controller
                 try { $dateFormatted = \Carbon\Carbon::parse($doc->data_dokumentu)->format('d.m.Y'); } catch (\Throwable $e) {}
             }
 
+            // Uzupełnij brakujące dane z oferty (klient)
+            $offer = $project->sourceOffer ?? ($project->source_offer_id ? \App\Models\Offer::find($project->source_offer_id) : null);
+            $offerAddress = $offer ? trim(implode("\n", array_filter([
+                $offer->customer_address ?? '',
+                trim(($offer->customer_postal_code ?? '') . ' ' . ($offer->customer_city ?? '')),
+            ]))) : '';
+
             $tokens = [
-                'TYTUL'              => $doc->tytul ?? ($project->name ?? ''),
-                'NUMER_DOK'          => $doc->numer_dokumentu ?? '',
-                'DATA_DOK'           => $dateFormatted,
+                'TYTUL'              => $doc->tytul ?: ($project->name ?? ''),
+                'NUMER_DOK'          => $doc->numer_dokumentu ?: ($project->project_number ?? ''),
+                'DATA_DOK'           => $dateFormatted ?: now()->format('d.m.Y'),
                 'AUTOR'              => $doc->autor ?? '',
                 'BRANZA'             => $doc->branza ?? '',
-                'INWESTOR'           => $doc->inwestor ?? '',
-                'INWESTOR_ADRES'     => $doc->inwestor_adres ?? '',
-                'INWESTOR_NIP'       => $doc->inwestor_nip ?? '',
+                'INWESTOR'           => $doc->inwestor ?: ($offer?->customer_name ?? ''),
+                'INWESTOR_ADRES'     => $doc->inwestor_adres ?: $offerAddress,
+                'INWESTOR_NIP'       => $doc->inwestor_nip ?: ($offer?->customer_nip ?? ''),
                 'ADRES_INWESTYCJI'   => $doc->adres_inwestycji ?? '',
                 'NR_POZWOLENIA'      => $doc->nr_pozwolenia ?? '',
                 'PRZEDMIOT_ZAKRESU'  => $doc->przedmiot_zakresu ?? '',
@@ -9754,7 +9766,7 @@ class PartController extends Controller
             $fTable = $footer->addTable(['borderSize' => 0, 'borderColor' => 'FFFFFF']);
             $fTable->addRow();
             $fTable->addCell(7000)->addText(
-                htmlspecialchars(($doc->numer_dokumentu ?? '') . ($doc->numer_dokumentu ? ' | ' : '') . ($doc->tytul ?? $project->name ?? ''), ENT_QUOTES, 'UTF-8'),
+                htmlspecialchars(($doc->numer_dokumentu ?: ($project->project_number ?? '')) . (($doc->numer_dokumentu ?: $project->project_number) ? ' | ' : '') . ($doc->tytul ?: $project->name ?? ''), ENT_QUOTES, 'UTF-8'),
                 ['size' => 8, 'color' => '9CA3AF']
             );
             $fTable->addCell(2000)->addTextRun(['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT])->addText('Str. ', ['size' => 8, 'color' => '9CA3AF']);
@@ -9803,11 +9815,26 @@ class PartController extends Controller
             if ($doc && $doc->data_dokumentu) {
                 try { $dateFormatted = \Carbon\Carbon::parse($doc->data_dokumentu)->format('d.m.Y'); } catch (\Throwable $e) {}
             }
+            if (!$dateFormatted) {
+                $dateFormatted = now()->format('d.m.Y');
+            }
+
+            // Uzupełnij brakujące dane z oferty (klient)
+            $offer = $project->sourceOffer ?? ($project->source_offer_id ? \App\Models\Offer::find($project->source_offer_id) : null);
+            $offerAddress = $offer ? trim(implode("\n", array_filter([
+                $offer->customer_address ?? '',
+                trim(($offer->customer_postal_code ?? '') . ' ' . ($offer->customer_city ?? '')),
+            ]))) : '';
+
+            $docNumer     = ($doc->numer_dokumentu ?? '') ?: ($project->project_number ?? '');
+            $docInwestor  = ($doc->inwestor ?? '') ?: ($offer?->customer_name ?? '');
+            $docInwAdres  = ($doc->inwestor_adres ?? '') ?: $offerAddress;
+            $docInwNip    = ($doc->inwestor_nip ?? '') ?: ($offer?->customer_nip ?? '');
 
             // Section 1
             $section->addTitle('1. Dane podstawowe', 2);
             $t1 = $section->addTable($tableStyle);
-            $addFieldRow($t1, 'Nr dokumentu:', $doc->numer_dokumentu ?? '');
+            $addFieldRow($t1, 'Nr dokumentu:', $docNumer);
             $addFieldRow($t1, 'Data:', $dateFormatted);
             $addFieldRow($t1, 'Autor / Projektant:', $doc->autor ?? '');
             $addFieldRow($t1, 'Branża:', $doc->branza ?? '');
@@ -9816,9 +9843,9 @@ class PartController extends Controller
             // Section 2
             $section->addTitle('2. Dane inwestora i inwestycji', 2);
             $t2 = $section->addTable($tableStyle);
-            $addFieldRow($t2, 'Inwestor:', $doc->inwestor ?? '');
-            $addFieldRow($t2, 'Adres inwestora:', $doc->inwestor_adres ?? '');
-            $addFieldRow($t2, 'NIP inwestora:', $doc->inwestor_nip ?? '');
+            $addFieldRow($t2, 'Inwestor:', $docInwestor);
+            $addFieldRow($t2, 'Adres inwestora:', $docInwAdres);
+            $addFieldRow($t2, 'NIP inwestora:', $docInwNip);
             $addFieldRow($t2, 'Adres inwestycji:', $doc->adres_inwestycji ?? '');
 
             // Text sections

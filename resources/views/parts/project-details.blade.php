@@ -2153,6 +2153,25 @@
             </div>
 
             {{-- Formularz danych dokumentacji --}}
+            @php
+                $offer = $project->sourceOffer ?? null;
+                $docDefTytul      = $projectDoc?->tytul      ?? $project->name ?? '';
+                $docDefNumer      = $projectDoc?->numer_dokumentu ?? $project->project_number ?? '';
+                $docDefData       = $projectDoc?->data_dokumentu
+                                        ? \Carbon\Carbon::parse($projectDoc->data_dokumentu)->format('Y-m-d')
+                                        : now()->format('Y-m-d');
+                $docDefAutor      = $projectDoc?->autor ?? '';
+                $docDefBranza     = $projectDoc?->branza ?? '';
+                $docDefNrPozw     = $projectDoc?->nr_pozwolenia ?? '';
+                $docDefInwestor   = $projectDoc?->inwestor ?? ($offer?->customer_name ?? '');
+                $docDefInwNip     = $projectDoc?->inwestor_nip ?? ($offer?->customer_nip ?? '');
+                $offerAddress     = trim(implode("\n", array_filter([
+                    $offer?->customer_address ?? '',
+                    trim(($offer?->customer_postal_code ?? '') . ' ' . ($offer?->customer_city ?? '')),
+                ])));
+                $docDefInwAdres   = $projectDoc?->inwestor_adres ?? $offerAddress;
+                $docDefAdrInw     = $projectDoc?->adres_inwestycji ?? '';
+            @endphp
             <form action="{{ route('magazyn.projects.doc.save', $project->id) }}" method="POST" class="space-y-4">
                 @csrf
 
@@ -2162,32 +2181,32 @@
                     <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">Tytuł dokumentacji</label>
-                            <input type="text" name="tytul" value="{{ old('tytul', $projectDoc?->tytul) }}"
+                            <input type="text" name="tytul" value="{{ old('tytul', $docDefTytul) }}"
                                 class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="np. Projekt wykonawczy instalacji elektrycznej">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">Nr dokumentu</label>
-                            <input type="text" name="numer_dokumentu" value="{{ old('numer_dokumentu', $projectDoc?->numer_dokumentu) }}"
+                            <input type="text" name="numer_dokumentu" value="{{ old('numer_dokumentu', $docDefNumer) }}"
                                 class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="np. PW-EL-2026/001">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">Data dokumentu</label>
-                            <input type="date" name="data_dokumentu" value="{{ old('data_dokumentu', $projectDoc?->data_dokumentu ? \Carbon\Carbon::parse($projectDoc->data_dokumentu)->format('Y-m-d') : '') }}"
+                            <input type="date" name="data_dokumentu" value="{{ old('data_dokumentu', $docDefData) }}"
                                 class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">Autor / Projektant</label>
-                            <input type="text" name="autor" value="{{ old('autor', $projectDoc?->autor) }}"
+                            <input type="text" name="autor" value="{{ old('autor', $docDefAutor) }}"
                                 class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="Imię i nazwisko">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">Branża</label>
-                            <input type="text" name="branza" value="{{ old('branza', $projectDoc?->branza) }}"
+                            <input type="text" name="branza" value="{{ old('branza', $docDefBranza) }}"
                                 class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="np. elektryczna, sanitarna, konstrukcyjna">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">Nr pozwolenia na budowę</label>
-                            <input type="text" name="nr_pozwolenia" value="{{ old('nr_pozwolenia', $projectDoc?->nr_pozwolenia) }}"
+                            <input type="text" name="nr_pozwolenia" value="{{ old('nr_pozwolenia', $docDefNrPozw) }}"
                                 class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="opcjonalnie">
                         </div>
                     </div>
@@ -2199,23 +2218,23 @@
                     <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div class="md:col-span-2">
                             <label class="block text-xs text-gray-600 mb-1">Nazwa inwestora</label>
-                            <input type="text" name="inwestor" value="{{ old('inwestor', $projectDoc?->inwestor) }}"
+                            <input type="text" name="inwestor" value="{{ old('inwestor', $docDefInwestor) }}"
                                 class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="Pełna nazwa firmy lub imię i nazwisko">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">Adres inwestora</label>
                             <textarea name="inwestor_adres" rows="2"
-                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="ul. Przykładowa 1&#10;00-000 Warszawa">{{ old('inwestor_adres', $projectDoc?->inwestor_adres) }}</textarea>
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="ul. Przykładowa 1&#10;00-000 Warszawa">{{ old('inwestor_adres', $docDefInwAdres) }}</textarea>
                         </div>
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">NIP inwestora</label>
-                            <input type="text" name="inwestor_nip" value="{{ old('inwestor_nip', $projectDoc?->inwestor_nip) }}"
+                            <input type="text" name="inwestor_nip" value="{{ old('inwestor_nip', $docDefInwNip) }}"
                                 class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="0000000000">
                         </div>
                         <div class="md:col-span-2">
                             <label class="block text-xs text-gray-600 mb-1">Adres realizacji / inwestycji</label>
                             <textarea name="adres_inwestycji" rows="2"
-                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="Adres budowy lub miejsca realizacji">{{ old('adres_inwestycji', $projectDoc?->adres_inwestycji) }}</textarea>
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="Adres budowy lub miejsca realizacji">{{ old('adres_inwestycji', $docDefAdrInw) }}</textarea>
                         </div>
                     </div>
                 </div>
