@@ -4284,12 +4284,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         let tooltipTimer = null;
 
-        document.querySelectorAll('#frappe-gantt .bar-wrapper').forEach(wrapper => {
-            // clone to remove old listeners
-            const fresh = wrapper.cloneNode(true);
-            wrapper.parentNode.replaceChild(fresh, wrapper);
+        document.querySelectorAll('#frappe-gantt .bar-wrapper:not([data-tooltip-bound])').forEach(wrapper => {
+            wrapper.setAttribute('data-tooltip-bound', '1');
 
-            fresh.addEventListener('mouseenter', function(e) {
+            wrapper.addEventListener('mouseenter', function(e) {
                 const taskId = this.getAttribute('data-id');
                 const task = frappeTasks.find(t => String(t.id) === String(taskId))
                            || frappeTasks[Array.from(document.querySelectorAll('#frappe-gantt .bar-wrapper')).indexOf(this)];
@@ -4319,7 +4317,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     tooltip.style.top  = top  + 'px';
                 }, 1000);
             });
-            fresh.addEventListener('mouseleave', function() {
+            wrapper.addEventListener('mouseleave', function() {
                 clearTimeout(tooltipTimer);
                 tooltip.style.display = 'none';
             });
