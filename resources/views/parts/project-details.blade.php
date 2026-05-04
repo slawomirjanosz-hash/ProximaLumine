@@ -4120,7 +4120,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 }
             };
-            const currentViewMode = window.frappeCurrentViewMode || 'Day';
+            const currentViewMode = window.frappeCurrentViewMode || 'Month';
             ganttConfig.view_mode = currentViewMode;
             if (currentViewMode === 'Month') {
                 ganttConfig.step = 24 * 30;
@@ -4145,6 +4145,23 @@ document.addEventListener('DOMContentLoaded', function() {
             drawTodayLine();
             addTaskHoverTooltips();
             fixGanttBarLabels();
+            // Przewiń do aktualnej daty
+            (function scrollToToday() {
+                const container = document.querySelector('#frappe-gantt .gantt-container') || document.querySelector('#frappe-gantt');
+                const svg = document.querySelector('#frappe-gantt svg');
+                if (!container || !svg || !frappeGanttInstance) return;
+                const ganttStart = frappeGanttInstance.gantt_start;
+                if (!ganttStart) return;
+                const step = frappeGanttInstance.options.step;
+                const colWidth = frappeGanttInstance.options.column_width;
+                const today = new Date(); today.setHours(0,0,0,0);
+                const diffHours = (today.getTime() - new Date(ganttStart).getTime()) / 3600000;
+                const x = Math.round((diffHours / step) * colWidth);
+                if (x > 0) {
+                    const scrollTo = Math.max(0, x - container.clientWidth / 2);
+                    container.scrollLeft = scrollTo;
+                }
+            })();
             console.log('✅ Frappe Gantt zrenderowany!');
         } catch(error) {
             console.error('❌ Błąd Frappe Gantt:', error);
