@@ -103,7 +103,7 @@
 
     {{-- KONTENER NA PRZESUWALNE SEKCJE --}}
     @php
-        $visibleSections = $projectVisibleSections ?? ['pickup', 'changes', 'summary', 'frappe', 'finance', 'project_orders'];
+        $visibleSections = $projectVisibleSections ?? ['pickup', 'changes', 'summary', 'frappe', 'finance', 'project_orders', 'documentation'];
     @endphp
     <div id="sortable-sections" class="space-y-8">
     
@@ -2098,6 +2098,176 @@
     @endif
     {{-- KONIEC SEKCJI 5 --}}
 
+    {{-- SEKCJA 6: DOKUMENTACJA PROJEKTOWA --}}
+    @if(in_array('documentation', $visibleSections, true))
+    <div id="section-documentation" class="sortable-section bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm" data-order="7">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="drag-handle cursor-move text-gray-400 hover:text-gray-600" draggable="true" title="Przeciągnij, aby zmienić kolejność">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                </svg>
+            </div>
+            <button type="button" id="toggle-doc-section" class="text-gray-400 hover:text-gray-600 focus:outline-none">
+                <span id="toggle-doc-arrow">▶</span>
+            </button>
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+                <span class="text-emerald-600">📄</span>
+                Dokumentacja projektowa
+            </h3>
+        </div>
+        <div id="doc-section-content" class="hidden">
+            @if(session('success') && session('doc_feedback'))
+                <div class="mb-4 p-3 rounded border border-green-200 bg-green-50 text-green-800 text-sm">{{ session('success') }}</div>
+            @endif
+            @if(session('error') && session('doc_feedback'))
+                <div class="mb-4 p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">{{ session('error') }}</div>
+            @endif
+
+            {{-- Firmówka / szablon --}}
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                <h4 class="font-semibold text-gray-800 text-sm mb-2">Szablon firmówki (opcjonalnie)</h4>
+                <p class="text-xs text-gray-500 mb-3">
+                    Wgraj plik <strong>.docx</strong> z firmówką Twojej firmy — system uzupełni w nim dane dokumentacji wpisane poniżej (tokeny <code class="bg-gray-100 px-1 rounded">${TYTUL}</code>, <code class="bg-gray-100 px-1 rounded">${INWESTOR}</code> itd.).
+                    Jeśli nie masz szablonu z tokenami, pobierz gotowy przykład i dostosuj go w Wordzie.
+                </p>
+                <div class="flex flex-wrap gap-2 items-center">
+                    <a href="{{ route('magazyn.projects.doc.downloadSampleTemplate', $project->id) }}"
+                       class="px-3 py-1.5 bg-gray-100 border border-gray-300 rounded text-xs font-semibold hover:bg-gray-200 text-gray-700">
+                        📥 Pobierz przykładowy szablon
+                    </a>
+                    @if(!empty($projectDoc?->template_path))
+                        <span class="px-3 py-1.5 bg-emerald-50 border border-emerald-300 rounded text-xs text-emerald-800 font-semibold">✓ Szablon wgrany</span>
+                        <form action="{{ route('magazyn.projects.doc.deleteTemplate', $project->id) }}" method="POST" class="inline"
+                              onsubmit="return confirm('Usunąć wgrany szablon firmówki?')">
+                            @csrf @method('DELETE')
+                            <button type="submit" class="px-3 py-1.5 bg-red-50 border border-red-300 rounded text-xs text-red-700 hover:bg-red-100">🗑 Usuń szablon</button>
+                        </form>
+                    @else
+                        <form action="{{ route('magazyn.projects.doc.uploadTemplate', $project->id) }}" method="POST" enctype="multipart/form-data" class="flex items-center gap-2">
+                            @csrf
+                            <input type="file" name="doc_template" accept=".docx" required class="px-2 py-1 border border-gray-300 rounded bg-white text-xs">
+                            <button type="submit" class="px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-semibold">📤 Wgraj firmówkę</button>
+                        </form>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Formularz danych dokumentacji --}}
+            <form action="{{ route('magazyn.projects.doc.save', $project->id) }}" method="POST" class="space-y-4">
+                @csrf
+
+                {{-- Dane podstawowe --}}
+                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="bg-gray-100 px-4 py-2 font-semibold text-sm text-gray-700">1. Dane podstawowe</div>
+                    <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Tytuł dokumentacji</label>
+                            <input type="text" name="tytul" value="{{ old('tytul', $projectDoc?->tytul) }}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="np. Projekt wykonawczy instalacji elektrycznej">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Nr dokumentu</label>
+                            <input type="text" name="numer_dokumentu" value="{{ old('numer_dokumentu', $projectDoc?->numer_dokumentu) }}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="np. PW-EL-2026/001">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Data dokumentu</label>
+                            <input type="date" name="data_dokumentu" value="{{ old('data_dokumentu', $projectDoc?->data_dokumentu ? \Carbon\Carbon::parse($projectDoc->data_dokumentu)->format('Y-m-d') : '') }}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Autor / Projektant</label>
+                            <input type="text" name="autor" value="{{ old('autor', $projectDoc?->autor) }}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="Imię i nazwisko">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Branża</label>
+                            <input type="text" name="branza" value="{{ old('branza', $projectDoc?->branza) }}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="np. elektryczna, sanitarna, konstrukcyjna">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Nr pozwolenia na budowę</label>
+                            <input type="text" name="nr_pozwolenia" value="{{ old('nr_pozwolenia', $projectDoc?->nr_pozwolenia) }}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="opcjonalnie">
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Dane inwestora --}}
+                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="bg-gray-100 px-4 py-2 font-semibold text-sm text-gray-700">2. Dane inwestora i inwestycji</div>
+                    <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="md:col-span-2">
+                            <label class="block text-xs text-gray-600 mb-1">Nazwa inwestora</label>
+                            <input type="text" name="inwestor" value="{{ old('inwestor', $projectDoc?->inwestor) }}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="Pełna nazwa firmy lub imię i nazwisko">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Adres inwestora</label>
+                            <textarea name="inwestor_adres" rows="2"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="ul. Przykładowa 1&#10;00-000 Warszawa">{{ old('inwestor_adres', $projectDoc?->inwestor_adres) }}</textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">NIP inwestora</label>
+                            <input type="text" name="inwestor_nip" value="{{ old('inwestor_nip', $projectDoc?->inwestor_nip) }}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="0000000000">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs text-gray-600 mb-1">Adres realizacji / inwestycji</label>
+                            <textarea name="adres_inwestycji" rows="2"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="Adres budowy lub miejsca realizacji">{{ old('adres_inwestycji', $projectDoc?->adres_inwestycji) }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Treść dokumentacji --}}
+                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="bg-gray-100 px-4 py-2 font-semibold text-sm text-gray-700">3. Treść dokumentacji</div>
+                    <div class="p-4 space-y-3">
+                        @php
+                            $docFields = [
+                                ['key' => 'przedmiot_zakresu',   'label' => '3. Przedmiot i zakres opracowania'],
+                                ['key' => 'opis_techniczny',      'label' => '4. Opis techniczny'],
+                                ['key' => 'materialy_urzadzenia', 'label' => '5. Materiały i urządzenia'],
+                                ['key' => 'parametry_techniczne', 'label' => '6. Parametry techniczne'],
+                                ['key' => 'normy_przepisy',       'label' => '7. Zastosowane normy i przepisy'],
+                                ['key' => 'warunki_gwarancji',    'label' => '8. Warunki gwarancji'],
+                                ['key' => 'warunki_odbioru',      'label' => '9. Warunki odbioru'],
+                                ['key' => 'uwagi',                'label' => '10. Uwagi końcowe'],
+                                ['key' => 'zalaczniki',           'label' => '11. Lista załączników'],
+                            ];
+                        @endphp
+                        @foreach($docFields as $df)
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1">{{ $df['label'] }}</label>
+                            <textarea name="{{ $df['key'] }}" rows="4"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm font-mono leading-relaxed resize-y"
+                                placeholder="Wpisz treść...">{{ old($df['key'], $projectDoc?->{$df['key']}) }}</textarea>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2 items-center pt-1">
+                    <button type="submit" class="px-5 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-sm font-semibold">
+                        💾 Zapisz dokumentację
+                    </button>
+                    <a href="{{ route('magazyn.projects.doc.generateWord', $project->id) }}"
+                       class="px-5 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-semibold">
+                        📄 Generuj Word
+                    </a>
+                    @if(!empty($projectDoc?->template_path))
+                        <span class="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1">Zostanie użyty wgrany szablon firmówki</span>
+                    @else
+                        <span class="text-xs text-gray-500">Word zostanie wygenerowany z logo firmy z ustawień systemu</span>
+                    @endif
+                </div>
+            </form>
+        </div>
+    </div>
+    @endif
+    {{-- KONIEC SEKCJI 6 --}}
+
     </div>
     {{-- KONIEC KONTENERA PRZESUWANYCH SEKCJI --}}
     
@@ -2992,6 +3162,21 @@
             projOrdersToggleBtn.addEventListener('click', function() {
                 projOrdersContent.classList.toggle('hidden');
                 projOrdersArrow.textContent = projOrdersContent.classList.contains('hidden') ? '▶' : '▼';
+            });
+        }
+
+        // Obsługa rozwijania sekcji Dokumentacja projektowa
+        const docToggleBtn = document.getElementById('toggle-doc-section');
+        const docContent = document.getElementById('doc-section-content');
+        const docArrow = document.getElementById('toggle-doc-arrow');
+        if (docToggleBtn && docContent && docArrow) {
+            const docOpen = localStorage.getItem('doc_section_open') === '1';
+            if (docOpen) { docContent.classList.remove('hidden'); docArrow.textContent = '▼'; }
+            docToggleBtn.addEventListener('click', function() {
+                docContent.classList.toggle('hidden');
+                const isOpen = !docContent.classList.contains('hidden');
+                docArrow.textContent = isOpen ? '▼' : '▶';
+                localStorage.setItem('doc_section_open', isOpen ? '1' : '0');
             });
         }
         

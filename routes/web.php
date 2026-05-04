@@ -1532,6 +1532,11 @@ Route::middleware('auth')->group(function () {
     Route::put('/projekty/{project}/zamowienia/{finance}', [PartController::class, 'updateProjectOrder'])->name('magazyn.projects.orders.update')->middleware('auth');
     Route::delete('/projekty/{project}/zamowienia/{finance}', [PartController::class, 'destroyProjectOrder'])->name('magazyn.projects.orders.destroy')->middleware('auth');
     Route::get('/projekty/{project}/eksport-produkty-xlsx', [PartController::class, 'exportProjectProductsXlsx'])->name('magazyn.projects.exportProductsXlsx')->middleware('auth');
+    Route::post('/projekty/{project}/dokumentacja', [PartController::class, 'saveProjectDoc'])->name('magazyn.projects.doc.save')->middleware('auth');
+    Route::post('/projekty/{project}/dokumentacja/upload-template', [PartController::class, 'uploadProjectDocTemplate'])->name('magazyn.projects.doc.uploadTemplate')->middleware('auth');
+    Route::delete('/projekty/{project}/dokumentacja/delete-template', [PartController::class, 'deleteProjectDocTemplate'])->name('magazyn.projects.doc.deleteTemplate')->middleware('auth');
+    Route::get('/projekty/{project}/dokumentacja/generuj-word', [PartController::class, 'generateProjectDocWord'])->name('magazyn.projects.doc.generateWord')->middleware('auth');
+    Route::get('/projekty/{project}/dokumentacja/pobierz-szablon', [PartController::class, 'downloadProjectDocSampleTemplate'])->name('magazyn.projects.doc.downloadSampleTemplate')->middleware('auth');
     Route::get('/projekty/{project}/eksport-produkty-csv', [PartController::class, 'exportProjectProductsCsv'])->name('magazyn.projects.exportProductsCsv')->middleware('auth');
     Route::get('/projekty/{project}/eksport-produkty-diagnostics', [PartController::class, 'projectExportDiagnostics'])->name('magazyn.projects.exportProductsDiagnostics')->middleware('auth');
     Route::get('/projekty/{project}/pobierz', [PartController::class, 'pickupProducts'])->name('magazyn.projects.pickup')->middleware('auth');

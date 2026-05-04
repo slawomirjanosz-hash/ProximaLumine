@@ -340,6 +340,7 @@ class PartController extends Controller
             'frappe',
             'finance',
             'project_orders',
+            'documentation',
         ];
     }
 
@@ -654,7 +655,7 @@ class PartController extends Controller
 
         if ($hasVisibleSectionsColumn) {
             $validationRules['visible_sections'] = 'required|array|min:1';
-            $validationRules['visible_sections.*'] = 'string|in:pickup,changes,summary,frappe,finance';
+            $validationRules['visible_sections.*'] = 'string|in:pickup,changes,summary,frappe,finance,project_orders,documentation';
         }
 
         $request->validate($validationRules);
@@ -1032,6 +1033,9 @@ class PartController extends Controller
                 'financeSummary' => $financeSummary,
                 'projectVisibleSections' => $projectVisibleSections,
                 'projectOrders' => $projectOrders,
+                'projectDoc' => $this->hasTableSafe('project_documentations')
+                    ? \App\Models\ProjectDocumentation::where('project_id', $project->id)->first()
+                    : null,
             ]);
         } catch (\Exception $e) {
             \Log::error('=== BŁĄD W showProject ===', [
@@ -2727,7 +2731,7 @@ class PartController extends Controller
 
         if ($hasVisibleSectionsColumn) {
             $validationRules['visible_sections'] = 'required|array|min:1';
-            $validationRules['visible_sections.*'] = 'string|in:pickup,changes,summary,frappe,finance';
+            $validationRules['visible_sections.*'] = 'string|in:pickup,changes,summary,frappe,finance,project_orders,documentation';
         }
 
         $request->validate($validationRules);
@@ -9524,6 +9528,401 @@ class PartController extends Controller
             return response()->json(['success' => true, 'message' => 'Dostawca zapisany.', 'id' => $supplier->id]);
         } catch (\Throwable $e) {
             return response()->json(['success' => false, 'message' => 'Błąd zapisu: ' . $e->getMessage()]);
+        }
+    }
+
+    // ─── DOKUMENTACJA PROJEKTOWA ──────────────────────────────────────────────
+
+    public function saveProjectDoc(Request $request, \App\Models\Project $project)
+    {
+        if (!$this->hasTableSafe('project_documentations')) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brakuje tabeli project_documentations. Uruchom migracje.')
+                ->with('doc_feedback', true);
+        }
+
+        $fields = [
+            'tytul', 'numer_dokumentu', 'data_dokumentu', 'autor', 'branza',
+            'inwestor', 'inwestor_adres', 'inwestor_nip', 'adres_inwestycji', 'nr_pozwolenia',
+            'przedmiot_zakresu', 'opis_techniczny', 'materialy_urzadzenia', 'parametry_techniczne',
+            'normy_przepisy', 'warunki_gwarancji', 'warunki_odbioru', 'uwagi', 'zalaczniki',
+        ];
+
+        $data = [];
+        foreach ($fields as $field) {
+            $value = $request->input($field);
+            $data[$field] = ($value !== null && trim((string) $value) !== '') ? trim((string) $value) : null;
+        }
+
+        if (!empty($data['data_dokumentu'])) {
+            try {
+                $data['data_dokumentu'] = \Carbon\Carbon::parse($data['data_dokumentu'])->format('Y-m-d');
+            } catch (\Throwable $e) {
+                $data['data_dokumentu'] = null;
+            }
+        }
+
+        \App\Models\ProjectDocumentation::updateOrCreate(
+            ['project_id' => $project->id],
+            $data
+        );
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', 'Dokumentacja zapisana.')
+            ->with('doc_feedback', true);
+    }
+
+    public function uploadProjectDocTemplate(Request $request, \App\Models\Project $project)
+    {
+        $request->validate(['doc_template' => 'required|file|mimes:docx|max:20480']);
+
+        if (!$this->hasTableSafe('project_documentations')) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brakuje tabeli project_documentations. Uruchom migracje.')
+                ->with('doc_feedback', true);
+        }
+
+        $doc = \App\Models\ProjectDocumentation::firstOrCreate(['project_id' => $project->id]);
+
+        if ($doc->template_path && \Storage::exists($doc->template_path)) {
+            \Storage::delete($doc->template_path);
+        }
+
+        $path = $request->file('doc_template')->storeAs(
+            'project-doc-templates',
+            'project_' . $project->id . '_template.docx'
+        );
+
+        $doc->template_path = $path;
+        $doc->save();
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', 'Szablon firmówki wgrany pomyślnie.')
+            ->with('doc_feedback', true);
+    }
+
+    public function deleteProjectDocTemplate(\App\Models\Project $project)
+    {
+        if (!$this->hasTableSafe('project_documentations')) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brak tabeli project_documentations.')
+                ->with('doc_feedback', true);
+        }
+
+        $doc = \App\Models\ProjectDocumentation::where('project_id', $project->id)->first();
+        if ($doc && $doc->template_path) {
+            if (\Storage::exists($doc->template_path)) {
+                \Storage::delete($doc->template_path);
+            }
+            $doc->template_path = null;
+            $doc->save();
+        }
+
+        return redirect()->route('magazyn.projects.show', $project->id)
+            ->with('success', 'Szablon usunięty.')
+            ->with('doc_feedback', true);
+    }
+
+    public function generateProjectDocWord(\App\Models\Project $project)
+    {
+        if (!class_exists(\PhpOffice\PhpWord\PhpWord::class)) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brak pakietu phpoffice/phpword na serwerze.');
+        }
+
+        if (!$this->hasTableSafe('project_documentations')) {
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Brakuje tabeli project_documentations. Uruchom migracje.');
+        }
+
+        $doc = \App\Models\ProjectDocumentation::where('project_id', $project->id)->first();
+
+        if ($doc && $doc->template_path && \Storage::exists($doc->template_path)) {
+            return $this->generateProjectDocWithTemplate($project, $doc);
+        }
+
+        return $this->generateProjectDocProgrammatic($project, $doc);
+    }
+
+    private function generateProjectDocWithTemplate(\App\Models\Project $project, \App\Models\ProjectDocumentation $doc)
+    {
+        try {
+            $templatePath = \Storage::path($doc->template_path);
+            $processor = new \PhpOffice\PhpWord\TemplateProcessor($templatePath);
+
+            $dateFormatted = '';
+            if ($doc->data_dokumentu) {
+                try { $dateFormatted = \Carbon\Carbon::parse($doc->data_dokumentu)->format('d.m.Y'); } catch (\Throwable $e) {}
+            }
+
+            $tokens = [
+                'TYTUL'              => $doc->tytul ?? ($project->name ?? ''),
+                'NUMER_DOK'          => $doc->numer_dokumentu ?? '',
+                'DATA_DOK'           => $dateFormatted,
+                'AUTOR'              => $doc->autor ?? '',
+                'BRANZA'             => $doc->branza ?? '',
+                'INWESTOR'           => $doc->inwestor ?? '',
+                'INWESTOR_ADRES'     => $doc->inwestor_adres ?? '',
+                'INWESTOR_NIP'       => $doc->inwestor_nip ?? '',
+                'ADRES_INWESTYCJI'   => $doc->adres_inwestycji ?? '',
+                'NR_POZWOLENIA'      => $doc->nr_pozwolenia ?? '',
+                'PRZEDMIOT_ZAKRESU'  => $doc->przedmiot_zakresu ?? '',
+                'OPIS_TECHNICZNY'    => $doc->opis_techniczny ?? '',
+                'MATERIALY_URZADZENIA' => $doc->materialy_urzadzenia ?? '',
+                'PARAMETRY_TECHNICZNE' => $doc->parametry_techniczne ?? '',
+                'NORMY_PRZEPISY'     => $doc->normy_przepisy ?? '',
+                'WARUNKI_GWARANCJI'  => $doc->warunki_gwarancji ?? '',
+                'WARUNKI_ODBIORU'    => $doc->warunki_odbioru ?? '',
+                'UWAGI'              => $doc->uwagi ?? '',
+                'ZALACZNIKI'         => $doc->zalaczniki ?? '',
+                'PROJEKT_NAZWA'      => $project->name ?? '',
+                'PROJEKT_NUMER'      => $project->project_number ?? '',
+            ];
+
+            foreach ($tokens as $tag => $value) {
+                try {
+                    $processor->setValue($tag, htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'));
+                } catch (\Throwable $e) {
+                    // token not found in template — skip
+                }
+            }
+
+            $tempFile = tempnam(sys_get_temp_dir(), 'proj_doc_') . '.docx';
+            $processor->saveAs($tempFile);
+
+            $filename = 'Dokumentacja_' . preg_replace('/[^a-zA-Z0-9_\-]/', '_', $project->name ?? (string) $project->id) . '.docx';
+
+            return response()->download($tempFile, $filename, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ])->deleteFileAfterSend(true);
+        } catch (\Throwable $e) {
+            \Log::error('generateProjectDocWithTemplate error', ['msg' => $e->getMessage()]);
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Błąd generowania z szablonu: ' . $e->getMessage());
+        }
+    }
+
+    private function generateProjectDocProgrammatic(\App\Models\Project $project, ?\App\Models\ProjectDocumentation $doc)
+    {
+        try {
+            $phpWord = new \PhpOffice\PhpWord\PhpWord();
+            $phpWord->getSettings()->setUpdateFields(true);
+            $phpWord->addTitleStyle(2, ['bold' => true, 'size' => 13, 'color' => '1F3864'], ['spaceAfter' => 120, 'spaceBefore' => 300, 'borderBottomSize' => 6, 'borderBottomColor' => 'D1D5DB']);
+
+            $sectionStyle = [
+                'paperSize'     => 'A4',
+                'marginLeft'    => 1418,
+                'marginRight'   => 1134,
+                'marginTop'     => 1418,
+                'marginBottom'  => 1134,
+                'headerHeight'  => 720,
+                'footerHeight'  => 360,
+            ];
+            $section = $phpWord->addSection($sectionStyle);
+
+            // Header
+            $header = $section->addHeader();
+            $companySettings = \App\Models\CompanySetting::first();
+            $logoAdded = false;
+            if ($companySettings && !empty($companySettings->logo)) {
+                try {
+                    $logoData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $companySettings->logo));
+                    if ($logoData !== false && strlen($logoData) > 100) {
+                        $logoTempFile = tempnam(sys_get_temp_dir(), 'doclogo_') . '.png';
+                        file_put_contents($logoTempFile, $logoData);
+                        $hTable = $header->addTable(['borderSize' => 0, 'borderColor' => 'FFFFFF', 'cellMargin' => 60]);
+                        $hTable->addRow();
+                        $hTable->addCell(2000)->addImage($logoTempFile, ['width' => 80, 'height' => 36, 'wrappingStyle' => 'inline']);
+                        $compCell = $hTable->addCell(7000);
+                        if (!empty($companySettings->name)) {
+                            $compCell->addText(htmlspecialchars($companySettings->name, ENT_QUOTES, 'UTF-8'), ['bold' => true, 'size' => 11, 'color' => '1F3864'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+                        }
+                        $logoAdded = true;
+                    }
+                } catch (\Throwable $e) {
+                    $logoAdded = false;
+                }
+            }
+            if (!$logoAdded && $companySettings && !empty($companySettings->name)) {
+                $header->addText(htmlspecialchars($companySettings->name, ENT_QUOTES, 'UTF-8'), ['bold' => true, 'size' => 11, 'color' => '1F3864'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+            }
+            $header->addText('', [], ['borderBottomSize' => 6, 'borderBottomColor' => 'D1D5DB', 'spaceAfter' => 60]);
+
+            // Footer
+            $footer = $section->addFooter();
+            $footer->addText('', [], ['borderTopSize' => 6, 'borderTopColor' => 'D1D5DB', 'spaceBefore' => 60]);
+            $fTable = $footer->addTable(['borderSize' => 0, 'borderColor' => 'FFFFFF']);
+            $fTable->addRow();
+            $fTable->addCell(7000)->addText(
+                htmlspecialchars(($doc->numer_dokumentu ?? '') . ($doc->numer_dokumentu ? ' | ' : '') . ($doc->tytul ?? $project->name ?? ''), ENT_QUOTES, 'UTF-8'),
+                ['size' => 8, 'color' => '9CA3AF']
+            );
+            $fTable->addCell(2000)->addTextRun(['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT])->addText('Str. ', ['size' => 8, 'color' => '9CA3AF']);
+
+            // Title
+            $section->addText(
+                htmlspecialchars($doc->tytul ?? 'DOKUMENTACJA TECHNICZNA', ENT_QUOTES, 'UTF-8'),
+                ['bold' => true, 'size' => 22, 'color' => '1F3864'],
+                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER, 'spaceBefore' => 800, 'spaceAfter' => 200]
+            );
+            if (!empty($project->name)) {
+                $section->addText(
+                    htmlspecialchars($project->name, ENT_QUOTES, 'UTF-8'),
+                    ['size' => 13, 'color' => '4B5563'],
+                    ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER, 'spaceAfter' => 600]
+                );
+            }
+
+            $tableStyle = ['borderSize' => 6, 'borderColor' => 'E5E7EB', 'cellMargin' => 100];
+            $labelFont = ['bold' => true, 'size' => 10, 'color' => '374151'];
+            $valueFont = ['size' => 10];
+
+            $addFieldRow = function ($table, $label, $value) use ($labelFont, $valueFont) {
+                $row = $table->addRow();
+                $row->addCell(2800, ['bgColor' => 'F9FAFB'])->addText(
+                    htmlspecialchars($label, ENT_QUOTES, 'UTF-8'), $labelFont
+                );
+                $row->addCell(6000)->addText(
+                    htmlspecialchars((string) ($value ?? ''), ENT_QUOTES, 'UTF-8'), $valueFont
+                );
+            };
+
+            $addMultiBlock = function ($title, $value) use ($section, $labelFont) {
+                if (empty($value)) return;
+                $section->addTitle(htmlspecialchars($title, ENT_QUOTES, 'UTF-8'), 2);
+                foreach (explode("\n", str_replace("\r\n", "\n", $value)) as $line) {
+                    $section->addText(
+                        htmlspecialchars($line, ENT_QUOTES, 'UTF-8'),
+                        ['size' => 10],
+                        ['spaceAfter' => 60]
+                    );
+                }
+            };
+
+            $dateFormatted = '';
+            if ($doc && $doc->data_dokumentu) {
+                try { $dateFormatted = \Carbon\Carbon::parse($doc->data_dokumentu)->format('d.m.Y'); } catch (\Throwable $e) {}
+            }
+
+            // Section 1
+            $section->addTitle('1. Dane podstawowe', 2);
+            $t1 = $section->addTable($tableStyle);
+            $addFieldRow($t1, 'Nr dokumentu:', $doc->numer_dokumentu ?? '');
+            $addFieldRow($t1, 'Data:', $dateFormatted);
+            $addFieldRow($t1, 'Autor / Projektant:', $doc->autor ?? '');
+            $addFieldRow($t1, 'Branża:', $doc->branza ?? '');
+            $addFieldRow($t1, 'Nr pozwolenia na budowę:', $doc->nr_pozwolenia ?? '');
+
+            // Section 2
+            $section->addTitle('2. Dane inwestora i inwestycji', 2);
+            $t2 = $section->addTable($tableStyle);
+            $addFieldRow($t2, 'Inwestor:', $doc->inwestor ?? '');
+            $addFieldRow($t2, 'Adres inwestora:', $doc->inwestor_adres ?? '');
+            $addFieldRow($t2, 'NIP inwestora:', $doc->inwestor_nip ?? '');
+            $addFieldRow($t2, 'Adres inwestycji:', $doc->adres_inwestycji ?? '');
+
+            // Text sections
+            $addMultiBlock('3. Przedmiot i zakres opracowania', $doc->przedmiot_zakresu ?? '');
+            $addMultiBlock('4. Opis techniczny', $doc->opis_techniczny ?? '');
+            $addMultiBlock('5. Materiały i urządzenia', $doc->materialy_urzadzenia ?? '');
+            $addMultiBlock('6. Parametry techniczne', $doc->parametry_techniczne ?? '');
+            $addMultiBlock('7. Zastosowane normy i przepisy', $doc->normy_przepisy ?? '');
+            $addMultiBlock('8. Warunki gwarancji', $doc->warunki_gwarancji ?? '');
+            $addMultiBlock('9. Warunki odbioru', $doc->warunki_odbioru ?? '');
+            $addMultiBlock('10. Uwagi końcowe', $doc->uwagi ?? '');
+            $addMultiBlock('11. Załączniki', $doc->zalaczniki ?? '');
+
+            $tempDir = sys_get_temp_dir();
+            if (!is_writable($tempDir)) {
+                $tempDir = storage_path('app');
+            }
+            $tempFile = $tempDir . DIRECTORY_SEPARATOR . 'proj_doc_' . $project->id . '_' . time() . '.docx';
+            $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+            $objWriter->save($tempFile);
+
+            $filename = 'Dokumentacja_' . preg_replace('/[^a-zA-Z0-9_\-]/', '_', $project->name ?? (string) $project->id) . '.docx';
+
+            return response()->download($tempFile, $filename, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ])->deleteFileAfterSend(true);
+        } catch (\Throwable $e) {
+            \Log::error('generateProjectDocProgrammatic error', ['msg' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return redirect()->route('magazyn.projects.show', $project->id)
+                ->with('error', 'Błąd generowania dokumentu Word: ' . $e->getMessage());
+        }
+    }
+
+    public function downloadProjectDocSampleTemplate(\App\Models\Project $project)
+    {
+        if (!class_exists(\PhpOffice\PhpWord\PhpWord::class)) {
+            return redirect()->back()->with('error', 'Brak pakietu phpoffice/phpword.');
+        }
+
+        try {
+            $phpWord = new \PhpOffice\PhpWord\PhpWord();
+            $section = $phpWord->addSection([
+                'paperSize'    => 'A4',
+                'marginLeft'   => 1418,
+                'marginRight'  => 1134,
+                'marginTop'    => 1418,
+                'marginBottom' => 1134,
+            ]);
+
+            $infoFont   = ['italic' => true, 'size' => 10, 'color' => 'CC0000'];
+            $labelFont  = ['bold' => true, 'size' => 10];
+            $tokenFont  = ['size' => 10, 'color' => '2563EB'];
+            $tableStyle = ['borderSize' => 6, 'borderColor' => 'E5E7EB', 'cellMargin' => 100];
+
+            $section->addText(
+                'INSTRUKCJA: Umieść tutaj logo i nagłówek swojej firmy (firmówkę). Niebieskie tokeny ${...} zostaną automatycznie zastąpione danymi z systemu po wgraniu tego szablonu.',
+                $infoFont,
+                ['spaceAfter' => 240, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
+            );
+            $section->addText('─────────────────────────────────────────────', ['size' => 10, 'color' => 'AAAAAA'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER, 'spaceAfter' => 360]);
+
+            $section->addText('DOKUMENTACJA TECHNICZNA', ['bold' => true, 'size' => 20, 'color' => '1F3864'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER, 'spaceAfter' => 80]);
+            $section->addText('${TYTUL}', $tokenFont, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER, 'spaceAfter' => 400]);
+
+            $t = $section->addTable($tableStyle);
+            $addRow = function ($label, $token) use ($t, $labelFont, $tokenFont) {
+                $row = $t->addRow();
+                $row->addCell(2800, ['bgColor' => 'F9FAFB'])->addText($label, $labelFont);
+                $row->addCell(6000)->addText($token, $tokenFont);
+            };
+
+            $addRow('Nr dokumentu:',       '${NUMER_DOK}');
+            $addRow('Data:',               '${DATA_DOK}');
+            $addRow('Autor/Projektant:',   '${AUTOR}');
+            $addRow('Branża:',             '${BRANZA}');
+            $addRow('Inwestor:',           '${INWESTOR}');
+            $addRow('Adres inwestora:',    '${INWESTOR_ADRES}');
+            $addRow('NIP inwestora:',      '${INWESTOR_NIP}');
+            $addRow('Adres inwestycji:',   '${ADRES_INWESTYCJI}');
+            $addRow('Nr pozwolenia:',      '${NR_POZWOLENIA}');
+
+            $addSection = function ($title, $token) use ($section, $labelFont, $tokenFont) {
+                $section->addText($title, $labelFont, ['spaceBefore' => 240, 'spaceAfter' => 60]);
+                $section->addText($token, $tokenFont, ['spaceAfter' => 120]);
+            };
+
+            $addSection('Przedmiot i zakres opracowania:', '${PRZEDMIOT_ZAKRESU}');
+            $addSection('Opis techniczny:', '${OPIS_TECHNICZNY}');
+            $addSection('Materiały i urządzenia:', '${MATERIALY_URZADZENIA}');
+            $addSection('Parametry techniczne:', '${PARAMETRY_TECHNICZNE}');
+            $addSection('Normy i przepisy:', '${NORMY_PRZEPISY}');
+            $addSection('Warunki gwarancji:', '${WARUNKI_GWARANCJI}');
+            $addSection('Warunki odbioru:', '${WARUNKI_ODBIORU}');
+            $addSection('Uwagi końcowe:', '${UWAGI}');
+            $addSection('Załączniki:', '${ZALACZNIKI}');
+
+            $tempFile = tempnam(sys_get_temp_dir(), 'doc_sample_') . '.docx';
+            \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007')->save($tempFile);
+
+            return response()->download($tempFile, 'szablon_dokumentacji_projektowej.docx', [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ])->deleteFileAfterSend(true);
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Błąd generowania szablonu: ' . $e->getMessage());
         }
     }
 }
