@@ -83,6 +83,21 @@
                     @endif
                 </span>
             </div>
+            @php
+                $projectClient = $project->crmCompany ?? null;
+                if (!$projectClient && $project->sourceOffer) {
+                    $projectClient = null; // oferta ma tylko string, nie model
+                    $projectClientName = $project->sourceOffer->customer_name ?? null;
+                } else {
+                    $projectClientName = $projectClient?->name ?? null;
+                }
+            @endphp
+            @if($projectClientName)
+            <div class="flex items-baseline gap-1">
+                <span class="text-sm font-semibold text-gray-500">Klient:</span>
+                <span class="text-sm font-medium text-indigo-700">{{ $projectClientName }}</span>
+            </div>
+            @endif
             {{-- PRZYCISKI AKCJI inline --}}
             <div class="ml-auto flex gap-2 items-center">
                 @if(!in_array($project->status, ['warranty','archived']))
@@ -2155,6 +2170,7 @@
             {{-- Formularz danych dokumentacji --}}
             @php
                 $offer = $project->sourceOffer ?? null;
+                $crmClient = $project->crmCompany ?? null;
                 $docDefTytul      = $projectDoc?->tytul      ?? $project->name ?? '';
                 $docDefNumer      = $projectDoc?->numer_dokumentu ?? $project->project_number ?? '';
                 $docDefData       = $projectDoc?->data_dokumentu
@@ -2163,13 +2179,17 @@
                 $docDefAutor      = $projectDoc?->autor ?? '';
                 $docDefBranza     = $projectDoc?->branza ?? '';
                 $docDefNrPozw     = $projectDoc?->nr_pozwolenia ?? '';
-                $docDefInwestor   = $projectDoc?->inwestor ?? ($offer?->customer_name ?? '');
-                $docDefInwNip     = $projectDoc?->inwestor_nip ?? ($offer?->customer_nip ?? '');
+                $docDefInwestor   = $projectDoc?->inwestor ?? ($crmClient?->name ?? ($offer?->customer_name ?? ''));
+                $docDefInwNip     = $projectDoc?->inwestor_nip ?? ($crmClient?->nip ?? ($offer?->customer_nip ?? ''));
+                $crmAddress = $crmClient ? trim(implode("\n", array_filter([
+                    $crmClient->address ?? '',
+                    trim(($crmClient->postal_code ?? '') . ' ' . ($crmClient->city ?? '')),
+                ]))) : '';
                 $offerAddress     = trim(implode("\n", array_filter([
                     $offer?->customer_address ?? '',
                     trim(($offer?->customer_postal_code ?? '') . ' ' . ($offer?->customer_city ?? '')),
                 ])));
-                $docDefInwAdres   = $projectDoc?->inwestor_adres ?? $offerAddress;
+                $docDefInwAdres   = $projectDoc?->inwestor_adres ?? ($crmAddress ?: $offerAddress);
                 $docDefAdrInw     = $projectDoc?->adres_inwestycji ?? '';
             @endphp
             <form action="{{ route('magazyn.projects.doc.save', $project->id) }}" method="POST" class="space-y-4">

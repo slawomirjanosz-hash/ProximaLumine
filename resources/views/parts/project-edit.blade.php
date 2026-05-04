@@ -51,6 +51,21 @@
                        class="w-full border p-2 rounded" required>
             </div>
 
+            @if(($hasCrmCompanyColumn ?? false) && !empty($crmCompanies ?? []))
+            <div>
+                <label class="block text-sm font-semibold mb-1">Klient</label>
+                <select name="crm_company_id" class="w-full border p-2 rounded">
+                    <option value="">— Brak / wybierz klienta —</option>
+                    @foreach($crmCompanies as $company)
+                        <option value="{{ $company->id }}"
+                            {{ old('crm_company_id', $project->crm_company_id) == $company->id ? 'selected' : '' }}>
+                            {{ $company->name }}{{ $company->nip ? ' (NIP: '.$company->nip.')' : '' }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
+
             <div>
                 <label class="block text-sm font-semibold mb-1">Budżet (PLN)</label>
                 <input type="number" name="budget" step="0.01" value="{{ old('budget', $project->budget) }}" 

@@ -627,13 +627,20 @@ class PartController extends Controller
     // PROJEKTY
     public function projectsView()
     {
+        $crmCompanies = [];
+        if ($this->hasTableSafe('crm_companies')) {
+            $crmCompanies = \App\Models\CrmCompany::orderBy('name')->get(['id', 'name', 'nip']);
+        }
+
         return view('parts.projects', [
             'users' => User::orderBy('name')->get(),
             'parts' => Part::with('category')->orderBy('name')->get(),
-            'inProgressProjects' => \App\Models\Project::where('status', 'in_progress')->with(['responsibleUser', 'sourceOffer'])->get(),
-            'warrantyProjects' => \App\Models\Project::where('status', 'warranty')->with(['responsibleUser', 'sourceOffer'])->get(),
-            'archivedProjects' => \App\Models\Project::where('status', 'archived')->with(['responsibleUser', 'sourceOffer'])->get(),
+            'inProgressProjects' => \App\Models\Project::where('status', 'in_progress')->with(['responsibleUser', 'sourceOffer', 'crmCompany'])->get(),
+            'warrantyProjects' => \App\Models\Project::where('status', 'warranty')->with(['responsibleUser', 'sourceOffer', 'crmCompany'])->get(),
+            'archivedProjects' => \App\Models\Project::where('status', 'archived')->with(['responsibleUser', 'sourceOffer', 'crmCompany'])->get(),
             'availableProjectSections' => $this->getAvailableProjectSections(),
+            'crmCompanies' => $crmCompanies,
+            'hasCrmCompanyColumn' => $this->hasColumnSafe('projects', 'crm_company_id'),
         ]);
     }
 
@@ -643,6 +650,8 @@ class PartController extends Controller
         $canChangeAuthorization = $user && $user->is_admin;
         $hasVisibleSectionsColumn = $this->hasColumnSafe('projects', 'visible_sections');
 
+        $hasCrmCompaniesTable = $this->hasTableSafe('crm_companies');
+
         $validationRules = [
             'project_number' => 'required|string|unique:projects,project_number',
             'name' => 'required|string|max:255',
@@ -651,6 +660,7 @@ class PartController extends Controller
             'warranty_period' => 'nullable|integer|min:0',
             'finished_at' => 'nullable|date',
             'requires_authorization' => 'nullable|boolean',
+            'crm_company_id' => 'nullable|integer',
         ];
 
         if ($hasVisibleSectionsColumn) {
@@ -673,6 +683,10 @@ class PartController extends Controller
             'status' => 'in_progress',
             'requires_authorization' => $canChangeAuthorization && $request->has('requires_authorization'),
         ];
+
+        if ($hasCrmCompaniesTable && $this->hasColumnSafe('projects', 'crm_company_id')) {
+            $projectPayload['crm_company_id'] = $request->crm_company_id ?: null;
+        }
 
         if ($hasVisibleSectionsColumn) {
             $projectPayload['visible_sections'] = $visibleSections;
@@ -707,9 +721,12 @@ class PartController extends Controller
                 'with_null_user' => $removals->whereNull('user')->count(),
             ]);
 
-            // Załaduj sourceOffer (klient z oferty)
+            // Załaduj sourceOffer (klient z oferty) i crmCompany
             if ($project->source_offer_id && !$project->relationLoaded('sourceOffer')) {
                 $project->load('sourceOffer');
+            }
+            if ($this->hasColumnSafe('projects', 'crm_company_id') && $project->crm_company_id && !$project->relationLoaded('crmCompany')) {
+                $project->load('crmCompany');
             }
 
             // Sprawdź responsibleUser PRZED przekazaniem do widoku
@@ -2703,6 +2720,11 @@ class PartController extends Controller
     {
         $qrSettings = \DB::table('qr_settings')->first();
         $qrEnabled = $qrSettings->qr_enabled ?? true;
+
+        $crmCompanies = [];
+        if ($this->hasTableSafe('crm_companies')) {
+            $crmCompanies = \App\Models\CrmCompany::orderBy('name')->get(['id', 'name', 'nip']);
+        }
         
         return view('parts.project-edit', [
             'project' => $project,
@@ -2713,6 +2735,8 @@ class PartController extends Controller
                 $this->hasColumnSafe('projects', 'visible_sections') ? $project->visible_sections : null
             ),
             'sectionsWithData' => $this->getProjectSectionsWithData($project),
+            'crmCompanies' => $crmCompanies,
+            'hasCrmCompanyColumn' => $this->hasColumnSafe('projects', 'crm_company_id'),
         ]);
     }
 
@@ -2721,6 +2745,8 @@ class PartController extends Controller
         $user = auth()->user();
         $canChangeAuthorization = $user && $user->is_admin;
         $hasVisibleSectionsColumn = $this->hasColumnSafe('projects', 'visible_sections');
+
+        $hasCrmCompaniesTable = $this->hasTableSafe('crm_companies');
 
         $validationRules = [
             'project_number' => 'required|string|unique:projects,project_number,' . $project->id,
@@ -2732,6 +2758,7 @@ class PartController extends Controller
             'finished_at' => 'nullable|date',
             'status' => 'required|in:in_progress,warranty,archived',
             'requires_authorization' => 'nullable|boolean',
+            'crm_company_id' => 'nullable|integer',
         ];
 
         if ($hasVisibleSectionsColumn) {
@@ -2759,6 +2786,10 @@ class PartController extends Controller
 
         if ($hasVisibleSectionsColumn) {
             $updatePayload['visible_sections'] = $visibleSections;
+        }
+
+        if ($hasCrmCompaniesTable && $this->hasColumnSafe('projects', 'crm_company_id')) {
+            $updatePayload['crm_company_id'] = $request->crm_company_id ?: null;
         }
 
         $project->update($updatePayload);
@@ -9660,12 +9691,20 @@ class PartController extends Controller
                 try { $dateFormatted = \Carbon\Carbon::parse($doc->data_dokumentu)->format('d.m.Y'); } catch (\Throwable $e) {}
             }
 
-            // Uzupełnij brakujące dane z oferty (klient)
+            // Uzupełnij brakujące dane z klienta CRM lub oferty
+            $crmClient = $project->crmCompany ?? ($this->hasColumnSafe('projects', 'crm_company_id') && $project->crm_company_id ? \App\Models\CrmCompany::find($project->crm_company_id) : null);
             $offer = $project->sourceOffer ?? ($project->source_offer_id ? \App\Models\Offer::find($project->source_offer_id) : null);
+            $crmAddress = $crmClient ? trim(implode("\n", array_filter([
+                $crmClient->address ?? '',
+                trim(($crmClient->postal_code ?? '') . ' ' . ($crmClient->city ?? '')),
+            ]))) : '';
             $offerAddress = $offer ? trim(implode("\n", array_filter([
                 $offer->customer_address ?? '',
                 trim(($offer->customer_postal_code ?? '') . ' ' . ($offer->customer_city ?? '')),
             ]))) : '';
+            $fallbackInwestor = $crmClient?->name ?? $offer?->customer_name ?? '';
+            $fallbackInwAdres = $crmAddress ?: $offerAddress;
+            $fallbackInwNip   = $crmClient?->nip ?? $offer?->customer_nip ?? '';
 
             $tokens = [
                 'TYTUL'              => $doc->tytul ?: ($project->name ?? ''),
@@ -9673,9 +9712,9 @@ class PartController extends Controller
                 'DATA_DOK'           => $dateFormatted ?: now()->format('d.m.Y'),
                 'AUTOR'              => $doc->autor ?? '',
                 'BRANZA'             => $doc->branza ?? '',
-                'INWESTOR'           => $doc->inwestor ?: ($offer?->customer_name ?? ''),
-                'INWESTOR_ADRES'     => $doc->inwestor_adres ?: $offerAddress,
-                'INWESTOR_NIP'       => $doc->inwestor_nip ?: ($offer?->customer_nip ?? ''),
+                'INWESTOR'           => $doc->inwestor ?: $fallbackInwestor,
+                'INWESTOR_ADRES'     => $doc->inwestor_adres ?: $fallbackInwAdres,
+                'INWESTOR_NIP'       => $doc->inwestor_nip ?: $fallbackInwNip,
                 'ADRES_INWESTYCJI'   => $doc->adres_inwestycji ?? '',
                 'NR_POZWOLENIA'      => $doc->nr_pozwolenia ?? '',
                 'PRZEDMIOT_ZAKRESU'  => $doc->przedmiot_zakresu ?? '',
@@ -9819,17 +9858,22 @@ class PartController extends Controller
                 $dateFormatted = now()->format('d.m.Y');
             }
 
-            // Uzupełnij brakujące dane z oferty (klient)
+            // Uzupełnij brakujące dane z klienta CRM lub oferty
+            $crmClient2 = $project->crmCompany ?? ($this->hasColumnSafe('projects', 'crm_company_id') && $project->crm_company_id ? \App\Models\CrmCompany::find($project->crm_company_id) : null);
             $offer = $project->sourceOffer ?? ($project->source_offer_id ? \App\Models\Offer::find($project->source_offer_id) : null);
+            $crmAddr2 = $crmClient2 ? trim(implode("\n", array_filter([
+                $crmClient2->address ?? '',
+                trim(($crmClient2->postal_code ?? '') . ' ' . ($crmClient2->city ?? '')),
+            ]))) : '';
             $offerAddress = $offer ? trim(implode("\n", array_filter([
                 $offer->customer_address ?? '',
                 trim(($offer->customer_postal_code ?? '') . ' ' . ($offer->customer_city ?? '')),
             ]))) : '';
 
             $docNumer     = ($doc->numer_dokumentu ?? '') ?: ($project->project_number ?? '');
-            $docInwestor  = ($doc->inwestor ?? '') ?: ($offer?->customer_name ?? '');
-            $docInwAdres  = ($doc->inwestor_adres ?? '') ?: $offerAddress;
-            $docInwNip    = ($doc->inwestor_nip ?? '') ?: ($offer?->customer_nip ?? '');
+            $docInwestor  = ($doc->inwestor ?? '') ?: ($crmClient2?->name ?? $offer?->customer_name ?? '');
+            $docInwAdres  = ($doc->inwestor_adres ?? '') ?: ($crmAddr2 ?: $offerAddress);
+            $docInwNip    = ($doc->inwestor_nip ?? '') ?: ($crmClient2?->nip ?? $offer?->customer_nip ?? '');
 
             // Section 1
             $section->addTitle('1. Dane podstawowe', 2);

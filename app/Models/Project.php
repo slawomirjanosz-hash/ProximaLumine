@@ -23,6 +23,7 @@ class Project extends Model
         'loaded_list_id',
         'public_gantt_token',
         'source_offer_id',
+        'crm_company_id',
     ];
 
     protected $casts = [
@@ -40,6 +41,11 @@ class Project extends Model
     public function sourceOffer()
     {
         return $this->belongsTo(\App\Models\Offer::class, 'source_offer_id');
+    }
+
+    public function crmCompany()
+    {
+        return $this->belongsTo(\App\Models\CrmCompany::class, 'crm_company_id');
     }
 
     public function loadedList()

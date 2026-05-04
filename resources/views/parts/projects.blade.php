@@ -80,6 +80,18 @@
                         <label class="block text-sm font-medium mb-2">Nazwa projektu *</label>
                         <input type="text" name="name" required class="w-full px-3 py-2 border rounded" placeholder="Projekt X">
                     </div>
+
+                    @if(($hasCrmCompanyColumn ?? false) && !empty($crmCompanies ?? []))
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium mb-2">Klient</label>
+                        <select name="crm_company_id" class="w-full px-3 py-2 border rounded">
+                            <option value="">— Wybierz klienta —</option>
+                            @foreach($crmCompanies as $company)
+                                <option value="{{ $company->id }}">{{ $company->name }}{{ $company->nip ? ' (NIP: '.$company->nip.')' : '' }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
                     
                     <div>
                         <label class="block text-sm font-medium mb-2">Budżet projektu (PLN)</label>
@@ -198,6 +210,7 @@
                             @endif
                             <th class="p-2 text-left text-xs whitespace-nowrap">Nr projektu</th>
                             <th class="p-2 text-left text-sm w-2/5">Nazwa</th>
+                            <th class="p-2 text-left text-xs whitespace-nowrap">Klient</th>
                             <th class="p-2 text-left text-xs whitespace-nowrap">Oferta</th>
                             <th class="p-2 text-left text-xs whitespace-nowrap">Data rozpoczęcia</th>
                             <th class="p-2 text-left text-xs whitespace-nowrap">Data zakończenia</th>
@@ -216,6 +229,15 @@
                             @endif
                             <td class="p-2 text-xs whitespace-nowrap font-mono">{{ $project->project_number }}</td>
                             <td class="p-2 text-sm font-medium">{{ $project->name }}</td>
+                            <td class="p-2 text-xs whitespace-nowrap">
+                                @if($project->crmCompany)
+                                    <span class="text-indigo-700 font-semibold">{{ $project->crmCompany->name }}</span>
+                                @elseif($project->sourceOffer?->customer_name)
+                                    <span class="text-gray-600">{{ $project->sourceOffer->customer_name }}</span>
+                                @else
+                                    <span class="text-gray-400">-</span>
+                                @endif
+                            </td>
                             <td class="p-2 text-xs whitespace-nowrap">
                                 @if($project->sourceOffer)
                                     <div class="text-xs">
