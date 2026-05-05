@@ -917,6 +917,137 @@ Route::get('/api/diagnostics/test-word-doc/{project?}', function ($projectId = n
     return response()->json($info, $info['error'] ? 500 : 200);
 })->middleware('auth');
 
+// Pełna diagnostyka ścieżki generowania Word dla konkretnego projektu
+Route::get('/api/diagnostics/trace-word/{projectId}', function ($projectId) {
+    if (!auth()->check()) return response()->json(['error' => 'Unauthorized'], 401);
+    $trace = [];
+
+    try {
+        $project = \App\Models\Project::find($projectId);
+        if (!$project) return response()->json(['error' => "Projekt $projectId nie znaleziony"], 404);
+        $trace['project'] = ['id' => $project->id, 'name' => $project->name];
+
+        if (!\Schema::hasTable('project_documentations')) {
+            return response()->json(['error' => 'Brak tabeli project_documentations'] + ['trace' => $trace]);
+        }
+
+        $doc = \App\Models\ProjectDocumentation::where('project_id', $project->id)->first();
+        $trace['doc_found'] = (bool) $doc;
+        if ($doc) {
+            $trace['doc_id']            = $doc->id;
+            $trace['doc_tytul']         = $doc->tytul;
+            $trace['doc_template_path'] = $doc->template_path;
+        }
+
+        $useTemplate = false;
+        if ($doc && $doc->template_path) {
+            try {
+                $exists = \Storage::exists($doc->template_path);
+                $trace['storage_exists'] = $exists;
+                $useTemplate = $exists;
+                if ($exists) {
+                    $realPath = \Storage::path($doc->template_path);
+                    $trace['storage_real_path']     = $realPath;
+                    $trace['real_path_file_exists'] = file_exists($realPath);
+                    $trace['real_path_readable']    = is_readable($realPath);
+                }
+            } catch (\Throwable $e) {
+                $trace['storage_check_error'] = $e->getMessage();
+                $useTemplate = false;
+            }
+        }
+
+        $trace['use_template'] = $useTemplate;
+        $trace['path'] = $useTemplate ? 'generateProjectDocWithTemplate' : 'generateProjectDocProgrammatic';
+
+        if ($useTemplate) {
+            // Testuj TemplateProcessor
+            try {
+                $realPath = \Storage::path($doc->template_path);
+                $processor = new \PhpOffice\PhpWord\TemplateProcessor($realPath);
+                $trace['template_processor'] = 'OK';
+                $tmpDir = sys_get_temp_dir();
+                if (!is_writable($tmpDir)) $tmpDir = storage_path('app');
+                $tmpFile = $tmpDir . DIRECTORY_SEPARATOR . 'trace_test_' . time() . '.docx';
+                $processor->saveAs($tmpFile);
+                $trace['template_save'] = 'OK — ' . filesize($tmpFile) . ' bytes';
+                @unlink($tmpFile);
+            } catch (\Throwable $e) {
+                $trace['template_error'] = $e->getMessage();
+                $trace['template_error_class'] = get_class($e);
+                $trace['template_error_file'] = basename($e->getFile()) . ':' . $e->getLine();
+            }
+        } else {
+            // Testuj generowanie programmatic — kroki
+            try {
+                $phpWord = new \PhpOffice\PhpWord\PhpWord();
+                $trace['step_phpword_init'] = 'OK';
+
+                $phpWord->getSettings()->setUpdateFields(true);
+                $phpWord->addTitleStyle(2, ['bold' => true, 'size' => 13], ['spaceAfter' => 120]);
+                $section = $phpWord->addSection(['paperSize' => 'A4', 'marginLeft' => 1418, 'marginRight' => 1134]);
+                $trace['step_section'] = 'OK';
+
+                // Header/Footer
+                $header = $section->addHeader();
+                $trace['step_header'] = 'OK';
+
+                $companySettings = \App\Models\CompanySetting::first();
+                $trace['step_company_settings'] = $companySettings ? 'found' : 'null';
+
+                $footer = $section->addFooter();
+                $fTable = $footer->addTable(['borderSize' => 0, 'borderColor' => 'FFFFFF']);
+                $fTable->addRow();
+                $fTable->addCell(7000)->addText('Test footer', ['size' => 8]);
+                $trace['step_footer'] = 'OK';
+
+                // Relationships
+                try {
+                    $crmClient = $project->crmCompany;
+                    $trace['step_crmCompany'] = $crmClient ? 'found id=' . $crmClient->id : 'null';
+                } catch (\Throwable $e) {
+                    $trace['step_crmCompany_error'] = $e->getMessage();
+                }
+                try {
+                    $offer = $project->sourceOffer;
+                    $trace['step_sourceOffer'] = $offer ? 'found id=' . $offer->id : 'null';
+                } catch (\Throwable $e) {
+                    $trace['step_sourceOffer_error'] = $e->getMessage();
+                }
+
+                $section->addText(htmlspecialchars($doc?->tytul ?? 'TEST', ENT_QUOTES, 'UTF-8'), ['bold' => true, 'size' => 20]);
+                $trace['step_title_text'] = 'OK';
+
+                // Tables
+                $t1 = $section->addTable(['borderSize' => 6, 'borderColor' => 'E5E7EB', 'cellMargin' => 100]);
+                $row = $t1->addRow();
+                $row->addCell(2800)->addText('Test label', ['bold' => true, 'size' => 10]);
+                $row->addCell(6000)->addText('Test value', ['size' => 10]);
+                $trace['step_tables'] = 'OK';
+
+                // Save
+                $tmpDir = sys_get_temp_dir();
+                if (!is_writable($tmpDir)) $tmpDir = storage_path('app');
+                $tmpFile = $tmpDir . DIRECTORY_SEPARATOR . 'trace_prog_' . time() . '.docx';
+                \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007')->save($tmpFile);
+                $trace['step_save'] = 'OK — ' . filesize($tmpFile) . ' bytes';
+                @unlink($tmpFile);
+            } catch (\Throwable $e) {
+                $trace['step_error'] = $e->getMessage();
+                $trace['step_error_class'] = get_class($e);
+                $trace['step_error_file'] = basename($e->getFile()) . ':' . $e->getLine();
+                $trace['step_error_trace'] = array_slice(explode("\n", $e->getTraceAsString()), 0, 12);
+            }
+        }
+    } catch (\Throwable $e) {
+        $trace['fatal_error'] = $e->getMessage();
+        $trace['fatal_class']  = get_class($e);
+        $trace['fatal_file']   = basename($e->getFile()) . ':' . $e->getLine();
+    }
+
+    return response()->json($trace);
+})->middleware('auth');
+
 // Probe JSON: sprawdز pełny stack XLSX (1 produkt z bazy) i zwróć szczegóły błędu
 Route::get('/api/diagnostics/probe-xlsx', function () {
     if (!auth()->check()) return response()->json(['error' => 'Unauthorized'], 401);
