@@ -592,6 +592,13 @@
     </div>
 
     <script>
+        // Bezpieczna lista dostawców jako dane JSON (unika problemu z backtick w nazwach)
+        const _supplierOptionsHtml = (function() {
+            var d = @json(collect($suppliers ?? [])->map(fn($s) => ['v' => $s->name, 'l' => $s->short_name ?: $s->name])->values());
+            function esc(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+            return '<option value="">-- brak --<\/option>' + d.map(function(s){return '<option value="'+esc(s.v)+'">'+esc(s.l)+'<\/option>';}).join('');
+        })();
+
         async function addProductToCatalog(button, section, index) {
             const row = button.closest('tr');
             let nameInput = row.querySelector(`[name^="${section}[${index}][name]"]`);
@@ -897,14 +904,7 @@
                     </td>
                     <td class="p-1"><input type="text" name="${section}[${rowCount}][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                     <td class="p-1"><input type="number" min="1" value="1" name="${section}[${rowCount}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
-                    <td class="p-1">
-                        <select name="${section}[${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
-                            <option value="">-- brak --</option>
-                            @foreach($suppliers as $supplier)
-                                <option value="{{ $supplier->name }}">{{ $supplier->short_name ?: $supplier->name }}</option>
-                            @endforeach
-                        </select>
-                    </td>
+                    <td class="p-1"><select name="${section}[${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${_supplierOptionsHtml}</select></td>
                     <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                     <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][catalog_price]" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                     <td class="p-1"><input type="text" name="${section}[${rowCount}][value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
@@ -917,14 +917,7 @@
                     <td class="p-1"><input type="text" name="${section}[${rowCount}][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                     <td class="p-1"><input type="text" name="${section}[${rowCount}][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                     <td class="p-1"><input type="number" min="1" value="1" name="${section}[${rowCount}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
-                    <td class="p-1">
-                        <select name="${section}[${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
-                            <option value="">-- brak --</option>
-                            @foreach($suppliers as $supplier)
-                                <option value="{{ $supplier->name }}">{{ $supplier->short_name ?: $supplier->name }}</option>
-                            @endforeach
-                        </select>
-                    </td>
+                    <td class="p-1"><select name="${section}[${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${_supplierOptionsHtml}</select></td>
                     <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                     <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][catalog_price]" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                     <td class="p-1"><input type="text" name="${section}[${rowCount}][value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
@@ -1147,14 +1140,7 @@
                                 <td class="p-1"><input type="text" name="custom_sections[${customSectionCounter}][items][0][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                 <td class="p-1"><input type="text" name="custom_sections[${customSectionCounter}][items][0][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                                 <td class="p-1"><input type="number" min="1" value="1" name="custom_sections[${customSectionCounter}][items][0][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
-                                <td class="p-1">
-                                    <select name="custom_sections[${customSectionCounter}][items][0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
-                                        <option value="">-- brak --</option>
-                                        @foreach($suppliers as $supplier)
-                                            <option value="{{ $supplier->name }}">{{ $supplier->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
+                                <td class="p-1"><select name="custom_sections[${customSectionCounter}][items][0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${_supplierOptionsHtml}</select></td>
                                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][catalog_price]" class="flex-1 min-w-0 px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
@@ -1245,14 +1231,7 @@
                 <td class="p-1"><input type="text" name="custom_sections[${sectionNumber}][items][${rowCount}][name]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                 <td class="p-1"><input type="text" name="custom_sections[${sectionNumber}][items][${rowCount}][type]" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                 <td class="p-1"><input type="number" min="1" value="1" name="custom_sections[${sectionNumber}][items][${rowCount}][quantity]" class="w-full px-1 py-0.5 border rounded text-xs quantity-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
-                <td class="p-1">
-                    <select name="custom_sections[${sectionNumber}][items][${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">
-                        <option value="">-- brak --</option>
-                        @foreach($suppliers as $supplier)
-                            <option value="{{ $supplier->name }}">{{ $supplier->name }}</option>
-                        @endforeach
-                    </select>
-                </td>
+                <td class="p-1"><select name="custom_sections[${sectionNumber}][items][${rowCount}][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${_supplierOptionsHtml}</select></td>
                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][catalog_price]" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
