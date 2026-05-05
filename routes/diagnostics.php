@@ -806,6 +806,117 @@ Route::get('/magazyn/sprawdz/test-minimal-word', function () {
     }
 })->middleware('auth')->name('diagnostics.test.minimal.word');
 
+// Diagnostyka generowania Word dokumentacji projektowej
+Route::get('/api/diagnostics/test-word-doc/{project?}', function ($projectId = null) {
+    if (!auth()->check()) return response()->json(['error' => 'Unauthorized'], 401);
+
+    $info = [
+        'php_version'        => PHP_VERSION,
+        'os'                 => PHP_OS,
+        'environment'        => app()->environment(),
+        'extensions'         => [],
+        'phpword_class'      => false,
+        'zip_archive_class'  => false,
+        'temp_dir'           => sys_get_temp_dir(),
+        'temp_writable'      => is_writable(sys_get_temp_dir()),
+        'storage_app_writable' => is_writable(storage_path('app')),
+        'table_exists'       => false,
+        'project_found'      => false,
+        'doc_found'          => false,
+        'generate_result'    => null,
+        'error'              => null,
+        'error_class'        => null,
+        'error_file'         => null,
+        'error_line'         => null,
+        'error_trace'        => null,
+    ];
+
+    foreach (['zip', 'xml', 'xmlwriter', 'dom', 'gd', 'zlib'] as $ext) {
+        $info['extensions'][$ext] = extension_loaded($ext);
+    }
+
+    $info['phpword_class']     = class_exists(\PhpOffice\PhpWord\PhpWord::class);
+    $info['zip_archive_class'] = class_exists(\ZipArchive::class);
+
+    try {
+        $info['table_exists'] = \Schema::hasTable('project_documentations');
+    } catch (\Throwable $e) {
+        $info['table_exists'] = 'error: ' . $e->getMessage();
+    }
+
+    $project = null;
+    if ($projectId) {
+        $project = \App\Models\Project::find($projectId);
+        $info['project_found'] = (bool) $project;
+        if ($project && $info['table_exists'] === true) {
+            $doc = \App\Models\ProjectDocumentation::where('project_id', $project->id)->first();
+            $info['doc_found'] = (bool) $doc;
+            if ($doc) {
+                $info['doc_fields'] = array_keys($doc->toArray());
+            }
+        }
+    } else {
+        // Weź pierwszy projekt
+        $project = \App\Models\Project::first();
+        $info['project_found'] = (bool) $project;
+        $info['project_id_used'] = $project?->id;
+    }
+
+    if (!$info['phpword_class']) {
+        $info['error'] = 'Brak klasy PhpOffice\PhpWord\PhpWord — pakiet nie zainstalowany';
+        return response()->json($info, 500);
+    }
+    if (!$info['zip_archive_class']) {
+        $info['error'] = 'Brak klasy ZipArchive — rozszerzenie zip nie zainstalowane';
+        return response()->json($info, 500);
+    }
+
+    if (!$project) {
+        $info['error'] = 'Brak projektów w bazie — nie można przetestować';
+        return response()->json($info);
+    }
+
+    // Testuj zapis do tmp
+    try {
+        $tmpDir = sys_get_temp_dir();
+        if (!$tmpDir || !is_writable($tmpDir)) {
+            $tmpDir = storage_path('app');
+        }
+        $testFile = $tmpDir . DIRECTORY_SEPARATOR . 'diag_word_test_' . time() . '.docx';
+        $phpWord = new \PhpOffice\PhpWord\PhpWord();
+        $section = $phpWord->addSection();
+        $section->addText('Test diagnostyczny: ' . $project->name);
+        $section->addText('Środowisko: ' . app()->environment());
+        $section->addText('PHP: ' . PHP_VERSION);
+        \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007')->save($testFile);
+        $info['generate_result'] = 'OK — plik zapisany: ' . basename($testFile) . ' (' . filesize($testFile) . ' bytes)';
+        @unlink($testFile);
+    } catch (\Throwable $e) {
+        $info['error']       = $e->getMessage();
+        $info['error_class'] = get_class($e);
+        $info['error_file']  = basename($e->getFile()) . ':' . $e->getLine();
+        $info['error_line']  = $e->getLine();
+        $info['error_trace'] = array_slice(explode("\n", $e->getTraceAsString()), 0, 10);
+    }
+
+    // Sprawdź dostęp do $doc->property (null safety test)
+    if ($info['table_exists'] === true) {
+        try {
+            $doc = \App\Models\ProjectDocumentation::where('project_id', $project->id)->first();
+            $nullSafeTest = [
+                'tytul'  => $doc?->tytul ?? '(null)',
+                'autor'  => $doc?->autor ?? '(null)',
+                'branza' => $doc?->branza ?? '(null)',
+            ];
+            $info['null_safe_test'] = 'OK — ' . json_encode($nullSafeTest);
+        } catch (\Throwable $e) {
+            $info['null_safe_test'] = 'ERROR: ' . $e->getMessage();
+        }
+    }
+
+    return response()->json($info, $info['error'] ? 500 : 200);
+})->middleware('auth');
+
 // Probe JSON: sprawdز pełny stack XLSX (1 produkt z bazy) i zwróć szczegóły błędu
 Route::get('/api/diagnostics/probe-xlsx', function () {
     if (!auth()->check()) return response()->json(['error' => 'Unauthorized'], 401);
