@@ -1000,6 +1000,7 @@ class PartController extends Controller
                 'project_value' => (float) ($project->budget ?? 0),
                 'cost_invoices' => 0.0,
                 'issued_invoices' => 0.0,
+                'planned_invoices' => 0.0,
                 'ordered_materials_services' => 0.0,
             ];
 
@@ -1009,9 +1010,19 @@ class PartController extends Controller
                         ->where('category', 'excel_import')
                         ->sum('amount');
 
-                    $financeSummary['issued_invoices'] = (float) \App\Models\ProjectFinance::where('project_id', $project->id)
-                        ->where('category', 'issued_invoice')
-                        ->sum('amount');
+                    // Faktury wystawione — bez planowanych (tylko informacyjnie, nie wliczamy do bilansu)
+                    $issuedBaseQuery = \App\Models\ProjectFinance::where('project_id', $project->id)
+                        ->where('category', 'issued_invoice');
+                    if ($hasStatusColumn) {
+                        $financeSummary['issued_invoices'] = (float) (clone $issuedBaseQuery)
+                            ->where('status', '!=', 'planned')
+                            ->sum('amount');
+                        $financeSummary['planned_invoices'] = (float) (clone $issuedBaseQuery)
+                            ->where('status', 'planned')
+                            ->sum('amount');
+                    } else {
+                        $financeSummary['issued_invoices'] = (float) $issuedBaseQuery->sum('amount');
+                    }
                 }
 
                 $orderedQuery = \App\Models\ProjectFinance::where('project_id', $project->id)
@@ -1028,9 +1039,9 @@ class PartController extends Controller
 
                 $financeSummary['ordered_materials_services'] = (float) $orderedQuery->sum('amount');
             }
+            // Bilans: wartość projektu minus koszty i zamówienia (faktury wystawione/planowane są informacyjne)
             $financeSummary['balance'] = $financeSummary['project_value']
                 - $financeSummary['cost_invoices']
-                - $financeSummary['issued_invoices']
                 - $financeSummary['ordered_materials_services'];
 
             $projectOrders = \App\Models\Order::where('project_id', $project->id)

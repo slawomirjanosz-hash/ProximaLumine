@@ -730,10 +730,6 @@
                             <td class="px-3 py-2 font-semibold">Faktury kosztowe:</td>
                             <td class="pl-2 pr-3 py-2 text-right font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['cost_invoices'] ?? 0), 2, ',', ' ') }} zł</td>
                         </tr>
-                        <tr class="bg-emerald-50 text-emerald-900">
-                            <td class="px-3 py-2 font-semibold">Koszty faktury wystawione:</td>
-                            <td class="pl-2 pr-3 py-2 text-right font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['issued_invoices'] ?? 0), 2, ',', ' ') }} zł</td>
-                        </tr>
                         <tr class="bg-amber-50 text-amber-900">
                             <td class="px-3 py-2 font-semibold">Materiały i usługi zamówione:</td>
                             <td class="pl-2 pr-3 py-2 text-right font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['ordered_materials_services'] ?? 0), 2, ',', ' ') }} zł</td>
@@ -742,6 +738,16 @@
                             <td class="px-3 py-2 font-semibold">Bilans:</td>
                             <td class="pl-2 pr-3 py-2 text-right font-bold whitespace-nowrap">{{ number_format((float)($financeSummary['balance'] ?? 0), 2, ',', ' ') }} zł</td>
                         </tr>
+                        <tr class="bg-emerald-50 text-emerald-900 border-t border-emerald-200">
+                            <td class="px-3 py-2 text-sm">Faktury wystawione (info):</td>
+                            <td class="pl-2 pr-3 py-2 text-right text-sm whitespace-nowrap">{{ number_format((float)($financeSummary['issued_invoices'] ?? 0), 2, ',', ' ') }} zł</td>
+                        </tr>
+                        @if(($financeSummary['planned_invoices'] ?? 0) > 0)
+                        <tr class="bg-violet-50 text-violet-900">
+                            <td class="px-3 py-2 text-sm">Faktury planowane (info):</td>
+                            <td class="pl-2 pr-3 py-2 text-right text-sm whitespace-nowrap">{{ number_format((float)($financeSummary['planned_invoices'] ?? 0), 2, ',', ' ') }} zł</td>
+                        </tr>
+                        @endif
                     </tbody>
                 </table>
             </div>
@@ -1082,7 +1088,7 @@
             <div class="mb-4 border-b border-gray-200">
                 <div class="flex flex-wrap gap-2">
                     <button type="button" class="finance-tab-btn px-4 py-2 rounded-t bg-white border border-gray-200 border-b-white text-sm font-semibold" data-finance-tab-target="costs">Faktury kosztowe ({{ number_format((float)($financeSummary['cost_invoices'] ?? 0), 2, ',', ' ') }} zł)</button>
-                    <button type="button" class="finance-tab-btn px-4 py-2 rounded-t bg-gray-100 border border-gray-200 text-sm" data-finance-tab-target="issued">Faktury wystawione ({{ number_format((float)($financeSummary['issued_invoices'] ?? 0), 2, ',', ' ') }} zł)</button>
+                    <button type="button" class="finance-tab-btn px-4 py-2 rounded-t bg-gray-100 border border-gray-200 text-sm" data-finance-tab-target="issued">Faktury wystawione ({{ number_format((float)($financeSummary['issued_invoices'] ?? 0), 2, ',', ' ') }} zł)@if(($financeSummary['planned_invoices'] ?? 0) > 0) + planowane ({{ number_format((float)($financeSummary['planned_invoices'] ?? 0), 2, ',', ' ') }} zł)@endif</button>
                     <button type="button" class="finance-tab-btn px-4 py-2 rounded-t bg-gray-100 border border-gray-200 text-sm" data-finance-tab-target="orders">Zamówienia ({{ number_format((float)($financeSummary['ordered_materials_services'] ?? 0), 2, ',', ' ') }} zł)</button>
                 </div>
             </div>
@@ -1572,8 +1578,11 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse(($issuedInvoiceRows ?? []) as $issuedInvoice)
+                                @php $hasIssuedNonPlanned = false; @endphp
+                                @foreach(($issuedInvoiceRows ?? []) as $issuedInvoice)
+                                    @if(($issuedInvoice['status'] ?? '') === 'Planowana') @continue @endif
                                     @php
+                                        $hasIssuedNonPlanned = true;
                                         $issuedStatus = (string) ($issuedInvoice['status'] ?? 'Nie opłacono');
                                         $issuedPaymentDate = $issuedInvoice['payment_date'] ?? null;
                                         $isIssuedOverdue = false;
@@ -1584,48 +1593,83 @@
                                                 $isIssuedOverdue = false;
                                             }
                                         }
-
-                                        $issuedStatusClass = 'bg-amber-100 text-amber-800';
-                                        if ($issuedStatus === 'Opłacono') {
-                                            $issuedStatusClass = 'bg-green-100 text-green-800';
-                                        } elseif ($issuedStatus === 'Planowana') {
-                                            $issuedStatusClass = 'bg-violet-100 text-violet-800';
-                                        }
-                                        $isPlannedInvoice = $issuedStatus === 'Planowana';
+                                        $issuedStatusClass = $issuedStatus === 'Opłacono' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800';
+                                        $issuedDescription = (string) ($issuedInvoice['description'] ?? '');
+                                        $issuedDescriptionShort = \Illuminate\Support\Str::limit($issuedDescription, 40, '…');
                                     @endphp
-                                    <tr class="bg-white even:bg-gray-50/80{{ $isPlannedInvoice ? ' border-l-4 border-violet-400' : '' }}">
-                                        <td class="px-2 py-2 whitespace-nowrap{{ $isPlannedInvoice ? ' italic' : '' }}">{{ $issuedInvoice['date'] ?? '' }}</td>
-                                        <td class="px-2 py-2{{ $isPlannedInvoice ? ' italic' : '' }}">
-                                            {{ $issuedInvoice['invoice_number'] ?? '' }}
-                                            @if($isPlannedInvoice)<span class="ml-1 inline-block px-1 py-0 rounded bg-violet-200 text-violet-800 text-xs font-bold">PLAN</span>@endif
-                                        </td>
-                                        @php
-                                            $issuedDescription = (string) ($issuedInvoice['description'] ?? '');
-                                            $issuedDescriptionShort = \Illuminate\Support\Str::limit($issuedDescription, 40, '…');
-                                        @endphp
+                                    <tr class="bg-white even:bg-gray-50/80{{ $isIssuedOverdue ? ' bg-red-50' : '' }}">
+                                        <td class="px-2 py-2 whitespace-nowrap">{{ $issuedInvoice['date'] ?? '' }}</td>
+                                        <td class="px-2 py-2">{{ $issuedInvoice['invoice_number'] ?? '' }}</td>
                                         <td class="px-2 py-2" title="{{ $issuedDescription }}">{{ $issuedDescriptionShort }}</td>
                                         <td class="px-2 py-2 text-right whitespace-nowrap">{{ ($issuedInvoice['amount_net'] ?? '') !== '' ? number_format((float) str_replace(',', '.', $issuedInvoice['amount_net']), 2, ',', ' ') : '' }}</td>
-                                        <td class="px-2 py-2 whitespace-nowrap">{{ $issuedInvoice['payment_date'] ?? '' }}</td>
+                                        <td class="px-2 py-2 whitespace-nowrap{{ $isIssuedOverdue ? ' text-red-700 font-semibold' : '' }}">{{ $issuedInvoice['payment_date'] ?? '' }}</td>
                                         <td class="px-2 py-2 whitespace-nowrap">
                                             <form action="{{ route('magazyn.projects.issuedInvoices.status', [$project->id, $issuedInvoice['id']]) }}" method="POST" class="inline-block">
                                                 @csrf
                                                 <select name="issued_invoice_status" class="px-2 py-1 rounded border border-gray-300 text-xs font-semibold {{ $issuedStatusClass }}" onchange="this.form.submit()">
                                                     <option value="Nie opłacono" {{ $issuedStatus === 'Nie opłacono' ? 'selected' : '' }}>Nie opłacono</option>
                                                     <option value="Opłacono" {{ $issuedStatus === 'Opłacono' ? 'selected' : '' }}>Opłacono</option>
-                                                    <option value="Planowana" {{ $issuedStatus === 'Planowana' ? 'selected' : '' }}>Planowana</option>
+                                                    <option value="Planowana">Planowana</option>
                                                 </select>
                                             </form>
                                         </td>
                                     </tr>
-                                @empty
+                                @endforeach
+                                @if(!$hasIssuedNonPlanned)
                                     <tr>
                                         <td colspan="6" class="px-2 py-3 text-center text-gray-500">Brak faktur wystawionych.</td>
                                     </tr>
-                                @endforelse
+                                @endif
                             </tbody>
                         </table>
                     </div>
                 </div>
+
+                @php $plannedInvoiceList = collect($issuedInvoiceRows ?? [])->filter(fn($r) => ($r['status'] ?? '') === 'Planowana')->values(); @endphp
+                @if($plannedInvoiceList->isNotEmpty())
+                <div class="bg-white border border-violet-200 rounded-lg p-4 text-sm text-gray-700">
+                    <h4 class="font-semibold text-violet-800 mb-3">Faktury planowane</h4>
+                    <div class="w-full overflow-x-auto rounded border border-violet-200">
+                        <table class="w-full table-auto text-xs">
+                            <thead>
+                                <tr class="bg-violet-50 text-violet-900">
+                                    <th class="px-2 py-2 text-left">Data</th>
+                                    <th class="px-2 py-2 text-left">Nr faktury</th>
+                                    <th class="px-2 py-2 text-left">Opis</th>
+                                    <th class="px-2 py-2 text-right">Kwota netto</th>
+                                    <th class="px-2 py-2 text-left">Termin płatności</th>
+                                    <th class="px-2 py-2 text-left">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($plannedInvoiceList as $plannedInvoice)
+                                    @php
+                                        $plannedDescription = (string) ($plannedInvoice['description'] ?? '');
+                                        $plannedDescriptionShort = \Illuminate\Support\Str::limit($plannedDescription, 40, '…');
+                                    @endphp
+                                    <tr class="bg-white even:bg-violet-50/50">
+                                        <td class="px-2 py-2 whitespace-nowrap italic">{{ $plannedInvoice['date'] ?? '' }}</td>
+                                        <td class="px-2 py-2 italic">{{ $plannedInvoice['invoice_number'] ?? '' }}</td>
+                                        <td class="px-2 py-2 italic" title="{{ $plannedDescription }}">{{ $plannedDescriptionShort }}</td>
+                                        <td class="px-2 py-2 text-right whitespace-nowrap italic">{{ ($plannedInvoice['amount_net'] ?? '') !== '' ? number_format((float) str_replace(',', '.', $plannedInvoice['amount_net']), 2, ',', ' ') : '' }}</td>
+                                        <td class="px-2 py-2 whitespace-nowrap italic">{{ $plannedInvoice['payment_date'] ?? '' }}</td>
+                                        <td class="px-2 py-2 whitespace-nowrap">
+                                            <form action="{{ route('magazyn.projects.issuedInvoices.status', [$project->id, $plannedInvoice['id']]) }}" method="POST" class="inline-block">
+                                                @csrf
+                                                <select name="issued_invoice_status" class="px-2 py-1 rounded border border-gray-300 text-xs font-semibold bg-violet-100 text-violet-800" onchange="this.form.submit()">
+                                                    <option value="Nie opłacono">Nie opłacono</option>
+                                                    <option value="Opłacono">Opłacono</option>
+                                                    <option value="Planowana" selected>Planowana</option>
+                                                </select>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                @endif
             </div>
 
             <div id="finance-tab-orders" class="finance-tab-content hidden">
