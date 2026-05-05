@@ -9672,23 +9672,38 @@ class PartController extends Controller
 
     public function generateProjectDocWord(\App\Models\Project $project)
     {
-        if (!class_exists(\PhpOffice\PhpWord\PhpWord::class)) {
+        try {
+            if (!class_exists(\PhpOffice\PhpWord\PhpWord::class)) {
+                return redirect()->route('magazyn.projects.show', $project->id)
+                    ->with('error', 'Brak pakietu phpoffice/phpword na serwerze.');
+            }
+
+            if (!$this->hasTableSafe('project_documentations')) {
+                return redirect()->route('magazyn.projects.show', $project->id)
+                    ->with('error', 'Brakuje tabeli project_documentations. Uruchom migracje.');
+            }
+
+            $doc = \App\Models\ProjectDocumentation::where('project_id', $project->id)->first();
+
+            $useTemplate = false;
+            if ($doc && $doc->template_path) {
+                try {
+                    $useTemplate = \Storage::exists($doc->template_path);
+                } catch (\Throwable $e) {
+                    $useTemplate = false;
+                }
+            }
+
+            if ($useTemplate) {
+                return $this->generateProjectDocWithTemplate($project, $doc);
+            }
+
+            return $this->generateProjectDocProgrammatic($project, $doc);
+        } catch (\Throwable $e) {
+            \Log::error('generateProjectDocWord outer error', ['msg' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return redirect()->route('magazyn.projects.show', $project->id)
-                ->with('error', 'Brak pakietu phpoffice/phpword na serwerze.');
+                ->with('error', 'Błąd generowania dokumentu: ' . $e->getMessage());
         }
-
-        if (!$this->hasTableSafe('project_documentations')) {
-            return redirect()->route('magazyn.projects.show', $project->id)
-                ->with('error', 'Brakuje tabeli project_documentations. Uruchom migracje.');
-        }
-
-        $doc = \App\Models\ProjectDocumentation::where('project_id', $project->id)->first();
-
-        if ($doc && $doc->template_path && \Storage::exists($doc->template_path)) {
-            return $this->generateProjectDocWithTemplate($project, $doc);
-        }
-
-        return $this->generateProjectDocProgrammatic($project, $doc);
     }
 
     private function generateProjectDocWithTemplate(\App\Models\Project $project, \App\Models\ProjectDocumentation $doc)
@@ -9749,7 +9764,11 @@ class PartController extends Controller
                 }
             }
 
-            $tempFile = tempnam(sys_get_temp_dir(), 'proj_doc_') . '.docx';
+            $tmpDir = sys_get_temp_dir();
+            if (!$tmpDir || !is_writable($tmpDir)) {
+                $tmpDir = storage_path('app');
+            }
+            $tempFile = $tmpDir . DIRECTORY_SEPARATOR . 'proj_doc_' . $project->id . '_' . time() . '.docx';
             $processor->saveAs($tempFile);
 
             $filename = 'Dokumentacja_' . preg_replace('/[^a-zA-Z0-9_\-]/', '_', $project->name ?? (string) $project->id) . '.docx';
@@ -9816,14 +9835,14 @@ class PartController extends Controller
             $fTable = $footer->addTable(['borderSize' => 0, 'borderColor' => 'FFFFFF']);
             $fTable->addRow();
             $fTable->addCell(7000)->addText(
-                htmlspecialchars(($doc->numer_dokumentu ?: ($project->project_number ?? '')) . (($doc->numer_dokumentu ?: $project->project_number) ? ' | ' : '') . ($doc->tytul ?: $project->name ?? ''), ENT_QUOTES, 'UTF-8'),
+                htmlspecialchars((($doc?->numer_dokumentu ?: ($project->project_number ?? '')) . (($doc?->numer_dokumentu ?: $project->project_number) ? ' | ' : '') . ($doc?->tytul ?: $project->name ?? '')), ENT_QUOTES, 'UTF-8'),
                 ['size' => 8, 'color' => '9CA3AF']
             );
             $fTable->addCell(2000)->addTextRun(['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT])->addText('Str. ', ['size' => 8, 'color' => '9CA3AF']);
 
             // Title
             $section->addText(
-                htmlspecialchars($doc->tytul ?? 'DOKUMENTACJA TECHNICZNA', ENT_QUOTES, 'UTF-8'),
+                htmlspecialchars($doc?->tytul ?? 'DOKUMENTACJA TECHNICZNA', ENT_QUOTES, 'UTF-8'),
                 ['bold' => true, 'size' => 22, 'color' => '1F3864'],
                 ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER, 'spaceBefore' => 800, 'spaceAfter' => 200]
             );
@@ -9881,19 +9900,19 @@ class PartController extends Controller
                 trim(($offer->customer_postal_code ?? '') . ' ' . ($offer->customer_city ?? '')),
             ]))) : '';
 
-            $docNumer     = ($doc->numer_dokumentu ?? '') ?: ($project->project_number ?? '');
-            $docInwestor  = ($doc->inwestor ?? '') ?: ($crmClient2?->name ?? $offer?->customer_name ?? '');
-            $docInwAdres  = ($doc->inwestor_adres ?? '') ?: ($crmAddr2 ?: $offerAddress);
-            $docInwNip    = ($doc->inwestor_nip ?? '') ?: ($crmClient2?->nip ?? $offer?->customer_nip ?? '');
+            $docNumer     = ($doc?->numer_dokumentu ?? '') ?: ($project->project_number ?? '');
+            $docInwestor  = ($doc?->inwestor ?? '') ?: ($crmClient2?->name ?? $offer?->customer_name ?? '');
+            $docInwAdres  = ($doc?->inwestor_adres ?? '') ?: ($crmAddr2 ?: $offerAddress);
+            $docInwNip    = ($doc?->inwestor_nip ?? '') ?: ($crmClient2?->nip ?? $offer?->customer_nip ?? '');
 
             // Section 1
             $section->addTitle('1. Dane podstawowe', 2);
             $t1 = $section->addTable($tableStyle);
             $addFieldRow($t1, 'Nr dokumentu:', $docNumer);
             $addFieldRow($t1, 'Data:', $dateFormatted);
-            $addFieldRow($t1, 'Autor / Projektant:', $doc->autor ?? '');
-            $addFieldRow($t1, 'Branża:', $doc->branza ?? '');
-            $addFieldRow($t1, 'Nr pozwolenia na budowę:', $doc->nr_pozwolenia ?? '');
+            $addFieldRow($t1, 'Autor / Projektant:', $doc?->autor ?? '');
+            $addFieldRow($t1, 'Branża:', $doc?->branza ?? '');
+            $addFieldRow($t1, 'Nr pozwolenia na budowę:', $doc?->nr_pozwolenia ?? '');
 
             // Section 2
             $section->addTitle('2. Dane inwestora i inwestycji', 2);
@@ -9901,18 +9920,18 @@ class PartController extends Controller
             $addFieldRow($t2, 'Inwestor:', $docInwestor);
             $addFieldRow($t2, 'Adres inwestora:', $docInwAdres);
             $addFieldRow($t2, 'NIP inwestora:', $docInwNip);
-            $addFieldRow($t2, 'Adres inwestycji:', $doc->adres_inwestycji ?? '');
+            $addFieldRow($t2, 'Adres inwestycji:', $doc?->adres_inwestycji ?? '');
 
             // Text sections
-            $addMultiBlock('3. Przedmiot i zakres opracowania', $doc->przedmiot_zakresu ?? '');
-            $addMultiBlock('4. Opis techniczny', $doc->opis_techniczny ?? '');
-            $addMultiBlock('5. Materiały i urządzenia', $doc->materialy_urzadzenia ?? '');
-            $addMultiBlock('6. Parametry techniczne', $doc->parametry_techniczne ?? '');
-            $addMultiBlock('7. Zastosowane normy i przepisy', $doc->normy_przepisy ?? '');
-            $addMultiBlock('8. Warunki gwarancji', $doc->warunki_gwarancji ?? '');
-            $addMultiBlock('9. Warunki odbioru', $doc->warunki_odbioru ?? '');
-            $addMultiBlock('10. Uwagi końcowe', $doc->uwagi ?? '');
-            $addMultiBlock('11. Załączniki', $doc->zalaczniki ?? '');
+            $addMultiBlock('3. Przedmiot i zakres opracowania', $doc?->przedmiot_zakresu ?? '');
+            $addMultiBlock('4. Opis techniczny', $doc?->opis_techniczny ?? '');
+            $addMultiBlock('5. Materiały i urządzenia', $doc?->materialy_urzadzenia ?? '');
+            $addMultiBlock('6. Parametry techniczne', $doc?->parametry_techniczne ?? '');
+            $addMultiBlock('7. Zastosowane normy i przepisy', $doc?->normy_przepisy ?? '');
+            $addMultiBlock('8. Warunki gwarancji', $doc?->warunki_gwarancji ?? '');
+            $addMultiBlock('9. Warunki odbioru', $doc?->warunki_odbioru ?? '');
+            $addMultiBlock('10. Uwagi końcowe', $doc?->uwagi ?? '');
+            $addMultiBlock('11. Załączniki', $doc?->zalaczniki ?? '');
 
             $tempDir = sys_get_temp_dir();
             if (!is_writable($tempDir)) {
@@ -9997,7 +10016,11 @@ class PartController extends Controller
             $addSection('Uwagi końcowe:', '${UWAGI}');
             $addSection('Załączniki:', '${ZALACZNIKI}');
 
-            $tempFile = tempnam(sys_get_temp_dir(), 'doc_sample_') . '.docx';
+            $tempDir = sys_get_temp_dir();
+            if (!$tempDir || !is_writable($tempDir)) {
+                $tempDir = storage_path('app');
+            }
+            $tempFile = $tempDir . DIRECTORY_SEPARATOR . 'doc_sample_' . time() . '.docx';
             \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007')->save($tempFile);
 
             return response()->download($tempFile, 'szablon_dokumentacji_projektowej.docx', [
