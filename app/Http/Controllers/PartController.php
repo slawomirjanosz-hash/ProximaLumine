@@ -393,6 +393,15 @@ class PartController extends Controller
         // Przelicz brakujące pozycje od zera wg aktualnego stanu projektu
         $this->recalculateLoadedListMissingItems($project, $loadedList);
 
+        // Tryb bez autoryzacji: dodaj brakujące produkty bezpośrednio, bez skanowania
+        if (!$project->requires_authorization) {
+            $addedCount = $this->addAvailableMissingItemsDirectly($project, $loadedList);
+            if ($addedCount > 0) {
+                return redirect()->back()->with('success', "Uzupełniono listę \"{$loadedList->projectList->name}\" o {$addedCount} szt. z magazynu.");
+            }
+            return redirect()->back()->with('error', 'Brak dostępnych produktów do uzupełnienia na magazynie.');
+        }
+
         $addedFromMissing = $this->queueAvailableMissingItemsForAuthorization($project, $loadedList);
 
         // Przekieruj do widoku autoryzacji przez skanowanie z parametrem listy
@@ -403,6 +412,66 @@ class PartController extends Controller
         }
 
         return $redirect;
+    }
+
+    private function addAvailableMissingItemsDirectly(\App\Models\Project $project, \App\Models\ProjectLoadedList $loadedList): int
+    {
+        $missingItems = $loadedList->missing_items ?? [];
+        if (empty($missingItems) || !is_array($missingItems)) {
+            return 0;
+        }
+
+        $addedCount = 0;
+
+        foreach ($missingItems as $index => $missingItem) {
+            $partId = (int) ($missingItem['part_id'] ?? 0);
+            $missingQty = (int) ($missingItem['quantity'] ?? 0);
+
+            if ($partId <= 0 || $missingQty <= 0) {
+                continue;
+            }
+
+            $part = \App\Models\Part::find($partId);
+            $availableQty = $part ? max(0, (int) $part->quantity) : 0;
+
+            if ($availableQty <= 0) {
+                $missingItems[$index]['available'] = 0;
+                continue;
+            }
+
+            $quantityToAdd = min($missingQty, $availableQty);
+
+            // Dodaj jako autoryzowany produkt (bez skanowania)
+            \App\Models\ProjectRemoval::create([
+                'project_id' => $project->id,
+                'part_id' => $partId,
+                'user_id' => auth()->id(),
+                'quantity' => $quantityToAdd,
+                'status' => 'added',
+                'authorized' => true,
+                'loaded_list_id' => $loadedList->id,
+            ]);
+
+            // Odejmij ze stanu magazynu
+            $part->decrement('quantity', $quantityToAdd);
+
+            $remainingMissingQty = $missingQty - $quantityToAdd;
+            $missingItems[$index]['quantity'] = $remainingMissingQty;
+            $missingItems[$index]['available'] = max(0, $availableQty - $quantityToAdd);
+
+            $addedCount++;
+        }
+
+        $remainingMissingItems = array_values(array_filter($missingItems, fn($item) => (int) ($item['quantity'] ?? 0) > 0));
+
+        if ($addedCount > 0) {
+            $loadedList->missing_items = !empty($remainingMissingItems) ? $remainingMissingItems : null;
+            $loadedList->is_complete = empty($remainingMissingItems);
+            $loadedList->added_count = (int) $loadedList->added_count + $addedCount;
+            $loadedList->save();
+        }
+
+        return $addedCount;
     }
 
     private function queueAvailableMissingItemsForAuthorization(\App\Models\Project $project, \App\Models\ProjectLoadedList $loadedList): int
