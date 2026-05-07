@@ -711,7 +711,7 @@ class PartController extends Controller
 
             // Pobierz wszystkie pobierania (niezgrupowane) z informacją o statusie
             $removals = \App\Models\ProjectRemoval::where('project_id', $project->id)
-                ->with(['part', 'user', 'returnedBy'])
+                ->with(['part', 'user', 'returnedBy', 'loadedList.projectList'])
                 ->orderBy('created_at', 'desc')
                 ->get();
 
@@ -810,26 +810,45 @@ class PartController extends Controller
                 // Dodaj unauthorized_count do loadedList
                 $unauthorizedCount = 0;
                 if ($listItems->count() > 0) {
-                    $unauthorizedCount = \App\Models\ProjectRemoval::where('project_id', $project->id)
-                        ->whereIn('part_id', $listItems->pluck('part_id'))
-                        ->where('authorized', false)
-                        ->count();
+                    $unauthorizedCountQuery = \App\Models\ProjectRemoval::where('project_id', $project->id)
+                        ->where('authorized', false);
+
+                    // Sprawdź czy ta lista ma produkty z loaded_list_id (nowy system)
+                    $hasListRemovals = \App\Models\ProjectRemoval::where('project_id', $project->id)
+                        ->where('loaded_list_id', $loadedList->id)
+                        ->exists();
+
+                    if ($hasListRemovals) {
+                        $unauthorizedCountQuery->where('loaded_list_id', $loadedList->id);
+                    } else {
+                        // Stary system – filtruj po part_id
+                        $unauthorizedCountQuery->whereIn('part_id', $listItems->pluck('part_id'));
+                    }
+
+                    $unauthorizedCount = $unauthorizedCountQuery->count();
                 }
                 $loadedList->unauthorized_count = $unauthorizedCount;
             }
             $listProductIds = $listProductIds->unique();
             $missingProductIds = $missingProductIds->unique();
 
-            // Znajdź produkty dodane poza listami (ale nie te które uzupełniają braki)
-            $productsOutsideLists = $projectProductIds->diff($listProductIds)->diff($missingProductIds);
+            // Znajdź produkty dodane ręcznie (poza listami) – mają loaded_list_id = null
+            // Dla starych danych (przed migracją) - też nullable, więc trafią tutaj
             $outsideListsData = [];
             
-            if ($productsOutsideLists->isNotEmpty()) {
-                $outsideListsData = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            // Sprawdź czy kolumna loaded_list_id istnieje (po migracji)
+            $hasLoadedListIdColumn = $this->hasColumnSafe('project_removals', 'loaded_list_id');
+            
+            if ($hasLoadedListIdColumn && $loadedLists->isNotEmpty()) {
+                // Nowy system: produkty bez przypisanej listy = ręcznie dodane
+                $outsideListsRemovals = \App\Models\ProjectRemoval::where('project_id', $project->id)
                     ->where('status', 'added')
-                    ->whereIn('part_id', $productsOutsideLists)
+                    ->where('authorized', true)
+                    ->whereNull('loaded_list_id')
                     ->with('part')
-                    ->get()
+                    ->get();
+                
+                $outsideListsData = $outsideListsRemovals
                     ->groupBy('part_id')
                     ->map(function($group) {
                         $part = $group->first()->part;
@@ -840,6 +859,28 @@ class PartController extends Controller
                     })
                     ->values()
                     ->toArray();
+            } elseif ($loadedLists->isEmpty()) {
+                $outsideListsData = [];
+            } else {
+                // Stary system (brak kolumny): diff produktów w projekcie vs listy
+                $productsOutsideLists = $projectProductIds->diff($listProductIds)->diff($missingProductIds);
+                if ($productsOutsideLists->isNotEmpty()) {
+                    $outsideListsData = \App\Models\ProjectRemoval::where('project_id', $project->id)
+                        ->where('status', 'added')
+                        ->whereIn('part_id', $productsOutsideLists)
+                        ->with('part')
+                        ->get()
+                        ->groupBy('part_id')
+                        ->map(function($group) {
+                            $part = $group->first()->part;
+                            return [
+                                'name' => $part ? $part->name : 'Produkt usunięty',
+                                'quantity' => $group->sum('quantity'),
+                            ];
+                        })
+                        ->values()
+                        ->toArray();
+                }
             }
 
             $hasProjectFinanceTable = $this->hasTableSafe('project_finance');
@@ -8900,7 +8941,7 @@ class PartController extends Controller
     {
         $request->validate([
             'list_id' => 'required|exists:project_lists,id',
-            'link_existing' => 'nullable|boolean', // Czy podpiąć istniejące produkty
+            'link_existing' => 'nullable|boolean', // Czy podpiąć ręcznie dodane produkty pod tę listę
         ]);
 
         $list = \App\Models\ProjectList::with('items.part')->findOrFail($request->list_id);
@@ -8924,38 +8965,48 @@ class PartController extends Controller
             ], 400);
         }
 
-        // Sprawdź czy produkty z listy już są w projekcie
-        $existingProducts = [];
         $listPartIds = $list->items->pluck('part_id')->toArray();
-        
-        $existingRemovals = \App\Models\ProjectRemoval::where('project_id', $project->id)
+
+        // Sprawdź czy produkty z listy są w projekcie jako RĘCZNIE dodane (loaded_list_id = null)
+        // Produkty z innych list (loaded_list_id != null) są zawsze dodawane jako nowe wiersze
+        $manualRemovals = \App\Models\ProjectRemoval::where('project_id', $project->id)
             ->whereIn('part_id', $listPartIds)
             ->where('status', 'added')
+            ->whereNull('loaded_list_id')
             ->get();
-        
-        if ($existingRemovals->isNotEmpty() && !$request->has('link_existing')) {
-            // Produkty już są w projekcie - pytaj użytkownika co zrobić
-            $existingProductNames = $existingRemovals->map(function($removal) {
+
+        if ($manualRemovals->isNotEmpty() && !$request->has('link_existing')) {
+            $existingProductNames = $manualRemovals->map(function($removal) {
                 return $removal->part ? $removal->part->name : 'Nieznany';
             })->unique()->values()->toArray();
-            
+
             return response()->json([
                 'success' => false,
                 'requires_confirmation' => true,
                 'existing_products' => $existingProductNames,
-                'message' => 'Niektóre produkty z tej listy są już w projekcie. Czy chcesz podpiąć je pod tę listę (nie dodając nowych)?'
+                'message' => 'Niektóre produkty z tej listy zostały ręcznie dodane do projektu. Czy chcesz podpiąć je pod tę listę (nie dodając nowych)?'
             ], 200);
         }
+
+        // Utwórz wpis załadowanej listy NA POCZĄTKU, żeby mieć jej ID do przypisania produktom
+        $loadedListRecord = \App\Models\ProjectLoadedList::create([
+            'project_id' => $project->id,
+            'project_list_id' => $list->id,
+            'is_complete' => false,
+            'missing_items' => null,
+            'added_count' => 0,
+            'total_count' => $list->items->count(),
+        ]);
 
         $added = 0;
         $skipped = 0;
         $missing = [];
         $totalCount = 0;
         $linked = 0;
-        
+
         foreach ($list->items as $item) {
             $totalCount++;
-            
+
             if (!$item->part) {
                 $skipped++;
                 $missing[] = [
@@ -8968,22 +9019,19 @@ class PartController extends Controller
                 continue;
             }
 
-            // Sprawdź czy produkt już jest w projekcie
-            $existingRemoval = $existingRemovals->firstWhere('part_id', $item->part_id);
-            
-            if ($existingRemoval && $request->input('link_existing', false)) {
-                // Produkt już jest - tylko zlicz jako dodany
+            // Sprawdź czy produkt jest ręcznie dodany (loaded_list_id = null)
+            $manualRemoval = $manualRemovals->firstWhere('part_id', $item->part_id);
+
+            if ($manualRemoval && $request->input('link_existing', false)) {
+                // Podepnij ręcznie dodany produkt pod tę listę
+                $manualRemoval->loaded_list_id = $loadedListRecord->id;
+                $manualRemoval->save();
                 $linked++;
                 $added++;
                 continue;
             }
-            
-            if ($existingRemoval && !$request->input('link_existing', false)) {
-                // Produkt już jest ale nie chcemy go dodawać ponownie
-                $skipped++;
-                continue;
-            }
 
+            // Dla produktów z innych list lub nowych produktów — zawsze dodaj nowy wiersz
             $requestedQty = (int) $item->quantity;
             $availableQty = max(0, (int) $item->part->quantity);
             $quantityToAdd = min($requestedQty, $availableQty);
@@ -9011,7 +9059,7 @@ class PartController extends Controller
                 ];
             }
 
-            // Dodaj produkt do projektu
+            // Dodaj produkt do projektu z przypisaniem do tej listy
             \App\Models\ProjectRemoval::create([
                 'project_id' => $project->id,
                 'part_id' => $item->part_id,
@@ -9019,6 +9067,7 @@ class PartController extends Controller
                 'user_id' => auth()->id(),
                 'status' => 'added',
                 'authorized' => !$project->requires_authorization,
+                'loaded_list_id' => $loadedListRecord->id,
             ]);
 
             // Jeśli nie wymaga autoryzacji, odejmij ze stanu magazynu
@@ -9029,31 +9078,28 @@ class PartController extends Controller
             $added++;
         }
 
-        // Zapisz informację o załadowanej liście
-        \App\Models\ProjectLoadedList::create([
-            'project_id' => $project->id,
-            'project_list_id' => $list->id,
-            'is_complete' => count($missing) === 0,
-            'missing_items' => count($missing) > 0 ? $missing : null,
-            'added_count' => $added,
-            'total_count' => $totalCount,
-        ]);
+        // Zaktualizuj statystyki załadowanej listy
+        $loadedListRecord->is_complete = count($missing) === 0;
+        $loadedListRecord->missing_items = count($missing) > 0 ? $missing : null;
+        $loadedListRecord->added_count = $added;
+        $loadedListRecord->total_count = $totalCount;
+        $loadedListRecord->save();
 
         $message = "Załadowano listę \"{$list->name}\".";
-        
+
         if ($linked > 0) {
             $message .= " Podpięto {$linked} istniejących produktów pod listę.";
         }
-        
+
         $newlyAdded = $added - $linked;
         if ($newlyAdded > 0) {
             $message .= " Dodano {$newlyAdded} nowych produktów.";
         }
-        
+
         if ($skipped > 0) {
-            $message .= " Pominięto {$skipped} produktów (brak na magazynie lub już dodane).";
+            $message .= " Pominięto {$skipped} produktów (brak na magazynie).";
         }
-        
+
         if ($project->requires_authorization) {
             $message .= " Produkty oczekują na autoryzację.";
         }
@@ -9121,6 +9167,7 @@ class PartController extends Controller
             'user_id' => auth()->id(),
             'status' => 'added',
             'authorized' => !$project->requires_authorization,
+            'loaded_list_id' => $loadedList->id,
         ]);
 
         // Jeśli nie wymaga autoryzacji, odejmij ze stanu magazynu
@@ -9305,9 +9352,24 @@ class PartController extends Controller
 
         $partIds = $listItems->pluck('part_id')->unique()->values();
 
-        $currentQuantities = \App\Models\ProjectRemoval::where('project_id', $project->id)
+        // Sprawdź czy ta lista ma przypisane produkty z loaded_list_id (nowy system)
+        $hasListSpecificRemovals = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->where('loaded_list_id', $loadedList->id)
             ->where('status', 'added')
             ->whereIn('part_id', $partIds)
+            ->exists();
+
+        $query = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->where('status', 'added')
+            ->whereIn('part_id', $partIds);
+
+        if ($hasListSpecificRemovals) {
+            // Nowy system: licz tylko produkty przypisane do tej konkretnej listy
+            $query->where('loaded_list_id', $loadedList->id);
+        }
+        // Stary system (backward compatibility): licz wszystkie produkty projektu dla tych part_id
+
+        $currentQuantities = $query
             ->selectRaw('part_id, SUM(quantity) as total_quantity')
             ->groupBy('part_id')
             ->pluck('total_quantity', 'part_id');

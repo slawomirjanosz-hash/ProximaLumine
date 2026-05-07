@@ -18,6 +18,7 @@ class ProjectRemoval extends Model
         'authorized',
         'returned_at',
         'returned_by_user_id',
+        'loaded_list_id',
     ];
 
     protected $casts = [
@@ -42,5 +43,10 @@ class ProjectRemoval extends Model
     public function returnedBy()
     {
         return $this->belongsTo(User::class, 'returned_by_user_id');
+    }
+
+    public function loadedList()
+    {
+        return $this->belongsTo(ProjectLoadedList::class, 'loaded_list_id');
     }
 }

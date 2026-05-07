@@ -341,6 +341,7 @@
                 <thead class="bg-gray-100">
                     <tr>
                         <th class="border p-2">Nazwa produktu</th>
+                        <th class="border p-2 text-center">Lista</th>
                         <th class="border p-2 text-center">Kod QR</th>
                         <th class="border p-2 text-center">Ilość do autoryzacji</th>
                         <th class="border p-2 text-center">Data dodania</th>
@@ -353,6 +354,14 @@
                     @foreach($unauthorized as $removal)
                         <tr class="bg-yellow-50">
                             <td class="border p-2">{{ $removal->part ? $removal->part->name : '⚠️ Produkt usunięty' }}</td>
+                            <td class="border p-2 text-center">
+                                @php $unauthListName = $removal->loadedList?->projectList?->name ?? null; @endphp
+                                @if($unauthListName)
+                                    <span class="inline-block bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5 rounded">{{ $unauthListName }}</span>
+                                @else
+                                    <span class="text-gray-400 text-xs">-</span>
+                                @endif
+                            </td>
                             <td class="border p-2 text-center font-mono text-xs">{{ $removal->part ? ($removal->part->qr_code ?? '-') : '-' }}</td>
                             <td class="border p-2 text-center font-bold text-red-600">{{ $removal->quantity }}</td>
                             <td class="border p-2 text-center">{{ $removal->created_at->format('d.m.Y H:i') }}</td>
@@ -408,6 +417,7 @@
                 <thead class="bg-gray-100">
                     <tr>
                         <th class="border p-2">Nazwa produktu</th>
+                        <th class="border p-2 text-center">Lista</th>
                         <th class="border p-2 text-center">Ilość</th>
                         <th class="border p-2 text-center">Data/Godzina</th>
                         <th class="border p-2 text-center">Pobrał</th>
@@ -419,6 +429,16 @@
                     @forelse($authorized as $removal)
                         <tr class="{{ $removal->status === 'returned' ? 'bg-green-50' : '' }}">
                             <td class="border p-2">{{ $removal->part ? $removal->part->name : '⚠️ Produkt usunięty' }}</td>
+                            <td class="border p-2 text-center">
+                                @php
+                                    $removalListName = $removal->loadedList?->projectList?->name ?? null;
+                                @endphp
+                                @if($removalListName)
+                                    <span class="inline-block bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5 rounded">{{ $removalListName }}</span>
+                                @else
+                                    <span class="text-gray-400 text-xs">-</span>
+                                @endif
+                            </td>
                             <td class="border p-2 text-center">{{ $removal->quantity }}</td>
                             <td class="border p-2 text-center">
                                 {{ $removal->created_at->format('d.m.Y H:i') }}
@@ -465,7 +485,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="border p-4 text-center text-gray-500">Brak produktów w magazynie</td>
+                            <td colspan="7" class="border p-4 text-center text-gray-500">Brak produktów w magazynie</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -506,19 +526,29 @@
         </div>
         <div id="summary-section-content">
         @php
-            // Grupowanie produktów i sumowanie ilości
-            $summary = $removals->where('status', 'added')->where('authorized', true)->groupBy('part_id')->map(function($group) {
-                $firstRemoval = $group->first();
-                if (!$firstRemoval->part) {
-                    return null; // Pomiń jeśli produkt został usunięty
-                }
-                return [
-                    'part' => $firstRemoval->part,
-                    'total_quantity' => $group->sum('quantity')
-                ];
-            })->filter()->sortBy(function($item) {
-                return $item['part']->name;
-            });
+            // Grupowanie produktów po (part_id, loaded_list_id) – każda lista osobno
+            $summary = $removals->where('status', 'added')->where('authorized', true)
+                ->groupBy(function($removal) {
+                    return $removal->part_id . '|' . ($removal->loaded_list_id ?? 'manual');
+                })
+                ->map(function($group) {
+                    $firstRemoval = $group->first();
+                    if (!$firstRemoval->part) {
+                        return null;
+                    }
+                    $listName = null;
+                    if ($firstRemoval->loaded_list_id && $firstRemoval->loadedList && $firstRemoval->loadedList->projectList) {
+                        $listName = $firstRemoval->loadedList->projectList->name;
+                    }
+                    return [
+                        'part' => $firstRemoval->part,
+                        'total_quantity' => $group->sum('quantity'),
+                        'loaded_list_id' => $firstRemoval->loaded_list_id,
+                        'list_name' => $listName,
+                    ];
+                })->filter()->sortBy(function($item) {
+                    return $item['part']->name;
+                });
         @endphp
         
         @if(auth()->user() && auth()->user()->is_admin)
@@ -547,6 +577,7 @@
                     @endif
                     <th class="border p-3 text-left">Nazwa produktu</th>
                     <th class="border p-3 text-left">Opis</th>
+                    <th class="border p-3 text-center">Lista</th>
                     <th class="border p-3 text-center">Łączna ilość w projekcie</th>
                 </tr>
             </thead>
@@ -560,11 +591,18 @@
                         @endif
                         <td class="border p-3">{{ isset($item['part']) && $item['part'] ? $item['part']->name : '-' }}</td>
                         <td class="border p-3 text-gray-600">{{ isset($item['part']) && $item['part'] ? ($item['part']->description ?? '-') : '-' }}</td>
+                        <td class="border p-3 text-center">
+                            @if($item['list_name'])
+                                <span class="inline-block bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded">{{ $item['list_name'] }}</span>
+                            @else
+                                <span class="text-gray-400 text-xs">ręcznie</span>
+                            @endif
+                        </td>
                         <td class="border p-3 text-center font-bold text-blue-600">{{ $item['total_quantity'] }}</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="{{ auth()->user() && auth()->user()->is_admin ? '4' : '3' }}" class="border p-4 text-center text-gray-500">Brak produktów w projekcie</td>
+                        <td colspan="{{ auth()->user() && auth()->user()->is_admin ? '5' : '4' }}" class="border p-4 text-center text-gray-500">Brak produktów w projekcie</td>
                     </tr>
                 @endforelse
             </tbody>
