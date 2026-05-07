@@ -9228,14 +9228,32 @@ class PartController extends Controller
         }
 
         $listName = $loadedList->projectList->name ?? 'Lista';
-        
-        // Usuń tylko powiązanie listy z projektem
-        // Produkty które zostały dodane do projektu pozostaną
+
+        // Usuń nieautoryzowane produkty tej listy (nie zostały fizycznie pobrane ze magazynu)
+        // Autoryzowane produkty pozostają w projekcie - zostały już fizycznie pobrane
+        $unauthorizedRemovals = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->where('loaded_list_id', $loadedList->id)
+            ->where('authorized', false)
+            ->get();
+
+        foreach ($unauthorizedRemovals as $removal) {
+            $removal->delete();
+        }
+
+        $removedCount = $unauthorizedRemovals->count();
+
+        // Usuń powiązanie listy z projektem
         $loadedList->delete();
+
+        $message = "Lista \"{$listName}\" została odłączona od projektu.";
+        if ($removedCount > 0) {
+            $message .= " Usunięto {$removedCount} nieautoryzowanych produktów.";
+        }
+        $message .= " Autoryzowane produkty pozostały w projekcie.";
 
         return response()->json([
             'success' => true,
-            'message' => "Lista \"{$listName}\" została odłączona od projektu. Produkty które zostały dodane do projektu pozostały."
+            'message' => $message
         ]);
     }
 
