@@ -9443,6 +9443,162 @@ class PartController extends Controller
     }
 
     // -----------------------------------------------------------------------
+    // Public Finance Share
+    // -----------------------------------------------------------------------
+
+    public function generatePublicFinanceUrl(\App\Models\Project $project)
+    {
+        $url = $project->getPublicFinanceUrl();
+        return response()->json(['url' => $url]);
+    }
+
+    public function showPublicFinance($token)
+    {
+        $project = \App\Models\Project::where('public_finance_token', $token)->firstOrFail();
+
+        $data = $this->loadProjectFinanceData($project);
+
+        return view('parts.public-finance', array_merge(['project' => $project], $data));
+    }
+
+    private function loadProjectFinanceData(\App\Models\Project $project): array
+    {
+        $hasProjectFinanceTable = $this->hasTableSafe('project_finance');
+        $hasCategoryColumn      = $this->hasColumnSafe('project_finance', 'category');
+        $hasDocumentNumberColumn = $this->hasColumnSafe('project_finance', 'document_number');
+        $hasSupplierColumn      = $this->hasColumnSafe('project_finance', 'supplier');
+        $hasDescriptionColumn   = $this->hasColumnSafe('project_finance', 'description');
+        $hasFinanceGroupColumn  = $this->hasColumnSafe('project_finance', 'finance_group');
+        $hasPaymentDateColumn   = $this->hasColumnSafe('project_finance', 'payment_date');
+        $hasStatusColumn        = $this->hasColumnSafe('project_finance', 'status');
+        $hasImportRowOrderColumn = $this->hasColumnSafe('project_finance', 'import_row_order');
+
+        $importedCostRows   = [];
+        $issuedInvoiceRows  = [];
+        $orderRows          = [];
+        $importedCostGroupSummaries = [];
+
+        if ($hasProjectFinanceTable && $hasCategoryColumn) {
+            $importedCostsQuery = \App\Models\ProjectFinance::where('project_id', $project->id)
+                ->where('category', 'excel_import');
+            if ($hasImportRowOrderColumn) {
+                $importedCostsQuery->orderByRaw('CASE WHEN import_row_order IS NULL THEN 1 ELSE 0 END')
+                    ->orderBy('import_row_order');
+            }
+            $importedCostRows = $importedCostsQuery->orderBy('id')->get()
+                ->map(function ($item) use ($hasSupplierColumn, $hasDocumentNumberColumn, $hasDescriptionColumn, $hasFinanceGroupColumn, $hasPaymentDateColumn, $hasStatusColumn) {
+                    $supplier    = $hasSupplierColumn ? trim((string) ($item->supplier ?? '')) : '';
+                    $document    = $hasDocumentNumberColumn ? trim((string) ($item->document_number ?? '')) : '';
+                    $description = $hasDescriptionColumn ? trim((string) ($item->description ?? '')) : '';
+                    $group       = $hasFinanceGroupColumn ? trim((string) ($item->finance_group ?? '')) : '';
+                    if ($supplier === '' && $document === '' && $description === '') {
+                        $parts       = array_map('trim', explode('|', (string) ($item->name ?? '')));
+                        $supplier    = $parts[0] ?? '';
+                        $document    = $parts[1] ?? '';
+                        $description = $parts[2] ?? '';
+                    }
+                    return [
+                        'id'                  => $item->id,
+                        'date'                => $item->date ? \Carbon\Carbon::parse($item->date)->format('Y-m-d') : '',
+                        'subject_or_supplier' => $supplier,
+                        'document'            => $document,
+                        'amount_net'          => $item->amount !== null ? number_format((float) $item->amount, 2, '.', '') : '',
+                        'description'         => $description,
+                        'group'               => $group,
+                        'status'              => $this->mapStatusToLabel((string) (($hasStatusColumn ? $item->status : 'pending') ?? 'pending')),
+                        'payment_date'        => ($hasPaymentDateColumn && $item->payment_date) ? \Carbon\Carbon::parse($item->payment_date)->format('Y-m-d') : '',
+                    ];
+                })->values()->all();
+
+            if ($hasFinanceGroupColumn) {
+                $importedCostGroupSummaries = \App\Models\ProjectFinance::where('project_id', $project->id)
+                    ->where('category', 'excel_import')
+                    ->whereNotNull('finance_group')
+                    ->where('finance_group', '<>', '')
+                    ->select('finance_group', \DB::raw('SUM(amount) as total_amount'))
+                    ->groupBy('finance_group')
+                    ->orderBy('finance_group')
+                    ->get()
+                    ->map(fn ($r) => ['group' => trim((string) ($r->finance_group ?? '')), 'total_amount' => (float) ($r->total_amount ?? 0)])
+                    ->filter(fn ($r) => $r['group'] !== '')
+                    ->values()->all();
+            }
+
+            $issuedInvoiceRows = \App\Models\ProjectFinance::where('project_id', $project->id)
+                ->where('category', 'issued_invoice')
+                ->orderByDesc('date')->orderByDesc('id')
+                ->get()->map(function ($item) use ($hasDocumentNumberColumn, $hasDescriptionColumn, $hasPaymentDateColumn, $hasStatusColumn) {
+                    return [
+                        'id'             => $item->id,
+                        'date'           => $item->date ? \Carbon\Carbon::parse($item->date)->format('Y-m-d') : '',
+                        'invoice_number' => $hasDocumentNumberColumn ? trim((string) ($item->document_number ?? '')) : trim((string) ($item->name ?? '')),
+                        'description'    => $hasDescriptionColumn ? trim((string) ($item->description ?? '')) : '',
+                        'amount_net'     => $item->amount !== null ? number_format((float) $item->amount, 2, '.', '') : '',
+                        'payment_date'   => ($hasPaymentDateColumn && $item->payment_date) ? \Carbon\Carbon::parse($item->payment_date)->format('Y-m-d') : '',
+                        'status'         => $this->mapStatusToLabel((string) (($hasStatusColumn ? $item->status : 'pending') ?? 'pending')),
+                    ];
+                })->values()->all();
+
+            $hasSupplierColOrders = $this->hasColumnSafe('project_finance', 'supplier');
+            $orderRows = \App\Models\ProjectFinance::where('project_id', $project->id)
+                ->whereIn('category', ['materials', 'services'])
+                ->orderByDesc('date')->orderByDesc('id')
+                ->get()->map(function ($item) use ($hasDocumentNumberColumn, $hasDescriptionColumn, $hasPaymentDateColumn, $hasStatusColumn, $hasSupplierColOrders) {
+                    return [
+                        'id'           => $item->id,
+                        'date'         => $item->date ? \Carbon\Carbon::parse($item->date)->format('Y-m-d') : '',
+                        'order_number' => $hasDocumentNumberColumn ? trim((string) ($item->document_number ?? '')) : trim((string) ($item->name ?? '')),
+                        'category'     => (string) ($item->category ?? 'materials'),
+                        'description'  => $hasDescriptionColumn ? trim((string) ($item->description ?? '')) : '',
+                        'amount_net'   => $item->amount !== null ? number_format((float) $item->amount, 2, '.', '') : '',
+                        'payment_date' => ($hasPaymentDateColumn && $item->payment_date) ? \Carbon\Carbon::parse($item->payment_date)->format('Y-m-d') : '',
+                        'status'       => $this->mapStatusToLabel((string) (($hasStatusColumn ? $item->status : 'ordered') ?? 'ordered')),
+                        'supplier'     => $hasSupplierColOrders ? trim((string) ($item->supplier ?? '')) : '',
+                    ];
+                })->values()->all();
+        }
+
+        $financeSummary = [
+            'project_value'               => (float) ($project->budget ?? 0),
+            'cost_invoices'               => 0.0,
+            'issued_invoices'             => 0.0,
+            'planned_invoices'            => 0.0,
+            'ordered_materials_services'  => 0.0,
+        ];
+
+        if ($hasProjectFinanceTable) {
+            if ($hasCategoryColumn) {
+                $financeSummary['cost_invoices'] = (float) \App\Models\ProjectFinance::where('project_id', $project->id)
+                    ->where('category', 'excel_import')->sum('amount');
+
+                $issuedBaseQuery = \App\Models\ProjectFinance::where('project_id', $project->id)
+                    ->where('category', 'issued_invoice');
+                if ($hasStatusColumn) {
+                    $financeSummary['issued_invoices'] = (float) (clone $issuedBaseQuery)->where('status', '!=', 'planned')->sum('amount');
+                    $financeSummary['planned_invoices'] = (float) (clone $issuedBaseQuery)->where('status', 'planned')->sum('amount');
+                } else {
+                    $financeSummary['issued_invoices'] = (float) $issuedBaseQuery->sum('amount');
+                }
+            }
+
+            $orderedQuery = \App\Models\ProjectFinance::where('project_id', $project->id)->where('type', 'expense');
+            if ($hasCategoryColumn) {
+                $orderedQuery->whereIn('category', ['materials', 'services']);
+            }
+            if ($hasStatusColumn) {
+                $orderedQuery->whereNotIn('status', ['completed', 'received']);
+            }
+            $financeSummary['ordered_materials_services'] = (float) $orderedQuery->sum('amount');
+        }
+
+        $financeSummary['balance'] = $financeSummary['project_value']
+            - $financeSummary['cost_invoices']
+            - $financeSummary['ordered_materials_services'];
+
+        return compact('importedCostRows', 'issuedInvoiceRows', 'orderRows', 'importedCostGroupSummaries', 'financeSummary');
+    }
+
+    // -----------------------------------------------------------------------
     // Order supplier picker API
     // -----------------------------------------------------------------------
 

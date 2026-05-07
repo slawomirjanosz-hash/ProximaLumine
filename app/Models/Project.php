@@ -24,6 +24,7 @@ class Project extends Model
         'public_gantt_token',
         'source_offer_id',
         'crm_company_id',
+        'public_finance_token',
     ];
 
     protected $casts = [
@@ -100,6 +101,23 @@ class Project extends Model
             $this->generatePublicGanttToken();
         }
         return url('/public/gantt/' . $this->public_gantt_token);
+    }
+
+    public function generatePublicFinanceToken()
+    {
+        if (!$this->public_finance_token) {
+            $this->public_finance_token = bin2hex(random_bytes(32));
+            $this->save();
+        }
+        return $this->public_finance_token;
+    }
+
+    public function getPublicFinanceUrl()
+    {
+        if (!$this->public_finance_token) {
+            $this->generatePublicFinanceToken();
+        }
+        return url('/public/finance/' . $this->public_finance_token);
     }
 
     /**

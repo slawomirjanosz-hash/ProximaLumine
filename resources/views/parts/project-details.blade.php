@@ -715,6 +715,13 @@
                 <span class="text-green-600">💰</span>
                 Harmonogram finansowy
             </h3>
+            <div class="ml-auto">
+                <button type="button" id="btn-share-finance"
+                    onclick="shareFinanceLink({{ $project->id }})"
+                    class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded hover:bg-indigo-100 text-sm font-semibold transition-colors">
+                    🔗 <span>Udostępnij</span>
+                </button>
+            </div>
         </div>
         <div id="finance-section-content" class="hidden">
             <p class="text-gray-600 text-sm mb-4">Zarządzaj przychodami i wydatkami projektu w czasie:</p>
@@ -5251,6 +5258,39 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+</script>
+
+<script>
+function shareFinanceLink(projectId) {
+    const btn = document.getElementById('btn-share-finance');
+    if (btn) { btn.disabled = true; btn.querySelector('span').textContent = 'Generuję…'; }
+    fetch(`/projekty/${projectId}/generate-public-finance`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        const url = data.url;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(() => {
+                alert('✅ Link skopiowany do schowka!\n\n' + url + '\n\nMożesz go wysłać kolegom. Link pokazuje aktualne dane finansowe projektu bez możliwości edycji.');
+            }).catch(() => {
+                prompt('Link publiczny do harmonogramu finansowego (skopiuj ręcznie):', url);
+            });
+        } else {
+            prompt('Link publiczny do harmonogramu finansowego (skopiuj ręcznie):', url);
+        }
+    })
+    .catch(err => {
+        alert('❌ Błąd generowania linku: ' + err.message);
+    })
+    .finally(() => {
+        if (btn) { btn.disabled = false; btn.querySelector('span').textContent = 'Udostępnij'; }
+    });
+}
 </script>
 
 {{-- MODAL: Wybierz listę projektową --}}

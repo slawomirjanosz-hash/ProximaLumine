@@ -2352,6 +2352,10 @@ Route::middleware('auth')->group(function () {
 // Publiczny widok Gantt (bez auth)
 Route::get('/public/gantt/{token}', [PartController::class, 'showPublicGantt'])->name('public.gantt');
 
+// Publiczny widok Harmonogramu finansowego (bez auth)
+Route::get('/public/finance/{token}', [PartController::class, 'showPublicFinance'])->name('public.finance');
+Route::post('/projekty/{project}/generate-public-finance', [PartController::class, 'generatePublicFinanceUrl'])->name('magazyn.projects.generatePublicFinance')->middleware('auth');
+
 // Publiczne API dla Gantt (bez auth, read-only)
 Route::prefix('api/public/gantt')->group(function () {
     Route::get('/{token}', [\App\Http\Controllers\GanttTaskController::class, 'publicIndex']);
