@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Edytuj OfertÄ™</title>
+    <title>Edytuj Ofertę</title>
     <link rel="icon" type="image/png" href="{{ asset('logo_proxima_male.png') }}">
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     @vite(['resources/css/app.css'])
@@ -15,18 +15,18 @@
     <main class="w-full flex-1 p-6">
         <div class="w-full bg-white rounded shadow p-6 relative">
                         @if(auth()->user() && (auth()->user()->is_admin || strtolower(auth()->user()->email) === 'admin@admin.com'))
-                        <form method="POST" action="{{ route('offers.destroy', $offer) }}" onsubmit="return confirm('Czy na pewno chcesz usunÄ…Ä‡ tÄ™ ofertÄ™?');" class="absolute top-4 right-4">
+                        <form method="POST" action="{{ route('offers.destroy', $offer) }}" onsubmit="return confirm('Czy na pewno chcesz usunąć tę ofertę?');" class="absolute top-4 right-4">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 border border-red-300 shadow rounded-full hover:bg-red-200 hover:text-red-800 transition">
                                 <svg xmlns='http://www.w3.org/2000/svg' class='h-5 w-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12' /></svg>
-                                UsuĹ„ ofertÄ™
+                                Usuń ofertę
                             </button>
                         </form>
                         @endif
             <a href="javascript:void(0)" onclick="handleBack()" class="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 shadow rounded-full text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition z-10">
                 <svg xmlns='http://www.w3.org/2000/svg' class='h-5 w-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 19l-7-7 7-7' /></svg>
-                PowrĂłt
+                Powrót
             </a>
             
             <h1 class="text-3xl font-bold mb-6 text-center mt-12">Edycja oferty</h1>
@@ -38,7 +38,7 @@
                 <!-- Przypisanie do szansy CRM -->
                 <div class="mb-4 p-3 bg-green-50 border border-green-300 rounded">
                     <div class="flex items-center gap-2 flex-wrap">
-                        <label class="text-sm font-semibold text-green-900 whitespace-nowrap">đźŽŻ Przypisz do szansy:</label>
+                        <label class="text-sm font-semibold text-green-900 whitespace-nowrap">🎯 Przypisz do szansy:</label>
                         <select id="crm-deal-select" name="crm_deal_id" class="flex-1 min-w-0 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500" onchange="updateDealInfo(this.value)">
                             <option value="">-- Brak przypisania --</option>
                             @foreach($deals as $d)
@@ -53,17 +53,17 @@
                             @endforeach
                         </select>
                         @if($offer->crm_deal_id)
-                        <button type="button" onclick="detachDeal()" class="px-2 py-1 bg-red-100 text-red-700 border border-red-300 rounded hover:bg-red-200 transition text-sm font-semibold whitespace-nowrap" title="Odepnij szansÄ™ od tej oferty">
-                            âś‚ď¸Ź Odepnij szansÄ™
+                        <button type="button" onclick="detachDeal()" class="px-2 py-1 bg-red-100 text-red-700 border border-red-300 rounded hover:bg-red-200 transition text-sm font-semibold whitespace-nowrap" title="Odepnij szansę od tej oferty">
+                            ✂️ Odepnij szansę
                         </button>
                         @endif
                     </div>
                     <div id="deal-info" class="mt-1 flex items-baseline gap-2 text-sm @if(!$offer->crmDeal) hidden @endif">
-                        <span class="font-medium text-blue-800 whitespace-nowrap">SzczegĂłĹ‚y szansy:</span>
+                        <span class="font-medium text-blue-800 whitespace-nowrap">Szczegóły szansy:</span>
                         <p class="text-blue-700">
                             <strong id="deal-name">{{ $offer->crmDeal ? $offer->crmDeal->name : '' }}</strong>
-                            <span id="deal-company" class="ml-2">{{ $offer->crmDeal && $offer->crmDeal->company ? 'â€˘ Firma: ' . $offer->crmDeal->company->name : '' }}</span>
-                            <span id="deal-value" class="ml-2">{{ $offer->crmDeal ? 'â€˘ WartoĹ›Ä‡: ' . number_format($offer->crmDeal->value, 2, ',', ' ') . ' ' . $offer->crmDeal->currency : '' }}</span>
+                            <span id="deal-company" class="ml-2">{{ $offer->crmDeal && $offer->crmDeal->company ? '• Firma: ' . $offer->crmDeal->company->name : '' }}</span>
+                            <span id="deal-value" class="ml-2">{{ $offer->crmDeal ? '• Wartość: ' . number_format($offer->crmDeal->value, 2, ',', ' ') . ' ' . $offer->crmDeal->currency : '' }}</span>
                         </p>
                     </div>
                 </div>
@@ -75,7 +75,7 @@
                         <input type="text" name="offer_number" value="{{ $offer->offer_number }}" class="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-36" required>
                     </div>
                     <div class="flex items-center gap-1.5 flex-1 min-w-[16rem]">
-                        <label class="text-sm font-medium text-gray-700 whitespace-nowrap">TytuĹ‚ oferty:</label>
+                        <label class="text-sm font-medium text-gray-700 whitespace-nowrap">Tytuł oferty:</label>
                         <input type="text" name="offer_title" value="{{ $offer->offer_title }}" class="flex-1 min-w-0 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
                     </div>
                     <div class="flex items-center gap-1.5">
@@ -87,9 +87,9 @@
                 <!-- Dane klienta -->
                 <div class="border border-blue-300 rounded p-3 bg-blue-50">
                     <div class="flex items-center gap-2 flex-wrap mb-3">
-                        <label class="text-sm font-semibold text-blue-900 whitespace-nowrap">đź‘¤ Dane klienta â€” wybierz z bazy lub przypisz rÄ™cznie:</label>
+                        <label class="text-sm font-semibold text-blue-900 whitespace-nowrap">👤 Dane klienta — wybierz z bazy lub przypisz ręcznie:</label>
                         <select id="company-select" class="flex-1 min-w-0 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" onchange="fillCustomerData(this.value)">
-                            <option value="">-- Wybierz firmÄ™ z CRM --</option>
+                            <option value="">-- Wybierz klienta --</option>
                             @foreach($companies as $company)
                                 <option value="{{ $company->id }}"
                                     data-name="{{ $company->name }}"
@@ -103,7 +103,7 @@
                                 </option>
                             @endforeach
                         </select>
-                        <button type="button" onclick="clearCustomerData()" class="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm whitespace-nowrap">WyczyĹ›Ä‡</button>
+                        <button type="button" onclick="clearCustomerData()" class="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm whitespace-nowrap">Wyczyść</button>
                     </div>
 
                     <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -139,36 +139,36 @@
                     </div>
                 </div>
 
-                <!-- Ustawienia dokumentĂłw (PDF / Word) -->
+                <!-- Ustawienia dokumentów (PDF / Word) -->
                 <div class="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded">
                     <label class="flex items-center gap-2 cursor-pointer select-none">
                         <input type="checkbox" id="show-unit-prices-checkbox"
                             onchange="document.getElementById('show-unit-prices-input').value = this.checked ? '1' : '0'"
                             @if($showUnitPrices) checked @endif
                             class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
-                        <span class="text-sm font-medium text-gray-700">PokaĹĽ ceny jednostkowe w PDF / Word</span>
+                        <span class="text-sm font-medium text-gray-700">Pokaż ceny jednostkowe w PDF / Word</span>
                     </label>
                     <input type="hidden" id="show-unit-prices-input" name="show_unit_prices" value="{{ $showUnitPrices ? '1' : '0' }}">
-                    <span class="text-xs text-gray-400">(gdy odznaczone â€” w dokumencie widoczna jest tylko cena koĹ„cowa)</span>
+                    <span class="text-xs text-gray-400">(gdy odznaczone — w dokumencie widoczna jest tylko cena końcowa)</span>
                 </div>
 
-                <!-- Sekcja UsĹ‚ugi -->
+                <!-- Sekcja Usługi -->
                 <div id="section-services" class="border border-gray-300 rounded" @if(!$servicesEnabled) style="display:none;" @endif>
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center hover:bg-gray-100 transition" onclick="toggleSection('services')">
                             <span class="font-semibold text-lg section-name text-left" id="services-name-label" style="min-width:0;">{{ $servicesName }}</span>
                             <span class="flex-1"></span>
                             <span class="mr-3 whitespace-nowrap font-semibold text-lg text-right" style="min-width:120px;">
-                                <span id="services-header-sum" class="text-gray-600">0,00 zĹ‚</span>
+                                <span id="services-header-sum" class="text-gray-600">0,00 zł</span>
                                 <span class="text-gray-400"> / </span>
-                                <span id="services-header-profit" class="text-green-600">0,00 zĹ‚</span>
+                                <span id="services-header-profit" class="text-green-600">0,00 zł</span>
                             </span>
                             <svg id="services-icon" class="h-5 w-5 transform transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </button>
-                        <button type="button" onclick="editSectionName('services')" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwÄ™">
+                        <button type="button" onclick="editSectionName('services')" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13h3l8-8a2.828 2.828 0 00-4-4l-8 8v3z" /></svg>
                         </button>
-                        <button type="button" onclick="removeMainSection('services')" class="ml-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="UsuĹ„ sekcjÄ™">
+                        <button type="button" onclick="removeMainSection('services')" class="ml-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="Usuń sekcję">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                     </div>
@@ -181,11 +181,11 @@
                                     <th class="p-1 text-left w-10">Nr</th>
                                     <th class="p-1 text-left w-[28%]">Nazwa</th>
                                     <th class="p-1 text-left w-[28%]">Opis</th>
-                                    <th class="p-1 text-left w-16">IloĹ›Ä‡</th>
+                                    <th class="p-1 text-left w-16">Ilość</th>
                                     <th class="p-1 text-left w-[14%]">Dostawca</th>
-                                    <th class="p-1 text-left w-24">Cena (zĹ‚)</th>
+                                    <th class="p-1 text-left w-24">Cena (zł)</th>
                                     <th class="p-1 text-center w-24">Cena kat.</th>
-                                    <th class="p-1 text-left w-24">WartoĹ›Ä‡ (zĹ‚)</th>
+                                    <th class="p-1 text-left w-24">Wartość (zł)</th>
                                     <th class="p-1 w-24"></th>
                                 </tr>
                             </thead>
@@ -207,7 +207,7 @@
                                     <td class="p-1"><input type="number" step="0.01" name="services[{{ $index }}][price]" value="{{ $service['price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="services" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[{{ $index }}][catalog_price]" value="{{ $service['catalog_price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[{{ $index }}][value]" value="{{ ($service['quantity'] ?? 1) * ($service['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="services" readonly></td>
-                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'services')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="UsuĹ„"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'services', {{ $index }})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
+                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'services')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'services', {{ $index }})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                 </tr>
                                 @empty
                                 <tr>
@@ -226,39 +226,39 @@
                                     <td class="p-1"><input type="number" step="0.01" name="services[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="services" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[0][catalog_price]" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="services[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="services" readonly></td>
-                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'services')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="UsuĹ„"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'services', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
+                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'services')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'services', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                 </tr>
                                 @endforelse
                             </tbody>
                         </table>
                         <div class="flex gap-2">
                             <button type="button" onclick="addRow('services')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">+ Dodaj wiersz</button>
-                            <button type="button" onclick="openPartsCatalog('services')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">đź“‚ Wybierz z katalogu</button>
+                            <button type="button" onclick="openPartsCatalog('services')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">📂 Wybierz z katalogu</button>
                         </div>
                         <div class="mt-4 text-right">
                             <span class="font-semibold">Suma: </span>
-                            <span id="services-total" class="font-bold text-lg">0.00 zĹ‚</span>
+                            <span id="services-total" class="font-bold text-lg">0.00 zł</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Sekcja Prace wĹ‚asne -->
+                <!-- Sekcja Prace własne -->
                 <div id="section-works" class="border border-gray-300 rounded" @if(!$worksEnabled) style="display:none;" @endif>
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center hover:bg-gray-100 transition" onclick="toggleSection('works')">
                             <span class="font-semibold text-lg section-name text-left" id="works-name-label" style="min-width:0;">{{ $worksName }}</span>
                             <span class="flex-1"></span>
                             <span class="mr-3 whitespace-nowrap font-semibold text-lg text-right" style="min-width:120px;">
-                                <span id="works-header-sum" class="text-gray-600">0,00 zĹ‚</span>
+                                <span id="works-header-sum" class="text-gray-600">0,00 zł</span>
                                 <span class="text-gray-400"> / </span>
-                                <span id="works-header-profit" class="text-green-600">0,00 zĹ‚</span>
+                                <span id="works-header-profit" class="text-green-600">0,00 zł</span>
                             </span>
                             <svg id="works-icon" class="h-5 w-5 transform transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </button>
-                        <button type="button" onclick="editSectionName('works')" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwÄ™">
+                        <button type="button" onclick="editSectionName('works')" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13h3l8-8a2.828 2.828 0 00-4-4l-8 8v3z" /></svg>
                         </button>
-                        <button type="button" onclick="removeMainSection('works')" class="ml-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="UsuĹ„ sekcjÄ™">
+                        <button type="button" onclick="removeMainSection('works')" class="ml-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="Usuń sekcję">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                     </div>
@@ -271,11 +271,11 @@
                                     <th class="p-1 text-left w-10">Nr</th>
                                     <th class="p-1 text-left w-[28%]">Nazwa</th>
                                     <th class="p-1 text-left w-[28%]">Opis</th>
-                                    <th class="p-1 text-left w-16">IloĹ›Ä‡</th>
+                                    <th class="p-1 text-left w-16">Ilość</th>
                                     <th class="p-1 text-left w-[14%]">Dostawca</th>
-                                    <th class="p-1 text-left w-24">Cena (zĹ‚)</th>
+                                    <th class="p-1 text-left w-24">Cena (zł)</th>
                                     <th class="p-1 text-center w-24">Cena kat.</th>
-                                    <th class="p-1 text-left w-24">WartoĹ›Ä‡ (zĹ‚)</th>
+                                    <th class="p-1 text-left w-24">Wartość (zł)</th>
                                     <th class="p-1 w-24"></th>
                                 </tr>
                             </thead>
@@ -297,7 +297,7 @@
                                     <td class="p-1"><input type="number" step="0.01" name="works[{{ $index }}][price]" value="{{ $work['price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="works" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[{{ $index }}][catalog_price]" value="{{ $work['catalog_price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[{{ $index }}][value]" value="{{ ($work['quantity'] ?? 1) * ($work['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="works" readonly></td>
-                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'works')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="UsuĹ„"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'works', {{ $index }})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
+                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'works')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'works', {{ $index }})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                 </tr>
                                 @empty
                                 <tr>
@@ -316,39 +316,39 @@
                                     <td class="p-1"><input type="number" step="0.01" name="works[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="works" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[0][catalog_price]" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="works[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="works" readonly></td>
-                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'works')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="UsuĹ„"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'works', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
+                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'works')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'works', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                 </tr>
                                 @endforelse
                             </tbody>
                         </table>
                         <div class="flex gap-2">
                             <button type="button" onclick="addRow('works')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">+ Dodaj wiersz</button>
-                            <button type="button" onclick="openPartsCatalog('works')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">đź“‚ Wybierz z katalogu</button>
+                            <button type="button" onclick="openPartsCatalog('works')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">📂 Wybierz z katalogu</button>
                         </div>
                         <div class="mt-4 text-right">
                             <span class="font-semibold">Suma: </span>
-                            <span id="works-total" class="font-bold text-lg">0.00 zĹ‚</span>
+                            <span id="works-total" class="font-bold text-lg">0.00 zł</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Sekcja MateriaĹ‚y -->
+                <!-- Sekcja Materiały -->
                 <div id="section-materials" class="border border-gray-300 rounded" @if(!$materialsEnabled) style="display:none;" @endif>
                     <div class="flex items-center justify-between p-4 bg-gray-50">
                         <button type="button" class="flex-1 flex items-center hover:bg-gray-100 transition" onclick="toggleSection('materials')">
                             <span class="font-semibold text-lg section-name text-left" id="materials-name-label" style="min-width:0;">{{ $materialsName }}</span>
                             <span class="flex-1"></span>
                             <span class="mr-3 whitespace-nowrap font-semibold text-lg text-right" style="min-width:120px;">
-                                <span id="materials-header-sum" class="text-gray-600">0,00 zĹ‚</span>
+                                <span id="materials-header-sum" class="text-gray-600">0,00 zł</span>
                                 <span class="text-gray-400"> / </span>
-                                <span id="materials-header-profit" class="text-green-600">0,00 zĹ‚</span>
+                                <span id="materials-header-profit" class="text-green-600">0,00 zł</span>
                             </span>
                             <svg id="materials-icon" class="h-5 w-5 transform transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </button>
-                        <button type="button" onclick="editSectionName('materials')" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwÄ™">
+                        <button type="button" onclick="editSectionName('materials')" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13h3l8-8a2.828 2.828 0 00-4-4l-8 8v3z" /></svg>
                         </button>
-                        <button type="button" onclick="removeMainSection('materials')" class="ml-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="UsuĹ„ sekcjÄ™">
+                        <button type="button" onclick="removeMainSection('materials')" class="ml-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="Usuń sekcję">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                     </div>
@@ -361,11 +361,11 @@
                                     <th class="p-1 text-left w-10">Nr</th>
                                     <th class="p-1 text-left w-[28%]">Nazwa</th>
                                     <th class="p-1 text-left w-[28%]">Opis</th>
-                                    <th class="p-1 text-left w-16">IloĹ›Ä‡</th>
+                                    <th class="p-1 text-left w-16">Ilość</th>
                                     <th class="p-1 text-left w-[14%]">Dostawca</th>
-                                    <th class="p-1 text-left w-24">Cena (zĹ‚)</th>
+                                    <th class="p-1 text-left w-24">Cena (zł)</th>
                                     <th class="p-1 text-center w-24">Cena kat.</th>
-                                    <th class="p-1 text-left w-24">WartoĹ›Ä‡ (zĹ‚)</th>
+                                    <th class="p-1 text-left w-24">Wartość (zł)</th>
                                     <th class="p-1 w-24"></th>
                                 </tr>
                             </thead>
@@ -387,7 +387,7 @@
                                     <td class="p-1"><input type="number" step="0.01" name="materials[{{ $index }}][price]" value="{{ $material['price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="materials" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[{{ $index }}][catalog_price]" value="{{ $material['catalog_price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[{{ $index }}][value]" value="{{ ($material['quantity'] ?? 1) * ($material['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="materials" readonly></td>
-                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'materials')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="UsuĹ„"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'materials', {{ $index }})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
+                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'materials')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'materials', {{ $index }})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                 </tr>
                                 @empty
                                 <tr>
@@ -406,18 +406,18 @@
                                     <td class="p-1"><input type="number" step="0.01" name="materials[0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="materials" onchange="calculateRowValue(this)"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[0][catalog_price]" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                                     <td class="p-1"><input type="number" step="0.01" name="materials[0][value]" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="materials" readonly></td>
-                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'materials')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="UsuĹ„"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'materials', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
+                                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="removeRow(this, 'materials')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'materials', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                 </tr>
                                 @endforelse
                             </tbody>
                         </table>
                         <div class="flex gap-2">
                             <button type="button" onclick="addRow('materials')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">+ Dodaj wiersz</button>
-                            <button type="button" onclick="openPartsCatalog('materials')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">đź“‚ Wybierz z katalogu</button>
+                            <button type="button" onclick="openPartsCatalog('materials')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">📂 Wybierz z katalogu</button>
                         </div>
                         <div class="mt-4 text-right">
                             <span class="font-semibold">Suma: </span>
-                            <span id="materials-total" class="font-bold text-lg">0.00 zĹ‚</span>
+                            <span id="materials-total" class="font-bold text-lg">0.00 zł</span>
                         </div>
                     </div>
                 </div>
@@ -440,16 +440,16 @@
                                         <span class="font-semibold text-lg section-name text-left" id="custom{{ $sectionIndex + 1 }}-name-label" style="min-width:0;">{{ $customSection['name'] ?? 'Sekcja ' . ($sectionIndex + 1) }}</span>
                                         <span class="flex-1"></span>
                                         <span class="mr-3 whitespace-nowrap font-semibold text-lg text-right" style="min-width:120px;">
-                                            <span id="custom{{ $sectionIndex + 1 }}-header-sum" class="text-gray-600">0,00 zĹ‚</span>
+                                            <span id="custom{{ $sectionIndex + 1 }}-header-sum" class="text-gray-600">0,00 zł</span>
                                             <span class="text-gray-400"> / </span>
-                                            <span id="custom{{ $sectionIndex + 1 }}-header-profit" class="text-green-600">0,00 zĹ‚</span>
+                                            <span id="custom{{ $sectionIndex + 1 }}-header-profit" class="text-green-600">0,00 zł</span>
                                         </span>
                                         <svg id="custom{{ $sectionIndex + 1 }}-icon" class="h-5 w-5 transform transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                                     </button>
-                                    <button type="button" onclick="editSectionName('custom{{ $sectionIndex + 1 }}', {{ $sectionIndex + 1 }})" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwÄ™">
+                                    <button type="button" onclick="editSectionName('custom{{ $sectionIndex + 1 }}', {{ $sectionIndex + 1 }})" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
                                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13h3l8-8a2.828 2.828 0 00-4-4l-8 8v3z" /></svg>
                                     </button>
-                                    <button type="button" onclick="removeCustomSection('custom{{ $sectionIndex + 1 }}')" class="ml-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="UsuĹ„ sekcjÄ™">
+                                    <button type="button" onclick="removeCustomSection('custom{{ $sectionIndex + 1 }}')" class="ml-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="Usuń sekcję">
                                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                     </button>
                                 </div>
@@ -461,11 +461,11 @@
                                                 <th class="p-1 text-left w-10">Nr</th>
                                                 <th class="p-1 text-left w-[28%]">Nazwa</th>
                                                 <th class="p-1 text-left w-[28%]">Opis</th>
-                                                <th class="p-1 text-left w-16">IloĹ›Ä‡</th>
+                                                <th class="p-1 text-left w-16">Ilość</th>
                                                 <th class="p-1 text-left w-[14%]">Dostawca</th>
-                                                <th class="p-1 text-left w-24">Cena (zĹ‚)</th>
+                                                <th class="p-1 text-left w-24">Cena (zł)</th>
                                                 <th class="p-1 text-center w-24">Cena kat.</th>
-                                                <th class="p-1 text-left w-24">WartoĹ›Ä‡ (zĹ‚)</th>
+                                                <th class="p-1 text-left w-24">Wartość (zł)</th>
                                                 <th class="p-1 w-24"></th>
                                             </tr>
                                         </thead>
@@ -487,7 +487,7 @@
                                                     <td class="p-1"><input type="number" step="0.01" name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][price]" value="{{ $item['price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="custom{{ $sectionIndex + 1 }}" onchange="calculateRowValue(this)"></td>
                                                     <td class="p-1"><input type="number" step="0.01" name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][catalog_price]" value="{{ $item['catalog_price'] ?? '' }}" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                                                     <td class="p-1"><input type="number" step="0.01" name="custom_sections[{{ $sectionIndex + 1 }}][items][{{ $itemIndex }}][value]" value="{{ ($item['quantity'] ?? 1) * ($item['price'] ?? 0) }}" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="custom{{ $sectionIndex + 1 }}" readonly></td>
-                                                    <td class="p-1"><div class="flex items-center gap-0.5">@if($itemIndex > 0)<button type="button" onclick="removeRow(this, 'custom{{ $sectionIndex + 1 }}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="UsuĹ„"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>@endif<button type="button" onclick="addProductToCatalog(this, 'custom_sections[{{ $sectionIndex + 1 }}][items]', {{ $itemIndex }})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
+                                                    <td class="p-1"><div class="flex items-center gap-0.5">@if($itemIndex > 0)<button type="button" onclick="removeRow(this, 'custom{{ $sectionIndex + 1 }}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>@endif<button type="button" onclick="addProductToCatalog(this, 'custom_sections[{{ $sectionIndex + 1 }}][items]', {{ $itemIndex }})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                                                 </tr>
                                             @empty
                                                 <tr>
@@ -513,11 +513,11 @@
                                     </table>
                                     <div class="flex gap-2">
                                         <button type="button" onclick="addCustomRow('custom{{ $sectionIndex + 1 }}', {{ $sectionIndex + 1 }})" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">+ Dodaj wiersz</button>
-                                        <button type="button" onclick="openPartsCatalog('custom{{ $sectionIndex + 1 }}')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">đź“‚ Wybierz z katalogu</button>
+                                        <button type="button" onclick="openPartsCatalog('custom{{ $sectionIndex + 1 }}')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">📂 Wybierz z katalogu</button>
                                     </div>
                                     <div class="mt-4 text-right">
                                         <span class="font-semibold">Suma: </span>
-                                        <span id="custom{{ $sectionIndex + 1 }}-total" class="font-bold text-lg">0.00 zĹ‚</span>
+                                        <span id="custom{{ $sectionIndex + 1 }}-total" class="font-bold text-lg">0.00 zł</span>
                                     </div>
                                 </div>
                             </div>
@@ -529,20 +529,20 @@
                 <div class="text-center">
                     <button type="button" onclick="addCustomSection()" class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2 mx-auto">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                        Dodaj nowÄ… sekcjÄ™
+                        Dodaj nową sekcję
                     </button>
                 </div>
 
-                <!-- Suma koĹ„cowa + Zysk -->
+                <!-- Suma końcowa + Zysk -->
                 <div class="bg-gray-50 p-4 rounded border border-gray-300 text-sm text-gray-600">
                     <div class="flex items-center justify-end gap-6 mb-2">
-                        <span>Koszty: <b class="font-semibold text-gray-800" id="costs-display">0,00 zĹ‚</b></span>
-                        <span>Oferta: <b class="font-semibold text-gray-800" id="offer-display">0,00 zĹ‚</b></span>
+                        <span>Koszty: <b class="font-semibold text-gray-800" id="costs-display">0,00 zł</b></span>
+                        <span>Oferta: <b class="font-semibold text-gray-800" id="offer-display">0,00 zł</b></span>
                         <span id="grand-total" class="hidden"></span>
                     </div>
                     <div class="flex items-center justify-end gap-3 mb-2">
                         <span>Zysk:</span>
-                        <span id="built-in-profit-display" class="w-44 text-right">0,00 zĹ‚ (0,0%)</span>
+                        <span id="built-in-profit-display" class="w-44 text-right">0,00 zł (0,0%)</span>
                     </div>
                     <div class="flex flex-wrap items-center justify-end gap-3 mb-2">
                         <span>Zysk dodatkowy:</span>
@@ -553,20 +553,20 @@
                         <span class="text-gray-400">lub</span>
                         <div class="flex items-center gap-1">
                             <input type="number" id="profit-amount-input" name="profit_amount" min="0" step="0.01" value="{{ $offer->profit_amount ?? 0 }}" class="w-32 px-2 py-1 border rounded text-sm text-right focus:ring-2 focus:ring-blue-300" oninput="updateProfitFromAmount()">
-                            <span>zĹ‚</span>
+                            <span>zł</span>
                         </div>
                     </div>
                     <div class="flex items-center justify-end gap-3 mb-2">
-                        <span class="font-medium text-gray-700">ĹÄ…czny zysk:</span>
-                        <span id="total-profit-display" class="font-semibold text-gray-700 w-44 text-right">0,00 zĹ‚ (0,0%)</span>
+                        <span class="font-medium text-gray-700">Łączny zysk:</span>
+                        <span id="total-profit-display" class="font-semibold text-gray-700 w-44 text-right">0,00 zł (0,0%)</span>
                     </div>
                     <div class="flex items-center justify-end gap-3 font-semibold text-gray-800">
                         <span>Razem z zyskiem:</span>
-                        <span id="total-with-profit" class="text-lg w-44 text-right text-green-700">0,00 zĹ‚</span>
+                        <span id="total-with-profit" class="text-lg w-44 text-right text-green-700">0,00 zł</span>
                     </div>
                 </div>
 
-                <!-- Harmonogram i Warunki PĹ‚atnoĹ›ci -->
+                <!-- Harmonogram i Warunki Płatności -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <!-- Harmonogram -->
                     <div class="border border-gray-300 rounded bg-white">
@@ -592,10 +592,10 @@
                         </div>
                     </div>
 
-                    <!-- Warunki PĹ‚atnoĹ›ci -->
+                    <!-- Warunki Płatności -->
                     <div class="border border-gray-300 rounded bg-white">
                         <div class="p-3 bg-gray-50 border-b">
-                            <span class="font-semibold text-gray-800">Warunki pĹ‚atnoĹ›ci</span>
+                            <span class="font-semibold text-gray-800">Warunki płatności</span>
                         </div>
                         <div class="p-3">
                             <table class="w-full text-xs border-collapse">
@@ -624,7 +624,7 @@
 
                 <!-- Miejsce docelowe oferty -->
                 <div class="border-t pt-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Gdzie ma wylÄ…dowaÄ‡ oferta?</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Gdzie ma wylądować oferta?</label>
                     <select name="destination" class="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
                         <option value="portfolio" {{ $offer->status === 'portfolio' ? 'selected' : '' }}>Portfolio</option>
                         <option value="inprogress" {{ $offer->status === 'inprogress' ? 'selected' : '' }}>Oferty w toku</option>
@@ -632,11 +632,11 @@
                 </div>
 
                 <!-- Przycisk Zapisz -->
-                <!-- Podsumowanie dostawcĂłw -->
+                <!-- Podsumowanie dostawców -->
                 <div class="bg-blue-50 border border-blue-300 rounded p-4 mb-6">
-                    <h3 class="text-lg font-semibold mb-2 text-blue-900">Podsumowanie dostawcĂłw</h3>
+                    <h3 class="text-lg font-semibold mb-2 text-blue-900">Podsumowanie dostawców</h3>
                     <div id="suppliers-summary">
-                        <!-- Tu pojawi siÄ™ podsumowanie JS -->
+                        <!-- Tu pojawi się podsumowanie JS -->
                     </div>
                 </div>
                 <div class="text-center">
@@ -644,9 +644,9 @@
                         Zapisz zmiany
                     </button>
                 </div>
-                <!-- PĹ‚ywajÄ…cy przycisk submit -->
+                <!-- Pływający przycisk submit -->
                 <button id="float-save-btn" type="submit" style="position:fixed; bottom:28px; right:28px; z-index:99999; padding:16px 28px; border:none; border-radius:50px; font-size:17px; font-weight:bold; color:#fff; background:#16a34a; box-shadow:0 6px 20px rgba(0,0,0,0.3); cursor:pointer; transition:background 0.2s;">
-                    đź’ľ Zapisz zmiany
+                    💾 Zapisz zmiany
                 </button>
             </form>
         </div>
@@ -684,7 +684,7 @@ function renderSupplierSummary() {
     }
     const table = document.createElement('table');
     table.className = 'w-full text-sm';
-    table.innerHTML = '<thead><tr><th class="text-left p-1">Dostawca</th><th class="text-right p-1">Suma (zĹ‚)</th></tr></thead>';
+    table.innerHTML = '<thead><tr><th class="text-left p-1">Dostawca</th><th class="text-right p-1">Suma (zł)</th></tr></thead>';
     const tbody = document.createElement('tbody');
     keys.forEach(supplier => {
         const tr = document.createElement('tr');
@@ -695,7 +695,7 @@ function renderSupplierSummary() {
     container.appendChild(table);
 }
 
-// OdĹ›wieĹĽ podsumowanie po kaĹĽdej zmianie
+// Odśwież podsumowanie po każdej zmianie
 document.addEventListener('input', function(e) {
     if (e.target.matches('select[name*="[supplier]"]') || e.target.matches('input[name*="[value]"]')) {
         renderSupplierSummary();
@@ -710,11 +710,11 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
 </script>
     </main>
 
-    <!-- Modal katalogu czÄ™Ĺ›ci -->
+    <!-- Modal katalogu części -->
     <div id="parts-catalog-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
         <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
             <div class="p-4 border-b flex items-center justify-between">
-                <h3 class="text-xl font-bold">Katalog czÄ™Ĺ›ci z magazynu</h3>
+                <h3 class="text-xl font-bold">Katalog części z magazynu</h3>
                 <button type="button" onclick="closePartsCatalog()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
             <div class="p-4 border-b">
@@ -743,7 +743,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                                 <th class="p-2 text-left w-[34%]">Nazwa</th>
                                 <th class="p-2 text-left w-[34%]">Opis</th>
                                 <th class="p-2 text-left w-[17%]">Dostawca</th>
-                                <th class="p-2 text-left w-20">IloĹ›Ä‡</th>
+                                <th class="p-2 text-left w-20">Ilość</th>
                                 <th class="p-2 text-left w-24">Cena netto</th>
                                 <th class="p-2 text-left w-24">Cena kat.</th>
                             </tr>
@@ -760,7 +760,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
     </div>
 
     <script>
-        // Bezpieczna lista dostawcĂłw jako dane JSON
+        // Bezpieczna lista dostawców jako dane JSON
         const _supplierOptionsHtml = (function() {
             var d = @json(collect($suppliers ?? [])->map(fn($s) => ['v' => $s->name, 'l' => $s->short_name ?: $s->name])->values());
             function esc(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -798,10 +798,10 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 if (response.ok) {
                     alert('Produkt dodany do katalogu!');
                 } else {
-                    alert('BĹ‚Ä…d dodawania produktu do katalogu.');
+                    alert('Błąd dodawania produktu do katalogu.');
                 }
             } catch (e) {
-                alert('BĹ‚Ä…d sieci podczas dodawania produktu.');
+                alert('Błąd sieci podczas dodawania produktu.');
             }
         }
 
@@ -816,12 +816,12 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         let _grandTotalRaw = 0;
         let _sectionTotals = {};
         
-        // Zmienne dla katalogu czÄ™Ĺ›ci
+        // Zmienne dla katalogu części
         let allParts = [];
         let filteredParts = [];
         let currentCatalogSection = 'materials';
         
-        // Inicjalizuj istniejÄ…ce sekcje niestandardowe
+        // Inicjalizuj istniejące sekcje niestandardowe
         @if(isset($offer->custom_sections) && is_array($offer->custom_sections))
             @php
                 $customSectionsList = [];
@@ -837,7 +837,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             @endforeach
         @endif
 
-        // Oblicz sumy przy Ĺ‚adowaniu
+        // Oblicz sumy przy ładowaniu
         function autoResizeTextarea(ta) {
             ta.style.overflowY = 'hidden';
             ta.style.height = 'auto';
@@ -867,19 +867,19 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 if (ta.offsetParent !== null) autoResizeTextarea(ta);
             });
 
-            // Inicjalizuj istniejÄ…ce wiersze harmonogramu
+            // Inicjalizuj istniejące wiersze harmonogramu
             @foreach($offer->schedule ?? [] as $row)
             addScheduleRow('{{ addslashes($row['milestone'] ?? '') }}', '{{ $row['date'] ?? '' }}', '{{ addslashes($row['description'] ?? '') }}');
             @endforeach
 
-            // Inicjalizuj istniejÄ…ce warunki pĹ‚atnoĹ›ci
+            // Inicjalizuj istniejące warunki płatności
             @foreach($offer->payment_terms ?? [] as $term)
             addPaymentRow('{{ addslashes($term['description'] ?? '') }}', '{{ $term['percent'] ?? '' }}', '{{ addslashes($term['deadline'] ?? '') }}');
             @endforeach
         });
 
         // ===========================================
-        // OBSĹUGA KATALOGU CZÄĹšCI
+        // OBSŁUGA KATALOGU CZĘŚCI
         // ===========================================
         async function openPartsCatalog(section = 'materials') {
             currentCatalogSection = section;
@@ -913,45 +913,45 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error('BĹ‚Ä…d HTTP:', response.status, errorText);
+                    console.error('Błąd HTTP:', response.status, errorText);
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
                 let data = await response.json();
                 console.log('=== DEBUG: Otrzymane dane z API ===');
-                console.log('PeĹ‚na odpowiedĹş:', data);
+                console.log('Pełna odpowiedź:', data);
                 console.log('Typ danych:', typeof data);
                 console.log('Czy tablica:', Array.isArray(data));
                 if (typeof data === 'object' && data !== null) {
                     console.log('Klucze obiektu:', Object.keys(data));
                 }
-                console.log('DĹ‚ugoĹ›Ä‡ (length):', data.length);
+                console.log('Długość (length):', data.length);
                 console.log('===================================');
                 
-                // SprawdĹş czy API zwrĂłciĹ‚o bĹ‚Ä…d (obiekt z kluczem 'error')
+                // Sprawdź czy API zwróciło błąd (obiekt z kluczem 'error')
                 if (data && typeof data === 'object' && data.error) {
-                    console.error('API zwrĂłciĹ‚o bĹ‚Ä…d:', data);
-                    throw new Error(data.message || data.error || 'Nieznany bĹ‚Ä…d API');
+                    console.error('API zwróciło błąd:', data);
+                    throw new Error(data.message || data.error || 'Nieznany błąd API');
                 }
                 
-                // WYMUSZENIE TABLICY: Konwertuj obiekt na tablicÄ™ jeĹ›li nie jest juĹĽ tablicÄ…
+                // WYMUSZENIE TABLICY: Konwertuj obiekt na tablicę jeśli nie jest już tablicą
                 if (!Array.isArray(data)) {
                     if (typeof data === 'object' && data !== null) {
-                        console.warn('âš ď¸Ź API zwrĂłciĹ‚o obiekt zamiast tablicy - konwertujÄ™ automatycznie');
-                        console.log('Przed konwersjÄ…:', data);
-                        // UĹĽyj Object.values() aby wyciÄ…gnÄ…Ä‡ wartoĹ›ci
+                        console.warn('⚠️ API zwróciło obiekt zamiast tablicy - konwertuję automatycznie');
+                        console.log('Przed konwersją:', data);
+                        // Użyj Object.values() aby wyciągnąć wartości
                         data = Object.values(data);
                         console.log('Po konwersji (is array):', Array.isArray(data), 'length:', data.length);
                     } else {
-                        console.error('âťŚ API zwrĂłciĹ‚o nieprawidĹ‚owy typ:', typeof data);
-                        throw new Error('API zwrĂłciĹ‚o nieprawidĹ‚owy format danych (oczekiwano tablicy lub obiektu, otrzymano: ' + typeof data + ')');
+                        console.error('âťŚ API zwróciło nieprawidłowy typ:', typeof data);
+                        throw new Error('API zwróciło nieprawidłowy format danych (oczekiwano tablicy lub obiektu, otrzymano: ' + typeof data + ')');
                     }
                 }
                 
                 // Dodatkowa walidacja
                 if (!Array.isArray(data)) {
-                    console.error('âťŚ Konwersja nie powiodĹ‚a siÄ™, data nadal nie jest tablicÄ…');
-                    throw new Error('Nie udaĹ‚o siÄ™ przekonwertowaÄ‡ danych na tablicÄ™');
+                    console.error('âťŚ Konwersja nie powiodła się, data nadal nie jest tablicą');
+                    throw new Error('Nie udało się przekonwertować danych na tablicę');
                 }
                 
                 allParts = data;
@@ -963,20 +963,20 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 renderCatalog();
                 setupCatalogSearch();
             } catch (error) {
-                console.error('BĹ‚Ä…d Ĺ‚adowania katalogu:', error);
+                console.error('Błąd ładowania katalogu:', error);
                 
-                // Ukryj loading, pokaĹĽ treĹ›Ä‡ (ktĂłra wyĹ›wietli komunikat o bĹ‚Ä™dzie)
+                // Ukryj loading, pokaż treść (która wyświetli komunikat o błędzie)
                 document.getElementById('catalog-loading').classList.add('hidden');
                 document.getElementById('catalog-content').classList.remove('hidden');
                 
-                // WyĹ›wietl komunikat o bĹ‚Ä™dzie w tabeli
+                // Wyświetl komunikat o błędzie w tabeli
                 const tbody = document.getElementById('catalog-parts-list');
                 tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-red-600">
-                    Nie udaĹ‚o siÄ™ zaĹ‚adowaÄ‡ katalogu: ${error.message}<br>
-                    <small>Sprawdz konsolÄ™ przeglÄ…darki (F12) aby zobaczyÄ‡ szczegĂłĹ‚y.</small>
+                    Nie udało się załadować katalogu: ${error.message}<br>
+                    <small>Sprawdz konsolę przeglądarki (F12) aby zobaczyć szczegóły.</small>
                 </td></tr>`;
                 
-                alert('Nie udaĹ‚o siÄ™ zaĹ‚adowaÄ‡ katalogu czÄ™Ĺ›ci. BĹ‚Ä…d: ' + error.message);
+                alert('Nie udało się załadować katalogu części. Błąd: ' + error.message);
             }
         }
         
@@ -984,7 +984,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             const tbody = document.getElementById('catalog-parts-list');
             
             if (filteredParts.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500">Nie znaleziono czÄ™Ĺ›ci</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500">Nie znaleziono części</td></tr>';
                 return;
             }
             
@@ -1057,7 +1057,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             const selected = document.querySelectorAll('.part-checkbox:checked');
             
             if (selected.length === 0) {
-                alert('Nie wybrano ĹĽadnych czÄ™Ĺ›ci');
+                alert('Nie wybrano żadnych części');
                 return;
             }
             
@@ -1074,11 +1074,11 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 const safeDescription = escapeHtml(description || '');
                 const safeSupplier = escapeHtml(supplier || '');
                 
-                // Pobierz tabelÄ™ dla odpowiedniej sekcji
+                // Pobierz tabelę dla odpowiedniej sekcji
                 const table = document.getElementById(`${section}-table`);
                 const rowCount = rowCounters[section];
                 
-                // Ustal odpowiedniÄ… nazwÄ™ pola w formularzu
+                // Ustal odpowiednią nazwę pola w formularzu
                 let fieldPrefix;
                 if (isCustomSection) {
                     const sectionNumber = section.replace('custom', '');
@@ -1101,7 +1101,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                     <td class="p-1"><input type="number" step="0.01" name="${fieldPrefix}[price]" value="${price}" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                     <td class="p-1"><input type="number" step="0.01" name="${fieldPrefix}[catalog_price]" value="${catalogPrice}" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                     <td class="p-1"><input type="text" name="${fieldPrefix}[value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
-                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="WyĹĽej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="NiĹĽej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="removeRow(this, '${section}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="UsuĹ„"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
+                    <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Wyżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Niżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="removeRow(this, '${section}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                 `;
 
                 // Select the matching supplier
@@ -1274,7 +1274,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${section}" onchange="calculateRowValue(this)"></td>
                 <td class="p-1"><input type="number" step="0.01" name="${section}[${rowCount}][catalog_price]" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                 <td class="p-1"><input type="text" name="${section}[${rowCount}][value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${section}" readonly></td>
-                <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="WyĹĽej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="NiĹĽej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="removeRow(this, '${section}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="UsuĹ„"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
+                <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Wyżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${section}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Niżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="removeRow(this, '${section}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, '${section}', ${rowCount})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
             `;
             // Insert after last checked row, or append at end
             const allRows = table.querySelectorAll('tr');
@@ -1305,7 +1305,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         }
 
         function formatPrice(value) {
-            return value.toLocaleString('pl-PL', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' zĹ‚';
+            return value.toLocaleString('pl-PL', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' zł';
         }
 
         function moveRow(button, direction, section) {
@@ -1357,8 +1357,8 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 actionDiv = lastTd.querySelector('div.flex');
             }
             const frag = document.createRange().createContextualFragment(
-                '<button type="button" onclick="moveRow(this,\'up\',\'' + section + '\')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="WyĹĽej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button>' +
-                '<button type="button" onclick="moveRow(this,\'down\',\'' + section + '\')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="NiĹĽej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>'
+                '<button type="button" onclick="moveRow(this,\'up\',\'' + section + '\')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Wyżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button>' +
+                '<button type="button" onclick="moveRow(this,\'down\',\'' + section + '\')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Niżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>'
             );
             actionDiv.insertBefore(frag, actionDiv.firstChild);
         }
@@ -1453,7 +1453,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         }
 
         // ===========================================
-        // HARMONOGRAM I WARUNKI PĹATNOĹšCI
+        // HARMONOGRAM I WARUNKI PŁATNOŚCI
         // ===========================================
         let scheduleCount = 0;
         let paymentCount = 0;
@@ -1470,7 +1470,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 <td class="p-1 border text-center text-gray-500 text-xs">${idx + 1}</td>
                 <td class="p-1 border"><input type="text" name="schedule[${idx}][milestone]" value="${escapeHtml(milestone||'')}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                 <td class="p-1 border"><input type="text" name="schedule[${idx}][description]" value="${escapeHtml(description||'')}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                <td class="p-1 border text-center"><button type="button" onclick="this.closest('tr').remove(); reindexSchedule()" class="text-red-600 hover:text-red-800 text-xs">âś•</button></td>
+                <td class="p-1 border text-center"><button type="button" onclick="this.closest('tr').remove(); reindexSchedule()" class="text-red-600 hover:text-red-800 text-xs">✕</button></td>
             `;
             tbody.appendChild(tr);
         }
@@ -1493,7 +1493,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 <td class="p-1 border"><input type="text" name="payment_terms[${idx}][description]" value="${escapeHtml(description||'')}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
                 <td class="p-1 border"><input type="number" step="0.01" min="0" max="100" name="payment_terms[${idx}][percent]" value="${percent||''}" class="w-full px-1 py-0.5 border rounded text-xs text-right"></td>
                 <td class="p-1 border"><input type="text" name="payment_terms[${idx}][deadline]" value="${escapeHtml(deadline||'')}" class="w-full px-1 py-0.5 border rounded text-xs"></td>
-                <td class="p-1 border text-center"><button type="button" onclick="this.closest('tr').remove(); reindexPayment()" class="text-red-600 hover:text-red-800 text-xs">âś•</button></td>
+                <td class="p-1 border text-center"><button type="button" onclick="this.closest('tr').remove(); reindexPayment()" class="text-red-600 hover:text-red-800 text-xs">✕</button></td>
             `;
             tbody.appendChild(tr);
         }
@@ -1508,10 +1508,10 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         }
 
         // ===========================================
-        // OBSĹUGA DYNAMICZNYCH SEKCJI
+        // OBSŁUGA DYNAMICZNYCH SEKCJI
         // ===========================================
         function addCustomSection() {
-            const sectionName = prompt('Podaj nazwÄ™ nowej sekcji:');
+            const sectionName = prompt('Podaj nazwę nowej sekcji:');
             if (!sectionName || sectionName.trim() === '') {
                 return;
             }
@@ -1535,10 +1535,10 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                         </span>
                         <svg id="${sectionId}-icon" class="h-5 w-5 transform transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                     </button>
-                    <button type="button" onclick="editSectionName('${sectionId}', ${customSectionCounter})" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwÄ™">
+                    <button type="button" onclick="editSectionName('${sectionId}', ${customSectionCounter})" class="ml-2 px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Edytuj nazwę">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13h3l8-8a2.828 2.828 0 00-4-4l-8 8v3z" /></svg>
                     </button>
-                    <button type="button" onclick="removeCustomSection('${sectionId}')" class="ml-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="UsuĹ„ sekcjÄ™">
+                    <button type="button" onclick="removeCustomSection('${sectionId}')" class="ml-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="Usuń sekcję">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                 </div>
@@ -1551,10 +1551,10 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                                 <th class="p-1 text-left w-10">Nr</th>
                                 <th class="p-1 text-left w-[28%]">Nazwa</th>
                                 <th class="p-1 text-left w-[28%]">Opis</th>
-                                <th class="p-1 text-left w-16">IloĹ›Ä‡</th>
+                                <th class="p-1 text-left w-16">Ilość</th>
                                 <th class="p-1 text-left w-[14%]">Dostawca</th>
-                                <th class="p-1 text-left w-24">Cena (zĹ‚)</th>
-                                <th class="p-1 text-left w-24">WartoĹ›Ä‡ (zĹ‚)</th>
+                                <th class="p-1 text-left w-24">Cena (zł)</th>
+                                <th class="p-1 text-left w-24">Wartość (zł)</th>
                                 <th class="p-1 w-24"></th>
                             </tr>
                         </thead>
@@ -1568,17 +1568,17 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                                 <td class="p-1"><select name="custom_sections[${customSectionCounter}][items][0][supplier]" class="w-full px-1 py-0.5 border rounded text-xs">${supplierOptions}</select></td>
                                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${customSectionCounter}][items][0][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                                 <td class="p-1"><input type="text" name="custom_sections[${customSectionCounter}][items][0][value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
-                                <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="WyĹĽej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="NiĹĽej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="removeRow(this,'${sectionId}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="UsuĹ„"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'custom_sections[${customSectionCounter}][items]', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
+                                <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Wyżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Niżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="removeRow(this,'${sectionId}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'custom_sections[${customSectionCounter}][items]', 0)" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
                             </tr>
                         </tbody>
                     </table>
                     <div class="flex gap-2">
                         <button type="button" onclick="addCustomRow('${sectionId}', ${customSectionCounter})" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">+ Dodaj wiersz</button>
-                        <button type="button" onclick="openPartsCatalog('${sectionId}')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">đź“‚ Wybierz z katalogu</button>
+                        <button type="button" onclick="openPartsCatalog('${sectionId}')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">📂 Wybierz z katalogu</button>
                     </div>
                     <div class="mt-4 text-right">
                         <span class="font-semibold">Suma: </span>
-                        <span id="${sectionId}-total" class="font-bold text-lg">0.00 zĹ‚</span>
+                        <span id="${sectionId}-total" class="font-bold text-lg">0.00 zł</span>
                     </div>
                 </div>
             `;
@@ -1588,7 +1588,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             allCustomSections.forEach(sec => {
                 sec.style.marginBottom = '1rem';
             });
-            // Automatycznie rozwiĹ„ nowÄ… sekcjÄ™
+            // Automatycznie rozwiń nową sekcję
             toggleSection(sectionId);
         }
 
@@ -1596,7 +1596,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             const label = document.getElementById(`${sectionId}-name-label`);
             if (!label) return;
             const current = label.textContent;
-            const newName = prompt('Edytuj nazwÄ™ sekcji:', current);
+            const newName = prompt('Edytuj nazwę sekcji:', current);
             if (newName && newName.trim() !== '') {
                 label.textContent = newName.trim();
                 // For custom sections, update hidden input
@@ -1609,7 +1609,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         }
 
         function removeMainSection(sectionId) {
-            if (!confirm('Czy na pewno chcesz usunÄ…Ä‡ tÄ™ sekcjÄ™?')) {
+            if (!confirm('Czy na pewno chcesz usunąć tę sekcję?')) {
                 return;
             }
             // Hide the section and clear its rows
@@ -1625,7 +1625,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             // Reset total
             const total = document.getElementById(`${sectionId}-total`);
             if (total) {
-                total.textContent = '0.00 zĹ‚';
+                total.textContent = '0.00 zł';
             }
             const enabledInput = document.getElementById(`${sectionId}-enabled-input`);
             if (enabledInput) {
@@ -1640,7 +1640,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         }
         
         function removeCustomSection(sectionId) {
-            if (!confirm('Czy na pewno chcesz usunÄ…Ä‡ tÄ™ sekcjÄ™?')) {
+            if (!confirm('Czy na pewno chcesz usunąć tę sekcję?')) {
                 return;
             }
             
@@ -1677,7 +1677,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][price]" class="w-full px-1 py-0.5 border rounded text-xs price-input" data-section="${sectionId}" onchange="calculateRowValue(this)"></td>
                 <td class="p-1"><input type="number" step="0.01" name="custom_sections[${sectionNumber}][items][${rowCount}][catalog_price]" class="w-full px-1 py-0.5 border rounded text-xs catalog-price-input" placeholder="kat." oninput="updateBuiltInProfit()"></td>
                 <td class="p-1"><input type="text" name="custom_sections[${sectionNumber}][items][${rowCount}][value]" value="0" data-raw="0" data-formatted-init="1" class="w-full px-1 py-0.5 border rounded text-xs bg-gray-100 value-input" data-section="${sectionId}" readonly></td>
-                <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="WyĹĽej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="NiĹĽej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="removeRow(this, '${sectionId}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="UsuĹ„"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'custom_sections[${sectionNumber}][items]', ${rowCount})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
+                <td class="p-1"><div class="flex items-center gap-0.5"><button type="button" onclick="moveRow(this,'up','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Wyżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button><button type="button" onclick="moveRow(this,'down','${sectionId}')" class="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Niżej"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button><button type="button" onclick="removeRow(this, '${sectionId}')" class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50" title="Usuń"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button type="button" onclick="addProductToCatalog(this, 'custom_sections[${sectionNumber}][items]', ${rowCount})" class="p-0.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50" title="Dodaj do katalogu"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button></div></td>
             `;
             const allRows = table.querySelectorAll('tr');
             let lastChecked = null;
@@ -1693,7 +1693,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             return div.innerHTML;
         }
 
-        // Funkcje obsĹ‚ugi danych klienta
+        // Funkcje obsługi danych klienta
         function fillCustomerData(companyId) {
             if (!companyId) return;
             
@@ -1724,43 +1724,40 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             const nip = document.getElementById('customer_nip').value.replace(/[^0-9]/g, '');
             
             if (!nip || nip.length !== 10) {
-                alert('Podaj prawidĹ‚owy 10-cyfrowy NIP');
+                alert('Podaj prawidłowy 10-cyfrowy NIP');
                 return;
             }
             
+            const btn = document.querySelector('button[onclick="fetchFromGUS()"]');
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ Pobieranie...'; }
+            
             try {
-                const response = await fetch(`https://wl-api.mf.gov.pl/api/search/nip/${nip}?date=${new Date().toISOString().split('T')[0]}`);
-                
-                if (!response.ok) {
-                    throw new Error('Nie znaleziono danych w GUS');
-                }
+                const response = await fetch(`{{ route('crm.company.searchByNip') }}?nip=${encodeURIComponent(nip)}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    }
+                });
                 
                 const data = await response.json();
                 
-                if (data.result && data.result.subject) {
-                    const subject = data.result.subject;
-                    document.getElementById('customer_name').value = subject.name || '';
-                    document.getElementById('customer_nip').value = subject.nip || '';
-                    
-                    if (subject.workingAddress) {
-                        const addr = subject.workingAddress.split(',');
-                        if (addr.length >= 2) {
-                            document.getElementById('customer_address').value = addr[0].trim();
-                            const cityPostal = addr[1].trim().split(' ');
-                            if (cityPostal.length >= 2) {
-                                document.getElementById('customer_postal_code').value = cityPostal[0];
-                                document.getElementById('customer_city').value = cityPostal.slice(1).join(' ');
-                            }
-                        }
-                    }
-                    
-                    alert('Dane pobrane z GUS!');
+                if (data.success && data.data) {
+                    const d = data.data;
+                    document.getElementById('customer_name').value = d.name || '';
+                    document.getElementById('customer_nip').value = d.nip || '';
+                    document.getElementById('customer_address').value = d.address || '';
+                    document.getElementById('customer_city').value = d.city || '';
+                    document.getElementById('customer_postal_code').value = d.postal_code || '';
+                    alert('Dane pobrane: ' + (data.message || 'OK'));
                 } else {
-                    alert('Nie znaleziono firmy o podanym NIP');
+                    alert(data.message || 'Nie znaleziono firmy o podanym NIP');
                 }
             } catch (error) {
-                console.error('BĹ‚Ä…d pobierania danych z GUS:', error);
-                alert('BĹ‚Ä…d podczas pobierania danych z GUS: ' + error.message);
+                console.error('Błąd pobierania danych z GUS:', error);
+                alert('Błąd podczas pobierania danych: ' + error.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = 'GUS'; }
             }
         }
     </script>
@@ -1795,13 +1792,13 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         });
     });
     
-    // Odepnij szansÄ™ od oferty
+    // Odepnij szansę od oferty
     function detachDeal() {
-        if (!confirm('Czy na pewno odpiÄ…Ä‡ szansÄ™ CRM od tej oferty?')) return;
+        if (!confirm('Czy na pewno odpiąć szansę CRM od tej oferty?')) return;
         const select = document.getElementById('crm-deal-select');
         select.value = '';
         updateDealInfo('');
-        // Ukryj przycisk odepniÄ™cia
+        // Ukryj przycisk odepnięcia
         const detachBtn = document.querySelector('[onclick="detachDeal()"]');
         if (detachBtn) detachBtn.remove();
     }
@@ -1823,8 +1820,8 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         const currency = selectedOption.getAttribute('data-currency');
         
         document.getElementById('deal-name').textContent = name;
-        document.getElementById('deal-company').textContent = company ? `â€˘ Firma: ${company}` : '';
-        document.getElementById('deal-value').textContent = `â€˘ WartoĹ›Ä‡: ${value} ${currency}`;
+        document.getElementById('deal-company').textContent = company ? `• Firma: ${company}` : '';
+        document.getElementById('deal-value').textContent = `• Wartość: ${value} ${currency}`;
         
         dealInfo.classList.remove('hidden');
     }
@@ -1861,7 +1858,7 @@ document.addEventListener('input',  function(e) { if (e.target.closest('form')) 
 document.addEventListener('change', function(e) { if (e.target.closest('form')) { _formChanged = true; _updateSaveBtn(); } });
 function handleBack() {
     if (_formChanged) {
-        if (!confirm('Czy na pewno chcesz wyjĹ›Ä‡ bez zapisywania?')) {
+        if (!confirm('Czy na pewno chcesz wyjść bez zapisywania?')) {
             return;
         }
         _formChanged = false;

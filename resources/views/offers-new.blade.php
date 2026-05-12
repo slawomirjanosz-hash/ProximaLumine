@@ -124,18 +124,18 @@
                     <div class="flex items-center gap-2 flex-wrap mb-3">
                         <label class="text-sm font-semibold text-blue-900 whitespace-nowrap">👤 Dane klienta — wybierz z bazy lub przypisz ręcznie:</label>
                         <select id="company-select" class="flex-1 min-w-0 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" onchange="fillCustomerData(this.value)">
-                            <option value="">-- Wybierz firmę z CRM --</option>
+                            <option value="">-- Wybierz klienta --</option>
                             @foreach($companies as $company)
                                 <option value="{{ $company->id }}"
                                     data-name="{{ $company->name }}"
-                                    data-short-name="{{ $company->supplier->short_name ?? '' }}"
+                                    data-short-name="{{ $company->short_name ?? '' }}"
                                     data-nip="{{ $company->nip ?? '' }}"
                                     data-address="{{ $company->address ?? '' }}"
                                     data-city="{{ $company->city ?? '' }}"
                                     data-postal="{{ $company->postal_code ?? '' }}"
                                     data-phone="{{ $company->phone ?? '' }}"
                                     data-email="{{ $company->email ?? '' }}"
-                                    @if(isset($deal) && $deal && $deal->company_id == $company->id) selected @endif>
+                                    @if(isset($deal) && $deal && $deal->company && $deal->company->supplier_id == $company->id) selected @endif>
                                     {{ $company->name }}
                                 </option>
                             @endforeach

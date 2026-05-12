@@ -537,11 +537,11 @@ Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/nowa', funct
         
         $companies = [];
         try {
-            if (class_exists('\\App\\Models\\CrmCompany')) {
-                $companies = \App\Models\CrmCompany::with('supplier')->orderBy('name')->get();
+            if (class_exists('\\App\\Models\\Supplier')) {
+                $companies = \App\Models\Supplier::where('is_client', true)->orderBy('name')->get();
             }
         } catch (\Exception $e) {
-            \Log::warning('CRM companies not found: ' . $e->getMessage());
+            \Log::warning('Suppliers (clients) not found: ' . $e->getMessage());
         }
 
         // Fetch all suppliers for dropdown
@@ -1068,12 +1068,12 @@ Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/{offer}/edit
 
     $companies = [];
     try {
-        if (class_exists('\\App\\Models\\CrmCompany')) {
-            $companies = \App\Models\CrmCompany::orderBy('name')->get();
+        if (class_exists('\\App\\Models\\Supplier')) {
+            $companies = \App\Models\Supplier::where('is_client', true)->orderBy('name')->get();
         }
     } catch (\Exception $e) {
-        // CRM tables might not exist yet
-        \Log::warning('CRM companies not found: ' . $e->getMessage());
+        // Suppliers table might not exist yet
+        \Log::warning('Suppliers (clients) not found: ' . $e->getMessage());
     }
 
     // Fetch all suppliers for dropdown
