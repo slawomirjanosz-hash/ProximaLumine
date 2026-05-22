@@ -1390,6 +1390,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/magazyn/przyjmij', [PartController::class, 'receiveView'])->name('magazyn.receive')->middleware('permission:add');
     Route::get('/magazyn/pobierz', [PartController::class, 'removeView'])->name('magazyn.remove')->middleware('permission:remove');
     Route::get('/magazyn/sprawdz', [PartController::class, 'checkView'])->name('magazyn.check')->middleware('permission:view_catalog');
+    Route::get('/magazyn/inwentaryzacja', [PartController::class, 'inventoryView'])->name('magazyn.inventory')->middleware('permission:view_catalog');
+    Route::post('/magazyn/inwentaryzacja/scan', [PartController::class, 'inventoryScan'])->name('magazyn.inventory.scan')->middleware('permission:view_catalog');
+    Route::post('/magazyn/inwentaryzacja/correct', [PartController::class, 'inventoryCorrect'])->name('magazyn.inventory.correct')->middleware('permission:add');
     Route::get('/magazyn/zamowienia', [PartController::class, 'ordersView'])->name('magazyn.orders')->middleware('permission:orders');
     Route::get('/magazyn/ustawienia', [PartController::class, 'settingsView'])->name('magazyn.settings')->middleware('permission:settings');
     Route::get('/magazyn/sprawdz/eksport', [PartController::class, 'export'])->name('magazyn.check.export')->middleware('permission:view_catalog');

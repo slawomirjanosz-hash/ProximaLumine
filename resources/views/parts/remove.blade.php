@@ -2,6 +2,7 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Magazyn – Pobierz</title>
     <link rel="icon" type="image/png" href="{{ asset('logo_proxima_male.png') }}">
     @vite(['resources/css/app.css'])
@@ -87,6 +88,60 @@
         </div>
     </div>
 
+
+    {{-- SEKCJA: POBIERZ Z KATALOGU (TRYB SZYBKI – przycisk per wiersz) --}}
+    <div class="bg-white rounded shadow mb-6 border">
+        <button type="button" class="collapsible-btn w-full flex items-center gap-2 p-6 cursor-pointer hover:bg-gray-50" data-target="quick-remove-catalog-content">
+            <span class="toggle-arrow text-lg">▶</span>
+            <h3 class="text-lg font-semibold">Pobierz z magazynu – katalog <span class="text-sm font-normal text-gray-600">(przycisk ➖ przy każdym produkcie)</span></h3>
+        </button>
+        <div id="quick-remove-catalog-content" class="collapsible-content hidden p-6 border-t">
+            {{-- LISTA POBRANYCH PRODUKTÓW W TEJ SESJI --}}
+            <div id="dispensed-products-container" class="mb-6 hidden">
+                <h3 class="text-lg font-bold mb-3 text-red-700">➖ Pobrane produkty w tej sesji:</h3>
+                <div id="dispensed-products-list" class="space-y-2 mb-4"></div>
+            </div>
+
+            @include('parts.check', ['bulkActions' => false, 'showExport' => false, 'isPartial' => true, 'isRemoveContext' => true])
+        </div>
+    </div>
+
+    {{-- MODAL DO POBIERANIA Z MAGAZYNU --}}
+    <div id="dispense-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold mb-4">Pobierz z magazynu</h3>
+            <p class="mb-2 text-gray-700">Produkt: <strong id="dispense-modal-part-name"></strong></p>
+            <p class="mb-3 text-sm text-gray-500">Dostępne: <strong id="dispense-modal-part-qty"></strong> szt.</p>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Ilość do pobrania:</label>
+                <input
+                    type="number"
+                    id="dispense-modal-quantity-input"
+                    class="w-full px-3 py-2 border border-gray-300 rounded"
+                    min="1"
+                    value="1"
+                    autofocus
+                >
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Projekt (opcjonalnie):</label>
+                <select id="dispense-modal-project-select" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                    <option value="">— Bez projektu —</option>
+                    @foreach($projects ?? [] as $proj)
+                        <option value="{{ $proj->id }}">{{ $proj->project_number }} – {{ $proj->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="flex gap-3">
+                <button id="dispense-modal-confirm-btn" class="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+                    ➖ Pobierz
+                </button>
+                <button id="dispense-modal-cancel-btn" class="flex-1 px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500">
+                    ✕ Anuluj
+                </button>
+            </div>
+        </div>
+    </div>
 
     {{-- SEKCJA: POBIERZ Z KATALOGU PRODUKTÓW (ROZWIJALNA) --}}
     <div class="bg-white rounded shadow mb-6 border">
@@ -711,6 +766,116 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('katalogOtwarty', 'true');
             window.location.reload();
         }, delay + 500);
+    });
+});
+</script>
+
+<script>
+// ===== OBSŁUGA POBIERANIA Z MAGAZYNU (TRYB SZYBKI) =====
+document.addEventListener('DOMContentLoaded', function() {
+    const dispenseModal     = document.getElementById('dispense-modal');
+    const dispensePartName  = document.getElementById('dispense-modal-part-name');
+    const dispensePartQty   = document.getElementById('dispense-modal-part-qty');
+    const dispenseQtyInput  = document.getElementById('dispense-modal-quantity-input');
+    const dispenseProject   = document.getElementById('dispense-modal-project-select');
+    const dispenseConfirm   = document.getElementById('dispense-modal-confirm-btn');
+    const dispenseCancel    = document.getElementById('dispense-modal-cancel-btn');
+
+    let currentDispensePartName = null;
+    let currentDispensePartStock = 0;
+    let dispensedChanges = [];
+
+    function updateDispensedList() {
+        const container = document.getElementById('dispensed-products-container');
+        const list      = document.getElementById('dispensed-products-list');
+        if (!container || !list) return;
+        if (dispensedChanges.length === 0) { container.classList.add('hidden'); return; }
+        container.classList.remove('hidden');
+        list.innerHTML = '';
+        dispensedChanges.forEach(function(c) {
+            const item = document.createElement('div');
+            item.className = 'flex items-center justify-between p-2 bg-red-50 rounded border border-red-200';
+            item.innerHTML = '<div class="flex-1"><span class="font-medium">' + c.name + '</span>'
+                + ' <span class="text-gray-600 ml-2">-' + c.quantity + ' szt.</span>'
+                + (c.projectLabel ? ' <span class="text-indigo-600 ml-2 text-xs">' + c.projectLabel + '</span>' : '')
+                + '</div>';
+            list.appendChild(item);
+        });
+    }
+
+    // Otwórz modal po kliknięciu ➖
+    document.addEventListener('click', function(e) {
+        const btn = e.target.classList.contains('remove-dispense-btn')
+            ? e.target : e.target.closest('.remove-dispense-btn');
+        if (!btn) return;
+        currentDispensePartName  = btn.dataset.partName;
+        currentDispensePartStock = parseInt(btn.dataset.partQuantity) || 0;
+        dispensePartName.textContent = currentDispensePartName;
+        dispensePartQty.textContent  = currentDispensePartStock;
+        dispenseQtyInput.value = 1;
+        dispenseQtyInput.max   = currentDispensePartStock;
+        dispenseProject.value  = '';
+        dispenseModal.classList.remove('hidden');
+        setTimeout(function() { dispenseQtyInput.focus(); }, 80);
+    });
+
+    dispenseQtyInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') dispenseConfirm.click();
+    });
+
+    dispenseConfirm.addEventListener('click', function() {
+        const qty = parseInt(dispenseQtyInput.value);
+        if (!qty || qty < 1) { alert('Podaj poprawną ilość (minimum 1)'); return; }
+
+        const projectId    = dispenseProject.value;
+        const projectLabel = dispenseProject.options[dispenseProject.selectedIndex].text;
+
+        const formData = new FormData();
+        formData.append('_token', document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').content : '{{ csrf_token() }}');
+        formData.append('name', currentDispensePartName);
+        formData.append('quantity', qty);
+        if (projectId) formData.append('project_id', projectId);
+
+        dispenseModal.classList.add('hidden');
+
+        fetch('{{ route("parts.remove") }}', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+            body: formData
+        })
+        .then(function(r) { if (!r.ok) throw new Error('Błąd'); return r.json(); })
+        .then(function(data) {
+            dispensedChanges.push({
+                name: currentDispensePartName,
+                quantity: qty,
+                projectLabel: projectId ? projectLabel : ''
+            });
+            updateDispensedList();
+
+            const msg = document.createElement('div');
+            msg.className = 'fixed top-4 right-4 z-50 bg-green-100 text-green-800 p-3 rounded shadow border border-green-300';
+            msg.textContent = '✓ Pobrano ' + qty + ' szt. produktu „' + currentDispensePartName + '"';
+            document.body.appendChild(msg);
+            setTimeout(function() { msg.remove(); }, 3000);
+
+            // Zaktualizuj stan w przyciskach
+            document.querySelectorAll('.remove-dispense-btn').forEach(function(btn) {
+                if (btn.dataset.partName === currentDispensePartName) {
+                    var newQty = (data.quantity !== undefined) ? data.quantity : (currentDispensePartStock - qty);
+                    btn.dataset.partQuantity = newQty;
+                    btn.closest('tr').querySelector('.remove-dispense-btn').title = 'Pobierz z magazynu (stan: ' + newQty + ')';
+                }
+            });
+        })
+        .catch(function() {
+            alert('❌ Błąd podczas pobierania produktu');
+        });
+    });
+
+    dispenseCancel.addEventListener('click', function() { dispenseModal.classList.add('hidden'); });
+    dispenseModal.addEventListener('click', function(e) { if (e.target === dispenseModal) dispenseModal.classList.add('hidden'); });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !dispenseModal.classList.contains('hidden')) dispenseModal.classList.add('hidden');
     });
 });
 </script>

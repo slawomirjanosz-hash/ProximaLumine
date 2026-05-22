@@ -104,7 +104,9 @@
                 || request()->routeIs('magazyn.check')
                 || request()->routeIs('magazyn.check.*')
                 || request()->routeIs('magazyn.orders')
-                || request()->routeIs('magazyn.receive');
+                || request()->routeIs('magazyn.receive')
+                || request()->routeIs('magazyn.inventory')
+                || request()->routeIs('magazyn.inventory.*');
             $isProjektyMenuActive = request()->routeIs('magazyn.projects')
                 || request()->routeIs('magazyn.projects.*')
                 || request()->get('add')
@@ -156,6 +158,12 @@
                 <a href="{{ route('magazyn.remove') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.remove') ? 'text-white border-l-4 border-red-500' : '' }}">
                     <span>➖</span>
                     <span>Pobierz</span>
+                </a>
+                @endif
+                @if($isSuperAdmin || auth()->user()->can_view_catalog)
+                <a href="{{ route('magazyn.inventory') }}" class="flex items-center gap-3 px-4 py-2.5 pl-12 text-sm text-gray-400 hover:text-white transition-all duration-200 {{ request()->routeIs('magazyn.inventory') ? 'text-white border-l-4 border-purple-500' : '' }}">
+                    <span>📋</span>
+                    <span>Inwentaryzacja</span>
                 </a>
                 @endif
                 @if($isSuperAdmin || auth()->user()->can_orders)

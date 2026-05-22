@@ -602,6 +602,84 @@ class PartController extends Controller
         ]);
     }
 
+    // INWENTARYZACJA
+    public function inventoryView()
+    {
+        return view('parts.inventory');
+    }
+
+    public function inventoryScan(Request $request)
+    {
+        $code = trim((string) $request->input('code', ''));
+        if ($code === '') {
+            return response()->json(['found' => false, 'message' => 'Brak kodu.']);
+        }
+
+        $part = Part::with(['category', 'lastModifiedBy'])
+            ->where('qr_code', $code)
+            ->orWhere('name', $code)
+            ->first();
+
+        if (!$part) {
+            return response()->json(['found' => false, 'message' => 'Nie znaleziono produktu o kodzie: ' . $code]);
+        }
+
+        return response()->json([
+            'found'       => true,
+            'id'          => $part->id,
+            'name'        => $part->name,
+            'description' => $part->description,
+            'quantity'    => $part->quantity,
+            'unit'        => $part->unit ?? 'szt.',
+            'location'    => $part->location ?? '',
+            'category'    => $part->category->name ?? '',
+            'supplier'    => $part->supplier ?? '',
+            'qr_code'     => $part->qr_code ?? '',
+        ]);
+    }
+
+    public function inventoryCorrect(Request $request)
+    {
+        $request->validate([
+            'part_id'       => 'required|exists:parts,id',
+            'real_quantity' => 'required|integer|min:0',
+        ]);
+
+        $part = Part::findOrFail($request->part_id);
+        $oldQty = $part->quantity;
+        $newQty = (int) $request->real_quantity;
+
+        if ($oldQty === $newQty) {
+            return response()->json(['success' => true, 'changed' => false, 'quantity' => $oldQty]);
+        }
+
+        $part->quantity = $newQty;
+        $part->last_modified_by = auth()->id();
+        $part->save();
+
+        // Zapisz w historii sesji
+        $note = $request->input('note', '');
+        $inventory = session('inventory_corrections', []);
+        $inventory[] = [
+            'name'    => $part->name,
+            'before'  => $oldQty,
+            'after'   => $newQty,
+            'diff'    => $newQty - $oldQty,
+            'note'    => $note,
+            'date'    => now()->format('Y-m-d H:i'),
+            'user'    => auth()->user()->name ?? '',
+        ];
+        session(['inventory_corrections' => $inventory]);
+
+        return response()->json([
+            'success'  => true,
+            'changed'  => true,
+            'before'   => $oldQty,
+            'after'    => $newQty,
+            'quantity' => $newQty,
+        ]);
+    }
+
     // SPRAWDŹ / KATALOG
     public function checkView(Request $request)
     {

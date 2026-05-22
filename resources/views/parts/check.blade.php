@@ -407,6 +407,17 @@
                                     title="Przyjmij na magazyn">
                                     ➕
                                 </button>
+                            @elseif(isset($isRemoveContext) && $isRemoveContext)
+                                {{-- Tylko przycisk - dla kontekstu "Pobierz z magazynu" --}}
+                                <button 
+                                    type="button"
+                                    class="bg-red-100 hover:bg-red-200 px-2 py-1 rounded text-sm w-full remove-dispense-btn"
+                                    data-part-id="{{ $p->id }}"
+                                    data-part-name="{{ $p->name }}"
+                                    data-part-quantity="{{ $p->quantity }}"
+                                    title="Pobierz z magazynu">
+                                    ➖
+                                </button>
                             @else
                                 {{-- Standardowe akcje dla katalogu --}}
                             <div class="flex gap-0.5 items-center">
