@@ -1403,6 +1403,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/parts/add', [PartController::class, 'add'])->name('parts.add')->middleware('permission:add');
     Route::post('/parts/bulk-add', [PartController::class, 'bulkAdd'])->name('magazyn.parts.bulkAdd')->middleware('permission:add');
     Route::post('/parts/remove', [PartController::class, 'remove'])->name('parts.remove')->middleware('permission:remove');
+    Route::post('/parts/bulk-remove', [PartController::class, 'bulkRemove'])->name('magazyn.parts.bulkRemove')->middleware('permission:remove');
     Route::post('/magazyn/ustawienia/kategoria', [PartController::class, 'addCategory'])->name('magazyn.category.add')->middleware('permission:settings');
     Route::put('/magazyn/ustawienia/kategoria/{category}', [PartController::class, 'updateCategory'])->name('magazyn.category.update')->middleware('permission:settings');
     Route::delete('/magazyn/ustawienia/kategoria/{category}', [PartController::class, 'deleteCategory'])->name('magazyn.category.delete')->middleware('permission:settings');

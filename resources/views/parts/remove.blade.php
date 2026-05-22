@@ -15,6 +15,26 @@
 <div class="max-w-5xl mx-auto bg-white p-6 rounded shadow mt-6">
     <h2 class="text-xl font-bold mb-4">Pobierz Produkt</h2>
 
+    {{-- PRZYCISK TRYBU SKANOWANIA --}}
+    <div class="flex flex-col md:flex-row md:items-center gap-4 mb-6">
+        <div class="relative" id="remove-scanner-btn-wrapper">
+            <button id="start-remove-scanner" class="px-4 py-2 bg-red-600 text-white rounded text-lg font-semibold hover:bg-red-700">
+                📱 Pobierz z magazynu skanerem
+            </button>
+        </div>
+        <span id="remove-scanner-status" class="text-red-700 font-bold hidden">✓ Tryb skanowania aktywny – skanuj kody</span>
+    </div>
+
+    {{-- WIDOK SKANERA --}}
+    <div id="remove-scanner-table-container" class="mb-8"></div>
+    <div id="remove-scanner-back-btn-container" class="mb-4"></div>
+    <button id="accept-remove-btn" class="px-4 py-2 bg-red-600 text-white rounded text-lg font-semibold hidden hover:bg-red-700 mb-6">
+        ➖ Zatwierdź pobranie
+    </button>
+
+    {{-- KATALOG (ukryty w trybie skanowania) --}}
+    <div id="remove-catalog-container">
+
     {{-- KOMUNIKAT BŁĘDU --}}
     @if(session('error'))
         <div class="bg-red-100 text-red-800 p-2 mb-4 rounded">
@@ -306,6 +326,8 @@
             </div>
         </div>
     @endif
+
+    </div>{{-- end #remove-catalog-container --}}
 </div>
 
 {{-- JAVASCRIPT --}}
@@ -877,6 +899,213 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && !dispenseModal.classList.contains('hidden')) dispenseModal.classList.add('hidden');
     });
+});
+</script>
+
+{{-- SKANER – TRYB POBIERANIA --}}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const scannerBtn          = document.getElementById('start-remove-scanner');
+    const scannerBtnWrapper   = document.getElementById('remove-scanner-btn-wrapper');
+    const scannerStatus       = document.getElementById('remove-scanner-status');
+    const scannerTableContainer = document.getElementById('remove-scanner-table-container');
+    const backBtnContainer    = document.getElementById('remove-scanner-back-btn-container');
+    const acceptBtn           = document.getElementById('accept-remove-btn');
+    const catalogContainer    = document.getElementById('remove-catalog-container');
+
+    let scannerMode    = false;
+    let scannedProducts = {};  // { qrCode: { id, name, qty } }
+    let scanBuffer     = '';
+    let scanTimeout    = null;
+
+    scannerBtn.addEventListener('click', function() {
+        scannerMode = true;
+        scannerStatus.classList.remove('hidden');
+        scannerBtnWrapper.style.display = 'none';
+        catalogContainer.classList.add('hidden');
+
+        scannerTableContainer.innerHTML = `
+            <h3 class="text-lg font-bold mb-3 text-red-700">➖ Produkty do pobrania:</h3>
+            <table class="w-full border border-collapse text-sm" id="remove-scanner-table">
+                <thead class="bg-red-50">
+                    <tr>
+                        <th class="border p-2">Kod QR</th>
+                        <th class="border p-2 text-left">Nazwa produktu</th>
+                        <th class="border p-2">Ilość</th>
+                        <th class="border p-2">Akcja</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>`;
+
+        acceptBtn.classList.remove('hidden');
+
+        backBtnContainer.innerHTML = `<button id="remove-scanner-back-btn" class="px-4 py-2 bg-gray-500 text-white rounded font-semibold hover:bg-gray-700">← Powrót</button>`;
+        document.getElementById('remove-scanner-back-btn').addEventListener('click', function() {
+            scannerMode = false;
+            scannerStatus.classList.add('hidden');
+            scannerBtnWrapper.style.display = '';
+            catalogContainer.classList.remove('hidden');
+            scannerTableContainer.innerHTML = '';
+            backBtnContainer.innerHTML = '';
+            acceptBtn.classList.add('hidden');
+        });
+
+        document.body.focus();
+    });
+
+    // Bufor klawiatury – przechwytuje skaner
+    document.addEventListener('keypress', function(e) {
+        if (!scannerMode) return;
+        clearTimeout(scanTimeout);
+        if (e.key === 'Enter') {
+            if (scanBuffer.length > 0) {
+                processScannedCode(scanBuffer.trim());
+                scanBuffer = '';
+            }
+        } else {
+            scanBuffer += e.key;
+            scanTimeout = setTimeout(function() { scanBuffer = ''; }, 100);
+        }
+    });
+
+    function processScannedCode(code) {
+        if (!code) return;
+
+        // Szukaj w katalogu (check.blade.php ukryty w tle) po data-qr-code
+        const allRows = document.querySelectorAll('#remove-catalog-container tbody tr[data-qr-code]');
+        const row = Array.from(allRows).find(function(tr) {
+            return (tr.getAttribute('data-qr-code') || '').toLowerCase() === code.toLowerCase();
+        });
+
+        if (row) {
+            const prodName = row.getAttribute('data-name') || 'Nieznany produkt';
+            const partIdEl = row.querySelector('[data-part-id]') || row.querySelector('.remove-dispense-btn');
+            const prodId   = partIdEl ? (partIdEl.getAttribute('data-part-id') || partIdEl.dataset.partId) : null;
+
+            if (!scannedProducts[code]) {
+                scannedProducts[code] = { id: prodId, name: prodName, qty: 1 };
+            } else {
+                scannedProducts[code].qty++;
+            }
+            renderScannerTable();
+            playBeep(800, 100);
+        } else {
+            showScanAlert('error', 'Nie znaleziono produktu o kodzie: ' + code);
+            playBeep(200, 500);
+        }
+    }
+
+    function renderScannerTable() {
+        const tbody = document.querySelector('#remove-scanner-table tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        Object.entries(scannedProducts).forEach(function([code, prod]) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="border p-2 font-mono text-xs">${escHtml(code)}</td>
+                <td class="border p-2">${escHtml(prod.name)}</td>
+                <td class="border p-2 text-center">
+                    <input type="number" min="1" value="${prod.qty}" class="w-16 border rounded text-center text-sm remove-qty-input" data-code="${escHtml(code)}">
+                </td>
+                <td class="border p-2 text-center">
+                    <button class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 remove-scan-del-btn" data-code="${escHtml(code)}">Usuń</button>
+                </td>`;
+            tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.remove-qty-input').forEach(function(inp) {
+            inp.addEventListener('change', function() {
+                const c = this.dataset.code;
+                if (scannedProducts[c]) scannedProducts[c].qty = Math.max(1, parseInt(this.value) || 1);
+            });
+        });
+        tbody.querySelectorAll('.remove-scan-del-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                delete scannedProducts[this.dataset.code];
+                renderScannerTable();
+            });
+        });
+    }
+
+    acceptBtn.addEventListener('click', function() {
+        if (Object.keys(scannedProducts).length === 0) {
+            showScanAlert('error', 'Brak zeskanowanych produktów!');
+            return;
+        }
+
+        const productsArray = Object.entries(scannedProducts).map(function([code, prod]) {
+            return { id: prod.id, quantity: prod.qty };
+        });
+
+        acceptBtn.disabled = true;
+        acceptBtn.textContent = '⏳ Zapisywanie…';
+
+        fetch('{{ route("magazyn.parts.bulkRemove") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ products: productsArray })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                showScanAlert('success', 'Pobrano ' + data.removed_count + ' produktów z magazynu!');
+                scannedProducts = {};
+                renderScannerTable();
+                scannerMode = false;
+                scannerStatus.classList.add('hidden');
+                scannerBtnWrapper.style.display = '';
+                catalogContainer.classList.remove('hidden');
+                scannerTableContainer.innerHTML = '';
+                backBtnContainer.innerHTML = '';
+                acceptBtn.classList.add('hidden');
+                acceptBtn.disabled = false;
+                acceptBtn.textContent = '➖ Zatwierdź pobranie';
+                setTimeout(function() { location.reload(); }, 2000);
+            } else {
+                acceptBtn.disabled = false;
+                acceptBtn.textContent = '➖ Zatwierdź pobranie';
+                showScanAlert('error', data.message || 'Błąd podczas pobierania');
+                if (data.errors && data.errors.length) {
+                    data.errors.forEach(function(e) { showScanAlert('error', e); });
+                }
+            }
+        })
+        .catch(function(err) {
+            acceptBtn.disabled = false;
+            acceptBtn.textContent = '➖ Zatwierdź pobranie';
+            showScanAlert('error', 'Błąd połączenia: ' + err.message);
+        });
+    });
+
+    function showScanAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'max-w-5xl mx-auto mt-4 p-3 rounded fixed top-4 left-1/2 -translate-x-1/2 z-50 shadow-lg '
+            + (type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800');
+        alertDiv.textContent = message;
+        document.body.appendChild(alertDiv);
+        setTimeout(function() { alertDiv.remove(); }, 5000);
+    }
+
+    function escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function playBeep(frequency, duration) {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.frequency.value = frequency; osc.type = 'sine';
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration / 1000);
+            osc.start(ctx.currentTime); osc.stop(ctx.currentTime + duration / 1000);
+        } catch(e) {}
+    }
 });
 </script>
 

@@ -595,10 +595,15 @@ class PartController extends Controller
     public function removeView()
     {
         return view('parts.remove', [
-            'sessionRemoves' => array_reverse(session('removes', [])),
-            'parts' => Part::with(['category', 'lastModifiedBy'])->orderBy('name')->get(),
-            'suppliers' => Supplier::orderBy('name')->get(),
-            'projects' => \App\Models\Project::where('status', 'in_progress')->orderBy('project_number')->get(),
+            'sessionRemoves'  => array_reverse(session('removes', [])),
+            'parts'           => Part::with(['category', 'lastModifiedBy'])->orderBy('name')->get(),
+            'suppliers'       => Supplier::orderBy('name')->get(),
+            'projects'        => \App\Models\Project::where('status', 'in_progress')->orderBy('project_number')->get(),
+            'categories'      => Category::all(),
+            'sortBy'          => 'name',
+            'sortDir'         => 'asc',
+            'catalogSettings' => \DB::table('catalog_columns_settings')->first(),
+            'qrSettings'      => \DB::table('qr_settings')->first(),
         ]);
     }
 
@@ -4229,6 +4234,89 @@ class PartController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Błąd serwera: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // MASOWE POBIERANIE (dla skanera)
+    public function bulkRemove(Request $request)
+    {
+        try {
+            $data = $request->validate([
+                'products'            => 'required|array|min:1',
+                'products.*.id'       => 'required|exists:parts,id',
+                'products.*.quantity' => 'required|integer|min:1',
+                'products.*.project_id' => 'nullable|exists:projects,id',
+            ]);
+
+            $removedCount = 0;
+            $errors = [];
+
+            foreach ($data['products'] as $productData) {
+                try {
+                    $part = Part::find($productData['id']);
+
+                    if (!$part) {
+                        $errors[] = "Nie znaleziono produktu o ID: {$productData['id']}";
+                        continue;
+                    }
+
+                    $qty = (int) $productData['quantity'];
+                    if ($part->quantity < $qty) {
+                        $errors[] = "Za mało sztuk \"{$part->name}\" (dostępne: {$part->quantity}, żądane: {$qty})";
+                        continue;
+                    }
+
+                    $part->quantity -= $qty;
+                    $part->last_modified_by = auth()->id();
+                    $part->save();
+
+                    $removedCount++;
+
+                    $supplierDisplay = '';
+                    if ($part->supplier) {
+                        $supplier = \App\Models\Supplier::where('name', $part->supplier)->first();
+                        $supplierDisplay = $supplier && $supplier->short_name ? $supplier->short_name : $part->supplier;
+                    }
+
+                    session()->push('removes', [
+                        'date'        => now()->format('Y-m-d H:i'),
+                        'name'        => $part->name,
+                        'description' => $part->description,
+                        'supplier'    => $supplierDisplay,
+                        'changed'     => $qty,
+                        'after'       => $part->quantity,
+                    ]);
+
+                } catch (\Exception $e) {
+                    $errors[] = "Błąd przy produkcie ID {$productData['id']}: {$e->getMessage()}";
+                    \Log::error('Błąd podczas masowego pobierania produktu', [
+                        'product_id' => $productData['id'],
+                        'error'      => $e->getMessage()
+                    ]);
+                }
+            }
+
+            if ($removedCount > 0) {
+                return response()->json([
+                    'success'       => true,
+                    'message'       => "Pobrano {$removedCount} produktów z magazynu",
+                    'removed_count' => $removedCount,
+                    'errors'        => $errors,
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Nie udało się pobrać żadnego produktu',
+                    'errors'  => $errors,
+                ], 400);
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Błąd podczas masowego pobierania produktów: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Błąd serwera: ' . $e->getMessage(),
             ], 500);
         }
     }
