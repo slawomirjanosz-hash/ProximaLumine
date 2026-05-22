@@ -1623,8 +1623,8 @@ document.addEventListener('DOMContentLoaded', function() {
             '<th class="border p-1 text-center">Cena netto</th>' +
             '</tr></thead><tbody>';
         products.forEach(function(product, idx) {
-            const receivedQty = parseFloat(product.received_qty || 0);
-            const totalQty = parseFloat(product.quantity);
+            const receivedQty = parseInt(product.received_qty || 0);
+            const totalQty = parseInt(product.quantity);
             const remainingQty = Math.max(0, totalQty - receivedQty);
             const isFullyReceived = remainingQty <= 0;
             const priceDisplay = product.price ? `${product.price} ${product.currency || 'PLN'}` : '-';
@@ -1648,7 +1648,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (isFullyReceived) {
                 html += `<td class="border p-1 text-center"><span class="text-xs text-green-600 font-semibold">✅ Przyjęto</span></td>`;
             } else {
-                html += `<td class="border p-1 text-center"><input type="number" class="product-receive-qty w-16 border rounded text-center text-xs px-1 py-0.5" data-idx="${idx}" data-name="${safeNameAttr}" data-max="${remainingQty}" value="${remainingQty}" min="0.001" max="${remainingQty}" step="any"></td>`;
+                html += `<td class="border p-1 text-center"><input type="number" class="product-receive-qty w-16 border rounded text-center text-xs px-1 py-0.5" data-idx="${idx}" data-name="${safeNameAttr}" data-max="${remainingQty}" value="${remainingQty}" min="1" max="${remainingQty}" step="1"></td>`;
             }
             html += `<td class="border p-1 text-center">${priceDisplay}</td>`;
             html += '</tr>';
