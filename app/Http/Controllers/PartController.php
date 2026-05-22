@@ -4411,7 +4411,9 @@ class PartController extends Controller
                 'products.*.id'       => 'required|exists:parts,id',
                 'products.*.quantity' => 'required|integer|min:1',
                 'products.*.project_id' => 'nullable|exists:projects,id',
+                'purpose'             => 'nullable|string|max:255',
             ]);
+            $purpose = isset($data['purpose']) ? trim((string) $data['purpose']) : null;
 
             $removedCount = 0;
             $errors = [];
@@ -4450,6 +4452,7 @@ class PartController extends Controller
                         'supplier'    => $supplierDisplay,
                         'changed'     => $qty,
                         'after'       => $part->quantity,
+                        'purpose'     => $purpose ?? null,
                     ]);
 
                 } catch (\Exception $e) {

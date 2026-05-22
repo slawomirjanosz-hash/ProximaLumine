@@ -918,6 +918,11 @@ document.addEventListener('DOMContentLoaded', function() {
     let scanBuffer     = '';
     let scanTimeout    = null;
 
+    function getPurpose() {
+        const inp = document.getElementById('remove-scanner-purpose');
+        return inp ? inp.value.trim() : '';
+    }
+
     scannerBtn.addEventListener('click', function() {
         scannerMode = true;
         scannerStatus.classList.remove('hidden');
@@ -925,13 +930,20 @@ document.addEventListener('DOMContentLoaded', function() {
         catalogContainer.classList.add('hidden');
 
         scannerTableContainer.innerHTML = `
+            <div class="mb-4 flex flex-col sm:flex-row sm:items-center gap-2">
+                <label class="text-sm font-semibold text-gray-700 whitespace-nowrap" for="remove-scanner-purpose">📌 Cel pobrania:</label>
+                <input type="text" id="remove-scanner-purpose"
+                    class="flex-1 px-3 py-1.5 border border-gray-300 rounded text-sm"
+                    placeholder="np. Projekt ABC, serwis, magazyn – opcjonalnie"
+                    autocomplete="off">
+            </div>
             <h3 class="text-lg font-bold mb-3 text-red-700">➖ Produkty do pobrania:</h3>
             <table class="w-full border border-collapse text-sm" id="remove-scanner-table">
                 <thead class="bg-red-50">
                     <tr>
                         <th class="border p-2">Kod QR</th>
                         <th class="border p-2 text-left">Nazwa produktu</th>
-                        <th class="border p-2">Ilość</th>
+                        <th class="border p-2 w-36">Ilość</th>
                         <th class="border p-2">Akcja</th>
                     </tr>
                 </thead>
@@ -949,7 +961,17 @@ document.addEventListener('DOMContentLoaded', function() {
             scannerTableContainer.innerHTML = '';
             backBtnContainer.innerHTML = '';
             acceptBtn.classList.add('hidden');
+            scannedProducts = {};
         });
+
+        // Purpose input should not trigger scan buffer
+        setTimeout(function() {
+            const purposeInput = document.getElementById('remove-scanner-purpose');
+            if (purposeInput) {
+                purposeInput.addEventListener('keydown', function(e) { e.stopPropagation(); });
+                purposeInput.addEventListener('keypress', function(e) { e.stopPropagation(); });
+            }
+        }, 0);
 
         document.body.focus();
     });
@@ -957,6 +979,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Bufor klawiatury – przechwytuje skaner
     document.addEventListener('keypress', function(e) {
         if (!scannerMode) return;
+        // Nie przechwytuj gdy focus jest na polu tekstowym
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
         clearTimeout(scanTimeout);
         if (e.key === 'Enter') {
             if (scanBuffer.length > 0) {
@@ -990,6 +1014,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             renderScannerTable();
             playBeep(800, 100);
+
+            // Podświetl wiersz po skanie
+            const tbody = document.querySelector('#remove-scanner-table tbody');
+            if (tbody) {
+                tbody.querySelectorAll('tr').forEach(function(tr) {
+                    if (tr.dataset.code === code) {
+                        tr.classList.add('bg-yellow-100');
+                        setTimeout(function() { tr.classList.remove('bg-yellow-100'); }, 600);
+                    }
+                });
+            }
         } else {
             showScanAlert('error', 'Nie znaleziono produktu o kodzie: ' + code);
             playBeep(200, 500);
@@ -1002,14 +1037,22 @@ document.addEventListener('DOMContentLoaded', function() {
         tbody.innerHTML = '';
         Object.entries(scannedProducts).forEach(function([code, prod]) {
             const tr = document.createElement('tr');
+            tr.dataset.code = code;
+            tr.className = 'transition-colors';
             tr.innerHTML = `
-                <td class="border p-2 font-mono text-xs">${escHtml(code)}</td>
-                <td class="border p-2">${escHtml(prod.name)}</td>
+                <td class="border p-2 font-mono text-xs text-gray-500">${escHtml(code)}</td>
+                <td class="border p-2 font-semibold">${escHtml(prod.name)}</td>
                 <td class="border p-2 text-center">
-                    <input type="number" min="1" value="${prod.qty}" class="w-16 border rounded text-center text-sm remove-qty-input" data-code="${escHtml(code)}">
+                    <div class="flex items-center justify-center gap-1">
+                        <button type="button" class="remove-qty-minus w-8 h-8 bg-gray-200 rounded font-bold text-base leading-none hover:bg-red-200 transition-colors" data-code="${escHtml(code)}">−</button>
+                        <input type="number" min="1" value="${prod.qty}"
+                            class="w-14 border rounded text-center text-sm remove-qty-input"
+                            data-code="${escHtml(code)}">
+                        <button type="button" class="remove-qty-plus w-8 h-8 bg-gray-200 rounded font-bold text-base leading-none hover:bg-green-200 transition-colors" data-code="${escHtml(code)}">+</button>
+                    </div>
                 </td>
                 <td class="border p-2 text-center">
-                    <button class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 remove-scan-del-btn" data-code="${escHtml(code)}">Usuń</button>
+                    <button class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 remove-scan-del-btn" data-code="${escHtml(code)}">✕ Usuń</button>
                 </td>`;
             tbody.appendChild(tr);
         });
@@ -1017,7 +1060,33 @@ document.addEventListener('DOMContentLoaded', function() {
         tbody.querySelectorAll('.remove-qty-input').forEach(function(inp) {
             inp.addEventListener('change', function() {
                 const c = this.dataset.code;
-                if (scannedProducts[c]) scannedProducts[c].qty = Math.max(1, parseInt(this.value) || 1);
+                if (scannedProducts[c]) {
+                    scannedProducts[c].qty = Math.max(1, parseInt(this.value) || 1);
+                    this.value = scannedProducts[c].qty;
+                }
+            });
+        });
+        tbody.querySelectorAll('.remove-qty-minus').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const c = this.dataset.code;
+                if (!scannedProducts[c]) return;
+                if (scannedProducts[c].qty <= 1) {
+                    if (!confirm('Usuń „' + scannedProducts[c].name + '" z listy?')) return;
+                    delete scannedProducts[c];
+                    renderScannerTable();
+                    return;
+                }
+                scannedProducts[c].qty--;
+                renderScannerTable();
+            });
+        });
+        tbody.querySelectorAll('.remove-qty-plus').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const c = this.dataset.code;
+                if (scannedProducts[c]) {
+                    scannedProducts[c].qty++;
+                    renderScannerTable();
+                }
             });
         });
         tbody.querySelectorAll('.remove-scan-del-btn').forEach(function(btn) {
@@ -1034,6 +1103,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        const purpose = getPurpose();
         const productsArray = Object.entries(scannedProducts).map(function([code, prod]) {
             return { id: prod.id, quantity: prod.qty };
         });
@@ -1047,12 +1117,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
             },
-            body: JSON.stringify({ products: productsArray })
+            body: JSON.stringify({ products: productsArray, purpose: purpose })
         })
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (data.success) {
-                showScanAlert('success', 'Pobrano ' + data.removed_count + ' produktów z magazynu!');
+                const purposeMsg = purpose ? ' | Cel: ' + purpose : '';
+                showScanAlert('success', 'Pobrano ' + data.removed_count + ' produktów z magazynu!' + purposeMsg);
                 scannedProducts = {};
                 renderScannerTable();
                 scannerMode = false;
