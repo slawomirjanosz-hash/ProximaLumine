@@ -6932,7 +6932,7 @@ class PartController extends Controller
     }
 
     // Przyjmij zamówienie
-    public function receiveOrder(\App\Models\Order $order)
+    public function receiveOrder(Request $request, \App\Models\Order $order)
     {
         // Sprawdź czy zamówienie już zostało przyjęte
         if ($order->status === 'received') {
@@ -6943,21 +6943,41 @@ class PartController extends Controller
         }
 
         // Pobierz produkty z zamówienia
-        $products = $order->products;
+        $allProducts = $order->products;
 
-        if (!is_array($products) || empty($products)) {
+        if (!is_array($allProducts) || empty($allProducts)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Brak produktów w zamówieniu'
             ], 400);
         }
 
+        // Jeśli przesłano selected_products, użyj ich; w przeciwnym razie przyjmij wszystko
+        $selectedProducts = $request->input('selected_products');
+        if (!empty($selectedProducts) && is_array($selectedProducts)) {
+            // Zbuduj mapę: name => qty z wybranych
+            $selectedMap = [];
+            foreach ($selectedProducts as $sp) {
+                $name = $sp['name'] ?? null;
+                $qty  = isset($sp['quantity']) ? (float) $sp['quantity'] : 0;
+                if ($name && $qty > 0) {
+                    $selectedMap[$name] = $qty;
+                }
+            }
+            $productsToProcess = array_filter($allProducts, fn($p) => isset($selectedMap[$p['name'] ?? '']));
+        } else {
+            $selectedMap = null;
+            $productsToProcess = $allProducts;
+        }
+
+        $addedCount = 0;
+
         // Dodaj produkty do magazynu
-        foreach ($products as $product) {
+        foreach ($productsToProcess as $product) {
             $partName = $product['name'] ?? null;
-            $quantity = $product['quantity'] ?? 0;
+            $quantity = $selectedMap ? ($selectedMap[$partName] ?? 0) : (float)($product['quantity'] ?? 0);
             $supplier = $product['supplier'] ?? null;
-            $price = $product['price'] ?? null;
+            $price    = $product['price'] ?? null;
             $currency = $product['currency'] ?? 'PLN';
 
             if (!$partName || $quantity <= 0) {
@@ -6981,22 +7001,32 @@ class PartController extends Controller
                 }
                 
                 $part->save();
+                $addedCount++;
             } else {
-                // Jeśli część nie istnieje, możesz ją utworzyć lub pominąć
-                // Na razie pomijamy - można dodać tworzenie nowej części
+                // Jeśli część nie istnieje, pomijamy
                 continue;
             }
         }
 
-        // Zaktualizuj status zamówienia
-        $order->status = 'received';
-        $order->received_at = now();
-        $order->received_by_user_id = auth()->id();
-        $order->save();
+        // Sprawdź czy przyjęto wszystkie pozycje
+        $isFullReceipt = empty($selectedMap) || count($selectedMap) >= count($allProducts);
+
+        if ($isFullReceipt) {
+            $order->status = 'received';
+            $order->received_at = now();
+            $order->received_by_user_id = auth()->id();
+            $order->save();
+            $message = "Zamówienie przyjęte — dodano {$addedCount} produktów do magazynu";
+        } else {
+            // Przyjęcie częściowe — nie zmieniamy statusu na received
+            $message = "Przyjęto częściowo — dodano {$addedCount} produktów do magazynu. Zamówienie pozostaje aktywne.";
+        }
 
         return response()->json([
-            'success' => true,
-            'message' => 'Zamówienie zostało przyjęte i produkty dodane do magazynu'
+            'success'       => true,
+            'message'       => $message,
+            'partial'       => !$isFullReceipt,
+            'added_count'   => $addedCount,
         ]);
     }
 
