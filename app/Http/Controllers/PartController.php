@@ -7008,25 +7008,50 @@ class PartController extends Controller
             }
         }
 
-        // Sprawdź czy przyjęto wszystkie pozycje
-        $isFullReceipt = empty($selectedMap) || count($selectedMap) >= count($allProducts);
+        // Zaktualizuj received_qty w JSON produktów
+        $updatedProducts = $allProducts;
+        foreach ($updatedProducts as &$p) {
+            $name = $p['name'] ?? null;
+            if ($name) {
+                if ($selectedMap === null) {
+                    $p['received_qty'] = (float)($p['quantity'] ?? 0);
+                } elseif (isset($selectedMap[$name])) {
+                    $p['received_qty'] = ($p['received_qty'] ?? 0) + (float)$selectedMap[$name];
+                }
+            }
+        }
+        unset($p);
+
+        // Sprawdź czy wszystkie produkty zostały w pełni przyjęte
+        $isFullReceipt = true;
+        foreach ($updatedProducts as $p) {
+            $receivedQty = (float)($p['received_qty'] ?? 0);
+            $totalQty    = (float)($p['quantity'] ?? 0);
+            if ($receivedQty < $totalQty) {
+                $isFullReceipt = false;
+                break;
+            }
+        }
+
+        $order->products = $updatedProducts;
 
         if ($isFullReceipt) {
             $order->status = 'received';
             $order->received_at = now();
             $order->received_by_user_id = auth()->id();
-            $order->save();
             $message = "Zamówienie przyjęte — dodano {$addedCount} produktów do magazynu";
         } else {
-            // Przyjęcie częściowe — nie zmieniamy statusu na received
             $message = "Przyjęto częściowo — dodano {$addedCount} produktów do magazynu. Zamówienie pozostaje aktywne.";
         }
 
+        $order->save();
+
         return response()->json([
-            'success'       => true,
-            'message'       => $message,
-            'partial'       => !$isFullReceipt,
-            'added_count'   => $addedCount,
+            'success'          => true,
+            'message'          => $message,
+            'partial'          => !$isFullReceipt,
+            'added_count'      => $addedCount,
+            'updated_products' => $updatedProducts,
         ]);
     }
 

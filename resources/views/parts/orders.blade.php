@@ -1279,60 +1279,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 html += `</div>`;
                             }
                             
-                            html += `
-                                <h5 class="font-bold mb-2">Produkty:</h5>
-                                <table class="w-full border border-collapse text-xs" id="order-products-table">
-                                    <thead class="bg-gray-200">
-                                        <tr>
-                                        <th class="border p-1 text-center w-7"><input type="checkbox" id="select-all-products" title="Zaznacz wszystkie" checked></th>
-                                        <th class="border p-1 text-left">Produkt</th>
-                                        <th class="border p-1 text-left">Dostawca</th>
-                                        <th class="border p-1 text-center">Zam.</th>
-                                        <th class="border p-1 text-center">Przyjmij ilość</th>
-                                        <th class="border p-1 text-center">Cena netto</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                        `;
-                        
-                        products.forEach((product, idx) => {
-                            const priceDisplay = product.price ? `${product.price} ${product.currency || 'PLN'}` : '-';
-                            html += `
-                                <tr>
-                                    <td class="border p-1 text-center"><input type="checkbox" class="product-receive-check" data-idx="${idx}" checked></td>
-                                    <td class="border p-1">${product.name}</td>
-                                    <td class="border p-1">${product.supplier || '-'}</td>
-                                    <td class="border p-1 text-center">${product.quantity}</td>
-                                    <td class="border p-1 text-center"><input type="number" class="product-receive-qty w-16 border rounded text-center text-xs px-1 py-0.5" data-idx="${idx}" data-name="${product.name.replace(/"/g,'&quot;')}" data-max="${product.quantity}" value="${product.quantity}" min="0.001" max="${product.quantity}" step="any"></td>
-                                    <td class="border p-1 text-center">${priceDisplay}</td>
-                                </tr>
-                            `;
-                        });
-                        
-                            html += `
-                                    </tbody>
-                                </table>
-                                <p class="text-xs text-gray-500 mt-1">Odznacz produkty które <strong>nie</strong> zostały dostarczone lub zmień odbieraną ilość.</p>
-                            `;
-                        
-                            document.getElementById('order-preview-content').innerHTML = html;
-                            
-                            // Obsługa "zaznacz wszystkie"
-                            const _sap = document.getElementById('select-all-products');
-                            if (_sap) {
-                                _sap.addEventListener('change', function() {
-                                    document.querySelectorAll('.product-receive-check').forEach(cb => { cb.checked = _sap.checked; });
-                                });
-                                document.querySelectorAll('.product-receive-check').forEach(cb => {
-                                    cb.addEventListener('change', function() {
-                                        const all = document.querySelectorAll('.product-receive-check');
-                                        const checked = document.querySelectorAll('.product-receive-check:checked');
-                                        _sap.indeterminate = checked.length > 0 && checked.length < all.length;
-                                        _sap.checked = checked.length === all.length;
-                                    });
-                                });
-                            }
-                            
+                            currentPreviewBtn = btn;
+                            currentPreviewHeaderHtml = html;
+                            currentReceivedInfoHtml = '';
+                            renderOrderPreview(products, status);
+
                             document.getElementById('receive-order-btn').style.display = status === 'received' ? 'none' : 'block';
                             document.getElementById('preview-edit-order-btn').style.display = status === 'received' ? 'none' : 'block';
                             document.getElementById('preview-delete-order-btn').style.display = status === 'received' ? 'none' : 'block';
@@ -1655,7 +1606,105 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Obsługa podglądu zamówienia
     let currentPreviewOrderId = null;
-    
+    let currentPreviewBtn = null;
+    let currentPreviewHeaderHtml = '';
+    let currentReceivedInfoHtml = '';
+
+    function buildProductsHtml(products, orderStatus) {
+        let html = '<h5 class="font-bold mb-2">Produkty:</h5>' +
+            '<table class="w-full border border-collapse text-xs" id="order-products-table">' +
+            '<thead class="bg-gray-200"><tr>' +
+            '<th class="border p-1 text-center w-7"><input type="checkbox" id="select-all-products" title="Zaznacz wszystkie"></th>' +
+            '<th class="border p-1 text-left">Produkt</th>' +
+            '<th class="border p-1 text-left">Dostawca</th>' +
+            '<th class="border p-1 text-center">Zam.</th>' +
+            '<th class="border p-1 text-center">Przyjęto</th>' +
+            '<th class="border p-1 text-center">Przyjmij ilość</th>' +
+            '<th class="border p-1 text-center">Cena netto</th>' +
+            '</tr></thead><tbody>';
+        products.forEach(function(product, idx) {
+            const receivedQty = parseFloat(product.received_qty || 0);
+            const totalQty = parseFloat(product.quantity);
+            const remainingQty = Math.max(0, totalQty - receivedQty);
+            const isFullyReceived = remainingQty <= 0;
+            const priceDisplay = product.price ? `${product.price} ${product.currency || 'PLN'}` : '-';
+            const safeNameAttr = (product.name || '').replace(/"/g, '&quot;');
+            const rowAttr = isFullyReceived ? ' class="bg-gray-100"' : '';
+            const nameClass = isFullyReceived ? 'border p-1 line-through text-gray-400' : 'border p-1';
+            const suppClass = isFullyReceived ? 'border p-1 text-gray-400' : 'border p-1';
+            const receivedDisplay = receivedQty > 0
+                ? `<span class="text-green-700 font-semibold">${receivedQty}</span>`
+                : '<span class="text-gray-400">—</span>';
+            html += `<tr${rowAttr}>`;
+            if (isFullyReceived) {
+                html += `<td class="border p-1 text-center"><input type="checkbox" class="product-receive-check" data-idx="${idx}" disabled></td>`;
+            } else {
+                html += `<td class="border p-1 text-center"><input type="checkbox" class="product-receive-check" data-idx="${idx}" checked></td>`;
+            }
+            html += `<td class="${nameClass}">${product.name}</td>`;
+            html += `<td class="${suppClass}">${product.supplier || '-'}</td>`;
+            html += `<td class="border p-1 text-center">${product.quantity}</td>`;
+            html += `<td class="border p-1 text-center">${receivedDisplay}</td>`;
+            if (isFullyReceived) {
+                html += `<td class="border p-1 text-center"><span class="text-xs text-green-600 font-semibold">✅ Przyjęto</span></td>`;
+            } else {
+                html += `<td class="border p-1 text-center"><input type="number" class="product-receive-qty w-16 border rounded text-center text-xs px-1 py-0.5" data-idx="${idx}" data-name="${safeNameAttr}" data-max="${remainingQty}" value="${remainingQty}" min="0.001" max="${remainingQty}" step="any"></td>`;
+            }
+            html += `<td class="border p-1 text-center">${priceDisplay}</td>`;
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        if (orderStatus !== 'received') {
+            html += '<p class="text-xs text-gray-500 mt-1">Odznacz produkty które <strong>nie</strong> zostały dostarczone lub zmień odbieraną ilość.</p>';
+        }
+        return html;
+    }
+
+    function wireProductsTableEvents() {
+        const selectAllProd = document.getElementById('select-all-products');
+        const receiveBtn = document.getElementById('receive-order-btn');
+        if (!receiveBtn) return;
+        function updateReceiveBtnText() {
+            const available = document.querySelectorAll('.product-receive-check:not(:disabled)');
+            const checked = document.querySelectorAll('.product-receive-check:not(:disabled):checked');
+            if (checked.length > 0 && checked.length < available.length) {
+                receiveBtn.textContent = '⚡ Przyjmij częściowo';
+            } else {
+                receiveBtn.textContent = '✅ Przyjmij zamówienie';
+            }
+        }
+        if (selectAllProd) {
+            selectAllProd.addEventListener('change', function() {
+                document.querySelectorAll('.product-receive-check:not(:disabled)').forEach(cb => { cb.checked = this.checked; });
+                updateReceiveBtnText();
+            });
+        }
+        document.querySelectorAll('.product-receive-check:not(:disabled)').forEach(cb => {
+            cb.addEventListener('change', function() {
+                const all = document.querySelectorAll('.product-receive-check:not(:disabled)');
+                const ch = document.querySelectorAll('.product-receive-check:not(:disabled):checked');
+                if (selectAllProd) {
+                    selectAllProd.indeterminate = ch.length > 0 && ch.length < all.length;
+                    selectAllProd.checked = ch.length === all.length;
+                }
+                updateReceiveBtnText();
+            });
+        });
+        const all = document.querySelectorAll('.product-receive-check:not(:disabled)');
+        const ch = document.querySelectorAll('.product-receive-check:not(:disabled):checked');
+        if (selectAllProd && all.length > 0) {
+            selectAllProd.checked = ch.length === all.length;
+            selectAllProd.indeterminate = ch.length > 0 && ch.length < all.length;
+        }
+        updateReceiveBtnText();
+    }
+
+    function renderOrderPreview(products, orderStatus) {
+        document.getElementById('order-preview-content').innerHTML =
+            currentPreviewHeaderHtml + buildProductsHtml(products, orderStatus) + currentReceivedInfoHtml;
+        wireProductsTableEvents();
+    }
+
     document.querySelectorAll('.preview-order-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const orderId = this.getAttribute('data-order-id');
@@ -1707,71 +1756,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     html += `</div>`;
                 }
                 
-                html += `
-                    <h5 class="font-bold mb-2">Produkty:</h5>
-                    <table class="w-full border border-collapse text-xs" id="order-products-table">
-                        <thead class="bg-gray-200">
-                            <tr>
-                                <th class="border p-1 text-center w-7"><input type="checkbox" id="select-all-products" title="Zaznacz wszystkie" checked></th>
-                                <th class="border p-1 text-left">Produkt</th>
-                                <th class="border p-1 text-left">Dostawca</th>
-                                <th class="border p-1 text-center">Zam.</th>
-                                <th class="border p-1 text-center">Przyjmij ilość</th>
-                                <th class="border p-1 text-center">Cena netto</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-                
-                products.forEach((product, idx) => {
-                    const priceDisplay = product.price ? `${product.price} ${product.currency || 'PLN'}` : '-';
-                    html += `
-                        <tr>
-                            <td class="border p-1 text-center"><input type="checkbox" class="product-receive-check" data-idx="${idx}" checked></td>
-                            <td class="border p-1">${product.name}</td>
-                            <td class="border p-1">${product.supplier || '-'}</td>
-                            <td class="border p-1 text-center">${product.quantity}</td>
-                            <td class="border p-1 text-center"><input type="number" class="product-receive-qty w-16 border rounded text-center text-xs px-1 py-0.5" data-idx="${idx}" data-name="${product.name.replace(/"/g,'&quot;')}" data-max="${product.quantity}" value="${product.quantity}" min="0.001" max="${product.quantity}" step="any"></td>
-                            <td class="border p-1 text-center">${priceDisplay}</td>
-                        </tr>
-                    `;
-                });
-                
-                html += `
-                        </tbody>
-                    </table>
-                    <p class="text-xs text-gray-500 mt-1">Odznacz produkty które <strong>nie</strong> zostały dostarczone lub zmień odbieraną ilość.</p>
-                `;
-                
-                // Dodaj informację o przyjęciu zamówienia
+                currentPreviewBtn = this;
+                currentPreviewHeaderHtml = html;
+                currentReceivedInfoHtml = '';
                 if (status === 'received' && receivedAt && receivedBy) {
-                    html += `
+                    currentReceivedInfoHtml = `
                         <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded">
                             <strong>Zamówienie przyjęte w dniu:</strong> ${receivedAt}<br>
                             <strong>Przyjął:</strong> ${receivedBy}
                         </div>
                     `;
                 }
-                
-                document.getElementById('order-preview-content').innerHTML = html;
-                
-                // Obsługa "zaznacz wszystkie" w tabeli produktów
-                const selectAllProd = document.getElementById('select-all-products');
-                if (selectAllProd) {
-                    selectAllProd.addEventListener('change', function() {
-                        document.querySelectorAll('.product-receive-check').forEach(cb => { cb.checked = selectAllProd.checked; });
-                    });
-                    // Desynchronizacja gdy odznaczamy pojedyncze
-                    document.querySelectorAll('.product-receive-check').forEach(cb => {
-                        cb.addEventListener('change', function() {
-                            const all = document.querySelectorAll('.product-receive-check');
-                            const checked = document.querySelectorAll('.product-receive-check:checked');
-                            if (selectAllProd) selectAllProd.indeterminate = checked.length > 0 && checked.length < all.length;
-                            if (selectAllProd) selectAllProd.checked = checked.length === all.length;
-                        });
-                    });
-                }
-                
+
+                renderOrderPreview(products, status);
+
                 // Pokaż/ukryj przyciski w zależności od statusu
                 const receiveBtn = document.getElementById('receive-order-btn');
                 const editBtn = document.getElementById('preview-edit-order-btn');
@@ -1870,10 +1868,12 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             showNotification(data.message || 'Zamówienie zostało przyjęte', 'success');
             
-            if (data.partial) {
-                // Przyjęcie częściowe — nie zmieniaj statusu zamówienia, zostaw przyciski
-                // Tylko odśwież podgląd (checkboxy się zresetują do zaznaczone wszystkie)
-                // Nie ukrywaj receive-order-btn
+            if (data.partial && data.updated_products) {
+                // Przyjęcie częściowe — odśwież tabelę produktów z nowymi received_qty
+                if (currentPreviewBtn) {
+                    currentPreviewBtn.setAttribute('data-order-products', JSON.stringify(data.updated_products));
+                }
+                renderOrderPreview(data.updated_products, 'pending');
                 return;
             }
             
@@ -1881,6 +1881,14 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('receive-order-btn').style.display = 'none';
             document.getElementById('preview-edit-order-btn').style.display = 'none';
             document.getElementById('preview-delete-order-btn').style.display = 'none';
+
+            // Odśwież tabelę — pokaż wszystkie produkty jako przyjęte
+            if (data.updated_products) {
+                if (currentPreviewBtn) {
+                    currentPreviewBtn.setAttribute('data-order-products', JSON.stringify(data.updated_products));
+                }
+                renderOrderPreview(data.updated_products, 'received');
+            }
             
             // Zaktualizuj status w tabeli bez przeładowania
             const orderRow = document.querySelector(`tr:has(.order-checkbox[data-order-id="${currentPreviewOrderId}"])`);
