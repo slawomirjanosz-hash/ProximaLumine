@@ -1535,6 +1535,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/projekty/{project}/zamowienia/{finance}/status', [PartController::class, 'updateProjectOrderStatus'])->name('magazyn.projects.orders.status')->middleware('auth');
     Route::put('/projekty/{project}/zamowienia/{finance}', [PartController::class, 'updateProjectOrder'])->name('magazyn.projects.orders.update')->middleware('auth');
     Route::delete('/projekty/{project}/zamowienia/{finance}', [PartController::class, 'destroyProjectOrder'])->name('magazyn.projects.orders.destroy')->middleware('auth');
+    Route::get('/projekty/{project}/zamowienia/{finance}/items', [PartController::class, 'getOrderItems'])->name('magazyn.projects.orders.items.index')->middleware('auth');
+    Route::post('/projekty/{project}/zamowienia/{finance}/items', [PartController::class, 'storeOrderItem'])->name('magazyn.projects.orders.items.store')->middleware('auth');
+    Route::post('/projekty/{project}/zamowienia/{finance}/items/receive', [PartController::class, 'receiveOrderItems'])->name('magazyn.projects.orders.items.receive')->middleware('auth');
+    Route::delete('/projekty/{project}/zamowienia/{finance}/items/{item}', [PartController::class, 'destroyOrderItem'])->name('magazyn.projects.orders.items.destroy')->middleware('auth');
     Route::get('/projekty/{project}/eksport-produkty-xlsx', [PartController::class, 'exportProjectProductsXlsx'])->name('magazyn.projects.exportProductsXlsx')->middleware('auth');
     Route::post('/projekty/{project}/dokumentacja', [PartController::class, 'saveProjectDoc'])->name('magazyn.projects.doc.save')->middleware('auth');
     Route::post('/projekty/{project}/dokumentacja/upload-template', [PartController::class, 'uploadProjectDocTemplate'])->name('magazyn.projects.doc.uploadTemplate')->middleware('auth');

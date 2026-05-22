@@ -1946,7 +1946,7 @@
                                         $orderDescriptionShort = \Illuminate\Support\Str::limit($orderDescription, 40, '…');
                                         $orderRowId = (int) ($orderRow['id'] ?? 0);
                                     @endphp
-                                    <tr class="bg-white even:bg-gray-50/80{{ ($orderRow['status'] ?? '') === 'Zrealizowane' ? ' opacity-60' : '' }}">
+                                    <tr id="order-main-row-{{ $orderRowId }}" class="bg-white even:bg-gray-50/80{{ ($orderRow['status'] ?? '') === 'Zrealizowane' ? ' opacity-60' : '' }}">
                                         <td class="px-2 py-2 whitespace-nowrap">{{ $orderRow['date'] ?? '' }}</td>
                                         <td class="px-2 py-2">{{ $orderRow['order_number'] ?? '' }}</td>
                                         <td class="px-2 py-2">{{ ($orderRow['category'] ?? 'materials') === 'services' ? 'Usługi' : 'Materiały' }}</td>
@@ -1967,6 +1967,14 @@
                                         </td>
                                         <td class="px-2 py-2 text-center whitespace-nowrap">
                                             <button type="button"
+                                                class="order-items-btn px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-semibold"
+                                                data-finance-id="{{ $orderRowId }}"
+                                                data-order-number="{{ $orderRow['order_number'] ?? '' }}"
+                                                data-items-url="{{ route('magazyn.projects.orders.items.index', [$project->id, $orderRowId]) }}"
+                                                data-store-url="{{ route('magazyn.projects.orders.items.store', [$project->id, $orderRowId]) }}"
+                                                data-receive-url="{{ route('magazyn.projects.orders.items.receive', [$project->id, $orderRowId]) }}"
+                                            >📋 Pozycje</button>
+                                            <button type="button"
                                                 class="order-edit-btn px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-semibold"
                                                 data-id="{{ $orderRowId }}"
                                                 data-date="{{ $orderRow['date'] ?? '' }}"
@@ -1985,6 +1993,14 @@
                                                 data-number="{{ $orderRow['order_number'] ?? '' }}"
                                                 data-url="{{ route('magazyn.projects.orders.destroy', [$project->id, $orderRowId]) }}"
                                             >🗑️ Usuń</button>
+                                        </td>
+                                    </tr>
+                                    {{-- Rozwijany wiersz z pozycjami zamówienia --}}
+                                    <tr id="order-items-row-{{ $orderRowId }}" class="hidden order-items-expand-row">
+                                        <td colspan="9" class="p-0">
+                                            <div class="bg-indigo-50 border-l-4 border-indigo-400 mx-0 p-4" id="order-items-panel-{{ $orderRowId }}">
+                                                <p class="text-xs text-indigo-500">⏳ Ładowanie pozycji…</p>
+                                            </div>
                                         </td>
                                     </tr>
                                 @empty
@@ -3048,6 +3064,301 @@
     }
     if (deleteCancel) deleteCancel.addEventListener('click', closeDeleteModal);
     deleteModal.addEventListener('click', function (e) { if (e.target === deleteModal) closeDeleteModal(); });
+})();
+</script>
+
+{{-- PANEL POZYCJI ZAMÓWIENIA --}}
+<script>
+(function () {
+    var csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').content : '';
+
+    function escH(s) {
+        return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function fmtQty(v) {
+        var n = parseFloat(v);
+        if (isNaN(n)) return '0';
+        return n % 1 === 0 ? String(Math.round(n)) : n.toFixed(3).replace(/\.?0+$/, '');
+    }
+    function fmtAmt(v) {
+        if (v === null || v === undefined || v === '') return '';
+        return parseFloat(v).toFixed(2).replace('.', ',') + ' zł';
+    }
+
+    function renderItemsPanel(panelEl, financeId, storeUrl, receiveUrl, items, tableMissing) {
+        if (tableMissing) {
+            panelEl.innerHTML = '<p class="text-xs text-amber-700">⚠️ Brak tabeli <code>project_order_items</code> — uruchom migracje na serwerze.</p>';
+            return;
+        }
+
+        var html = '';
+
+        // Items table
+        if (items.length === 0) {
+            html += '<p class="text-xs text-gray-500 mb-3">Brak pozycji. Dodaj pozycje poniżej.</p>';
+        } else {
+            html += '<div class="overflow-x-auto mb-3">';
+            html += '<table class="w-full table-auto text-xs border-collapse" id="oi-table-' + financeId + '">';
+            html += '<thead><tr class="bg-indigo-100 text-indigo-900">';
+            html += '<th class="px-1 py-1.5 text-center w-6"><input type="checkbox" id="oi-select-all-' + financeId + '" title="Zaznacz wszystkie"></th>';
+            html += '<th class="px-2 py-1.5 text-left">Pozycja</th>';
+            html += '<th class="px-2 py-1.5 text-center">Zam.</th>';
+            html += '<th class="px-2 py-1.5 text-center">Odebr.</th>';
+            html += '<th class="px-2 py-1.5 text-center">Do odbioru</th>';
+            html += '<th class="px-2 py-1.5 text-right">Kwota netto</th>';
+            html += '<th class="px-2 py-1.5 text-center">Status</th>';
+            html += '<th class="px-2 py-1.5 text-center">Akcja</th>';
+            html += '</tr></thead><tbody>';
+
+            items.forEach(function (item) {
+                var remaining = Math.max(0, item.quantity - item.received_qty);
+                var statusBadge = item.fully_received
+                    ? '<span class="px-1.5 py-0.5 bg-green-100 text-green-800 rounded text-xs">✅ Odebrano</span>'
+                    : (item.received_qty > 0
+                        ? '<span class="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-xs">⏳ Częściowo</span>'
+                        : '<span class="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">⬜ Oczekuje</span>');
+                var rowBg = item.fully_received ? 'bg-green-50' : (item.received_qty > 0 ? 'bg-amber-50' : 'bg-white');
+
+                html += '<tr class="' + rowBg + ' border-b border-gray-200" data-item-id="' + item.id + '">';
+                html += '<td class="px-1 py-1.5 text-center">';
+                if (!item.fully_received) {
+                    html += '<input type="checkbox" class="oi-item-check" data-item-id="' + item.id + '" data-remaining="' + remaining + '" checked>';
+                }
+                html += '</td>';
+                html += '<td class="px-2 py-1.5">' + escH(item.name) + (item.notes ? '<br><span class="text-gray-400 text-xs">' + escH(item.notes) + '</span>' : '') + '</td>';
+                html += '<td class="px-2 py-1.5 text-center whitespace-nowrap">' + fmtQty(item.quantity) + (item.unit ? ' ' + escH(item.unit) : '') + '</td>';
+                html += '<td class="px-2 py-1.5 text-center whitespace-nowrap">' + fmtQty(item.received_qty) + (item.unit ? ' ' + escH(item.unit) : '') + '</td>';
+                html += '<td class="px-2 py-1.5 text-center">';
+                if (!item.fully_received) {
+                    html += '<input type="number" class="oi-receive-qty w-16 border rounded text-center text-xs px-1 py-0.5" data-item-id="' + item.id + '" value="' + remaining + '" min="0.001" max="' + remaining + '" step="any">';
+                } else {
+                    html += '—';
+                }
+                html += '</td>';
+                html += '<td class="px-2 py-1.5 text-right whitespace-nowrap">' + fmtAmt(item.amount_net) + '</td>';
+                html += '<td class="px-2 py-1.5 text-center">' + statusBadge + '</td>';
+                html += '<td class="px-2 py-1.5 text-center">';
+                html += '<button class="oi-delete-btn px-1.5 py-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200 text-xs" data-item-id="' + item.id + '" data-url="' + escH(item.delete_url) + '" data-name="' + escH(item.name) + '" title="Usuń pozycję">🗑</button>';
+                html += '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+
+            // Receive action buttons
+            html += '<div class="flex flex-wrap gap-2 mb-4">';
+            html += '<button class="oi-receive-btn px-3 py-1.5 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-xs font-semibold" data-finance-id="' + financeId + '" data-url="' + escH(receiveUrl) + '">✅ Przyjmij zaznaczone</button>';
+            html += '<button class="oi-receive-all-btn px-3 py-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded hover:bg-emerald-200 text-xs font-semibold" data-finance-id="' + financeId + '" data-url="' + escH(receiveUrl) + '">✅ Przyjmij wszystko</button>';
+            html += '</div>';
+        }
+
+        // Add item form
+        html += '<details class="mt-2"><summary class="cursor-pointer text-xs font-semibold text-indigo-700 hover:text-indigo-900 select-none">➕ Dodaj pozycję</summary>';
+        html += '<div class="mt-2 p-3 bg-white border border-indigo-200 rounded">';
+        html += '<div class="flex flex-wrap gap-2 items-end">';
+        html += '<div><label class="block text-xs text-gray-600 mb-0.5">Nazwa *</label><input type="text" class="oi-new-name px-2 py-1 border border-gray-300 rounded text-xs w-52" placeholder="Nazwa pozycji"></div>';
+        html += '<div><label class="block text-xs text-gray-600 mb-0.5">Ilość *</label><input type="number" class="oi-new-qty px-2 py-1 border border-gray-300 rounded text-xs w-20" value="1" min="0.001" step="any"></div>';
+        html += '<div><label class="block text-xs text-gray-600 mb-0.5">Jedn.</label><input type="text" class="oi-new-unit px-2 py-1 border border-gray-300 rounded text-xs w-16" placeholder="szt."></div>';
+        html += '<div><label class="block text-xs text-gray-600 mb-0.5">Kwota netto</label><input type="number" class="oi-new-amount px-2 py-1 border border-gray-300 rounded text-xs w-24" placeholder="0,00" min="0" step="0.01"></div>';
+        html += '<div><label class="block text-xs text-gray-600 mb-0.5">Uwagi</label><input type="text" class="oi-new-notes px-2 py-1 border border-gray-300 rounded text-xs w-40" placeholder="Opcjonalne"></div>';
+        html += '<div class="pt-4"><button class="oi-add-btn px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-semibold" data-finance-id="' + financeId + '" data-url="' + escH(storeUrl) + '">💾 Dodaj</button></div>';
+        html += '</div>';
+        html += '<p class="oi-add-error text-xs text-red-600 mt-1 hidden"></p>';
+        html += '</div></details>';
+
+        panelEl.innerHTML = html;
+        attachPanelEvents(panelEl, financeId, storeUrl, receiveUrl);
+    }
+
+    function attachPanelEvents(panelEl, financeId, storeUrl, receiveUrl) {
+        // Select all checkbox
+        var selectAll = panelEl.querySelector('#oi-select-all-' + financeId);
+        if (selectAll) {
+            selectAll.addEventListener('change', function () {
+                panelEl.querySelectorAll('.oi-item-check').forEach(function (cb) { cb.checked = selectAll.checked; });
+            });
+        }
+
+        // Delete buttons
+        panelEl.querySelectorAll('.oi-delete-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (!confirm('Usunąć pozycję „' + btn.dataset.name + '"?')) return;
+                fetch(btn.dataset.url, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' }
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.success) {
+                        var tr = panelEl.querySelector('tr[data-item-id="' + btn.dataset.itemId + '"]');
+                        if (tr) tr.remove();
+                        // Reload panel to sync state
+                        loadItemsPanel(financeId, panelEl, storeUrl, receiveUrl);
+                    } else {
+                        alert(data.error || 'Błąd usuwania.');
+                    }
+                })
+                .catch(function () { alert('Błąd połączenia.'); });
+            });
+        });
+
+        // Receive selected
+        var receiveBtn = panelEl.querySelector('.oi-receive-btn');
+        if (receiveBtn) {
+            receiveBtn.addEventListener('click', function () {
+                var payload = [];
+                panelEl.querySelectorAll('.oi-item-check:checked').forEach(function (cb) {
+                    var qtyInput = panelEl.querySelector('.oi-receive-qty[data-item-id="' + cb.dataset.itemId + '"]');
+                    var qty = qtyInput ? parseFloat(qtyInput.value) : parseFloat(cb.dataset.remaining);
+                    if (!isNaN(qty) && qty > 0) {
+                        payload.push({ id: parseInt(cb.dataset.itemId), qty: qty });
+                    }
+                });
+                if (payload.length === 0) { alert('Zaznacz co najmniej jedną pozycję z ilością > 0.'); return; }
+                doReceive(receiveUrl, payload, financeId, panelEl, storeUrl);
+            });
+        }
+
+        // Receive all
+        var receiveAllBtn = panelEl.querySelector('.oi-receive-all-btn');
+        if (receiveAllBtn) {
+            receiveAllBtn.addEventListener('click', function () {
+                var payload = [];
+                panelEl.querySelectorAll('.oi-receive-qty').forEach(function (inp) {
+                    var remaining = parseFloat(inp.max);
+                    if (!isNaN(remaining) && remaining > 0) {
+                        payload.push({ id: parseInt(inp.dataset.itemId), qty: remaining });
+                    }
+                });
+                if (payload.length === 0) { alert('Wszystkie pozycje są już odebrane.'); return; }
+                if (!confirm('Oznaczyć wszystkie pozycje jako odebrane?')) return;
+                doReceive(receiveUrl, payload, financeId, panelEl, storeUrl);
+            });
+        }
+
+        // Add item
+        var addBtn = panelEl.querySelector('.oi-add-btn');
+        if (addBtn) {
+            addBtn.addEventListener('click', function () {
+                var nameInput   = panelEl.querySelector('.oi-new-name');
+                var qtyInput    = panelEl.querySelector('.oi-new-qty');
+                var unitInput   = panelEl.querySelector('.oi-new-unit');
+                var amountInput = panelEl.querySelector('.oi-new-amount');
+                var notesInput  = panelEl.querySelector('.oi-new-notes');
+                var errorEl     = panelEl.querySelector('.oi-add-error');
+
+                var name = (nameInput ? nameInput.value.trim() : '');
+                var qty  = (qtyInput ? parseFloat(qtyInput.value) : 0);
+
+                errorEl.classList.add('hidden');
+                if (!name) { errorEl.textContent = 'Podaj nazwę pozycji.'; errorEl.classList.remove('hidden'); return; }
+                if (isNaN(qty) || qty <= 0) { errorEl.textContent = 'Podaj ilość większą od 0.'; errorEl.classList.remove('hidden'); return; }
+
+                addBtn.disabled = true; addBtn.textContent = '⏳…';
+
+                var body = JSON.stringify({
+                    name:       name,
+                    quantity:   qty,
+                    unit:       unitInput ? unitInput.value.trim() : '',
+                    amount_net: (amountInput && amountInput.value !== '') ? parseFloat(amountInput.value) : null,
+                    notes:      notesInput ? notesInput.value.trim() : '',
+                });
+
+                fetch(storeUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+                    body: body
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    addBtn.disabled = false; addBtn.textContent = '💾 Dodaj';
+                    if (data.success) {
+                        loadItemsPanel(financeId, panelEl, storeUrl, receiveUrl);
+                    } else {
+                        errorEl.textContent = data.error || data.message || 'Błąd dodawania.';
+                        errorEl.classList.remove('hidden');
+                    }
+                })
+                .catch(function () { addBtn.disabled = false; addBtn.textContent = '💾 Dodaj'; alert('Błąd połączenia.'); });
+            });
+        }
+    }
+
+    function doReceive(receiveUrl, payload, financeId, panelEl, storeUrl) {
+        fetch(receiveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+            body: JSON.stringify({ items: payload })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) {
+                if (data.all_received) {
+                    showToast('✅ Wszystkie pozycje odebrane! Status zamówienia → Zrealizowany.', 'green');
+                } else {
+                    showToast('✅ Odebrano ' + data.updated_count + ' pozycji.', 'green');
+                }
+                loadItemsPanel(financeId, panelEl, storeUrl, receiveUrl);
+            } else {
+                alert(data.error || 'Błąd podczas odbierania.');
+            }
+        })
+        .catch(function () { alert('Błąd połączenia.'); });
+    }
+
+    function loadItemsPanel(financeId, panelEl, storeUrl, receiveUrl) {
+        var itemsUrl = panelEl.dataset.itemsUrl;
+        if (!itemsUrl) return;
+        panelEl.innerHTML = '<p class="text-xs text-indigo-500">⏳ Ładowanie pozycji…</p>';
+        fetch(itemsUrl, { headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            renderItemsPanel(panelEl, financeId, storeUrl, receiveUrl, data.items || [], data.table_missing || false);
+        })
+        .catch(function () {
+            panelEl.innerHTML = '<p class="text-xs text-red-600">Błąd ładowania pozycji.</p>';
+        });
+    }
+
+    function showToast(message, color) {
+        var div = document.createElement('div');
+        div.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded shadow-lg text-sm font-semibold '
+            + (color === 'green' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800');
+        div.textContent = message;
+        document.body.appendChild(div);
+        setTimeout(function () { div.remove(); }, 4000);
+    }
+
+    // Wire up "📋 Pozycje" buttons
+    document.querySelectorAll('.order-items-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var financeId  = btn.dataset.financeId;
+            var expandRow  = document.getElementById('order-items-row-' + financeId);
+            var panelEl    = document.getElementById('order-items-panel-' + financeId);
+            var storeUrl   = btn.dataset.storeUrl;
+            var receiveUrl = btn.dataset.receiveUrl;
+            var itemsUrl   = btn.dataset.itemsUrl;
+
+            if (!expandRow || !panelEl) return;
+
+            var isVisible = !expandRow.classList.contains('hidden');
+            if (isVisible) {
+                expandRow.classList.add('hidden');
+                btn.classList.remove('bg-indigo-800');
+                return;
+            }
+
+            expandRow.classList.remove('hidden');
+            btn.classList.add('bg-indigo-800');
+
+            // Store URLs on panel element for reload
+            panelEl.dataset.itemsUrl   = itemsUrl;
+            panelEl.dataset.storeUrl   = storeUrl;
+            panelEl.dataset.receiveUrl = receiveUrl;
+
+            loadItemsPanel(financeId, panelEl, storeUrl, receiveUrl);
+        });
+    });
 })();
 </script>
 

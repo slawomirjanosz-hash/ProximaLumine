@@ -2398,6 +2398,170 @@ class PartController extends Controller
             ->with('finance_orders_feedback', true);
     }
 
+    // =========================================================
+    // POZYCJE ZAMÓWIEŃ (project_order_items)
+    // =========================================================
+
+    public function getOrderItems(\App\Models\Project $project, \App\Models\ProjectFinance $finance)
+    {
+        if ((int) $finance->project_id !== (int) $project->id) {
+            return response()->json(['error' => 'Brak dostępu'], 403);
+        }
+
+        if (!\Illuminate\Support\Facades\Schema::hasTable('project_order_items')) {
+            return response()->json(['items' => [], 'table_missing' => true]);
+        }
+
+        $items = \App\Models\ProjectOrderItem::where('project_finance_id', $finance->id)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'id'           => $item->id,
+                    'name'         => $item->name,
+                    'quantity'     => (float) $item->quantity,
+                    'unit'         => $item->unit ?? '',
+                    'amount_net'   => $item->amount_net !== null ? (float) $item->amount_net : null,
+                    'received_qty' => (float) $item->received_qty,
+                    'received_at'  => $item->received_at ? $item->received_at->format('Y-m-d H:i') : null,
+                    'notes'        => $item->notes ?? '',
+                    'fully_received' => $item->isFullyReceived(),
+                    'received_percent' => $item->received_percent,
+                    'delete_url'   => route('magazyn.projects.orders.items.destroy', [
+                        'project' => $item->finance->project_id ?? 0,
+                        'finance' => $item->project_finance_id,
+                        'item'    => $item->id,
+                    ]),
+                ];
+            });
+
+        return response()->json(['items' => $items]);
+    }
+
+    public function storeOrderItem(Request $request, \App\Models\Project $project, \App\Models\ProjectFinance $finance)
+    {
+        if ((int) $finance->project_id !== (int) $project->id) {
+            return response()->json(['error' => 'Brak dostępu'], 403);
+        }
+
+        if (!\Illuminate\Support\Facades\Schema::hasTable('project_order_items')) {
+            return response()->json(['error' => 'Brak tabeli project_order_items. Uruchom migracje.'], 500);
+        }
+
+        $request->validate([
+            'name'       => 'required|string|max:500',
+            'quantity'   => 'required|numeric|min:0.001',
+            'unit'       => 'nullable|string|max:50',
+            'amount_net' => 'nullable|numeric|min:0',
+            'notes'      => 'nullable|string|max:500',
+        ]);
+
+        $maxOrder = \App\Models\ProjectOrderItem::where('project_finance_id', $finance->id)->max('sort_order') ?? 0;
+
+        $item = \App\Models\ProjectOrderItem::create([
+            'project_finance_id' => $finance->id,
+            'name'               => trim($request->input('name')),
+            'quantity'           => (float) $request->input('quantity'),
+            'unit'               => $request->input('unit') ? trim($request->input('unit')) : null,
+            'amount_net'         => $request->filled('amount_net') ? (float) $request->input('amount_net') : null,
+            'received_qty'       => 0,
+            'notes'              => $request->filled('notes') ? trim($request->input('notes')) : null,
+            'sort_order'         => $maxOrder + 1,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'item' => [
+                'id'           => $item->id,
+                'name'         => $item->name,
+                'quantity'     => (float) $item->quantity,
+                'unit'         => $item->unit ?? '',
+                'amount_net'   => $item->amount_net !== null ? (float) $item->amount_net : null,
+                'received_qty' => 0.0,
+                'received_at'  => null,
+                'notes'        => $item->notes ?? '',
+                'fully_received' => false,
+                'received_percent' => 0,
+                'delete_url'   => route('magazyn.projects.orders.items.destroy', [
+                    'project' => $project->id,
+                    'finance' => $finance->id,
+                    'item'    => $item->id,
+                ]),
+            ],
+        ]);
+    }
+
+    public function receiveOrderItems(Request $request, \App\Models\Project $project, \App\Models\ProjectFinance $finance)
+    {
+        if ((int) $finance->project_id !== (int) $project->id) {
+            return response()->json(['error' => 'Brak dostępu'], 403);
+        }
+
+        if (!\Illuminate\Support\Facades\Schema::hasTable('project_order_items')) {
+            return response()->json(['error' => 'Brak tabeli project_order_items. Uruchom migracje.'], 500);
+        }
+
+        $request->validate([
+            'items'            => 'required|array|min:1',
+            'items.*.id'       => 'required|integer',
+            'items.*.qty'      => 'required|numeric|min:0',
+        ]);
+
+        $now = now();
+        $updatedCount = 0;
+        $errors = [];
+
+        foreach ($request->input('items') as $input) {
+            $itemId  = (int) ($input['id'] ?? 0);
+            $receiveQty = (float) ($input['qty'] ?? 0);
+
+            $item = \App\Models\ProjectOrderItem::where('id', $itemId)
+                ->where('project_finance_id', $finance->id)
+                ->first();
+
+            if (!$item) {
+                $errors[] = "Pozycja #$itemId nie należy do tego zamówienia.";
+                continue;
+            }
+
+            if ($receiveQty <= 0) {
+                continue;
+            }
+
+            $newReceived = min((float) $item->quantity, (float) $item->received_qty + $receiveQty);
+            $item->received_qty = $newReceived;
+            $item->received_at  = $now;
+            $item->save();
+            $updatedCount++;
+        }
+
+        // Jeśli wszystkie pozycje odebrane → ustaw status zamówienia na Zrealizowany
+        $allItems = \App\Models\ProjectOrderItem::where('project_finance_id', $finance->id)->get();
+        $allFullyReceived = $allItems->isNotEmpty() && $allItems->every(fn($i) => $i->isFullyReceived());
+        if ($allFullyReceived) {
+            $finance->update(['status' => 'paid']); // paid = Zrealizowany w mapowaniu
+        }
+
+        return response()->json([
+            'success'       => true,
+            'updated_count' => $updatedCount,
+            'all_received'  => $allFullyReceived,
+            'errors'        => $errors,
+        ]);
+    }
+
+    public function destroyOrderItem(Request $request, \App\Models\Project $project, \App\Models\ProjectFinance $finance, \App\Models\ProjectOrderItem $item)
+    {
+        if ((int) $finance->project_id !== (int) $project->id || (int) $item->project_finance_id !== (int) $finance->id) {
+            return response()->json(['error' => 'Brak dostępu'], 403);
+        }
+
+        $item->delete();
+
+        return response()->json(['success' => true]);
+    }
+
     // EKSPORT LISTY PRODUKTOW W PROJEKCIE DO XLSX
     public function exportProjectProductsXlsx(\App\Models\Project $project)
     {
