@@ -865,21 +865,6 @@
                 updateBuiltInProfit();
             }
         });
-                if (catalog > 0) offerTotal += catalog * qty;
-            });
-            const pct = _grandTotalRaw > 0 ? (builtIn / _grandTotalRaw * 100) : 0;
-            const builtEl = document.getElementById('built-in-profit-display');
-            if (builtEl) builtEl.textContent = formatPrice(builtIn) + ' (' + pct.toFixed(1) + '%)';
-            const costsEl = document.getElementById('costs-display');
-            if (costsEl) costsEl.textContent = formatPrice(_grandTotalRaw);
-            const offerEl = document.getElementById('offer-display');
-            if (offerEl) offerEl.textContent = formatPrice(offerTotal);
-            const additionalAmount = parseFloat((document.getElementById('profit-amount-input') || {}).value || '0') || 0;
-            const totalProfit = builtIn + additionalAmount;
-            const totalPct = _grandTotalRaw > 0 ? (totalProfit / _grandTotalRaw * 100) : 0;
-            const totalEl = document.getElementById('total-profit-display');
-            if (totalEl) totalEl.textContent = formatPrice(totalProfit) + ' (' + totalPct.toFixed(1) + '%)';
-        }
 
         function addRow(section) {
             const table = document.getElementById(section + '-table');
@@ -1654,40 +1639,38 @@
                 alert('Podaj prawidłowy 10-cyfrowy NIP');
                 return;
             }
+
+            const btn = document.querySelector('button[onclick="fetchFromGUS()"]');
+            if (btn) { btn.disabled = true; btn.textContent = '…'; }
             
             try {
-                const response = await fetch(`https://wl-api.mf.gov.pl/api/search/nip/${nip}?date=${new Date().toISOString().split('T')[0]}`);
-                
-                if (!response.ok) {
-                    throw new Error('Nie znaleziono danych w GUS');
-                }
+                const response = await fetch(`/api/order-supplier/nip?nip=${encodeURIComponent(nip)}`, {
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json'
+                    }
+                });
                 
                 const data = await response.json();
                 
-                if (data.result && data.result.subject) {
-                    const subject = data.result.subject;
-                    document.getElementById('customer_name').value = subject.name || '';
-                    document.getElementById('customer_nip').value = subject.nip || '';
-                    
-                    if (subject.workingAddress) {
-                        const addr = subject.workingAddress.split(',');
-                        if (addr.length >= 2) {
-                            document.getElementById('customer_address').value = addr[0].trim();
-                            const cityPostal = addr[1].trim().split(' ');
-                            if (cityPostal.length >= 2) {
-                                document.getElementById('customer_postal_code').value = cityPostal[0];
-                                document.getElementById('customer_city').value = cityPostal.slice(1).join(' ');
-                            }
-                        }
-                    }
-                    
-                    alert('Dane pobrane z GUS!');
+                if (data.success && data.data) {
+                    const d = data.data;
+                    document.getElementById('customer_name').value = d.name || '';
+                    document.getElementById('customer_nip').value = d.nip || '';
+                    document.getElementById('customer_address').value = d.address || '';
+                    document.getElementById('customer_city').value = d.city || '';
+                    document.getElementById('customer_postal_code').value = d.postal_code || '';
+                    if (d.phone) document.getElementById('customer_phone').value = d.phone;
+                    if (d.email) document.getElementById('customer_email').value = d.email;
+                    alert('Dane pobrane' + (data.source === 'db' ? ' z bazy danych' : ' z GUS') + '!');
                 } else {
-                    alert('Nie znaleziono firmy o podanym NIP');
+                    alert(data.message || 'Nie znaleziono firmy o podanym NIP');
                 }
             } catch (error) {
                 console.error('Błąd pobierania danych z GUS:', error);
                 alert('Błąd podczas pobierania danych z GUS: ' + error.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = 'GUS'; }
             }
         }
         
