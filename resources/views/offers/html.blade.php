@@ -43,7 +43,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Oferta {{ $offer->offer_number }} – {{ $offer->offer_title }}</title>
+    <title>Oferta</title>
     <style>
         /* ── Reset & base ─────────────────────────────── */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -171,6 +171,11 @@
         .validity-badge svg { width: 14px; height: 14px; }
 
         /* ── Print styles ──────────────────────────────── */
+        @page {
+            margin: 12mm 10mm;
+            /* Usuwa domyślne nagłówki i stopki przeglądarki (tytuł, URL, numer strony) */
+            size: A4 portrait;
+        }
         @media print {
             .print-bar { display: none !important; }
             body { background: #fff; }
@@ -196,6 +201,7 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
             Drukuj / Zapisz PDF
         </button>
+        <span style="font-size:.75rem;opacity:.7;margin-left:4px;">W oknie druku: odznacz „Nagłówki i stopki"</span>
     </div>
 </div>
 
