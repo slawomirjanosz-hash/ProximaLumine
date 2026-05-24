@@ -285,7 +285,8 @@
             <div>
                 @if($offer->customer_name)<strong>{{ $offer->customer_name }}</strong>@endif
                 @if($offer->customer_nip) &nbsp;·&nbsp; NIP: {{ $offer->customer_nip }}@endif
-                @if($offer->customer_address)<br>{{ $offer->customer_address }}@if($offer->customer_postal_code || $offer->customer_city), {{ $offer->customer_postal_code }} {{ $offer->customer_city }}@endif@endif
+                @if($offer->customer_address)<br>{{ $offer->customer_address }}@if($offer->customer_postal_code || $offer->customer_city), {{ $offer->customer_postal_code }} {{ $offer->customer_city }}@endif
+                @endif
                 @if($offer->customer_phone)<br>Tel: {{ $offer->customer_phone }}@endif
                 @if($offer->customer_email)<br>{{ $offer->customer_email }}@endif
             </div>
