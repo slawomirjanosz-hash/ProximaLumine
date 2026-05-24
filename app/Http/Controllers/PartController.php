@@ -8118,6 +8118,45 @@ class PartController extends Controller
         $grandTable->addCell(2160, ['bgColor' => '0F295F', 'borderSize' => 4, 'borderColor' => '0F295F'])
             ->addText(number_format((float)$offer->total_price, 2, ',', ' ') . ' zł', ['bold' => true, 'size' => 12, 'color' => 'FFFFFF'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
 
+        // --- HARMONOGRAM PŁATNOŚCI ---
+        if ($offer->schedule_enabled && !empty($offer->schedule)) {
+            $section->addTextBreak(1);
+            $schedSection = $section->addTable([
+                'width' => 9360, 'unit' => 'dxa',
+                'borderSize' => 6, 'borderColor' => 'DDE2EF',
+                'cellMargin' => 80,
+            ]);
+            $schedSection->addRow();
+            $schedSection->addCell(9360, ['bgColor' => 'EEF1FA', 'gridSpan' => 2])
+                ->addText('Harmonogram płatności', ['bold' => true, 'size' => 10, 'color' => '0F295F']);
+            foreach ($offer->schedule as $entry) {
+                $schedSection->addRow();
+                $schedSection->addCell(6200)->addText($entry['label'] ?? '', ['size' => 9]);
+                $schedSection->addCell(3160)->addText(
+                    number_format((float)($entry['amount'] ?? 0), 2, ',', ' ') . ' zł',
+                    ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]
+                );
+            }
+        }
+
+        // --- WARUNKI PŁATNOŚCI ---
+        if (!empty($offer->payment_terms)) {
+            $section->addTextBreak(1);
+            $ptTable = $section->addTable([
+                'width' => 9360, 'unit' => 'dxa',
+                'borderSize' => 6, 'borderColor' => 'DDE2EF',
+                'cellMargin' => 80,
+            ]);
+            $ptTable->addRow();
+            $ptTable->addCell(9360, ['bgColor' => 'EEF1FA', 'gridSpan' => 2])
+                ->addText('Warunki płatności', ['bold' => true, 'size' => 10, 'color' => '0F295F']);
+            foreach ($offer->payment_terms as $term) {
+                $ptTable->addRow();
+                $ptTable->addCell(6200)->addText($term['label'] ?? '', ['size' => 9]);
+                $ptTable->addCell(3160)->addText($term['value'] ?? '', ['size' => 9]);
+            }
+        }
+
         // --- PODPIS I PIECZĘĆ (prawa strona, jak w PDF) ---
         $section->addTextBreak(4);
         $signTable = $section->addTable(['alignment' => 'right']);

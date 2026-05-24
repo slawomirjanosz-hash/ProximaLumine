@@ -1306,6 +1306,14 @@ use App\Http\Controllers\AuditController;
 // Generowanie dokumentów dla ofert
 Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/{offer}/generate-word', [PartController::class, 'generateOfferWord'])->name('offers.generateWord');
 Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/{offer}/generate-pdf', [PartController::class, 'generateOfferPdf'])->name('offers.generatePdf');
+Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/{offer}/podglad-html', function (\App\Models\Offer $offer) {
+    $company = \App\Models\CompanySetting::first();
+    $customSectionsRaw = $offer->custom_sections ?? [];
+    $showUnitPrices = array_key_exists('show_unit_prices', $customSectionsRaw)
+        ? (bool)$customSectionsRaw['show_unit_prices']
+        : true;
+    return view('offers.html', compact('offer', 'company', 'showUnitPrices'));
+})->name('offers.htmlPreview');
 
 // TEST ENDPOINT
 Route::get('/test', function () {
