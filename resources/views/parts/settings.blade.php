@@ -868,141 +868,249 @@
             </div>
 
             
+            {{-- Lista użytkowników z przełącznikiem widoku --}}
             <div>
-                <p class="text-gray-600 mb-3">Lista użytkowników:</p>
-                <div class="flex flex-col gap-2">
-                    @forelse(\App\Models\User::where('email', '!=', 'proximalumine@gmail.com')->with('creator')->get() as $user)
-                        <div class="px-3 py-2 bg-gray-100 rounded border border-gray-300 text-sm flex items-center justify-between">
-                            <div class="flex-1">
-                                <p class="font-semibold flex items-center gap-2">
-                                    {{ $user->name }}
-                                    @if($user->is_admin)
-                                        <span class="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">👑 ADMIN</span>
-                                    @endif
-                                </p>
-                                <p class="text-gray-600 text-xs">{{ $user->email }}</p>
-                                @if($user->phone)
-                                    <p class="text-gray-600 text-xs">📞 {{ $user->phone }}</p>
-                                @endif
-                                <div class="flex gap-1 mt-2">
-                                    @if($user->is_admin)
-                                        <span class="text-lg" title="Dostęp do wszystkiego">⭐</span>
-                                    @else
-                                        @if($user->can_view_magazyn)
-                                            <span class="text-lg" title="Dostęp do Magazynu">📦</span>
-                                        @endif
-                                        @if($user->can_view_projects)
-                                            <span class="text-lg" title="Dostęp do Projektów">📋</span>
-                                        @endif
-                                        @if($user->can_view_offers)
-                                            <span class="text-lg" title="Dostęp do Wycen i Ofert">💼</span>
-                                        @endif
-                                        @if($user->can_view_recipes)
-                                            <span class="text-lg" title="Dostęp do Receptur">🧪</span>
-                                        @endif
-                                        @if($user->can_view_catalog)
-                                            <span class="text-lg" title="Dostęp do Katalogu">🔍</span>
-                                        @endif
-                                        @if($user->can_add)
-                                            <span class="text-lg" title="Dostęp do Dodaj">➕</span>
-                                        @endif
-                                        @if($user->can_remove)
-                                            <span class="text-lg" title="Dostęp do Pobierz">➖</span>
-                                        @endif
-                                        @if($user->can_orders)
-                                            <span class="text-lg" title="Dostęp do Zamówienia">📦</span>
-                                        @endif
-                                        @if($user->can_crm)
-                                            <span class="text-lg" title="Dostęp do CRM">👥</span>
-                                        @endif
-                                        @if($user->can_audits)
-                                            <span class="text-lg" title="Dostęp do Audytów">📝</span>
-                                        @endif
-                                        @if($user->can_settings)
-                                            <span class="text-lg" title="Dostęp do Ustawienia">⚙️</span>
-                                        @endif
-                                        @if($user->can_delete_orders)
-                                            <span class="text-lg" title="Może usuwać zamówienia">🗑️</span>
-                                        @endif
-                                        @if(!$user->can_view_magazyn && !$user->can_view_projects && !$user->can_view_offers && !$user->can_view_recipes && !$user->can_crm && !$user->can_audits && !$user->can_view_catalog && !$user->can_add && !$user->can_remove && !$user->can_orders && !$user->can_settings)
-                                            <span class="text-gray-400 text-xs italic">Brak uprawnień</span>
-                                        @endif
-                                    @endif
-                                </div>
-                                @if($user->creator)
-                                    <p class="text-gray-500 text-xs mt-1">Utworzył: <span class="font-semibold">{{ $user->creator->short_name ?? $user->creator->name }}</span></p>
-                                @endif
-                            </div>
-                            <div class="flex gap-2">
-                                @if(auth()->user()->is_admin && $user->email !== 'proximalumine@gmail.com')
-                                    @if(!$user->is_admin)
-                                    <form action="{{ route('magazyn.user.toggleAdmin', $user->id) }}" method="POST" class="inline">
-                                        @csrf
-                                        @method('PUT')
-                                        <button type="submit" class="text-purple-600 hover:text-purple-800 font-bold text-sm" title="Mianuj na admina" onclick="return confirm('Czy na pewno chcesz mianować użytkownika {{ $user->name }} adminem?')">
-                                            👑
-                                        </button>
-                                    </form>
-                                    @else
-                                    <form action="{{ route('magazyn.user.toggleAdmin', $user->id) }}" method="POST" class="inline">
-                                        @csrf
-                                        @method('PUT')
-                                        <button type="submit" class="text-gray-500 hover:text-gray-700 font-bold text-sm" title="Degraduj do zwykłego użytkownika" onclick="return confirm('Czy na pewno chcesz zdegradować admina {{ $user->name }} do zwykłego użytkownika?')">
-                                            🡻
-                                        </button>
-                                    </form>
-                                    @endif
-                                @endif
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-gray-600">Lista użytkowników:</p>
+                    <div class="flex rounded border border-gray-300 overflow-hidden text-xs font-medium">
+                        <button type="button" id="users-view-table" onclick="setUsersView('table')"
+                            class="px-3 py-1.5 flex items-center gap-1 hover:bg-gray-100 transition-colors">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+                            Tabela
+                        </button>
+                        <button type="button" id="users-view-tiles" onclick="setUsersView('tiles')"
+                            class="px-3 py-1.5 flex items-center gap-1 border-l border-gray-300 hover:bg-gray-100 transition-colors">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                            Kafelki
+                        </button>
+                    </div>
+                </div>
+
+                @php
+                    $allUsers = \App\Models\User::where('email', '!=', 'proximalumine@gmail.com')->with('creator')->get();
+                @endphp
+
+                {{-- ── WIDOK TABELARYCZNY ── --}}
+                <div id="users-view-table-content">
+                    @if($allUsers->isEmpty())
+                        <p class="text-gray-400 italic">Brak użytkowników</p>
+                    @else
+                    <div class="w-full overflow-x-auto rounded border border-gray-200">
+                        <table class="w-full text-sm border-collapse">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-700 text-xs uppercase tracking-wide">
+                                    <th class="px-4 py-2 text-left font-semibold">Użytkownik</th>
+                                    <th class="px-4 py-2 text-left font-semibold">Uprawnienia</th>
+                                    <th class="px-4 py-2 text-left font-semibold hidden sm:table-cell">Utworzył</th>
+                                    <th class="px-4 py-2 text-center font-semibold">Akcje</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($allUsers as $user)
                                 @php
                                     $isSuperAdmin = auth()->user()->email === 'proximalumine@gmail.com';
                                     $isAdmin = auth()->user()->is_admin;
                                     $canEdit = $isSuperAdmin || $isAdmin || ($user->created_by === auth()->id());
                                 @endphp
-                                @if($canEdit && !$user->is_admin)
-                                <a href="{{ route('magazyn.user.edit', $user->id) }}" class="text-blue-600 hover:text-blue-800 font-bold text-sm" title="Edytuj użytkownika">
-                                    ✏️
-                                </a>
-                                @elseif($canEdit && $user->is_admin && (auth()->user()->is_admin || $isSuperAdmin))
-                                <a href="{{ route('magazyn.user.edit', $user->id) }}" class="text-blue-600 hover:text-blue-800 font-bold text-sm" title="Edytuj użytkownika">
-                                    ✏️
-                                </a>
-                                @endif
-                                @if(auth()->user()->email === 'proximalumine@gmail.com')
-                                    {{-- Główny admin może usunąć każdego użytkownika --}}
-                                    <form action="{{ route('magazyn.user.delete', $user->id) }}" method="POST" class="inline" id="delete-user-form-{{ $user->id }}">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="button" class="text-red-600 hover:text-red-800 font-bold text-sm" title="Usuń użytkownika" onclick="if(confirm('Czy na pewno usunąć użytkownika &quot;{{ $user->name }}&quot;?')) { document.getElementById('delete-user-form-{{ $user->id }}').submit(); }">
-                                            ✕
-                                        </button>
-                                    </form>
-                                @elseif(auth()->user()->is_admin && !$user->is_admin)
-                                    {{-- Admini mogą usunąć tylko nie-adminów --}}
-                                    <form action="{{ route('magazyn.user.delete', $user->id) }}" method="POST" class="inline" id="delete-user-form-{{ $user->id }}">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="button" class="text-red-600 hover:text-red-800 font-bold text-sm" title="Usuń użytkownika" onclick="if(confirm('Czy na pewno usunąć użytkownika &quot;{{ $user->name }}&quot;?')) { document.getElementById('delete-user-form-{{ $user->id }}').submit(); }">
-                                            ✕
-                                        </button>
-                                    </form>
-                                @elseif(!$user->is_admin && $user->created_by === auth()->id())
-                                    {{-- Zwykli użytkownicy mogą usunąć tylko użytkowników których sami stworzyli --}}
-                                    <form action="{{ route('magazyn.user.delete', $user->id) }}" method="POST" class="inline" id="delete-user-form-{{ $user->id }}">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="button" class="text-red-600 hover:text-red-800 font-bold text-sm" title="Usuń użytkownika" onclick="if(confirm('Czy na pewno usunąć użytkownika &quot;{{ $user->name }}&quot;?')) { document.getElementById('delete-user-form-{{ $user->id }}').submit(); }">
-                                            ✕
-                                        </button>
-                                    </form>
-                                @elseif($user->is_admin)
-                                    <span class="text-gray-400 text-xs italic ml-2">Admin</span>
+                                <tr class="border-t border-gray-100 even:bg-gray-50 hover:bg-blue-50/40 transition-colors">
+                                    {{-- Kolumna: Użytkownik (2 linie) --}}
+                                    <td class="px-4 py-2.5">
+                                        <div class="flex items-center gap-1.5 font-semibold text-gray-900">
+                                            {{ $user->name }}
+                                            @if($user->is_admin)
+                                                <span class="text-xs bg-red-500 text-white px-1.5 py-0.5 rounded-full leading-none">👑 ADMIN</span>
+                                            @endif
+                                        </div>
+                                        <div class="text-xs text-gray-500 mt-0.5">
+                                            {{ $user->email }}@if($user->phone) &nbsp;·&nbsp; 📞 {{ $user->phone }}@endif
+                                        </div>
+                                    </td>
+                                    {{-- Kolumna: Uprawnienia --}}
+                                    <td class="px-4 py-2.5">
+                                        <div class="flex flex-wrap gap-0.5 text-base leading-none">
+                                            @if($user->is_admin)
+                                                <span title="Dostęp do wszystkiego">⭐</span>
+                                            @else
+                                                @if($user->can_view_magazyn)<span title="Magazyn">📦</span>@endif
+                                                @if($user->can_view_projects)<span title="Projekty">📋</span>@endif
+                                                @if($user->can_view_offers)<span title="Wyceny/Oferty">💼</span>@endif
+                                                @if($user->can_view_recipes)<span title="Receptury">🧪</span>@endif
+                                                @if($user->can_view_catalog)<span title="Katalog">🔍</span>@endif
+                                                @if($user->can_add)<span title="Dodaj">➕</span>@endif
+                                                @if($user->can_remove)<span title="Pobierz">➖</span>@endif
+                                                @if($user->can_orders)<span title="Zamówienia">🛒</span>@endif
+                                                @if($user->can_crm)<span title="CRM">👥</span>@endif
+                                                @if($user->can_audits)<span title="Audyty">📝</span>@endif
+                                                @if($user->can_settings)<span title="Ustawienia">⚙️</span>@endif
+                                                @if($user->can_delete_orders)<span title="Usuwa zamówienia">🗑️</span>@endif
+                                                @if(!$user->can_view_magazyn && !$user->can_view_projects && !$user->can_view_offers && !$user->can_view_recipes && !$user->can_crm && !$user->can_audits && !$user->can_view_catalog && !$user->can_add && !$user->can_remove && !$user->can_orders && !$user->can_settings)
+                                                    <span class="text-gray-400 text-xs italic">Brak</span>
+                                                @endif
+                                            @endif
+                                        </div>
+                                    </td>
+                                    {{-- Kolumna: Utworzył --}}
+                                    <td class="px-4 py-2.5 text-xs text-gray-500 hidden sm:table-cell">
+                                        {{ $user->creator ? ($user->creator->short_name ?? $user->creator->name) : '—' }}
+                                    </td>
+                                    {{-- Kolumna: Akcje --}}
+                                    <td class="px-4 py-2.5 text-center whitespace-nowrap">
+                                        <div class="flex items-center justify-center gap-2">
+                                            @if(auth()->user()->is_admin && $user->email !== 'proximalumine@gmail.com')
+                                                @if(!$user->is_admin)
+                                                <form action="{{ route('magazyn.user.toggleAdmin', $user->id) }}" method="POST" class="inline">
+                                                    @csrf @method('PUT')
+                                                    <button type="submit" class="text-purple-600 hover:text-purple-800 text-sm" title="Mianuj na admina" onclick="return confirm('Mianować {{ $user->name }} adminem?')">👑</button>
+                                                </form>
+                                                @else
+                                                <form action="{{ route('magazyn.user.toggleAdmin', $user->id) }}" method="POST" class="inline">
+                                                    @csrf @method('PUT')
+                                                    <button type="submit" class="text-gray-500 hover:text-gray-700 text-sm" title="Degraduj do użytkownika" onclick="return confirm('Zdegradować admina {{ $user->name }}?')">🡻</button>
+                                                </form>
+                                                @endif
+                                            @endif
+                                            @if($canEdit && (!$user->is_admin || auth()->user()->is_admin || $isSuperAdmin))
+                                            <a href="{{ route('magazyn.user.edit', $user->id) }}" class="text-blue-600 hover:text-blue-800 text-sm" title="Edytuj">✏️</a>
+                                            @endif
+                                            @if($isSuperAdmin || (auth()->user()->is_admin && !$user->is_admin) || (!$user->is_admin && $user->created_by === auth()->id()))
+                                            <form action="{{ route('magazyn.user.delete', $user->id) }}" method="POST" class="inline" id="del-t-{{ $user->id }}">
+                                                @csrf @method('DELETE')
+                                                <button type="button" class="text-red-500 hover:text-red-700 text-sm" title="Usuń" onclick="if(confirm('Usunąć {{ $user->name }}?')) document.getElementById('del-t-{{ $user->id }}').submit()">✕</button>
+                                            </form>
+                                            @elseif($user->is_admin && !$isSuperAdmin)
+                                            <span class="text-gray-400 text-xs italic">Admin</span>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    @endif
+                </div>
+
+                {{-- ── WIDOK KAFELKI ── --}}
+                <div id="users-view-tiles-content" class="hidden">
+                    @if($allUsers->isEmpty())
+                        <p class="text-gray-400 italic">Brak użytkowników</p>
+                    @else
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        @foreach($allUsers as $user)
+                        @php
+                            $isSuperAdmin = auth()->user()->email === 'proximalumine@gmail.com';
+                            $isAdmin = auth()->user()->is_admin;
+                            $canEdit = $isSuperAdmin || $isAdmin || ($user->created_by === auth()->id());
+                        @endphp
+                        <div class="bg-gray-50 rounded-lg border border-gray-200 p-3 text-sm flex flex-col gap-2">
+                            {{-- Nagłówek kafelka --}}
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex-1 min-w-0">
+                                    <p class="font-semibold text-gray-900 flex items-center gap-1.5 flex-wrap">
+                                        {{ $user->name }}
+                                        @if($user->is_admin)
+                                            <span class="text-xs bg-red-500 text-white px-1.5 py-0.5 rounded-full leading-none">👑 ADMIN</span>
+                                        @endif
+                                    </p>
+                                    <p class="text-gray-500 text-xs truncate">{{ $user->email }}</p>
+                                    @if($user->phone)
+                                        <p class="text-gray-500 text-xs">📞 {{ $user->phone }}</p>
+                                    @endif
+                                </div>
+                            </div>
+                            {{-- Uprawnienia --}}
+                            <div class="flex flex-wrap gap-0.5 text-base leading-none border-t border-gray-200 pt-2">
+                                @if($user->is_admin)
+                                    <span title="Dostęp do wszystkiego">⭐</span>
+                                @else
+                                    @if($user->can_view_magazyn)<span title="Magazyn">📦</span>@endif
+                                    @if($user->can_view_projects)<span title="Projekty">📋</span>@endif
+                                    @if($user->can_view_offers)<span title="Wyceny/Oferty">💼</span>@endif
+                                    @if($user->can_view_recipes)<span title="Receptury">🧪</span>@endif
+                                    @if($user->can_view_catalog)<span title="Katalog">🔍</span>@endif
+                                    @if($user->can_add)<span title="Dodaj">➕</span>@endif
+                                    @if($user->can_remove)<span title="Pobierz">➖</span>@endif
+                                    @if($user->can_orders)<span title="Zamówienia">🛒</span>@endif
+                                    @if($user->can_crm)<span title="CRM">👥</span>@endif
+                                    @if($user->can_audits)<span title="Audyty">📝</span>@endif
+                                    @if($user->can_settings)<span title="Ustawienia">⚙️</span>@endif
+                                    @if($user->can_delete_orders)<span title="Usuwa zamówienia">🗑️</span>@endif
+                                    @if(!$user->can_view_magazyn && !$user->can_view_projects && !$user->can_view_offers && !$user->can_view_recipes && !$user->can_crm && !$user->can_audits && !$user->can_view_catalog && !$user->can_add && !$user->can_remove && !$user->can_orders && !$user->can_settings)
+                                        <span class="text-gray-400 text-xs italic">Brak uprawnień</span>
+                                    @endif
                                 @endif
                             </div>
+                            {{-- Stopka kafelka: twórca + akcje --}}
+                            <div class="flex items-center justify-between border-t border-gray-200 pt-2 mt-auto">
+                                <span class="text-gray-400 text-xs">
+                                    @if($user->creator){{ $user->creator->short_name ?? $user->creator->name }}@else—@endif
+                                </span>
+                                <div class="flex gap-2">
+                                    @if(auth()->user()->is_admin && $user->email !== 'proximalumine@gmail.com')
+                                        @if(!$user->is_admin)
+                                        <form action="{{ route('magazyn.user.toggleAdmin', $user->id) }}" method="POST" class="inline">
+                                            @csrf @method('PUT')
+                                            <button type="submit" class="text-purple-600 hover:text-purple-800 text-sm" title="Mianuj na admina" onclick="return confirm('Mianować {{ $user->name }} adminem?')">👑</button>
+                                        </form>
+                                        @else
+                                        <form action="{{ route('magazyn.user.toggleAdmin', $user->id) }}" method="POST" class="inline">
+                                            @csrf @method('PUT')
+                                            <button type="submit" class="text-gray-500 hover:text-gray-700 text-sm" title="Degraduj" onclick="return confirm('Zdegradować admina {{ $user->name }}?')">🡻</button>
+                                        </form>
+                                        @endif
+                                    @endif
+                                    @if($canEdit && (!$user->is_admin || auth()->user()->is_admin || $isSuperAdmin))
+                                    <a href="{{ route('magazyn.user.edit', $user->id) }}" class="text-blue-600 hover:text-blue-800 text-sm" title="Edytuj">✏️</a>
+                                    @endif
+                                    @if($isSuperAdmin || (auth()->user()->is_admin && !$user->is_admin) || (!$user->is_admin && $user->created_by === auth()->id()))
+                                    <form action="{{ route('magazyn.user.delete', $user->id) }}" method="POST" class="inline" id="del-c-{{ $user->id }}">
+                                        @csrf @method('DELETE')
+                                        <button type="button" class="text-red-500 hover:text-red-700 text-sm" title="Usuń" onclick="if(confirm('Usunąć {{ $user->name }}?')) document.getElementById('del-c-{{ $user->id }}').submit()">✕</button>
+                                    </form>
+                                    @elseif($user->is_admin && !$isSuperAdmin)
+                                    <span class="text-gray-400 text-xs italic">Admin</span>
+                                    @endif
+                                </div>
+                            </div>
                         </div>
-                    @empty
-                        <p class="text-gray-400 italic">Brak użytkowników</p>
-                    @endforelse
+                        @endforeach
+                    </div>
+                    @endif
                 </div>
+
+                <script>
+                (function() {
+                    var PREF_KEY = 'users_view_pref';
+                    function setUsersView(mode) {
+                        localStorage.setItem(PREF_KEY, mode);
+                        applyView(mode);
+                    }
+                    function applyView(mode) {
+                        var tbl = document.getElementById('users-view-table-content');
+                        var til = document.getElementById('users-view-tiles-content');
+                        var btnTbl = document.getElementById('users-view-table');
+                        var btnTil = document.getElementById('users-view-tiles');
+                        if (mode === 'tiles') {
+                            tbl.classList.add('hidden');
+                            til.classList.remove('hidden');
+                            btnTil.classList.add('bg-indigo-600', 'text-white');
+                            btnTil.classList.remove('text-gray-700');
+                            btnTbl.classList.remove('bg-indigo-600', 'text-white');
+                            btnTbl.classList.add('text-gray-700');
+                        } else {
+                            til.classList.add('hidden');
+                            tbl.classList.remove('hidden');
+                            btnTbl.classList.add('bg-indigo-600', 'text-white');
+                            btnTbl.classList.remove('text-gray-700');
+                            btnTil.classList.remove('bg-indigo-600', 'text-white');
+                            btnTil.classList.add('text-gray-700');
+                        }
+                    }
+                    window.setUsersView = setUsersView;
+                    var saved = localStorage.getItem(PREF_KEY) || 'table';
+                    applyView(saved);
+                })();
+                </script>
             </div>
         </div>
     </div>
