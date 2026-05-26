@@ -4508,7 +4508,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // -------- Picker osoby odpowiedzialnej (użytkownicy systemu) --------
-    let ganttUsers = [];
+    // Dane wbudowane w stronę – brak potrzeby dodatkowego żądania HTTP
+    let ganttUsers = @json(
+        \App\Models\User::orderBy('name')
+            ->select(['id', 'name', 'email', 'short_name'])
+            ->get()
+            ->map(fn($u) => [
+                'id'         => $u->id,
+                'name'       => $u->name,
+                'short_name' => $u->short_name ?? null,
+                'email'      => $u->email,
+                'display'    => ($u->short_name ?? null)
+                    ? $u->short_name . ' – ' . $u->name
+                    : $u->name,
+            ])
+            ->values()
+    );
 
     function populateAssigneeSelect() {
         const sel = document.getElementById('task-assignee-select');
@@ -4525,17 +4540,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (currentVal) sel.value = currentVal;
     }
 
-    fetch('/api/users-for-gantt', { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
-        .then(r => {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return r.json();
-        })
-        .then(users => {
-            ganttUsers = Array.isArray(users) ? users : [];
-            console.log('✅ Załadowano ' + ganttUsers.length + ' użytkowników do pickera Gantt');
-            populateAssigneeSelect();
-        })
-        .catch(err => { console.warn('⚠️ Picker Gantt: nie udało się pobrać użytkowników:', err); });
+    populateAssigneeSelect(); // Wstępne wypełnienie przy ładowaniu strony
 
     // Checkbox: pokaż/ukryj opcje powiadomień
     const notifyCheckbox = document.getElementById('task-notify-email');
