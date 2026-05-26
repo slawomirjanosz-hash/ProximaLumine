@@ -5606,6 +5606,23 @@ class PartController extends Controller
         return redirect()->route('magazyn.settings')->with('success', 'Dane firmy zostały zapisane.');
     }
 
+    public function sendTestEmail(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            \Illuminate\Support\Facades\Mail::raw(
+                'To jest testowa wiadomość email z systemu ProximaLumine. Konfiguracja maila działa poprawnie.',
+                function ($message) use ($user) {
+                    $message->to($user->email, $user->name ?? $user->email)
+                            ->subject('Test konfiguracji email — ProximaLumine');
+                }
+            );
+            return response()->json(['success' => true]);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
     // ZAPIS USTAWIEŃ ZAMÓWIEŃ
     public function saveOrderSettings(Request $request)
     {

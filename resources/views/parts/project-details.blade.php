@@ -4231,12 +4231,32 @@
             </div>
             <div class="mb-4">
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Osoba odpowiedzialna</label>
-                <div class="relative">
-                    <input type="text" id="task-assignee-input" class="w-full border rounded px-3 py-2 text-sm" placeholder="Wpisz imię lub inicjały..." autocomplete="off">
-                    <input type="hidden" id="task-assignee-user-id" value="">
-                    <ul id="assignee-dropdown" class="absolute z-50 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-48 overflow-y-auto hidden text-sm"></ul>
-                </div>
+                <select id="task-assignee-select" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="">— Brak przypisania —</option>
+                </select>
+                <input type="hidden" id="task-assignee-user-id" value="">
                 <p class="text-xs text-gray-500 mt-1">Wybierz z listy, aby automatycznie utworzyć zadanie w CRM.</p>
+            </div>
+            <div class="mb-4">
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" id="task-notify-email" class="rounded border-gray-300 w-4 h-4">
+                    <span class="text-sm font-semibold text-gray-700">Wysyłaj powiadomienia mailowe osobie odpowiedzialnej</span>
+                </label>
+                <div id="task-notify-options" class="hidden mt-2 ml-6 p-3 bg-blue-50 border border-blue-100 rounded space-y-2">
+                    <p class="text-xs text-gray-500">Częstotliwość powiadomień (można wybrać kilka):</p>
+                    <label class="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" id="notify-freq-daily" value="daily" class="task-notify-freq-check rounded border-gray-300 w-4 h-4"> Codziennie
+                    </label>
+                    <label class="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" id="notify-freq-weekly" value="weekly" class="task-notify-freq-check rounded border-gray-300 w-4 h-4"> Co tydzień
+                    </label>
+                    <label class="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" id="notify-freq-2days-before" value="2_days_before" class="task-notify-freq-check rounded border-gray-300 w-4 h-4"> 2 dni przed zakończeniem zadania
+                    </label>
+                    <label class="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" id="notify-freq-daily-overdue" value="daily_overdue" class="task-notify-freq-check rounded border-gray-300 w-4 h-4"> Codziennie po przekroczeniu terminu
+                    </label>
+                </div>
             </div>
             @if(auth()->user() && auth()->user()->is_admin)
             <div class="mb-4 hidden" id="completed-at-row">
@@ -4489,6 +4509,22 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // -------- Picker osoby odpowiedzialnej (użytkownicy systemu) --------
     let ganttUsers = [];
+
+    function populateAssigneeSelect() {
+        const sel = document.getElementById('task-assignee-select');
+        if (!sel) return;
+        const currentVal = sel.value;
+        while (sel.options.length > 1) sel.remove(1);
+        ganttUsers.forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = u.id;
+            opt.text = u.display;
+            opt.dataset.name = u.display;
+            sel.appendChild(opt);
+        });
+        if (currentVal) sel.value = currentVal;
+    }
+
     fetch('/api/users-for-gantt', { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
         .then(r => {
             if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -4497,62 +4533,15 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(users => {
             ganttUsers = Array.isArray(users) ? users : [];
             console.log('✅ Załadowano ' + ganttUsers.length + ' użytkowników do pickera Gantt');
+            populateAssigneeSelect();
         })
         .catch(err => { console.warn('⚠️ Picker Gantt: nie udało się pobrać użytkowników:', err); });
 
-    const assigneeInput = document.getElementById('task-assignee-input');
-    const assigneeUserId = document.getElementById('task-assignee-user-id');
-    const assigneeDropdown = document.getElementById('assignee-dropdown');
-
-    function renderAssigneeDropdown(filter) {
-        const lower = filter.toLowerCase();
-        const filtered = ganttUsers.filter(u =>
-            u.name.toLowerCase().includes(lower) ||
-            (u.short_name && u.short_name.toLowerCase().includes(lower))
-        );
-        assigneeDropdown.innerHTML = '';
-        if (filtered.length === 0) {
-            assigneeDropdown.classList.add('hidden');
-            return;
-        }
-        // Opcja wyczyszczenia wyboru
-        const clearLi = document.createElement('li');
-        clearLi.textContent = '— Brak przypisania —';
-        clearLi.className = 'px-3 py-2 cursor-pointer hover:bg-gray-100 text-gray-400 italic';
-        clearLi.addEventListener('mousedown', function(e) {
-            e.preventDefault();
-            assigneeInput.value = '';
-            assigneeUserId.value = '';
-            assigneeDropdown.classList.add('hidden');
-        });
-        assigneeDropdown.appendChild(clearLi);
-        filtered.forEach(u => {
-            const li = document.createElement('li');
-            li.textContent = u.display;
-            li.className = 'px-3 py-2 cursor-pointer hover:bg-blue-50';
-            li.addEventListener('mousedown', function(e) {
-                e.preventDefault();
-                assigneeInput.value = u.display;
-                assigneeUserId.value = u.id;
-                assigneeDropdown.classList.add('hidden');
-            });
-            assigneeDropdown.appendChild(li);
-        });
-        assigneeDropdown.classList.remove('hidden');
-    }
-
-    if (assigneeInput) {
-        assigneeInput.addEventListener('input', function() {
-            if (this.value.length === 0) {
-                assigneeUserId.value = '';
-            }
-            renderAssigneeDropdown(this.value);
-        });
-        assigneeInput.addEventListener('focus', function() {
-            renderAssigneeDropdown(this.value);
-        });
-        assigneeInput.addEventListener('blur', function() {
-            setTimeout(() => assigneeDropdown.classList.add('hidden'), 150);
+    // Checkbox: pokaż/ukryj opcje powiadomień
+    const notifyCheckbox = document.getElementById('task-notify-email');
+    if (notifyCheckbox) {
+        notifyCheckbox.addEventListener('change', function() {
+            document.getElementById('task-notify-options').classList.toggle('hidden', !this.checked);
         });
     }
     // -------- Koniec pickera --------
@@ -4574,13 +4563,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('task-duration-input').value = duration;
                 document.getElementById('task-progress-input').value = task.progress || 0;
                 document.getElementById('task-description-input').value = task.description || '';
-                document.getElementById('task-assignee-input').value = task.assignee || '';
+                // Przypisanie osoby odpowiedzialnej (select)
+                populateAssigneeSelect();
+                document.getElementById('task-assignee-select').value = task.assigned_user_id || '';
                 document.getElementById('task-assignee-user-id').value = task.assigned_user_id || '';
-                // Jeśli zapisany user_id — pokaż display name z listy
-                if (task.assigned_user_id) {
-                    const found = ganttUsers.find(u => u.id == task.assigned_user_id);
-                    if (found) document.getElementById('task-assignee-input').value = found.display;
+                // Powiadomienia email
+                const notifyEmailCb = document.getElementById('task-notify-email');
+                const notifyOpts = document.getElementById('task-notify-options');
+                if (notifyEmailCb) {
+                    notifyEmailCb.checked = !!task.notify_email;
+                    if (notifyOpts) notifyOpts.classList.toggle('hidden', !task.notify_email);
                 }
+                const freqs = (task.notify_frequency || '').split(',').filter(Boolean);
+                document.querySelectorAll('.task-notify-freq-check').forEach(cb => {
+                    cb.checked = freqs.includes(cb.value);
+                });
                 // Admin: date-of-completion + completed_at row visibility
                 const completedAtRow = document.getElementById('completed-at-row');
                 const progressInput = document.getElementById('task-progress-input');
@@ -4614,8 +4611,17 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('task-duration-input').value = 1;
             document.getElementById('task-progress-input').value = 0;
             document.getElementById('task-description-input').value = '';
-            document.getElementById('task-assignee-input').value = '';
+            // Reset osoby odpowiedzialnej i powiadomień
+            populateAssigneeSelect();
+            document.getElementById('task-assignee-select').value = '';
             document.getElementById('task-assignee-user-id').value = '';
+            const notifyEmailCbNew = document.getElementById('task-notify-email');
+            if (notifyEmailCbNew) {
+                notifyEmailCbNew.checked = false;
+                const notifyOptsNew = document.getElementById('task-notify-options');
+                if (notifyOptsNew) notifyOptsNew.classList.add('hidden');
+            }
+            document.querySelectorAll('.task-notify-freq-check').forEach(cb => cb.checked = false);
             const completedAtRow = document.getElementById('completed-at-row');
             if (completedAtRow) completedAtRow.classList.add('hidden');
             const progressInput = document.getElementById('task-progress-input');
@@ -5267,7 +5273,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     description: t.description || '',
                     completed_at: t.completed_at || null,
                     assignee: t.assignee || '',
-                    assigned_user_id: t.assigned_user_id || null
+                    assigned_user_id: t.assigned_user_id || null,
+                    notify_email: t.notify_email || false,
+                    notify_frequency: t.notify_frequency || ''
                 }));
             
             console.log('✅ Załadowano ' + frappeTasks.length + ' zadań z bazy (z ' + tasksArray.length + ' otrzymanych)');
@@ -5370,6 +5378,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 description: task.description || '',
                 assignee: task.assignee || '',
                 assigned_user_id: task.assigned_user_id || null,
+                notify_email: task.notify_email || false,
+                notify_frequency: task.notify_frequency || '',
                 order: frappeTasks.length
             })
         })
@@ -5509,8 +5519,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const progress = parseInt(document.getElementById('task-progress-input').value) || 0;
         const dependency = document.getElementById('task-dependency-input').value;
         const description = document.getElementById('task-description-input').value.trim();
-        const assignee = document.getElementById('task-assignee-input').value.trim();
-        const assigneeUserId = parseInt(document.getElementById('task-assignee-user-id').value) || null;
+        // Osoba odpowiedzialna — z select
+        const assigneeSelect = document.getElementById('task-assignee-select');
+        const assigneeUserId = parseInt(assigneeSelect.value) || null;
+        const assigneeOption = assigneeSelect.options[assigneeSelect.selectedIndex];
+        const assignee = assigneeUserId && assigneeOption ? (assigneeOption.dataset.name || assigneeOption.text) : '';
+        // Powiadomienia email
+        const notifyEmailCb = document.getElementById('task-notify-email');
+        const notifyEmail = notifyEmailCb ? notifyEmailCb.checked : false;
+        const notifyFrequency = [...document.querySelectorAll('.task-notify-freq-check:checked')].map(cb => cb.value).join(',');
         const completedAtInput = document.getElementById('task-completed-at-input');
         const completedAtRaw = completedAtInput ? completedAtInput.value : null;
         
@@ -5531,6 +5548,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 frappeTasks[taskIndex].description = description;
                 frappeTasks[taskIndex].assignee = assignee;
                 frappeTasks[taskIndex].assigned_user_id = assigneeUserId;
+                frappeTasks[taskIndex].notify_email = notifyEmail;
+                frappeTasks[taskIndex].notify_frequency = notifyFrequency;
                 // Handle completed_at: admin can override; non-admin: auto
                 if (IS_ADMIN && completedAtRaw) {
                     frappeTasks[taskIndex].completed_at = completedAtRaw;
@@ -5568,6 +5587,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     description: description,
                     assignee: assignee,
                     assigned_user_id: assigneeUserId,
+                    notify_email: notifyEmail,
+                    notify_frequency: notifyFrequency,
                     ...(IS_ADMIN && completedAtRaw ? { completed_at: completedAtRaw } : {})
                 }).then(updatedTask => {
                     if (updatedTask && updatedTask.completed_at !== undefined) {
@@ -5586,7 +5607,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 dependencies: dependency,
                 description: description,
                 assignee: assignee,
-                assigned_user_id: assigneeUserId
+                assigned_user_id: assigneeUserId,
+                notify_email: notifyEmail,
+                notify_frequency: notifyFrequency
             };
             createTaskInDB(newTask).then(data => {
                 frappeTasks.push({
@@ -5599,7 +5622,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     description: data.description || '',
                     completed_at: data.completed_at || null,
                     assignee: data.assignee || '',
-                    assigned_user_id: data.assigned_user_id || null
+                    assigned_user_id: data.assigned_user_id || null,
+                    notify_email: data.notify_email || false,
+                    notify_frequency: data.notify_frequency || ''
                 });
                 renderGantt();
                 hideTaskModal();

@@ -1420,6 +1420,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/magazyn/ustawienia/supplier/fetch-by-nip', [PartController::class, 'fetchSupplierByNip'])->name('magazyn.supplier.fetchByNip')->middleware('permission:settings');
     Route::get('/magazyn/ustawienia/company/fetch-by-nip', [PartController::class, 'fetchCompanyByNip'])->name('magazyn.company.fetchByNip')->middleware('permission:settings');
     Route::post('/magazyn/ustawienia/company', [PartController::class, 'saveCompanySettings'])->name('magazyn.company.save')->middleware('permission:settings');
+    Route::post('/magazyn/ustawienia/test-email', [PartController::class, 'sendTestEmail'])->name('settings.test-email')->middleware('permission:settings');
     Route::post('/magazyn/ustawienia/order-settings', [PartController::class, 'saveOrderSettings'])->name('magazyn.order-settings.save')->middleware('permission:settings');
     Route::post('/magazyn/ustawienia/qr-settings', [PartController::class, 'saveQrSettings'])->name('magazyn.qr-settings.save')->middleware('permission:settings');
     Route::post('/magazyn/ustawienia/catalog-columns', [PartController::class, 'saveCatalogColumnsSettings'])->name('magazyn.catalog-columns.save')->middleware('permission:settings');

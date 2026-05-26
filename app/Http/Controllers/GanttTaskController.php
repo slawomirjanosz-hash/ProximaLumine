@@ -44,6 +44,8 @@ class GanttTaskController extends Controller
                 'description' => 'nullable|string',
                 'assignee' => 'nullable|string|max:255',
                 'assigned_user_id' => 'nullable|integer|exists:users,id',
+                'notify_email' => 'boolean',
+                'notify_frequency' => 'nullable|string|max:200',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Log::error('❌ Gantt: Błąd walidacji przy tworzeniu zadania', [
@@ -103,6 +105,8 @@ class GanttTaskController extends Controller
                 'assignee' => 'nullable|string|max:255',
                 'assigned_user_id' => 'nullable|integer|exists:users,id',
                 'completed_at' => 'nullable|date',
+                'notify_email' => 'boolean',
+                'notify_frequency' => 'nullable|string|max:200',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Log::error('❌ Gantt: Błąd walidacji przy aktualizacji zadania', [

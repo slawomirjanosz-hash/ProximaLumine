@@ -744,6 +744,75 @@
     </div>
     @endif
 
+    <!-- Sekcja: Konfiguracja Email / Resend (rozwijalna) -->
+    @if(auth()->user()->email === 'proximalumine@gmail.com' || auth()->user()->can_settings_company)
+    <div class="bg-white rounded shadow mb-6">
+        <button type="button" class="collapsible-btn w-full flex items-center gap-2 p-6 cursor-pointer hover:bg-gray-50" data-target="email-config-content">
+            <span class="toggle-arrow text-lg">▶</span>
+            <h3 class="text-xl font-semibold">Konfiguracja Email</h3>
+        </button>
+        <div id="email-config-content" class="collapsible-content hidden p-6 border-t space-y-5">
+
+            {{-- Stan konfiguracji --}}
+            @php
+                $resendConfigured = !empty(env('RESEND_API_KEY'));
+                $mailerDriver = config('mail.default');
+                $fromEmail = config('mail.from.address');
+                $fromName = config('mail.from.name');
+            @endphp
+
+            <div class="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded border text-sm">
+                <div>
+                    <span class="font-semibold text-gray-600">Driver:</span>
+                    <span class="ml-2 px-2 py-0.5 rounded text-white text-xs {{ $mailerDriver === 'resend' ? 'bg-green-600' : 'bg-yellow-600' }}">
+                        {{ $mailerDriver }}
+                    </span>
+                </div>
+                <div>
+                    <span class="font-semibold text-gray-600">Klucz Resend:</span>
+                    <span class="ml-2 px-2 py-0.5 rounded text-white text-xs {{ $resendConfigured ? 'bg-green-600' : 'bg-red-600' }}">
+                        {{ $resendConfigured ? 'skonfigurowany' : 'brak klucza' }}
+                    </span>
+                </div>
+                <div class="col-span-2">
+                    <span class="font-semibold text-gray-600">Nadawca:</span>
+                    <span class="ml-2 text-gray-800">{{ $fromName }} &lt;{{ $fromEmail }}&gt;</span>
+                </div>
+            </div>
+
+            {{-- Instrukcja Resend --}}
+            <div class="p-4 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800 space-y-2">
+                <p class="font-semibold">Jak skonfigurować wysyłkę przez Resend (Railway):</p>
+                <ol class="list-decimal pl-5 space-y-1">
+                    <li>Załóż konto na <strong>resend.com</strong> i dodaj zweryfikowaną domenę nadawcy</li>
+                    <li>Wygeneruj klucz API w panelu Resend</li>
+                    <li>W ustawieniach Railway ustaw zmienne środowiskowe:
+                        <ul class="list-disc pl-4 mt-1 font-mono text-xs bg-white rounded p-2 space-y-1">
+                            <li>MAIL_MAILER=resend</li>
+                            <li>RESEND_API_KEY=re_xxxxxxxxxx</li>
+                        </ul>
+                    </li>
+                    <li>Adres email nadawcy jest pobierany automatycznie z pola <strong>Email</strong> w sekcji „Dane Mojej Firmy" powyżej — upewnij się, że jest on zweryfikowany w Resend</li>
+                </ol>
+            </div>
+
+            {{-- Test email --}}
+            <div class="border-t pt-4">
+                <p class="text-sm font-semibold mb-2">Wyślij testowy email</p>
+                <p class="text-xs text-gray-500 mb-3">Email zostanie wysłany na adres Twojego konta: <strong>{{ auth()->user()->email }}</strong></p>
+                <button
+                    type="button"
+                    id="send-test-email-btn"
+                    class="px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 disabled:opacity-50"
+                >
+                    Wyślij email testowy
+                </button>
+                <span id="test-email-result" class="ml-3 text-sm"></span>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <!-- Sekcja: Zarządzanie użytkownikami (rozwijalna) -->
     @if(auth()->user()->email === 'proximalumine@gmail.com' || auth()->user()->can_settings_users)
     <div class="bg-white rounded shadow mb-6">
@@ -2180,6 +2249,44 @@
         saveBtn.classList.add('hidden');
         cancelBtn.classList.add('hidden');
     }
+
+// Test email button
+document.addEventListener('DOMContentLoaded', function () {
+    const testBtn = document.getElementById('send-test-email-btn');
+    const testResult = document.getElementById('test-email-result');
+    if (!testBtn) return;
+
+    testBtn.addEventListener('click', function () {
+        testBtn.disabled = true;
+        testResult.textContent = 'Wysyłanie…';
+        testResult.className = 'ml-3 text-sm text-gray-500';
+
+        fetch('{{ route("settings.test-email") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? ''
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                testResult.textContent = 'Email wysłany!';
+                testResult.className = 'ml-3 text-sm text-green-600 font-semibold';
+            } else {
+                testResult.textContent = 'Błąd: ' + (data.message ?? 'nieznany błąd');
+                testResult.className = 'ml-3 text-sm text-red-600';
+            }
+        })
+        .catch(() => {
+            testResult.textContent = 'Błąd połączenia';
+            testResult.className = 'ml-3 text-sm text-red-600';
+        })
+        .finally(() => {
+            testBtn.disabled = false;
+        });
+    });
+});
 </script>
 
 <!-- Ikony Material Icons -->
