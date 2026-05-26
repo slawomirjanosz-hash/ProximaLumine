@@ -1241,7 +1241,7 @@ class PartController extends Controller
                 ->orderByDesc('issued_at')
                 ->get();
 
-            return view('parts.project-details', [
+            $viewData = [
                 'project' => $project,
                 'removals' => $removals,
                 'projectLists' => $projectLists,
@@ -1263,8 +1263,11 @@ class PartController extends Controller
                     ? \App\Models\ProjectDocumentation::where('project_id', $project->id)->first()
                     : null,
                 'suppliers' => \App\Models\Supplier::orderBy('name')->get(),
-            ]);
-        } catch (\Exception $e) {
+            ];
+
+            // Render widoku wewnątrz try, aby przechwycić także błędy Blade/runtime.
+            return response()->view('parts.project-details', $viewData);
+        } catch (\Throwable $e) {
             \Log::error('=== BŁĄD W showProject ===', [
                 'project_id' => $project->id ?? 'unknown',
                 'error_message' => $e->getMessage(),
