@@ -18,6 +18,7 @@ class Offer extends Model
         'total_price',
         'status',
         'crm_deal_id',
+        'created_by',
         'customer_name',
         'customer_nip',
         'customer_address',
@@ -42,6 +43,11 @@ class Offer extends Model
         'schedule_enabled' => 'boolean',
         'offer_date' => 'date'
     ];
+
+    public function author()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'created_by');
+    }
 
     public function crmDeal()
     {

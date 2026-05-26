@@ -952,6 +952,7 @@ Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/nowa', func
         'payment_terms' => array_values($request->input('payment_terms', [])),
         'status' => $request->input('destination'),
         'crm_deal_id' => $request->input('crm_deal_id'),
+        'created_by' => auth()->id(),
         'customer_name' => $request->input('customer_name'),
         'customer_nip' => $request->input('customer_nip'),
         'customer_address' => $request->input('customer_address'),
@@ -1311,7 +1312,8 @@ Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/{offer}/podg
     $showUnitPrices = array_key_exists('show_unit_prices', $customSectionsRaw)
         ? (bool)$customSectionsRaw['show_unit_prices']
         : true;
-    return view('offers.html', compact('offer', 'company', 'showUnitPrices'));
+    $author = $offer->created_by ? \App\Models\User::find($offer->created_by) : auth()->user();
+    return view('offers.html', compact('offer', 'company', 'showUnitPrices', 'author'));
 })->name('offers.htmlPreview');
 
 // TEST ENDPOINT

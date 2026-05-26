@@ -200,6 +200,37 @@
         .sign-line { border-top: 1px solid #888; margin: 44px auto 7px; width: 180px; }
         .sign-lbl { font-size: .8rem; color: #666; }
 
+        /* ─── EDIT MODE ────────────────────────────────── */
+        .edit-mode .editable {
+            outline: 1.5px dashed #6366f1;
+            border-radius: 2px;
+            cursor: text;
+            min-width: 20px;
+            display: inline-block;
+        }
+        .edit-mode .editable:hover { background: #f5f3ff; }
+        .edit-mode .editable:focus { outline: 2px solid #4f46e5; background: #eef2ff; }
+        .edit-mode .editable-block {
+            outline: 1.5px dashed #6366f1;
+            border-radius: 3px;
+            cursor: text;
+            padding: 2px 4px;
+        }
+        .edit-mode .editable-block:hover { background: #f5f3ff; }
+        .edit-mode .editable-block:focus { outline: 2px solid #4f46e5; background: #eef2ff; }
+        .edit-hint {
+            display: none;
+            font-size: .7rem; color: #6366f1; padding: 4px 0 0; font-style: italic;
+        }
+        .edit-mode .edit-hint { display: block; }
+
+        /* ─── AUTHOR BLOCK ────────────────────────────── */
+        .author-block {
+            margin-top: 14px; padding-top: 10px; border-top: 1px dashed #d1d5db;
+            font-size: .78rem; color: #666; display: flex; align-items: center; gap: 8px;
+        }
+        .author-block .author-lbl { font-size: .63rem; text-transform: uppercase; letter-spacing: 1px; color: #888; }
+
         /* ─── PRINT ───────────────────────────────────── */
         @page { margin: 14mm 12mm; size: A4 portrait; }
         @media print {
@@ -209,6 +240,9 @@
             .page { box-shadow: none; border-radius: 0; }
             /* Preserve accent colors on print */
             .lh, .section-hdr, .grand-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            /* Don't print edit outlines */
+            .edit-mode .editable, .edit-mode .editable-block { outline: none; background: transparent; }
+            .edit-hint { display: none !important; }
         }
     </style>
 </head>
@@ -222,6 +256,9 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
             Wróć
         </a>
+        <button id="edit-mode-toggle" onclick="toggleEditMode()" class="btn-print" style="background:#6366f1;color:#fff;">
+            ✏️ Edytuj ofertę
+        </button>
         <button onclick="window.print()" class="btn-print">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
             Drukuj / Zapisz PDF
@@ -249,7 +286,6 @@
                 @if($company->postal_code || $company->city)<div>{{ $company->postal_code }} {{ $company->city }}</div>@endif
                 @if($company->nip)<div><strong>NIP: {{ $company->nip }}</strong></div>@endif
                 @if($company->phone)<div>Tel: {{ $company->phone }}</div>@endif
-                @if($company->email)<div>{{ $company->email }}</div>@endif
             @endif
         </div>
     </div>
@@ -258,7 +294,7 @@
     <div class="oh">
         <div class="oh-left">
             <div class="oh-tag">Oferta handlowa</div>
-            <div class="oh-title">{{ $offer->offer_title }}</div>
+            <div class="oh-title editable">{{ $offer->offer_title }}</div>
             <div class="oh-meta">
                 Nr: <strong>{{ $offer->offer_number }}</strong>
                 &nbsp;·&nbsp; Data: <strong>{{ $offer->offer_date ? $offer->offer_date->format('d.m.Y') : now()->format('d.m.Y') }}</strong>
@@ -267,8 +303,8 @@
         @if($offer->customer_name)
         <div class="oh-right">
             <div class="oh-for-lbl">Przygotowano dla</div>
-            <div class="oh-for-name">{{ $offer->customer_name }}</div>
-            <div class="validity-tag">
+            <div class="oh-for-name editable">{{ $offer->customer_name }}</div>
+            <div class="validity-tag editable">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
                 Ważna 30 dni
             </div>
@@ -282,7 +318,7 @@
         @if($offer->customer_name || $offer->customer_nip || $offer->customer_address || $offer->customer_phone || $offer->customer_email)
         <div class="client-card">
             <div class="cc-lbl">Dane klienta</div>
-            <div>
+            <div class="editable-block" contenteditable="false">
                 @if($offer->customer_name)<strong>{{ $offer->customer_name }}</strong>@endif
                 @if($offer->customer_nip) &nbsp;·&nbsp; NIP: {{ $offer->customer_nip }}@endif
                 @if($offer->customer_address)<br>{{ $offer->customer_address }}@if($offer->customer_postal_code || $offer->customer_city), {{ $offer->customer_postal_code }} {{ $offer->customer_city }}@endif
@@ -290,6 +326,7 @@
                 @if($offer->customer_phone)<br>Tel: {{ $offer->customer_phone }}@endif
                 @if($offer->customer_email)<br>{{ $offer->customer_email }}@endif
             </div>
+            <p class="edit-hint">Kliknij, aby edytować dane klienta</p>
         </div>
         @endif
 
@@ -297,7 +334,14 @@
         @if($offer->offer_description)
         <div class="desc-block">
             <div class="desc-lbl">Opis oferty</div>
-            {!! $offer->offer_description !!}
+            <div class="editable-block" contenteditable="false">{!! $offer->offer_description !!}</div>
+            <p class="edit-hint">Kliknij, aby edytować opis</p>
+        </div>
+        @else
+        <div class="desc-block" id="desc-block-empty" style="display:none">
+            <div class="desc-lbl">Opis oferty</div>
+            <div class="editable-block" contenteditable="false">Wpisz opis oferty tutaj…</div>
+            <p class="edit-hint">Kliknij, aby edytować opis</p>
         </div>
         @endif
 
@@ -322,10 +366,10 @@
                     $price = (float)($r['price'] ?? 0);
                     $val = $qty * $price;
                     echo '<tr>';
-                    echo '<td>' . e($r['name'] ?? '') . '</td>';
-                    echo '<td>' . e($r['description'] ?? '') . '</td>';
-                    echo '<td class="r">' . number_format($qty, 2, ',', ' ') . '</td>';
-                    if ($showUnit) echo '<td class="r">' . number_format($price, 2, ',', ' ') . ' zł</td>';
+                    echo '<td class="editable">' . e($r['name'] ?? '') . '</td>';
+                    echo '<td class="editable">' . e($r['description'] ?? '') . '</td>';
+                    echo '<td class="r editable">' . number_format($qty, 2, ',', ' ') . '</td>';
+                    if ($showUnit) echo '<td class="r editable">' . number_format($price, 2, ',', ' ') . ' zł</td>';
                     echo '<td class="r">' . number_format($val, 2, ',', ' ') . ' zł</td>';
                     echo '</tr>';
                 }
@@ -390,8 +434,8 @@
         {{-- ── Footer ──────────────────────────── --}}
         <div class="doc-footer">
             <div class="footer-note">
-                Oferta ważna 30 dni od daty wystawienia. Ceny netto.<br>
-                Dziękujemy za zainteresowanie naszą ofertą.
+                <span class="editable">Oferta ważna 30 dni od daty wystawienia. Ceny netto.<br>
+                Dziękujemy za zainteresowanie naszą ofertą.</span>
             </div>
             <div class="sign-box">
                 <div class="sign-line"></div>
@@ -399,9 +443,47 @@
             </div>
         </div>
 
+        {{-- ── Author block ──────────────────────── --}}
+        @php $author = $author ?? null; @endphp
+        @if($author)
+        <div class="author-block">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <div>
+                <div class="author-lbl">Ofertę przygotował(a)</div>
+                <strong>{{ $author->name ?? $author->email }}</strong>
+                @if($author->email)
+                    &nbsp;·&nbsp;
+                    <a href="mailto:{{ $author->email }}" style="color:#0F295F;">{{ $author->email }}</a>
+                @endif
+            </div>
+        </div>
+        @endif
+
     </div>{{-- /body --}}
 </div>{{-- /page --}}
 </div>{{-- /wrapper --}}
+
+<script>
+function toggleEditMode() {
+    const editMode = document.body.classList.toggle('edit-mode');
+    const btn = document.getElementById('edit-mode-toggle');
+
+    // Toggle contenteditable on all editable elements
+    document.querySelectorAll('.editable').forEach(el => {
+        el.contentEditable = editMode ? 'true' : 'false';
+    });
+    document.querySelectorAll('.editable-block').forEach(el => {
+        el.contentEditable = editMode ? 'true' : 'false';
+    });
+
+    // Show empty description block in edit mode
+    const emptyDesc = document.getElementById('desc-block-empty');
+    if (emptyDesc) emptyDesc.style.display = editMode ? '' : 'none';
+
+    btn.textContent = editMode ? '✅ Zakończ edycję' : '✏️ Edytuj ofertę';
+    btn.style.background = editMode ? '#16a34a' : '#6366f1';
+}
+</script>
 
 </body>
 </html>
