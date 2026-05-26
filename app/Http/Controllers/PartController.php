@@ -5610,14 +5610,23 @@ class PartController extends Controller
     {
         try {
             $user = auth()->user();
+            $emailTo = $request->input('email');
+            // Validate only if provided; otherwise fall back to user's own email
+            if ($emailTo && filter_var($emailTo, FILTER_VALIDATE_EMAIL)) {
+                $recipientEmail = $emailTo;
+                $recipientName = $emailTo;
+            } else {
+                $recipientEmail = $user->email;
+                $recipientName = $user->name ?? $user->email;
+            }
             \Illuminate\Support\Facades\Mail::raw(
                 'To jest testowa wiadomość email z systemu ProximaLumine. Konfiguracja maila działa poprawnie.',
-                function ($message) use ($user) {
-                    $message->to($user->email, $user->name ?? $user->email)
+                function ($message) use ($recipientEmail, $recipientName) {
+                    $message->to($recipientEmail, $recipientName)
                             ->subject('Test konfiguracji email — ProximaLumine');
                 }
             );
-            return response()->json(['success' => true]);
+            return response()->json(['success' => true, 'sent_to' => $recipientEmail]);
         } catch (\Throwable $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
@@ -9027,8 +9036,15 @@ class PartController extends Controller
             'due_date' => 'nullable|date',
             'assigned_to' => 'nullable|exists:users,id',
             'deal_id' => 'nullable|exists:crm_deals,id',
+            'notify_email' => 'nullable|boolean',
+            'notify_frequency' => 'nullable|array',
+            'notify_frequency.*' => 'in:daily,3days,weekly,on_due',
         ]);
 
+        $validated['notify_email'] = $request->boolean('notify_email');
+        $validated['notify_frequency'] = !empty($validated['notify_frequency'])
+            ? implode(',', $validated['notify_frequency'])
+            : null;
         $validated['created_by'] = auth()->id();
 
         $task = \App\Models\CrmTask::create($validated);
@@ -9064,7 +9080,15 @@ class PartController extends Controller
             'completed_at' => 'nullable|date',
             'assigned_to' => 'nullable|exists:users,id',
             'deal_id' => 'nullable|exists:crm_deals,id',
+            'notify_email' => 'nullable|boolean',
+            'notify_frequency' => 'nullable|array',
+            'notify_frequency.*' => 'in:daily,3days,weekly,on_due',
         ]);
+
+        $validated['notify_email'] = $request->boolean('notify_email');
+        $validated['notify_frequency'] = !empty($validated['notify_frequency'])
+            ? implode(',', $validated['notify_frequency'])
+            : null;
 
         if ($validated['status'] === 'zakonczone' && !$task->completed_at) {
             $validated['completed_at'] = now();

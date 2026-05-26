@@ -799,7 +799,12 @@
             {{-- Test email --}}
             <div class="border-t pt-4">
                 <p class="text-sm font-semibold mb-2">Wyślij testowy email</p>
-                <p class="text-xs text-gray-500 mb-3">Email zostanie wysłany na adres Twojego konta: <strong>{{ auth()->user()->email }}</strong></p>
+                <div class="flex items-center gap-3 mb-3">
+                    <label class="text-xs text-gray-500 whitespace-nowrap">Adres email:</label>
+                    <input type="email" id="test-email-address" value="{{ auth()->user()->email }}"
+                        class="border rounded px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                        placeholder="{{ auth()->user()->email }}">
+                </div>
                 <button
                     type="button"
                     id="send-test-email-btn"
@@ -2257,6 +2262,9 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!testBtn) return;
 
     testBtn.addEventListener('click', function () {
+        const emailInput = document.getElementById('test-email-address');
+        const emailTo = emailInput ? emailInput.value.trim() : '';
+
         testBtn.disabled = true;
         testResult.textContent = 'Wysyłanie…';
         testResult.className = 'ml-3 text-sm text-gray-500';
@@ -2266,12 +2274,13 @@ document.addEventListener('DOMContentLoaded', function () {
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? ''
-            }
+            },
+            body: JSON.stringify({ email: emailTo })
         })
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                testResult.textContent = 'Email wysłany!';
+                testResult.textContent = 'Email wysłany na: ' + (data.sent_to ?? '');
                 testResult.className = 'ml-3 text-sm text-green-600 font-semibold';
             } else {
                 testResult.textContent = 'Błąd: ' + (data.message ?? 'nieznany błąd');

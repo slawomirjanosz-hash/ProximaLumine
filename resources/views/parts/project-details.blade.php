@@ -4508,8 +4508,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // -------- Picker osoby odpowiedzialnej (użytkownicy systemu) --------
-    // Dane wbudowane w stronę – brak potrzeby dodatkowego żądania HTTP
-    let ganttUsers = @json(
+    function normalizeGanttUsers(users) {
+        if (!Array.isArray(users)) return [];
+        return users
+            .map(u => ({
+                id: u?.id ?? null,
+                display: u?.display || (u?.short_name ? `${u.short_name} - ${u.name || ''}` : (u?.name || '')),
+            }))
+            .filter(u => u.id !== null && String(u.display || '').trim() !== '');
+    }
+
+    // Dane wbudowane w stronę; gdyby były puste, użyjemy fallbacku z API.
+    let ganttUsers = normalizeGanttUsers(@json(
         \App\Models\User::orderBy('name')
             ->select(['id', 'name', 'email', 'short_name'])
             ->get()
@@ -4523,7 +4533,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     : $u->name,
             ])
             ->values()
-    );
+    ));
+
+    async function ensureGanttUsersLoaded() {
+        if (ganttUsers.length > 0) return;
+        try {
+            const resp = await fetch('/api/users-for-gantt', {
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const normalized = normalizeGanttUsers(data);
+            if (normalized.length > 0) {
+                ganttUsers = normalized;
+            }
+        } catch (e) {
+            console.warn('Nie udało się pobrać użytkowników do Gantt:', e);
+        }
+    }
 
     function populateAssigneeSelect() {
         const sel = document.getElementById('task-assignee-select');
@@ -4540,7 +4567,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (currentVal) sel.value = currentVal;
     }
 
-    populateAssigneeSelect(); // Wstępne wypełnienie przy ładowaniu strony
+    ensureGanttUsersLoaded().finally(() => {
+        populateAssigneeSelect(); // Wstępne wypełnienie przy ładowaniu strony
+    });
 
     // Checkbox: pokaż/ukryj opcje powiadomień
     const notifyCheckbox = document.getElementById('task-notify-email');
@@ -4569,8 +4598,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('task-progress-input').value = task.progress || 0;
                 document.getElementById('task-description-input').value = task.description || '';
                 // Przypisanie osoby odpowiedzialnej (select)
-                populateAssigneeSelect();
-                document.getElementById('task-assignee-select').value = task.assigned_user_id || '';
+                ensureGanttUsersLoaded().finally(() => {
+                    populateAssigneeSelect();
+                    document.getElementById('task-assignee-select').value = task.assigned_user_id || '';
+                });
                 document.getElementById('task-assignee-user-id').value = task.assigned_user_id || '';
                 // Powiadomienia email
                 const notifyEmailCb = document.getElementById('task-notify-email');
@@ -4617,8 +4648,10 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('task-progress-input').value = 0;
             document.getElementById('task-description-input').value = '';
             // Reset osoby odpowiedzialnej i powiadomień
-            populateAssigneeSelect();
-            document.getElementById('task-assignee-select').value = '';
+            ensureGanttUsersLoaded().finally(() => {
+                populateAssigneeSelect();
+                document.getElementById('task-assignee-select').value = '';
+            });
             document.getElementById('task-assignee-user-id').value = '';
             const notifyEmailCbNew = document.getElementById('task-notify-email');
             if (notifyEmailCbNew) {

@@ -870,6 +870,19 @@ function showTaskModal() {
                     </select>
                 </div>
                 <div class="col-span-2"><label class="block mb-1 font-semibold">Opis</label><textarea name="description" rows="3" class="w-full border rounded px-3 py-2"></textarea></div>
+                <div class="col-span-2">
+                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                        <input type="checkbox" name="notify_email" value="1" id="crm-add-notify-email" class="rounded border-gray-300 w-4 h-4">
+                        <span class="font-semibold text-sm">Wysyłaj powiadomienia email osobie odpowiedzialnej</span>
+                    </label>
+                    <div id="crm-add-notify-options" class="hidden mt-2 ml-6 p-3 bg-blue-50 border border-blue-100 rounded space-y-1">
+                        <p class="text-xs text-gray-500 mb-1">Częstotliwość powiadomień (można wybrać kilka):</p>
+                        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="notify_frequency[]" value="daily" class="rounded border-gray-300 w-4 h-4"> Codziennie</label>
+                        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="notify_frequency[]" value="3days" class="rounded border-gray-300 w-4 h-4"> Co 3 dni</label>
+                        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="notify_frequency[]" value="weekly" class="rounded border-gray-300 w-4 h-4"> Co tydzień</label>
+                        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="notify_frequency[]" value="on_due" class="rounded border-gray-300 w-4 h-4"> W dniu terminu</label>
+                    </div>
+                </div>
             </div>
             <div class="mt-4 flex gap-2 justify-end">
                 <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Anuluj</button>
@@ -878,6 +891,13 @@ function showTaskModal() {
         </form>
     `;
     document.getElementById('modal-overlay').classList.remove('hidden');
+    // Checkbox: pokaż/ukryj opcje powiadomień
+    const notifyCb = document.getElementById('crm-add-notify-email');
+    if (notifyCb) {
+        notifyCb.addEventListener('change', function() {
+            document.getElementById('crm-add-notify-options').classList.toggle('hidden', !this.checked);
+        });
+    }
 }
 
 function showActivityModal(preselectedDealId = null) {
@@ -1428,6 +1448,19 @@ function editTask(id) {
                             </select>
                         </div>
                         <div><label class="block mb-1 font-semibold">Opis</label><textarea name="description" rows="3" class="w-full border rounded px-3 py-2">${task.description || ''}</textarea></div>
+                        <div class="col-span-2">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
+                                <input type="checkbox" name="notify_email" value="1" id="crm-edit-notify-email" class="rounded border-gray-300 w-4 h-4" ${task.notify_email ? 'checked' : ''}>
+                                <span class="font-semibold text-sm">Wysyłaj powiadomienia email osobie odpowiedzialnej</span>
+                            </label>
+                            <div id="crm-edit-notify-options" class="${task.notify_email ? '' : 'hidden'} mt-2 ml-6 p-3 bg-blue-50 border border-blue-100 rounded space-y-1">
+                                <p class="text-xs text-gray-500 mb-1">Częstotliwość powiadomień (można wybrać kilka):</p>
+                                <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="notify_frequency[]" value="daily" class="rounded border-gray-300 w-4 h-4" ${(task.notify_frequency||'').includes('daily') ? 'checked' : ''}> Codziennie</label>
+                                <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="notify_frequency[]" value="3days" class="rounded border-gray-300 w-4 h-4" ${(task.notify_frequency||'').includes('3days') ? 'checked' : ''}> Co 3 dni</label>
+                                <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="notify_frequency[]" value="weekly" class="rounded border-gray-300 w-4 h-4" ${(task.notify_frequency||'').includes('weekly') ? 'checked' : ''}> Co tydzień</label>
+                                <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="notify_frequency[]" value="on_due" class="rounded border-gray-300 w-4 h-4" ${(task.notify_frequency||'').includes('on_due') ? 'checked' : ''}> W dniu terminu</label>
+                            </div>
+                        </div>
                     </div>
                     <div class="mt-4 flex gap-2 justify-end">
                         <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Anuluj</button>
@@ -1436,6 +1469,13 @@ function editTask(id) {
                 </form>
             `;
             document.getElementById('modal-overlay').classList.remove('hidden');
+            // Checkbox: pokaż/ukryj opcje powiadomień
+            const notifyCbEdit = document.getElementById('crm-edit-notify-email');
+            if (notifyCbEdit) {
+                notifyCbEdit.addEventListener('change', function() {
+                    document.getElementById('crm-edit-notify-options').classList.toggle('hidden', !this.checked);
+                });
+            }
         })
         .catch(error => {
             console.error('Error:', error);

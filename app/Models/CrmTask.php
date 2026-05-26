@@ -12,7 +12,8 @@ class CrmTask extends Model
     protected $fillable = [
         'title', 'description', 'type', 'priority', 'status',
         'due_date', 'completed_at', 'assigned_to',
-        'deal_id', 'created_by', 'project_id', 'gantt_task_id'
+        'deal_id', 'created_by', 'project_id', 'gantt_task_id',
+        'notify_email', 'notify_frequency',
     ];
 
     protected $casts = [
@@ -21,6 +22,7 @@ class CrmTask extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
+        'notify_email' => 'boolean',
     ];
 
     public function assignedTo()
