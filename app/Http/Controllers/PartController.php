@@ -1262,6 +1262,7 @@ class PartController extends Controller
                 'projectDoc' => $this->hasTableSafe('project_documentations')
                     ? \App\Models\ProjectDocumentation::where('project_id', $project->id)->first()
                     : null,
+                'suppliers' => \App\Models\Supplier::orderBy('name')->get(),
             ]);
         } catch (\Exception $e) {
             \Log::error('=== BŁĄD W showProject ===', [
@@ -1857,7 +1858,8 @@ class PartController extends Controller
         if (!$this->hasTableSafe('project_finance') || !$this->hasColumnSafe('project_finance', 'category')) {
             return redirect()->route('magazyn.projects.show', $project->id)
                 ->with('error', 'Brakuje wymaganej tabeli/kolumn dla faktur wystawionych. Uruchom migracje na serwerze.')
-                ->with('finance_issued_feedback', true);
+                ->with('finance_issued_feedback', true)
+                ->with('open_finance_tab', 'issued');
         }
 
         $hasOrderColumn = $this->hasColumnSafe('project_finance', 'order');
@@ -1879,7 +1881,8 @@ class PartController extends Controller
             return redirect()->route('magazyn.projects.show', $project->id)
                 ->withErrors(['issued_invoice_amount_net' => 'Podaj poprawną kwotę netto.'])
                 ->withInput()
-                ->with('finance_issued_feedback', true);
+                ->with('finance_issued_feedback', true)
+                ->with('open_finance_tab', 'issued');
         }
 
         $statusLabel = (string) $request->input('issued_invoice_status');
@@ -1921,7 +1924,8 @@ class PartController extends Controller
 
         return redirect()->route('magazyn.projects.show', $project->id)
             ->with('success', 'Dodano fakturę wystawioną.')
-            ->with('finance_issued_feedback', true);
+            ->with('finance_issued_feedback', true)
+            ->with('open_finance_tab', 'issued');
     }
 
     public function importIssuedProjectInvoicesExcel(Request $request, \App\Models\Project $project)
@@ -1968,7 +1972,8 @@ class PartController extends Controller
         if (!$this->hasTableSafe('project_finance') || !$this->hasColumnSafe('project_finance', 'category')) {
             return redirect()->route('magazyn.projects.show', $project->id)
                 ->with('error', 'Brakuje wymaganej tabeli/kolumn dla zamówień. Uruchom migracje na serwerze.')
-                ->with('finance_orders_feedback', true);
+                ->with('finance_orders_feedback', true)
+                ->with('open_finance_tab', 'orders');
         }
 
         $hasOrderColumn = $this->hasColumnSafe('project_finance', 'order');
@@ -1992,7 +1997,8 @@ class PartController extends Controller
             return redirect()->route('magazyn.projects.show', $project->id)
                 ->withErrors(['order_amount_net' => 'Podaj poprawną kwotę netto.'])
                 ->withInput()
-                ->with('finance_orders_feedback', true);
+                ->with('finance_orders_feedback', true)
+                ->with('open_finance_tab', 'orders');
         }
 
         $statusLabel = (string) $request->input('order_status');
@@ -2036,7 +2042,8 @@ class PartController extends Controller
 
         return redirect()->route('magazyn.projects.show', $project->id)
             ->with('success', 'Dodano zamówienie.')
-            ->with('finance_orders_feedback', true);
+            ->with('finance_orders_feedback', true)
+            ->with('open_finance_tab', 'orders');
         } catch (\Throwable $e) {
             \Log::error('storeProjectOrder error', [
                 'project_id' => $project->id,
@@ -2046,7 +2053,8 @@ class PartController extends Controller
             ]);
             return redirect()->route('magazyn.projects.show', $project->id)
                 ->with('error', 'Błąd podczas zapisywania zamówienia: ' . $e->getMessage())
-                ->with('finance_orders_feedback', true);
+                ->with('finance_orders_feedback', true)
+                ->with('open_finance_tab', 'orders');
         }
     }
 

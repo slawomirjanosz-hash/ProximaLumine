@@ -1841,6 +1841,17 @@
                             {{-- Supplier picker --}}
                             <div class="finance-field finance-field-flex" id="supplier-picker-wrap">
                                 <label class="block text-xs text-gray-600 mb-1">Dostawca</label>
+                                {{-- Dropdown z zapisanych dostawców --}}
+                                @if(!empty($suppliers) && $suppliers->count() > 0)
+                                <select id="order-supplier-select"
+                                    class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm mb-1"
+                                    onchange="(function(sel){var inp=document.getElementById('order-supplier-input');if(sel.value){inp.value=sel.value;}sel.value='';})(this)">
+                                    <option value="">— Wybierz z zapisanych dostawców —</option>
+                                    @foreach($suppliers as $sup)
+                                        <option value="{{ $sup->name }}">{{ $sup->name }}{{ $sup->nip ? ' (NIP: '.$sup->nip.')' : '' }}</option>
+                                    @endforeach
+                                </select>
+                                @endif
                                 <div class="flex gap-1 items-center">
                                     <div class="relative flex-1">
                                         <input type="text" id="order-supplier-input" name="order_supplier" value="{{ old('order_supplier') }}"
@@ -3573,6 +3584,8 @@
         const shouldOpenFinanceSection = @json((bool) (
             session('finance_import_feedback')
             || session('finance_issued_feedback')
+            || session('finance_orders_feedback')
+            || session('open_finance_tab')
             || $errors->has('group_name')
             || $errors->has('group_action')
             || $errors->has('group_name')
@@ -3580,7 +3593,7 @@
             || $errors->has('costs_file')
             || $errors->has('costs_group_existing')
         ));
-        const financeInitialTab = 'costs';
+        const financeInitialTab = @json(session('open_finance_tab', 'costs'));
         if (financeToggleBtn && financeContent && financeArrow) {
             const storedFinanceSectionState = localStorage.getItem(financeSectionStateKey);
             const shouldOpenFromStorage = storedFinanceSectionState === '1';
