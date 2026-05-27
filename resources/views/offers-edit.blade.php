@@ -1190,7 +1190,19 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             });
         }
 
+        function parseManualAmount(value) {
+            return parseFloat(String(value || '').replace(/\s/g, '').replace('zł', '').replace(',', '.')) || 0;
+        }
+
         document.addEventListener('focusin', function(e) {
+            if (e.target.classList.contains('value-input')) {
+                e.target.removeAttribute('readonly');
+                e.target.classList.remove('bg-gray-100');
+                e.target.classList.add('bg-white');
+                const raw = parseFloat(e.target.dataset.raw || '0') || 0;
+                e.target.value = raw.toFixed(2);
+            }
+
             if (e.target.classList.contains('row-checkbox')) return;
             const td = e.target.closest('td');
             if (!td) return;
@@ -1200,6 +1212,14 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             if (!tbody || !tbody.id || !tbody.id.endsWith('-table')) return;
             const cb = row.querySelector('.row-checkbox');
             if (cb) cb.checked = true;
+        });
+
+        document.addEventListener('focusout', function(e) {
+            if (!e.target.classList.contains('value-input')) return;
+            const raw = parseManualAmount(e.target.value);
+            e.target.dataset.raw = raw.toFixed(2);
+            e.target.dataset.formattedInit = '1';
+            e.target.value = formatPrice(raw);
         });
 
         function calculateRowValue(input) {
@@ -1249,7 +1269,25 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         }
 
         document.addEventListener('input', function(e) {
-            if (e.target.classList.contains('price-input')) {
+            if (e.target.classList.contains('value-input')) {
+                const row = e.target.closest('tr');
+                const raw = parseManualAmount(e.target.value);
+                e.target.dataset.raw = raw.toFixed(2);
+                e.target.dataset.formattedInit = '1';
+
+                if (row) {
+                    const qtyInput = row.querySelector('.quantity-input');
+                    const priceInput = row.querySelector('.price-input');
+                    const qty = parseFloat(qtyInput ? qtyInput.value : '') || 0;
+                    if (priceInput && qty > 0) {
+                        priceInput.value = (raw / qty).toFixed(2);
+                    }
+                }
+
+                const section = e.target.dataset.section;
+                if (section) calculateTotal(section);
+                updateBuiltInProfit();
+            } else if (e.target.classList.contains('price-input')) {
                 const row = e.target.closest('tr');
                 if (row) {
                     const catalogInput = row.querySelector('.catalog-price-input');
