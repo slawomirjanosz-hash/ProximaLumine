@@ -26,6 +26,7 @@ class Offer extends Model
         'customer_postal_code',
         'customer_phone',
         'customer_email',
+        'graphic_template_id',
         'profit_percent',
         'profit_amount',
         'schedule_enabled',
@@ -57,5 +58,10 @@ class Offer extends Model
         }
         // Return empty relationship if CrmDeal doesn't exist
         return $this->belongsTo(self::class, 'crm_deal_id')->where('id', 0);
+    }
+
+    public function graphicTemplate()
+    {
+        return $this->belongsTo(\App\Models\OfferTemplate::class, 'graphic_template_id');
     }
 }

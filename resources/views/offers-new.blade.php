@@ -529,6 +529,14 @@
 
                 <!-- Miejsce docelowe oferty -->
                 <div class="border-t pt-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Szablon graficzny oferty (opcjonalnie)</label>
+                    <select name="graphic_template_id" class="w-full md:w-1/2 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4">
+                        <option value="">-- domyślny wygląd --</option>
+                        @foreach(($graphicTemplates ?? []) as $gTemplate)
+                            <option value="{{ $gTemplate->id }}">{{ $gTemplate->name }}</option>
+                        @endforeach
+                    </select>
+
                     <label class="block text-sm font-medium text-gray-700 mb-2">Gdzie ma wylądować oferta?</label>
                     <select name="destination" class="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
                         <option value="portfolio">Portfolio</option>

@@ -57,11 +57,22 @@
     $distributionMultiplier = $baseTotal > 0 ? (($baseTotal + $additionalProfit) / $baseTotal) : 1.0;
 
     $grandTotal = (float)$offer->total_price;
+
+    $graphicTemplatesPayload = collect($graphicTemplates ?? [])
+        ->map(function ($template) {
+            return [
+                'id' => $template->id,
+                'name' => $template->name,
+                'content_html' => $template->content_html,
+            ];
+        })
+        ->values();
 @endphp
 <!DOCTYPE html>
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Oferta</title>
     <style>
@@ -276,6 +287,12 @@
         <button id="edit-mode-toggle" onclick="toggleEditMode()" class="btn-print" style="background:#6366f1;color:#fff;">
             ✏️ Edytuj ofertę
         </button>
+        <select id="graphic-template-select" class="btn-back" style="border:none; min-width:220px;">
+            <option value="">-- szablon graficzny --</option>
+        </select>
+        <button type="button" onclick="loadGraphicTemplate()" class="btn-print" style="background:#0ea5e9;color:#fff;">Wczytaj szablon</button>
+        <button type="button" onclick="saveGraphicTemplateFromPreview()" class="btn-print" style="background:#16a34a;color:#fff;">Zapisz jako szablon</button>
+        <button type="button" onclick="assignGraphicTemplateToOffer()" class="btn-print" style="background:#7c3aed;color:#fff;">Przypnij do oferty</button>
         <button onclick="window.print()" class="btn-print">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
             Drukuj / Zapisz PDF
@@ -484,6 +501,133 @@
 </div>{{-- /wrapper --}}
 
 <script>
+const graphicTemplates = @json($graphicTemplatesPayload);
+const assignedGraphicTemplateHtml = @json($assignedGraphicTemplateHtml ?? null);
+const assignedGraphicTemplateId = @json($offer->graphic_template_id ?? null);
+
+function sanitizeTemplateHtml(html) {
+    if (!html) return '';
+    return String(html).replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+}
+
+function getGraphicTemplateSelect() {
+    return document.getElementById('graphic-template-select');
+}
+
+function populateGraphicTemplateSelect() {
+    const select = getGraphicTemplateSelect();
+    if (!select) return;
+
+    select.innerHTML = '<option value="">-- szablon graficzny --</option>';
+    graphicTemplates.forEach((template) => {
+        const option = document.createElement('option');
+        option.value = String(template.id);
+        option.textContent = template.name || ('Szablon #' + template.id);
+        select.appendChild(option);
+    });
+
+    if (assignedGraphicTemplateId) {
+        select.value = String(assignedGraphicTemplateId);
+    }
+}
+
+function loadGraphicTemplate() {
+    const select = getGraphicTemplateSelect();
+    if (!select || !select.value) {
+        alert('Wybierz szablon graficzny z listy.');
+        return;
+    }
+
+    const template = graphicTemplates.find((item) => String(item.id) === String(select.value));
+    if (!template) {
+        alert('Nie znaleziono wybranego szablonu.');
+        return;
+    }
+
+    const page = document.querySelector('.page');
+    if (!page) return;
+
+    page.innerHTML = sanitizeTemplateHtml(template.content_html || '');
+}
+
+async function saveGraphicTemplateFromPreview() {
+    const templateName = prompt('Podaj nazwę szablonu graficznego');
+    if (!templateName || !templateName.trim()) {
+        return;
+    }
+
+    const page = document.querySelector('.page');
+    if (!page) {
+        alert('Nie znaleziono obszaru podglądu.');
+        return;
+    }
+
+    try {
+        const response = await fetch('{{ route('offers.graphicTemplates.store') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                name: templateName.trim(),
+                content_html: page.innerHTML,
+            }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Nie udało się zapisać szablonu graficznego.');
+        }
+
+        if (data.template) {
+            graphicTemplates.unshift({
+                id: data.template.id,
+                name: data.template.name,
+                content_html: data.template.content_html || page.innerHTML,
+            });
+            populateGraphicTemplateSelect();
+            const select = getGraphicTemplateSelect();
+            if (select) select.value = String(data.template.id);
+        }
+
+        alert('Zapisano szablon graficzny.');
+    } catch (error) {
+        alert(error.message || 'Wystąpił błąd podczas zapisu szablonu.');
+    }
+}
+
+async function assignGraphicTemplateToOffer() {
+    const select = getGraphicTemplateSelect();
+    const templateId = select ? select.value : '';
+
+    try {
+        const response = await fetch('{{ route('offers.assignGraphicTemplate', $offer) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                graphic_template_id: templateId || null,
+            }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Nie udało się przypisać szablonu.');
+        }
+
+        alert(data.message || 'Zapisano przypisanie szablonu.');
+    } catch (error) {
+        alert(error.message || 'Wystąpił błąd podczas przypinania szablonu.');
+    }
+}
+
 function toggleEditMode() {
     const editMode = document.body.classList.toggle('edit-mode');
     const btn = document.getElementById('edit-mode-toggle');
@@ -531,6 +675,17 @@ function exportCurrentHtmlToWord() {
     document.body.appendChild(form);
     form.submit();
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    populateGraphicTemplateSelect();
+
+    if (assignedGraphicTemplateHtml) {
+        const page = document.querySelector('.page');
+        if (page) {
+            page.innerHTML = sanitizeTemplateHtml(assignedGraphicTemplateHtml);
+        }
+    }
+});
 </script>
 
 </body>

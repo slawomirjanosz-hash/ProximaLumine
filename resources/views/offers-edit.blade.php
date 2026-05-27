@@ -657,6 +657,17 @@
 
                 <!-- Miejsce docelowe oferty -->
                 <div class="border-t pt-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Szablon graficzny oferty (opcjonalnie)</label>
+                    <select name="graphic_template_id" class="w-full md:w-1/2 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4">
+                        <option value="">-- domyślny wygląd --</option>
+                        @foreach(($graphicTemplates ?? []) as $gTemplate)
+                            <option value="{{ $gTemplate->id }}" {{ (int)($offer->graphic_template_id ?? 0) === (int)$gTemplate->id ? 'selected' : '' }}>{{ $gTemplate->name }}</option>
+                        @endforeach
+                    </select>
+                    <a href="{{ route('offers.htmlPreview', $offer) }}" target="_blank" class="inline-flex items-center px-3 py-1.5 mb-4 bg-violet-600 text-white rounded hover:bg-violet-700 text-sm font-semibold">
+                        Otwórz edycję graficzną (podgląd HTML)
+                    </a>
+
                     <label class="block text-sm font-medium text-gray-700 mb-2">Gdzie ma wylądować oferta?</label>
                     <select name="destination" class="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
                         <option value="portfolio" {{ $offer->status === 'portfolio' ? 'selected' : '' }}>Portfolio</option>

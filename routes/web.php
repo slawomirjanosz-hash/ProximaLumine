@@ -577,9 +577,16 @@ Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/nowa', funct
         $previewNumber = app(\App\Http\Controllers\PartController::class)->generateOfferNumber(null, true);
 
         $offerTemplates = collect();
+        $graphicTemplates = collect();
         try {
             if (class_exists('\\App\\Models\\OfferTemplate') && \Illuminate\Support\Facades\Schema::hasTable('offer_templates')) {
                 $offerTemplates = \App\Models\OfferTemplate::where('created_by', auth()->id())
+                    ->where('kind', 'description')
+                    ->orderBy('updated_at', 'desc')
+                    ->get(['id', 'name', 'updated_at']);
+
+                $graphicTemplates = \App\Models\OfferTemplate::where('created_by', auth()->id())
+                    ->where('kind', 'graphic')
                     ->orderBy('updated_at', 'desc')
                     ->get(['id', 'name', 'updated_at']);
             }
@@ -587,7 +594,7 @@ Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/nowa', funct
             \Log::warning('Offer templates not loaded: ' . $e->getMessage());
         }
 
-        return view('offers-new', ['deal' => $deal, 'companies' => $companies, 'suppliers' => $suppliers, 'deals' => $deals, 'previewNumber' => $previewNumber, 'offerTemplates' => $offerTemplates]);
+        return view('offers-new', ['deal' => $deal, 'companies' => $companies, 'suppliers' => $suppliers, 'deals' => $deals, 'previewNumber' => $previewNumber, 'offerTemplates' => $offerTemplates, 'graphicTemplates' => $graphicTemplates]);
     } catch (\Exception $e) {
         \Log::error('Error in /wyceny/nowa: ' . $e->getMessage() . ' | File: ' . $e->getFile() . ' | Line: ' . $e->getLine());
         return response()->json([
@@ -943,6 +950,7 @@ Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/nowa', func
         'offer_title' => $request->input('offer_title'),
         'offer_date' => $request->input('offer_date'),
         'offer_description' => $request->input('offer_description'),
+        'graphic_template_id' => $request->filled('graphic_template_id') ? (int) $request->input('graphic_template_id') : null,
         'services' => $services,
         'works' => $works,
         'materials' => $materials,
@@ -1127,9 +1135,16 @@ Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/{offer}/edit
     $showUnitPrices = array_key_exists('show_unit_prices', $customSections) ? (bool)$customSections['show_unit_prices'] : true;
 
     $offerTemplates = collect();
+    $graphicTemplates = collect();
     try {
         if (class_exists('\\App\\Models\\OfferTemplate') && \Illuminate\Support\Facades\Schema::hasTable('offer_templates')) {
             $offerTemplates = \App\Models\OfferTemplate::where('created_by', auth()->id())
+                ->where('kind', 'description')
+                ->orderBy('updated_at', 'desc')
+                ->get(['id', 'name', 'updated_at']);
+
+            $graphicTemplates = \App\Models\OfferTemplate::where('created_by', auth()->id())
+                ->where('kind', 'graphic')
                 ->orderBy('updated_at', 'desc')
                 ->get(['id', 'name', 'updated_at']);
         }
@@ -1137,7 +1152,7 @@ Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/{offer}/edit
         \Log::warning('Offer templates not loaded: ' . $e->getMessage());
     }
 
-    return view('offers-edit', compact('offer', 'companies', 'suppliers', 'deals', 'servicesName', 'worksName', 'materialsName', 'servicesEnabled', 'worksEnabled', 'materialsEnabled', 'showUnitPrices', 'offerTemplates'));
+    return view('offers-edit', compact('offer', 'companies', 'suppliers', 'deals', 'servicesName', 'worksName', 'materialsName', 'servicesEnabled', 'worksEnabled', 'materialsEnabled', 'showUnitPrices', 'offerTemplates', 'graphicTemplates'));
 })->name('offers.edit');
 
 Route::middleware(['auth', 'permission:view_offers'])->put('/wyceny/{offer}', function (Illuminate\Http\Request $request, \App\Models\Offer $offer) {
@@ -1222,6 +1237,7 @@ Route::middleware(['auth', 'permission:view_offers'])->put('/wyceny/{offer}', fu
         'offer_title' => $request->input('offer_title'),
         'offer_date' => $request->input('offer_date'),
         'offer_description' => $request->input('offer_description'),
+        'graphic_template_id' => $request->filled('graphic_template_id') ? (int) $request->input('graphic_template_id') : null,
         'services' => $services,
         'works' => $works,
         'materials' => $materials,
@@ -1335,7 +1351,28 @@ Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/{offer}/podg
         ? (bool)$customSectionsRaw['show_unit_prices']
         : true;
     $author = $offer->created_by ? \App\Models\User::find($offer->created_by) : auth()->user();
-    return view('offers.html', compact('offer', 'company', 'showUnitPrices', 'author'));
+
+    $graphicTemplates = collect();
+    $assignedGraphicTemplateHtml = null;
+    try {
+        if (class_exists('\\App\\Models\\OfferTemplate') && \Illuminate\Support\Facades\Schema::hasTable('offer_templates')) {
+            $graphicTemplates = \App\Models\OfferTemplate::where('created_by', auth()->id())
+                ->where('kind', 'graphic')
+                ->orderBy('updated_at', 'desc')
+                ->get(['id', 'name', 'content_html', 'updated_at']);
+
+            if (!empty($offer->graphic_template_id)) {
+                $assignedTemplate = \App\Models\OfferTemplate::where('created_by', auth()->id())
+                    ->where('kind', 'graphic')
+                    ->find($offer->graphic_template_id);
+                $assignedGraphicTemplateHtml = $assignedTemplate?->content_html;
+            }
+        }
+    } catch (\Throwable $e) {
+        \Log::warning('Graphic templates not loaded: ' . $e->getMessage());
+    }
+
+    return view('offers.html', compact('offer', 'company', 'showUnitPrices', 'author', 'graphicTemplates', 'assignedGraphicTemplateHtml'));
 })->name('offers.htmlPreview');
 
 Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/{offer}/podglad-html/export-word', function (\Illuminate\Http\Request $request, \App\Models\Offer $offer) {
@@ -1361,6 +1398,7 @@ Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/szablony-opi
     }
 
     $templates = \App\Models\OfferTemplate::where('created_by', auth()->id())
+        ->where('kind', 'description')
         ->orderBy('updated_at', 'desc')
         ->get(['id', 'name', 'updated_at']);
 
@@ -1372,7 +1410,9 @@ Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/szablony-opi
         return response()->json(['message' => 'Szablony nie sa dostepne.'], 404);
     }
 
-    $record = \App\Models\OfferTemplate::where('created_by', auth()->id())->find($template);
+    $record = \App\Models\OfferTemplate::where('created_by', auth()->id())
+        ->where('kind', 'description')
+        ->find($template);
     if (!$record) {
         return response()->json(['message' => 'Nie znaleziono szablonu.'], 404);
     }
@@ -1393,6 +1433,7 @@ Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/szablony-op
 
     $template = \App\Models\OfferTemplate::create([
         'name' => $data['name'],
+        'kind' => 'description',
         'content_html' => (string) ($data['content_html'] ?? ''),
         'content_json' => (string) ($data['content_json'] ?? ''),
         'created_by' => auth()->id(),
@@ -1403,6 +1444,68 @@ Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/szablony-op
         'template' => $template,
     ], 201);
 })->name('offers.templates.store');
+
+Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/szablony-graficzne', function () {
+    if (!class_exists('\\App\\Models\\OfferTemplate') || !\Illuminate\Support\Facades\Schema::hasTable('offer_templates')) {
+        return response()->json(['templates' => []]);
+    }
+
+    $templates = \App\Models\OfferTemplate::where('created_by', auth()->id())
+        ->where('kind', 'graphic')
+        ->orderBy('updated_at', 'desc')
+        ->get(['id', 'name', 'content_html', 'updated_at']);
+
+    return response()->json(['templates' => $templates]);
+})->name('offers.graphicTemplates.index');
+
+Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/szablony-graficzne', function (\Illuminate\Http\Request $request) {
+    if (!class_exists('\\App\\Models\\OfferTemplate') || !\Illuminate\Support\Facades\Schema::hasTable('offer_templates')) {
+        return response()->json(['message' => 'Szablony nie sa dostepne.'], 422);
+    }
+
+    $data = $request->validate([
+        'name' => 'required|string|max:255',
+        'content_html' => 'required|string',
+    ]);
+
+    $template = \App\Models\OfferTemplate::create([
+        'name' => $data['name'],
+        'kind' => 'graphic',
+        'content_html' => (string) $data['content_html'],
+        'content_json' => '',
+        'created_by' => auth()->id(),
+    ]);
+
+    return response()->json([
+        'message' => 'Szablon graficzny zapisany.',
+        'template' => $template,
+    ], 201);
+})->name('offers.graphicTemplates.store');
+
+Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/{offer}/przypisz-szablon-graficzny', function (\Illuminate\Http\Request $request, \App\Models\Offer $offer) {
+    $templateId = $request->input('graphic_template_id');
+
+    if (empty($templateId)) {
+        $offer->update(['graphic_template_id' => null]);
+        return response()->json(['message' => 'Odpięto szablon graficzny.']);
+    }
+
+    if (!class_exists('\\App\\Models\\OfferTemplate') || !\Illuminate\Support\Facades\Schema::hasTable('offer_templates')) {
+        return response()->json(['message' => 'Szablony nie sa dostepne.'], 422);
+    }
+
+    $template = \App\Models\OfferTemplate::where('created_by', auth()->id())
+        ->where('kind', 'graphic')
+        ->find($templateId);
+
+    if (!$template) {
+        return response()->json(['message' => 'Nie znaleziono szablonu graficznego.'], 404);
+    }
+
+    $offer->update(['graphic_template_id' => $template->id]);
+
+    return response()->json(['message' => 'Przypieto szablon graficzny do oferty.']);
+})->name('offers.assignGraphicTemplate');
 
 // TEST ENDPOINT
 Route::get('/test', function () {
