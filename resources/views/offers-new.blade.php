@@ -489,37 +489,43 @@
                 <!-- Opis oferty -->
                 <div class="mt-8">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Opis oferty</label>
-                    <div id="offer_description_editor" style="min-height: 150px; background: white; border: 1px solid #d1d5db; border-radius: 0.375rem;"></div>
-                    <textarea id="offer_description" name="offer_description" style="display: none;"></textarea>
-                </div>
+                    <div id="offer-template-controls"
+                         data-templates-list-url="{{ route('offers.templates.index') }}"
+                         data-templates-save-url="{{ route('offers.templates.store') }}"
+                         data-templates-show-url-template="{{ route('offers.templates.show', ['template' => '__ID__']) }}"
+                         class="mb-3 p-3 rounded border border-gray-200 bg-gray-50">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <select id="offer-template-select" class="px-2 py-1 text-sm border border-gray-300 rounded bg-white min-w-[220px]">
+                                <option value="">-- wybierz szablon --</option>
+                                @foreach(($offerTemplates ?? []) as $template)
+                                    <option value="{{ $template->id }}">{{ $template->name }}</option>
+                                @endforeach
+                            </select>
+                            <button type="button" id="offer-template-load-btn" class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Wczytaj</button>
+                            <button type="button" id="offer-template-refresh-btn" class="px-3 py-1.5 text-sm bg-gray-600 text-white rounded hover:bg-gray-700">Odswiez</button>
+                            <input type="text" id="offer-template-name" class="px-2 py-1 text-sm border border-gray-300 rounded bg-white min-w-[220px]" placeholder="Nazwa nowego szablonu">
+                            <button type="button" id="offer-template-save-btn" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700">Zapisz jako szablon</button>
+                        </div>
+                        <p id="offer-template-feedback" class="text-xs text-gray-500 mt-2">Wybierz szablon lub zapisz biezacy opis.</p>
+                    </div>
 
-                <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-                <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
-                <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    const quill = new Quill('#offer_description_editor', {
-                        theme: 'snow',
-                        placeholder: 'Dodaj opis oferty...',
-                        modules: {
-                            toolbar: [
-                                [{ 'header': [1, 2, 3, false] }],
-                                ['bold', 'italic', 'underline', 'strike'],
-                                [{ 'color': [] }, { 'background': [] }],
-                                [{ 'font': [] }],
-                                [{ 'align': [] }],
-                                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                                ['link'],
-                                ['clean']
-                            ]
-                        }
-                    });
-                    
-                    // Synchronizuj z hidden textarea
-                    quill.on('text-change', function() {
-                        document.getElementById('offer_description').value = quill.root.innerHTML;
-                    });
-                });
-                </script>
+                    <div id="offer-description-toolbar" class="flex flex-wrap gap-1 p-2 border border-gray-300 border-b-0 rounded-t bg-white">
+                        <button type="button" data-command="bold" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 font-bold">B</button>
+                        <button type="button" data-command="italic" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 italic">I</button>
+                        <button type="button" data-command="strike" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 line-through">S</button>
+                        <button type="button" data-command="h2" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100">H2</button>
+                        <button type="button" data-command="h3" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100">H3</button>
+                        <button type="button" data-command="bulletList" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100">Lista</button>
+                        <button type="button" data-command="orderedList" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100">1.</button>
+                        <button type="button" data-command="alignLeft" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100">Lewo</button>
+                        <button type="button" data-command="alignCenter" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100">Srodek</button>
+                        <button type="button" data-command="alignRight" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100">Prawo</button>
+                        <button type="button" data-command="link" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100">Link</button>
+                        <button type="button" data-command="clearFormatting" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100">Wyczysc</button>
+                    </div>
+                    <div id="offer_description_editor" class="min-h-[180px] bg-white border border-gray-300 rounded-b p-3"></div>
+                    <textarea id="offer_description" name="offer_description" class="hidden"></textarea>
+                </div>
 
                 <!-- Miejsce docelowe oferty -->
                 <div class="border-t pt-6">

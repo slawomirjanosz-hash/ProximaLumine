@@ -576,7 +576,18 @@ Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/nowa', funct
         // Generate preview number using controller method
         $previewNumber = app(\App\Http\Controllers\PartController::class)->generateOfferNumber(null, true);
 
-        return view('offers-new', ['deal' => $deal, 'companies' => $companies, 'suppliers' => $suppliers, 'deals' => $deals, 'previewNumber' => $previewNumber]);
+        $offerTemplates = collect();
+        try {
+            if (class_exists('\\App\\Models\\OfferTemplate') && \Illuminate\Support\Facades\Schema::hasTable('offer_templates')) {
+                $offerTemplates = \App\Models\OfferTemplate::where('created_by', auth()->id())
+                    ->orderBy('updated_at', 'desc')
+                    ->get(['id', 'name', 'updated_at']);
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Offer templates not loaded: ' . $e->getMessage());
+        }
+
+        return view('offers-new', ['deal' => $deal, 'companies' => $companies, 'suppliers' => $suppliers, 'deals' => $deals, 'previewNumber' => $previewNumber, 'offerTemplates' => $offerTemplates]);
     } catch (\Exception $e) {
         \Log::error('Error in /wyceny/nowa: ' . $e->getMessage() . ' | File: ' . $e->getFile() . ' | Line: ' . $e->getLine());
         return response()->json([
@@ -1115,7 +1126,18 @@ Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/{offer}/edit
     $materialsEnabled = array_key_exists('materials_enabled', $customSections) ? (bool)$customSections['materials_enabled'] : true;
     $showUnitPrices = array_key_exists('show_unit_prices', $customSections) ? (bool)$customSections['show_unit_prices'] : true;
 
-    return view('offers-edit', compact('offer', 'companies', 'suppliers', 'deals', 'servicesName', 'worksName', 'materialsName', 'servicesEnabled', 'worksEnabled', 'materialsEnabled', 'showUnitPrices'));
+    $offerTemplates = collect();
+    try {
+        if (class_exists('\\App\\Models\\OfferTemplate') && \Illuminate\Support\Facades\Schema::hasTable('offer_templates')) {
+            $offerTemplates = \App\Models\OfferTemplate::where('created_by', auth()->id())
+                ->orderBy('updated_at', 'desc')
+                ->get(['id', 'name', 'updated_at']);
+        }
+    } catch (\Throwable $e) {
+        \Log::warning('Offer templates not loaded: ' . $e->getMessage());
+    }
+
+    return view('offers-edit', compact('offer', 'companies', 'suppliers', 'deals', 'servicesName', 'worksName', 'materialsName', 'servicesEnabled', 'worksEnabled', 'materialsEnabled', 'showUnitPrices', 'offerTemplates'));
 })->name('offers.edit');
 
 Route::middleware(['auth', 'permission:view_offers'])->put('/wyceny/{offer}', function (Illuminate\Http\Request $request, \App\Models\Offer $offer) {
@@ -1332,6 +1354,55 @@ Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/{offer}/pod
         ->header('Content-Type', 'application/msword; charset=UTF-8')
         ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
 })->name('offers.htmlExportWord');
+
+Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/szablony-opisu', function () {
+    if (!class_exists('\\App\\Models\\OfferTemplate') || !\Illuminate\Support\Facades\Schema::hasTable('offer_templates')) {
+        return response()->json(['templates' => []]);
+    }
+
+    $templates = \App\Models\OfferTemplate::where('created_by', auth()->id())
+        ->orderBy('updated_at', 'desc')
+        ->get(['id', 'name', 'updated_at']);
+
+    return response()->json(['templates' => $templates]);
+})->name('offers.templates.index');
+
+Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/szablony-opisu/{template}', function ($template) {
+    if (!class_exists('\\App\\Models\\OfferTemplate') || !\Illuminate\Support\Facades\Schema::hasTable('offer_templates')) {
+        return response()->json(['message' => 'Szablony nie sa dostepne.'], 404);
+    }
+
+    $record = \App\Models\OfferTemplate::where('created_by', auth()->id())->find($template);
+    if (!$record) {
+        return response()->json(['message' => 'Nie znaleziono szablonu.'], 404);
+    }
+
+    return response()->json(['template' => $record]);
+})->name('offers.templates.show');
+
+Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/szablony-opisu', function (\Illuminate\Http\Request $request) {
+    if (!class_exists('\\App\\Models\\OfferTemplate') || !\Illuminate\Support\Facades\Schema::hasTable('offer_templates')) {
+        return response()->json(['message' => 'Szablony nie sa dostepne.'], 422);
+    }
+
+    $data = $request->validate([
+        'name' => 'required|string|max:255',
+        'content_html' => 'nullable|string',
+        'content_json' => 'nullable|string',
+    ]);
+
+    $template = \App\Models\OfferTemplate::create([
+        'name' => $data['name'],
+        'content_html' => (string) ($data['content_html'] ?? ''),
+        'content_json' => (string) ($data['content_json'] ?? ''),
+        'created_by' => auth()->id(),
+    ]);
+
+    return response()->json([
+        'message' => 'Szablon zapisany.',
+        'template' => $template,
+    ], 201);
+})->name('offers.templates.store');
 
 // TEST ENDPOINT
 Route::get('/test', function () {
