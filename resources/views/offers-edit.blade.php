@@ -5,7 +5,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Edytuj Ofertę</title>
     <link rel="icon" type="image/png" href="{{ asset('logo_proxima_male.png') }}">
-    @vite(['resources/css/app.css'])
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col">
     <header class="bg-white shadow">
