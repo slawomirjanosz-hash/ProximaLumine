@@ -1194,6 +1194,24 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             return parseFloat(String(value || '').replace(/\s/g, '').replace('zł', '').replace(',', '.')) || 0;
         }
 
+        function getAdditionalProfitAmount() {
+            return parseFloat((document.getElementById('profit-amount-input') || {}).value || '0') || 0;
+        }
+
+        function getDistributionMultiplier() {
+            if (_grandTotalRaw <= 0) return 1;
+            return (_grandTotalRaw + getAdditionalProfitAmount()) / _grandTotalRaw;
+        }
+
+        function renderDistributedValues() {
+            const multiplier = getDistributionMultiplier();
+            document.querySelectorAll('.value-input').forEach(input => {
+                if (document.activeElement === input) return;
+                const raw = parseFloat(input.dataset.raw || '0') || 0;
+                input.value = formatPrice(raw * multiplier);
+            });
+        }
+
         document.addEventListener('focusin', function(e) {
             if (e.target.classList.contains('value-input')) {
                 e.target.removeAttribute('readonly');
@@ -1418,6 +1436,7 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         function calculateTotal(section) {
             const inputs = document.querySelectorAll(`#${section}-table .value-input`);
             let total = 0;
+            const multiplier = getDistributionMultiplier();
             
             inputs.forEach(input => {
                 const value = parseFloat(input.dataset.raw || input.value) || 0;
@@ -1425,9 +1444,10 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             });
             
             _sectionTotals[section] = total;
-            document.getElementById(section + '-total').textContent = formatPrice(total);
+            const distributedTotal = total * multiplier;
+            document.getElementById(section + '-total').textContent = formatPrice(distributedTotal);
             const headerSum = document.getElementById(section + '-header-sum');
-            if (headerSum) headerSum.textContent = formatPrice(total);
+            if (headerSum) headerSum.textContent = formatPrice(distributedTotal);
             calculateGrandTotal();
             if (typeof renderSupplierSummary === 'function') {
                 renderSupplierSummary();
@@ -1460,8 +1480,8 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
             });
             
             _grandTotalRaw = grandTotal;
-            document.getElementById('grand-total').textContent = formatPrice(grandTotal);
-            updateProfitFromPercent();
+            document.getElementById('grand-total').textContent = formatPrice(grandTotal + getAdditionalProfitAmount());
+            updateProfitDisplay();
         }
 
         function updateProfitFromPercent() {
@@ -1479,14 +1499,20 @@ document.addEventListener('DOMContentLoaded', renderSupplierSummary);
         }
 
         function updateProfitDisplay() {
-            const amount = parseFloat(document.getElementById('profit-amount-input').value) || 0;
+            const amount = getAdditionalProfitAmount();
             document.getElementById('total-with-profit').textContent = formatPrice(_grandTotalRaw + amount);
-            const pct = parseFloat(document.getElementById('profit-percent').value) || 0;
-            const multiplier = 1 + pct / 100;
+            document.getElementById('grand-total').textContent = formatPrice(_grandTotalRaw + amount);
+            const multiplier = getDistributionMultiplier();
             Object.keys(_sectionTotals).forEach(section => {
+                const distributedTotal = _sectionTotals[section] * multiplier;
+                const sectionTotalEl = document.getElementById(section + '-total');
+                if (sectionTotalEl) sectionTotalEl.textContent = formatPrice(distributedTotal);
+                const headerSum = document.getElementById(section + '-header-sum');
+                if (headerSum) headerSum.textContent = formatPrice(distributedTotal);
                 const el = document.getElementById(section + '-header-profit');
-                if (el) el.textContent = formatPrice(_sectionTotals[section] * multiplier);
+                if (el) el.textContent = formatPrice(distributedTotal);
             });
+            renderDistributedValues();
             updateBuiltInProfit();
         }
 
