@@ -1316,6 +1316,23 @@ Route::middleware(['auth', 'permission:view_offers'])->get('/wyceny/{offer}/podg
     return view('offers.html', compact('offer', 'company', 'showUnitPrices', 'author'));
 })->name('offers.htmlPreview');
 
+Route::middleware(['auth', 'permission:view_offers'])->post('/wyceny/{offer}/podglad-html/export-word', function (\Illuminate\Http\Request $request, \App\Models\Offer $offer) {
+    $validated = $request->validate([
+        'html' => 'required|string',
+    ]);
+
+    $html = (string) ($validated['html'] ?? '');
+    $html = preg_replace('#<script\\b[^<]*(?:(?!</script>)<[^<]*)*</script>#is', '', $html);
+    $html = preg_replace('/\\son\\w+=("[^"]*"|\'[^\']*\')/i', '', $html);
+
+    $safeNumber = preg_replace('/[^A-Za-z0-9_\\-]/', '_', (string) ($offer->offer_number ?? 'oferta'));
+    $fileName = 'Oferta_' . $safeNumber . '_HTML.doc';
+
+    return response($html)
+        ->header('Content-Type', 'application/msword; charset=UTF-8')
+        ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
+})->name('offers.htmlExportWord');
+
 // TEST ENDPOINT
 Route::get('/test', function () {
     return response()->json([

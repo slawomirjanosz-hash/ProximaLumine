@@ -22,6 +22,35 @@
         $pdfLogoSrc = 'file://' . str_replace('\\', '/', public_path('logo.png'));
     }
     $showUnitPrices = $showUnitPrices ?? true;
+
+    $customSectionsRaw = is_array($offer->custom_sections) ? $offer->custom_sections : [];
+    $builtinKeys = ['services_name','works_name','materials_name','services_enabled','works_enabled','materials_enabled','show_unit_prices'];
+    $customSectionsForCalc = array_values(array_filter(
+        $customSectionsRaw,
+        fn($v, $k) => is_array($v) && !in_array($k, $builtinKeys, true),
+        ARRAY_FILTER_USE_BOTH
+    ));
+
+    $sumRows = function (array $rows): float {
+        $sum = 0.0;
+        foreach ($rows as $row) {
+            $sum += (float)($row['price'] ?? 0) * (float)($row['quantity'] ?? 1);
+        }
+        return $sum;
+    };
+
+    $servicesForCalc = array_filter($offer->services ?? [], fn($r) => !empty($r['name']));
+    $worksForCalc = array_filter($offer->works ?? [], fn($r) => !empty($r['name']));
+    $materialsForCalc = array_filter($offer->materials ?? [], fn($r) => !empty($r['name']));
+
+    $baseTotal = $sumRows($servicesForCalc) + $sumRows($worksForCalc) + $sumRows($materialsForCalc);
+    foreach ($customSectionsForCalc as $customSection) {
+        $customRows = array_filter($customSection['rows'] ?? $customSection['items'] ?? [], fn($r) => !empty($r['name']));
+        $baseTotal += $sumRows($customRows);
+    }
+
+    $additionalProfit = (float)($offer->profit_amount ?? 0);
+    $distributionMultiplier = $baseTotal > 0 ? (($baseTotal + $additionalProfit) / $baseTotal) : 1.0;
 @endphp
 <!DOCTYPE html>
 <html lang="pl">
@@ -179,7 +208,7 @@
             @foreach($services as $row)
                 @php
                     $qty = (float)($row['quantity'] ?? 1);
-                    $price = (float)($row['price'] ?? 0);
+                    $price = (float)($row['price'] ?? 0) * $distributionMultiplier;
                     $val = $qty * $price;
                     $servTotal += $val;
                 @endphp
@@ -221,7 +250,7 @@
             @foreach($works as $row)
                 @php
                     $qty = (float)($row['quantity'] ?? 1);
-                    $price = (float)($row['price'] ?? 0);
+                    $price = (float)($row['price'] ?? 0) * $distributionMultiplier;
                     $val = $qty * $price;
                     $worksTotal += $val;
                 @endphp
@@ -263,7 +292,7 @@
             @foreach($materials as $row)
                 @php
                     $qty = (float)($row['quantity'] ?? 1);
-                    $price = (float)($row['price'] ?? 0);
+                    $price = (float)($row['price'] ?? 0) * $distributionMultiplier;
                     $val = $qty * $price;
                     $matsTotal += $val;
                 @endphp
@@ -285,10 +314,10 @@
     @endif
 
     {{-- CUSTOM SECTIONS --}}
-    @php $customSections = $offer->custom_sections ?? []; @endphp
+    @php $customSections = $customSectionsForCalc; @endphp
     @foreach($customSections as $cs)
         @php
-            $csRows = array_filter($cs['rows'] ?? [], fn($r) => !empty($r['name']));
+            $csRows = array_filter($cs['rows'] ?? $cs['items'] ?? [], fn($r) => !empty($r['name']));
         @endphp
         @if(count($csRows) > 0)
         <div class="section">
@@ -306,7 +335,7 @@
                 @foreach($csRows as $row)
                     @php
                         $qty = (float)($row['quantity'] ?? 1);
-                        $price = (float)($row['price'] ?? 0);
+                        $price = (float)($row['price'] ?? 0) * $distributionMultiplier;
                         $val = $qty * $price;
                         $csTotal += $val;
                     @endphp

@@ -39,6 +39,23 @@
     $worksLabel     = $customSectionsRaw['works_name']     ?? 'Prace własne';
     $materialsLabel = $customSectionsRaw['materials_name'] ?? 'Materiały';
 
+    $sumRows = function (array $rows): float {
+        $sum = 0.0;
+        foreach ($rows as $row) {
+            $sum += (float)($row['price'] ?? 0) * (float)($row['quantity'] ?? 1);
+        }
+        return $sum;
+    };
+
+    $baseTotal = $sumRows($services) + $sumRows($works) + $sumRows($materials);
+    foreach ($customSections as $customSection) {
+        $rows = array_filter($customSection['rows'] ?? $customSection['items'] ?? [], fn($r) => !empty($r['name']));
+        $baseTotal += $sumRows($rows);
+    }
+
+    $additionalProfit = (float)($offer->profit_amount ?? 0);
+    $distributionMultiplier = $baseTotal > 0 ? (($baseTotal + $additionalProfit) / $baseTotal) : 1.0;
+
     $grandTotal = (float)$offer->total_price;
 @endphp
 <!DOCTYPE html>
@@ -263,6 +280,9 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
             Drukuj / Zapisz PDF
         </button>
+        <button type="button" onclick="exportCurrentHtmlToWord()" class="btn-print" style="background:#16a34a;color:#fff;">
+            DOC
+        </button>
         <span class="print-hint">W oknie druku odznacz „Nagłówki i stopki"</span>
     </div>
 </div>
@@ -347,11 +367,11 @@
 
         {{-- ── Section table helper ────────────── --}}
         @php
-            function renderSectionTable($rows, $label, $showUnit) {
+            $renderSectionTable = function ($rows, $label, $showUnit) use ($distributionMultiplier) {
                 if (empty($rows)) return;
                 $total = 0;
                 foreach ($rows as $r) {
-                    $total += (float)($r['price'] ?? 0) * (float)($r['quantity'] ?? 1);
+                    $total += ((float)($r['price'] ?? 0) * $distributionMultiplier) * (float)($r['quantity'] ?? 1);
                 }
                 echo '<div class="section">';
                 echo '<div class="section-hdr">' . e($label) . '</div>';
@@ -363,7 +383,7 @@
                 echo '</tr></thead><tbody>';
                 foreach ($rows as $r) {
                     $qty = (float)($r['quantity'] ?? 1);
-                    $price = (float)($r['price'] ?? 0);
+                    $price = (float)($r['price'] ?? 0) * $distributionMultiplier;
                     $val = $qty * $price;
                     echo '<tr>';
                     echo '<td class="editable">' . e($r['name'] ?? '') . '</td>';
@@ -377,14 +397,14 @@
                 echo '<td colspan="' . ($showUnit ? 4 : 3) . '" class="r">Razem ' . e($label) . ':</td>';
                 echo '<td class="r">' . number_format($total, 2, ',', ' ') . ' zł</td>';
                 echo '</tr></tfoot></table></div>';
-            }
+            };
         @endphp
 
-        @if(count($services) > 0)  @php renderSectionTable($services, $servicesLabel, $showUnitPrices); @endphp @endif
-        @if(count($works) > 0)     @php renderSectionTable($works, $worksLabel, $showUnitPrices); @endphp @endif
-        @if(count($materials) > 0) @php renderSectionTable($materials, $materialsLabel, $showUnitPrices); @endphp @endif
+        @if(count($services) > 0)  @php $renderSectionTable($services, $servicesLabel, $showUnitPrices); @endphp @endif
+        @if(count($works) > 0)     @php $renderSectionTable($works, $worksLabel, $showUnitPrices); @endphp @endif
+        @if(count($materials) > 0) @php $renderSectionTable($materials, $materialsLabel, $showUnitPrices); @endphp @endif
         @foreach($customSections as $cs)
-            @php renderSectionTable(array_filter($cs['rows'] ?? $cs['items'] ?? [], fn($r) => !empty($r['name'])), $cs['name'] ?? 'Sekcja', $showUnitPrices); @endphp
+            @php $renderSectionTable(array_filter($cs['rows'] ?? $cs['items'] ?? [], fn($r) => !empty($r['name'])), $cs['name'] ?? 'Sekcja', $showUnitPrices); @endphp
         @endforeach
 
         {{-- ── Grand total ─────────────────────── --}}
@@ -482,6 +502,34 @@ function toggleEditMode() {
 
     btn.textContent = editMode ? '✅ Zakończ edycję' : '✏️ Edytuj ofertę';
     btn.style.background = editMode ? '#16a34a' : '#6366f1';
+}
+
+function exportCurrentHtmlToWord() {
+    const clone = document.documentElement.cloneNode(true);
+    const printBar = clone.querySelector('.print-bar');
+    if (printBar) printBar.remove();
+    clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+    if (clone.body) clone.body.classList.remove('edit-mode');
+
+    const html = '<!DOCTYPE html>\n' + clone.outerHTML;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ route('offers.htmlExportWord', $offer) }}';
+
+    const token = document.createElement('input');
+    token.type = 'hidden';
+    token.name = '_token';
+    token.value = '{{ csrf_token() }}';
+    form.appendChild(token);
+
+    const htmlInput = document.createElement('textarea');
+    htmlInput.name = 'html';
+    htmlInput.style.display = 'none';
+    htmlInput.value = html;
+    form.appendChild(htmlInput);
+
+    document.body.appendChild(form);
+    form.submit();
 }
 </script>
 

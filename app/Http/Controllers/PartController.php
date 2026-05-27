@@ -8054,7 +8054,33 @@ class PartController extends Controller
         $materialsEnabled = array_key_exists('materials_enabled', $customSectionsRaw) ? (bool)$customSectionsRaw['materials_enabled'] : true;
         $showUnitPrices = array_key_exists('show_unit_prices', $customSectionsRaw) ? (bool)$customSectionsRaw['show_unit_prices'] : true;
 
-        $renderSectionTable = function (string $sectionTitle, array $items) use ($section, $showUnitPrices) {
+        $sumRows = function (array $rows): float {
+            $sum = 0.0;
+            foreach ($rows as $row) {
+                $sum += (float)($row['price'] ?? 0) * (float)($row['quantity'] ?? 1);
+            }
+            return $sum;
+        };
+
+        $baseTotal = $sumRows(is_array($services) ? $services : [])
+            + $sumRows(is_array($works) ? $works : [])
+            + $sumRows(is_array($materials) ? $materials : []);
+
+        foreach ($customSectionsRaw as $customSection) {
+            if (!is_array($customSection)) {
+                continue;
+            }
+            $items = $customSection['items'] ?? null;
+            if (!is_array($items)) {
+                continue;
+            }
+            $baseTotal += $sumRows($items);
+        }
+
+        $additionalProfit = (float)($offer->profit_amount ?? 0);
+        $distributionMultiplier = $baseTotal > 0 ? (($baseTotal + $additionalProfit) / $baseTotal) : 1.0;
+
+        $renderSectionTable = function (string $sectionTitle, array $items) use ($section, $showUnitPrices, $distributionMultiplier) {
             $items = collect($items)
                 ->filter(fn($item) => is_array($item))
                 ->filter(fn($item) =>
@@ -8099,7 +8125,7 @@ class PartController extends Controller
             foreach ($items as $item) {
                 $rowIndex++;
                 $qty   = max((float)($item['quantity'] ?? 1), 0);
-                $price = (float)($item['price'] ?? 0);
+                $price = (float)($item['price'] ?? 0) * $distributionMultiplier;
                 $value = $qty * $price;
                 $sectionTotal += $value;
 
