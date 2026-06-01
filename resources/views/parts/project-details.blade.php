@@ -4519,8 +4519,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Dane wbudowane w stronę; gdyby były puste, użyjemy fallbacku z API.
-    let ganttUsers = normalizeGanttUsers(@json(
-        \App\Models\User::orderBy('name')
+    @php
+        $ganttUsersData = \App\Models\User::orderBy('name')
             ->select(['id', 'name', 'email', 'short_name'])
             ->get()
             ->map(fn($u) => [
@@ -4532,8 +4532,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     ? $u->short_name . ' – ' . $u->name
                     : $u->name,
             ])
-            ->values()
-    ));
+            ->values();
+    @endphp
+    let ganttUsers = normalizeGanttUsers(@json($ganttUsersData));
 
     async function ensureGanttUsersLoaded() {
         if (ganttUsers.length > 0) return;
