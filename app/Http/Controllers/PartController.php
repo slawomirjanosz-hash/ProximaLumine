@@ -467,7 +467,6 @@ class PartController extends Controller
         if ($addedCount > 0) {
             $loadedList->missing_items = !empty($remainingMissingItems) ? $remainingMissingItems : null;
             $loadedList->is_complete = empty($remainingMissingItems);
-            $loadedList->added_count = (int) $loadedList->added_count + $addedCount;
             $loadedList->save();
         }
 
@@ -545,7 +544,6 @@ class PartController extends Controller
         if ($addedQuantity > 0) {
             $loadedList->missing_items = !empty($remainingMissingItems) ? $remainingMissingItems : null;
             $loadedList->is_complete = empty($remainingMissingItems);
-            $loadedList->added_count = (int) $loadedList->added_count + $addedQuantity;
             $loadedList->save();
         }
 
@@ -9763,7 +9761,6 @@ class PartController extends Controller
         // Zaktualizuj loadedList
         $loadedList->missing_items = count($missingItems) > 0 ? $missingItems : null;
         $loadedList->is_complete = count($missingItems) === 0;
-        $loadedList->added_count += $quantityToAdd;
         $loadedList->save();
 
         $remainingQty = max(0, $missingQty - $quantityToAdd);
@@ -9926,7 +9923,6 @@ class PartController extends Controller
             if ($updated) {
                 $loadedList->missing_items = count($missingItems) > 0 ? $missingItems : null;
                 $loadedList->is_complete = count($missingItems) === 0;
-                $loadedList->added_count += $quantity;
                 $loadedList->save();
             }
         }
@@ -9990,9 +9986,13 @@ class PartController extends Controller
 
         $loadedList->missing_items = count($missingItems) > 0 ? $missingItems : null;
         $loadedList->is_complete = count($missingItems) === 0;
+        // Przelicz added_count z rzeczywistych danych (nie akumulator)
+        $loadedList->added_count = $listItems->count() - count($missingItems);
+        $loadedList->total_count = $listItems->count();
+        $loadedList->save();
     }
 
-    // ========== GANTT CHART METHODS ==========
+    // ========== GANTT CHART METHODS ===========
     
     public function getGanttTasks(\App\Models\Project $project)
     {
