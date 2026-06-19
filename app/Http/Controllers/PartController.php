@@ -502,6 +502,20 @@ class PartController extends Controller
                 continue;
             }
 
+            // Subtract already-queued (unauthorized, not yet deducted from stock)
+            // to avoid double-incrementing on repeated "Autoryzuj" clicks
+            $alreadyQueuedQty = \App\Models\ProjectRemoval::where('project_id', $project->id)
+                ->where('part_id', $partId)
+                ->where('status', 'added')
+                ->where('authorized', false)
+                ->sum('quantity');
+            $availableQty = max(0, $availableQty - $alreadyQueuedQty);
+
+            if ($availableQty <= 0) {
+                $missingItems[$index]['available'] = 0;
+                continue;
+            }
+
             $quantityToQueue = min($missingQty, $availableQty);
             if ($quantityToQueue <= 0) {
                 continue;
