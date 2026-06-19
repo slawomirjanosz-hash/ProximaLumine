@@ -2962,12 +2962,17 @@ class PartController extends Controller
         }
 
         // Utwórz lub zaktualizuj autoryzowane pobranie
+        // Zachowaj loaded_list_id z nieautoryzowanego rekordu, żeby recalculate
+        // mógł poprawnie zliczyć autoryzowane produkty dla danej listy
+        $loadedListId = $removal->loaded_list_id ?? null;
+
         $authorizedRemoval = \App\Models\ProjectRemoval::where('project_id', $project->id)
             ->where(function ($statusQuery) {
                 $statusQuery->where('status', 'added')->orWhereNull('status');
             })
             ->where('part_id', $part->id)
             ->where('authorized', true)
+            ->where('loaded_list_id', $loadedListId)
             ->first();
 
         if ($authorizedRemoval) {
@@ -2981,6 +2986,7 @@ class PartController extends Controller
                 'quantity' => 1,
                 'status' => 'added',
                 'authorized' => true,
+                'loaded_list_id' => $loadedListId,
             ]);
         }
 
