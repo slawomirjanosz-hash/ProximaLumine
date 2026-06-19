@@ -9814,27 +9814,37 @@ class PartController extends Controller
 
         $listName = $loadedList->projectList->name ?? 'Lista';
 
-        // Usuń nieautoryzowane produkty tej listy (nie zostały fizycznie pobrane ze magazynu)
-        // Autoryzowane produkty pozostają w projekcie - zostały już fizycznie pobrane
-        $unauthorizedRemovals = \App\Models\ProjectRemoval::where('project_id', $project->id)
+        // Pobierz wszystkie produkty powiązane z tą listą
+        $allRemovals = \App\Models\ProjectRemoval::where('project_id', $project->id)
             ->where('loaded_list_id', $loadedList->id)
-            ->where('authorized', false)
             ->get();
 
-        foreach ($unauthorizedRemovals as $removal) {
-            $removal->delete();
-        }
+        $restoredCount = 0;
+        $removedCount = 0;
 
-        $removedCount = $unauthorizedRemovals->count();
+        foreach ($allRemovals as $removal) {
+            if ($removal->authorized) {
+                // Autoryzowane = stan magazynu był już odjęty → przywróć
+                $part = \App\Models\Part::find($removal->part_id);
+                if ($part) {
+                    $part->increment('quantity', $removal->quantity);
+                }
+                $restoredCount++;
+            }
+            $removal->delete();
+            $removedCount++;
+        }
 
         // Usuń powiązanie listy z projektem
         $loadedList->delete();
 
         $message = "Lista \"{$listName}\" została odłączona od projektu.";
         if ($removedCount > 0) {
-            $message .= " Usunięto {$removedCount} nieautoryzowanych produktów.";
+            $message .= " Usunięto {$removedCount} produktów z projektu.";
         }
-        $message .= " Autoryzowane produkty pozostały w projekcie.";
+        if ($restoredCount > 0) {
+            $message .= " Przywrócono {$restoredCount} szt. do magazynu.";
+        }
 
         return response()->json([
             'success' => true,
