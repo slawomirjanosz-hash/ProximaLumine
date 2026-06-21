@@ -1580,6 +1580,8 @@ Route::get('/railway/session-test', function () {
 Route::middleware('auth')->group(function () {
         // Autoryzacja pojedynczej listy projektowej
         Route::match(['get', 'post'], '/magazyn/projects/{project}/authorize-list/{loadedList}', [PartController::class, 'authorizeList'])->name('magazyn.projects.authorizeList')->middleware('permission:remove');
+        // Autoryzacja pojedynczego brakującego produktu z listy
+        Route::post('/magazyn/projects/{project}/authorize-list/{loadedList}/item', [PartController::class, 'authorizeMissingItem'])->name('magazyn.projects.authorizeMissingItem')->middleware('permission:remove');
     Route::get('/magazyn/dodaj', [PartController::class, 'addView'])->name('magazyn.add')->middleware('permission:add');
     Route::get('/magazyn/przyjmij', [PartController::class, 'receiveView'])->name('magazyn.receive')->middleware('permission:add');
     Route::get('/magazyn/pobierz', [PartController::class, 'removeView'])->name('magazyn.remove')->middleware('permission:remove');
