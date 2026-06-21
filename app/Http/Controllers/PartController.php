@@ -434,6 +434,10 @@ class PartController extends Controller
         }
 
         if ($missingItem === null) {
+            // Produkt może już być w kolejce - otwóz okno skanowania
+            if ($project->requires_authorization) {
+                return redirect()->route('magazyn.projects.authorize', ['project' => $project->id]);
+            }
             return redirect()->back()->with('error', 'Nie znaleziono produktu na liście brakujących.');
         }
 
@@ -448,58 +452,60 @@ class PartController extends Controller
         $quantityToProcess = min($missingQty, $availableQty);
 
         if (!$project->requires_authorization) {
+            // Tryb bez autoryzacji: dodaj bezpośrednio raz
+            $alreadyAdded = \App\Models\ProjectRemoval::where('project_id', $project->id)
+                ->where('part_id', $partId)
+                ->where('loaded_list_id', $loadedList->id)
+                ->where('authorized', true)
+                ->where('status', 'added')
+                ->sum('quantity');
+
+            if ($alreadyAdded >= $missingQty) {
+                $this->recalculateLoadedListMissingItems($project, $loadedList);
+                return redirect()->back()->with('info', 'Produkt już został dodany do projektu.');
+            }
+
+            $toAdd = $missingQty - $alreadyAdded;
+            $toAdd = min($toAdd, $availableQty);
+
+            \App\Models\ProjectRemoval::create([
+                'project_id' => $project->id,
+                'part_id'    => $partId,
+                'user_id'    => auth()->id(),
+                'quantity'   => $toAdd,
+                'status'     => 'added',
+                'authorized' => true,
+                'loaded_list_id' => $loadedList->id,
+            ]);
+            $part->decrement('quantity', $toAdd);
+            $this->recalculateLoadedListMissingItems($project, $loadedList);
+            return redirect()->back()->with('success', "Dodano {$part->name} ({$toAdd} szt.) do projektu.");
+        }
+
+        // Tryb z autoryzacją: sprawdź czy rekord już istnieje w kolejce
+        $existingQueued = \App\Models\ProjectRemoval::where('project_id', $project->id)
+            ->where('part_id', $partId)
+            ->where('authorized', false)
+            ->where('status', 'added')
+            ->first();
+
+        if (!$existingQueued) {
+            // Dodaj do kolejki TYLKO jeśli nie istnieje jeszcze
             \App\Models\ProjectRemoval::create([
                 'project_id' => $project->id,
                 'part_id'    => $partId,
                 'user_id'    => auth()->id(),
                 'quantity'   => $quantityToProcess,
                 'status'     => 'added',
-                'authorized' => true,
+                'authorized' => false,
                 'loaded_list_id' => $loadedList->id,
             ]);
-            $part->decrement('quantity', $quantityToProcess);
-            $successMsg = "Dodano {$part->name} ({$quantityToProcess} szt.) do projektu.";
-        } else {
-            $alreadyQueuedQty = \App\Models\ProjectRemoval::where('project_id', $project->id)
-                ->where('part_id', $partId)
-                ->where('status', 'added')
-                ->where('authorized', false)
-                ->sum('quantity');
-
-            $effectiveAvailable = max(0, $availableQty - $alreadyQueuedQty);
-
-            if ($effectiveAvailable <= 0) {
-                return redirect()->back()->with('error', 'Produkt już jest w kolejce autoryzacji lub brak dostępnych sztuk.');
-            }
-
-            $quantityToProcess = min($missingQty, $effectiveAvailable);
-
-            $existing = \App\Models\ProjectRemoval::where('project_id', $project->id)
-                ->where('part_id', $partId)
-                ->where('status', 'added')
-                ->where('authorized', false)
-                ->first();
-
-            if ($existing) {
-                $existing->quantity += $quantityToProcess;
-                $existing->save();
-            } else {
-                \App\Models\ProjectRemoval::create([
-                    'project_id' => $project->id,
-                    'part_id'    => $partId,
-                    'user_id'    => auth()->id(),
-                    'quantity'   => $quantityToProcess,
-                    'status'     => 'added',
-                    'authorized' => false,
-                    'loaded_list_id' => $loadedList->id,
-                ]);
-            }
-            $successMsg = "Produkt {$part->name} ({$quantityToProcess} szt.) dodany do kolejki autoryzacji. Zeskanuj go aby zatwierdzić.";
+            $this->recalculateLoadedListMissingItems($project, $loadedList);
         }
 
-        $this->recalculateLoadedListMissingItems($project, $loadedList);
-
-        return redirect()->back()->with('success', $successMsg);
+        // Zawsze przekieruj do okna skanowania
+        return redirect()->route('magazyn.projects.authorize', ['project' => $project->id])
+            ->with('success', "Produkt {$part->name} gotowy do skanowania.");
     }
 
     private function addAvailableMissingItemsDirectly(\App\Models\Project $project, \App\Models\ProjectLoadedList $loadedList): int

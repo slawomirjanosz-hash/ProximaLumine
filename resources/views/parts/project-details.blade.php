@@ -225,30 +225,8 @@
                             @elseif($hasMissingItems)
                                 <span class="ml-2 px-2 py-0.5 bg-red-200 text-red-800 text-xs rounded-full font-semibold">⚠ Lista niekompletna</span>
                                 <button type="button" class="ml-2 text-orange-600 hover:text-orange-800 font-bold text-xl" onclick="showMissingItems({{ $loadedListData->id }})" title="Kliknij aby zobaczyć czego brakuje">❗</button>
-                                @if(auth()->user() && auth()->user()->is_admin && !in_array($project->status, ['warranty','archived']))
-                                <form method="POST" action="{{ route('magazyn.projects.authorizeList', [$project->id, $loadedListData->id]) }}" class="ml-2">
-                                    @csrf
-                                    @if($project->requires_authorization)
-                                        <button type="submit" class="px-2 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 text-xs font-semibold" title="Dodaj brakujące produkty do kolejki autoryzacji">
-                                            🔐 Autoryzuj
-                                        </button>
-                                    @else
-                                        <button type="submit" class="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-semibold" title="Dodaj brakujące produkty z magazynu bezpośrednio do projektu">
-                                            ➕ Uzupełnij listę
-                                        </button>
-                                    @endif
-                                </form>
-                                @endif
                             @else
-                                <span class="ml-2 px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs rounded-full font-semibold">⚠ Kompletna, ale nie w pełni zautoryzowana</span>
-                                @if(auth()->user() && auth()->user()->is_admin && !in_array($project->status, ['warranty','archived']))
-                                <form method="POST" action="{{ route('magazyn.projects.authorizeList', [$project->id, $loadedListData->id]) }}" class="ml-2" onsubmit="this.method='POST';">
-                                    @csrf
-                                    <button type="submit" class="px-2 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 text-xs font-semibold" title="Przejdź do autoryzacji przez skanowanie tej listy">
-                                        📱 Skanuj produkty z listy
-                                    </button>
-                                </form>
-                                @endif
+                                <span class="ml-2 px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs rounded-full font-semibold">⚠ Oczekuje na autoryzację skanowania</span>
                             @endif
                             <span class="text-xs text-gray-500 ml-auto">{{ $loadedListData->created_at->format('d.m.Y H:i') }}</span>
                             @if(auth()->user() && auth()->user()->is_admin && !in_array($project->status, ['warranty','archived']))
@@ -261,6 +239,15 @@
                             @endif
                         </div>
                         @if(!$loadedListData->is_complete && $loadedListData->missing_items)
+                            @php
+                                // Preload part_id produktów już w kolejce autoryzacji (jednym zapytaniem)
+                                $queuedPartIds = \App\Models\ProjectRemoval::where('project_id', $project->id)
+                                    ->where('authorized', false)
+                                    ->where('status', 'added')
+                                    ->pluck('part_id')
+                                    ->unique()
+                                    ->toArray();
+                            @endphp
                             <div id="missing-items-{{ $loadedListData->id }}" class="mt-2 p-2 bg-white border border-yellow-300 rounded text-xs">
                                 <strong class="text-red-600">Produkty nie dodane do projektu:</strong>
                                 <div class="mt-2 space-y-2">
@@ -268,6 +255,7 @@
                                         @php
                                             $part = isset($missing['part_id']) ? \App\Models\Part::find($missing['part_id']) : null;
                                             $currentStock = $part ? $part->quantity : 0;
+                                            $isQueued = in_array((int)($missing['part_id'] ?? 0), $queuedPartIds);
                                         @endphp
                                         <div class="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200">
                                             <div class="flex-1">
@@ -276,15 +264,19 @@
                                                 <br>
                                                 <span class="text-gray-600 text-xs">{{ $missing['reason'] }}</span>
                                             </div>
-                                            @if($currentStock <= 0)
-                                                <span class="ml-2 px-3 py-1 bg-red-200 text-red-800 rounded text-xs font-semibold">✗ Brak na magazynie</span>
-                                            @elseif(auth()->user() && auth()->user()->is_admin && !in_array($project->status, ['warranty','archived']))
+                                            @if($isQueued)
+                                                {{-- Już w kolejce: tylko link do skanowania --}}
+                                                <a href="{{ route('magazyn.projects.authorize', $project->id) }}" class="ml-2 px-3 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 text-xs font-semibold">
+                                                    🔍 Przejdź do skanowania
+                                                </a>
+                                            @elseif($currentStock >= $missing['quantity'] && auth()->user() && auth()->user()->is_admin && !in_array($project->status, ['warranty','archived']))
+                                                {{-- Dostępny i nie w kolejce: pokaż przycisk --}}
                                                 <form method="POST" action="{{ route('magazyn.projects.authorizeMissingItem', [$project->id, $loadedListData->id]) }}" class="ml-2">
                                                     @csrf
                                                     <input type="hidden" name="part_id" value="{{ $missing['part_id'] }}">
                                                     @if($project->requires_authorization)
                                                         <button type="submit" class="px-3 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 text-xs font-semibold">
-                                                            🔐 Dodaj do autoryzacji
+                                                            🔐 Autoryzuj
                                                         </button>
                                                     @else
                                                         <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-semibold">
@@ -292,8 +284,10 @@
                                                         </button>
                                                     @endif
                                                 </form>
+                                            @elseif($currentStock > 0)
+                                                <span class="ml-2 px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">Częściowo dostępny ({{ $currentStock }}/{{ $missing['quantity'] }})</span>
                                             @else
-                                                <span class="ml-2 px-3 py-1 bg-yellow-200 text-yellow-900 rounded text-xs font-semibold">Dostępny</span>
+                                                <span class="ml-2 px-3 py-1 bg-red-200 text-red-800 rounded text-xs font-semibold">✗ Brak na magazynie</span>
                                             @endif
                                         </div>
                                     @endforeach
