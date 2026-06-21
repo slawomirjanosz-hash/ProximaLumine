@@ -426,14 +426,22 @@
         <!-- TAB: FIRMY -->
         <div id="tab-companies" class="tab-content p-6">
             <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
-                <h2 class="text-2xl font-bold">🏢 Firmy / Kontakty</h2>
+                <div class="flex items-center gap-3">
+                    <h2 class="text-2xl font-bold">🏢 Firmy / Kontakty</h2>
+                    <label class="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded text-sm cursor-pointer">
+                        <input type="checkbox" id="show-archived-companies" class="w-4 h-4 cursor-pointer" onchange="toggleArchivedCompanies()">
+                        <span>Pokaż zarchiwizowane (<span id="archived-count">{{ $archivedCompanies->count() ?? 0 }}</span>)</span>
+                    </label>
+                </div>
                 <div class="flex items-center gap-2">
                     <input type="text" id="companies-search" placeholder="🔍 Szukaj po nazwie, NIP, opiekunie, typie..." class="px-3 py-2 border border-gray-300 rounded text-sm w-80" oninput="filterCompaniesTable()">
                     <button onclick="showCompanyModal()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 whitespace-nowrap">➕ Dodaj Firmę</button>
                 </div>
             </div>
             
-            <table id="companies-table" class="w-full border-collapse text-xs">
+            <!-- FIRMY AKTYWNE -->
+            <h3 class="text-lg font-semibold mb-3">Aktywne firmy</h3>
+            <table id="companies-table" class="w-full border-collapse text-xs mb-6">
                 <thead class="bg-gray-100">
                     <tr>
                         <th class="border p-2 text-left">Nazwa</th>
@@ -449,7 +457,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($companies as $company)
+                    @forelse($activeCompanies as $company)
                         <tr class="hover:bg-gray-50">
                             <td class="border p-2 font-semibold">{{ $company->name }}</td>
                             <td class="border p-2">{{ $company->supplier->short_name ?? '-' }}</td>
@@ -487,6 +495,10 @@
                             </td>
                             <td class="border p-2 text-center">
                                 <button onclick="editCompany({{ $company->id }})" class="text-blue-600 hover:underline">✏️</button>
+                                <form action="{{ route('crm.company.archive', $company->id) }}" method="POST" class="inline" onsubmit="return confirm('Zarchiwizować firmę?')">
+                                    @csrf
+                                    <button type="submit" class="text-orange-600 hover:underline" title="Zarchiwizuj firmę">📦</button>
+                                </form>
                                 <form action="{{ route('crm.company.delete', $company->id) }}" method="POST" class="inline" onsubmit="return confirm('Usunąć firmę?')">
                                     @csrf @method('DELETE')
                                     <button type="submit" class="text-red-600 hover:underline">🗑️</button>
@@ -494,10 +506,59 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="9" class="border p-4 text-center text-gray-500">Brak firm w bazie</td></tr>
+                        <tr><td colspan="10" class="border p-4 text-center text-gray-500">Brak aktywnych firm w bazie</td></tr>
                     @endforelse
                 </tbody>
             </table>
+
+            <!-- FIRMY ZARCHIWIZOWANE -->
+            <div id="archived-section" class="hidden">
+                <h3 class="text-lg font-semibold mb-3 text-orange-600">📦 Zarchiwizowane firmy</h3>
+                <table class="w-full border-collapse text-xs">
+                    <thead class="bg-orange-50">
+                        <tr>
+                            <th class="border p-2 text-left">Nazwa</th>
+                            <th class="border p-2 text-left">NIP</th>
+                            <th class="border p-2 text-left">Typ</th>
+                            <th class="border p-2 text-left">Status</th>
+                            <th class="border p-2 text-left">Opiekun</th>
+                            <th class="border p-2">Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($archivedCompanies as $company)
+                            <tr class="hover:bg-orange-50 bg-orange-50">
+                                <td class="border p-2 font-semibold">{{ $company->name }}</td>
+                                <td class="border p-2">{{ $company->nip ?? '-' }}</td>
+                                <td class="border p-2">
+                                    @php
+                                        $companyType = $customerTypes->firstWhere('slug', $company->type);
+                                    @endphp
+                                    @if($companyType)
+                                        <span class="font-semibold" style="color: #222;">{{ $companyType->name }}</span>
+                                    @else
+                                        {{ ucfirst($company->type) }}
+                                    @endif
+                                </td>
+                                <td class="border p-2">{{ ucfirst($company->status) }}</td>
+                                <td class="border p-2">{{ $company->owner->name ?? '-' }}</td>
+                                <td class="border p-2 text-center">
+                                    <form action="{{ route('crm.company.unarchive', $company->id) }}" method="POST" class="inline" onsubmit="return confirm('Przywrócić firmę?')">
+                                        @csrf
+                                        <button type="submit" class="text-blue-600 hover:underline" title="Przywróć firmę">↩️</button>
+                                    </form>
+                                    <form action="{{ route('crm.company.delete', $company->id) }}" method="POST" class="inline" onsubmit="return confirm('Permamentnie usunąć zarchiwizowaną firmę? Operacja jest nieodwracalna!')">
+                                        @csrf @method('DELETE')
+                                        <button type="submit" class="text-red-600 hover:underline">🗑️</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6" class="border p-4 text-center text-gray-500">Brak zarchiwizowanych firm</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- TAB: HISTORIA -->
@@ -677,6 +738,17 @@ function switchTab(tabName) {
     
     event.target.classList.add('active');
     document.getElementById('tab-' + tabName).classList.add('active');
+}
+
+function toggleArchivedCompanies() {
+    const checkbox = document.getElementById('show-archived-companies');
+    const archivedSection = document.getElementById('archived-section');
+    
+    if (checkbox.checked) {
+        archivedSection.classList.remove('hidden');
+    } else {
+        archivedSection.classList.add('hidden');
+    }
 }
 
 function showCompanyModal() {

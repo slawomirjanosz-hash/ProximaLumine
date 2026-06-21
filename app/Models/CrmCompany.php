@@ -11,7 +11,7 @@ class CrmCompany extends Model
 
     protected $fillable = [
         'name', 'nip', 'email', 'phone', 'website', 'address', 
-        'city', 'postal_code', 'country', 'type', 'status', 
+        'city', 'postal_code', 'country', 'type', 'status', 'archived',
         'notes', 'owner_id', 'source', 'supplier_id', 'added_by', 'customer_type_id'
     ];
     public function customerType()
@@ -23,6 +23,7 @@ class CrmCompany extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
+        'archived' => 'boolean',
     ];
 
     public function owner()

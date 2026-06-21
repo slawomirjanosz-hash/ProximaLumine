@@ -8578,8 +8578,12 @@ class PartController extends Controller
     {
         $userId = auth()->id();
         
-        // Companies are visible to all users
+        // Companies: load all companies (active and archived)
         $companies = \App\Models\CrmCompany::with('owner', 'addedBy', 'supplier')->orderBy('name')->get();
+        
+        // Separate active and archived
+        $activeCompanies = $companies->where('archived', false);
+        $archivedCompanies = $companies->where('archived', true);
         
         // Deals: show only deals owned by user OR assigned to user
         $deals = \App\Models\CrmDeal::with(['company', 'owner', 'user', 'assignedUsers'])
@@ -8677,7 +8681,7 @@ class PartController extends Controller
         $taskChanges = \App\Models\CrmTaskChange::with(['user', 'task'])
             ->orderBy('created_at', 'desc')
             ->get();
-        return view('parts.crm', compact('companies', 'deals', 'tasks', 'completedTasks', 'activities', 'stats', 'users', 'crmStages', 'availableSuppliers', 'customerTypes', 'taskChanges'));
+        return view('parts.crm', compact('companies', 'activeCompanies', 'archivedCompanies', 'deals', 'tasks', 'completedTasks', 'activities', 'stats', 'users', 'crmStages', 'availableSuppliers', 'customerTypes', 'taskChanges'));
     }
 
     public function crmSettingsView()
@@ -9002,6 +9006,42 @@ class PartController extends Controller
             ]);
         }
         return redirect()->route('crm')->with('success', 'Firma została zaktualizowana.');
+    }
+
+    public function archiveCompany($id)
+    {
+        $company = \App\Models\CrmCompany::findOrFail($id);
+        $company->update(['archived' => true]);
+        
+        \App\Models\CrmTaskChange::create([
+            'task_id' => null,
+            'entity_type' => 'company',
+            'entity_id' => $id,
+            'user_id' => auth()->id(),
+            'change_type' => 'archived',
+            'change_details' => json_encode(['name' => $company->name], JSON_UNESCAPED_UNICODE),
+            'created_at' => now(),
+        ]);
+        
+        return redirect()->route('crm')->with('success', "Firma \"{$company->name}\" została zarchiwizowana.");
+    }
+
+    public function unarchiveCompany($id)
+    {
+        $company = \App\Models\CrmCompany::findOrFail($id);
+        $company->update(['archived' => false]);
+        
+        \App\Models\CrmTaskChange::create([
+            'task_id' => null,
+            'entity_type' => 'company',
+            'entity_id' => $id,
+            'user_id' => auth()->id(),
+            'change_type' => 'unarchived',
+            'change_details' => json_encode(['name' => $company->name], JSON_UNESCAPED_UNICODE),
+            'created_at' => now(),
+        ]);
+        
+        return redirect()->route('crm')->with('success', "Firma \"{$company->name}\" została przywrócona.");
     }
 
     public function deleteCompany($id)

@@ -1651,6 +1651,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/crm/company', [PartController::class, 'addCompany'])->name('crm.company.add');
         Route::put('/crm/company/{id}', [PartController::class, 'updateCompany'])->name('crm.company.update');
         Route::delete('/crm/company/{id}', [PartController::class, 'deleteCompany'])->name('crm.company.delete');
+        Route::post('/crm/company/{id}/archive', [PartController::class, 'archiveCompany'])->name('crm.company.archive');
+        Route::post('/crm/company/{id}/unarchive', [PartController::class, 'unarchiveCompany'])->name('crm.company.unarchive');
         
         // Deals
         Route::get('/crm/deal/{id}/edit', [PartController::class, 'getDeal'])->name('crm.deal.edit');
