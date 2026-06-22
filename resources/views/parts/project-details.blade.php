@@ -5896,6 +5896,7 @@ function loadListPreview(listId) {
                 <table class="w-full border border-collapse text-sm">
                     <thead class="bg-gray-100">
                         <tr>
+                            <th class="border p-2 text-center" style="width: 40px;">Lp.</th>
                             <th class="border p-2 text-left">Produkt</th>
                             <th class="border p-2 text-center">Ilość na liście</th>
                             <th class="border p-2 text-center">Stan magazynu</th>
@@ -5905,7 +5906,7 @@ function loadListPreview(listId) {
                     <tbody>
             `;
             
-            data.items.forEach(item => {
+            data.items.forEach((item, index) => {
                 const isAvailable = item.stock >= item.quantity;
                 const statusClass = isAvailable ? 'bg-green-50' : 'bg-red-50';
                 const statusText = isAvailable ? '✓ Dostępny' : '⚠ Brak na magazynie';
@@ -5913,6 +5914,7 @@ function loadListPreview(listId) {
                 
                 html += `
                     <tr class="${statusClass}">
+                        <td class="border p-2 text-center font-medium text-gray-600">${index + 1}</td>
                         <td class="border p-2">${item.name}</td>
                         <td class="border p-2 text-center">${item.quantity}</td>
                         <td class="border p-2 text-center ${item.stock < item.quantity ? 'text-red-600 font-bold' : ''}">${item.stock}</td>

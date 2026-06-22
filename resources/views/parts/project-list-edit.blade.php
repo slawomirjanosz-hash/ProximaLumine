@@ -512,6 +512,7 @@ function renderProductsList() {
             <table class="w-full text-sm">
                 <thead class="bg-gray-100">
                     <tr>
+                        <th class="text-center p-2 border-b" style="width: 40px;">Lp.</th>
                         <th class="text-left p-2 border-b">Produkt</th>
                         <th class="text-center p-2 border-b" style="width: 100px;">Kod</th>
                         <th class="text-left p-2 border-b">Opis kodu</th>
@@ -526,6 +527,7 @@ function renderProductsList() {
         const qrCodeUrl = product.code ? `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(product.code)}` : '';
         html += `
             <tr class="border-b hover:bg-gray-50">
+                <td class="p-2 text-center font-medium text-gray-600">${index + 1}</td>
                 <td class="p-2">${product.name}</td>
                 <td class="p-2 text-center">
                     ${product.code ? `<img src="${qrCodeUrl}" alt="QR Code" class="inline-block" style="width: 60px; height: 60px;">` : '-'}
