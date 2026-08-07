@@ -81,48 +81,62 @@ class RecipeController extends Controller
     public function store(Request $request)
     {
         $this->checkRecipeAccess();
-        $request->validate([
+        
+        $withoutFlour = $request->has('without_flour') && $request->without_flour == 'on';
+        
+        $rules = [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'output_quantity' => 'required|integer|min:1',
-            'flour' => 'required|array|min:1',
-            'flour.*.ingredient_id' => 'required|exists:ingredients,id',
-            'flour.*.weight' => 'required|numeric|min:0.01',
-            'flour.*.percentage' => 'required|numeric|min:0.01',
             'ingredient.*.ingredient_id' => 'nullable|exists:ingredients,id',
             'ingredient.*.quantity' => 'nullable|numeric|min:0.01',
             'ingredient.*.percentage' => 'nullable|numeric|min:0.01',
-        ]);
+        ];
+        
+        // Jeśli nie "receptura bez mąki", mąka jest wymagana
+        if (!$withoutFlour) {
+            $rules['flour'] = 'required|array|min:1';
+            $rules['flour.*.ingredient_id'] = 'required|exists:ingredients,id';
+            $rules['flour.*.weight'] = 'required|numeric|min:0.01';
+            $rules['flour.*.percentage'] = 'required|numeric|min:0.01';
+        }
+        
+        $request->validate($rules);
 
         DB::beginTransaction();
         try {
-            // Sprawdź czy suma procentów mąki = 100%
-            $flourPercentageSum = collect($request->flour)->sum('percentage');
-            if (abs($flourPercentageSum - 100) > 0.01) {
-                return back()->with('error', 'Suma procentów mąki musi wynosić 100%!');
+            // Sprawdź czy suma procentów mąki = 100% (tylko jeśli mąka jest obecna)
+            if (!$withoutFlour && $request->has('flour')) {
+                $flourPercentageSum = collect($request->flour)->sum('percentage');
+                if (abs($flourPercentageSum - 100) > 0.01) {
+                    return back()->with('error', 'Suma procentów mąki musi wynosić 100%!');
+                }
             }
             
             $recipe = Recipe::create([
                 'name' => $request->name,
                 'description' => $request->description,
                 'output_quantity' => $request->output_quantity,
+                'without_flour' => $withoutFlour,
                 'total_steps' => 0,
                 'estimated_time' => 0
             ]);
 
             $order = 1;
             
-            // Dodaj mąkę
-            foreach ($request->flour as $flour) {
-                RecipeStep::create([
-                    'recipe_id' => $recipe->id,
-                    'order' => $order++,
-                    'type' => 'ingredient',
-                    'ingredient_id' => $flour['ingredient_id'],
-                    'quantity' => $flour['weight'],
-                    'percentage' => $flour['percentage'] ?? 0,
-                    'is_flour' => true,
-                ]);
+            // Dodaj mąkę (tylko jeśli nie "receptura bez mąki")
+            if ($request->has('flour')) {
+                foreach ($request->flour as $flour) {
+                    RecipeStep::create([
+                        'recipe_id' => $recipe->id,
+                        'order' => $order++,
+                        'type' => 'ingredient',
+                        'ingredient_id' => $flour['ingredient_id'],
+                        'quantity' => $flour['weight'],
+                        'percentage' => $flour['percentage'] ?? 0,
+                        'is_flour' => true,
+                    ]);
+                }
             }
             
             // Dodaj pozostałe składniki
@@ -178,31 +192,43 @@ class RecipeController extends Controller
     public function update(Request $request, Recipe $recipe)
     {
         $this->checkRecipeAccess();
-        $request->validate([
+        
+        $withoutFlour = $request->has('without_flour') && $request->without_flour == 'on';
+        
+        $rules = [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'output_quantity' => 'required|integer|min:1',
-            'flour' => 'required|array|min:1',
-            'flour.*.ingredient_id' => 'required|exists:ingredients,id',
-            'flour.*.weight' => 'required|numeric|min:0.01',
-            'flour.*.percentage' => 'required|numeric|min:0.01',
             'ingredient.*.ingredient_id' => 'nullable|exists:ingredients,id',
             'ingredient.*.quantity' => 'nullable|numeric|min:0.01',
             'ingredient.*.percentage' => 'nullable|numeric|min:0.01',
-        ]);
+        ];
+        
+        // Jeśli nie "receptura bez mąki", mąka jest wymagana
+        if (!$withoutFlour) {
+            $rules['flour'] = 'required|array|min:1';
+            $rules['flour.*.ingredient_id'] = 'required|exists:ingredients,id';
+            $rules['flour.*.weight'] = 'required|numeric|min:0.01';
+            $rules['flour.*.percentage'] = 'required|numeric|min:0.01';
+        }
+        
+        $request->validate($rules);
 
         DB::beginTransaction();
         try {
-            // Sprawdź czy suma procentów mąki = 100%
-            $flourPercentageSum = collect($request->flour)->sum('percentage');
-            if (abs($flourPercentageSum - 100) > 0.01) {
-                return back()->with('error', 'Suma procentów mąki musi wynosić 100%!');
+            // Sprawdź czy suma procentów mąki = 100% (tylko jeśli mąka jest obecna)
+            if (!$withoutFlour && $request->has('flour')) {
+                $flourPercentageSum = collect($request->flour)->sum('percentage');
+                if (abs($flourPercentageSum - 100) > 0.01) {
+                    return back()->with('error', 'Suma procentów mąki musi wynosić 100%!');
+                }
             }
             
             $recipe->update([
                 'name' => $request->name,
                 'description' => $request->description,
                 'output_quantity' => $request->output_quantity,
+                'without_flour' => $withoutFlour,
                 'total_steps' => 0,
                 'estimated_time' => 0
             ]);
@@ -212,17 +238,19 @@ class RecipeController extends Controller
             
             $order = 1;
             
-            // Dodaj mąkę
-            foreach ($request->flour as $flour) {
-                RecipeStep::create([
-                    'recipe_id' => $recipe->id,
-                    'order' => $order++,
-                    'type' => 'ingredient',
-                    'ingredient_id' => $flour['ingredient_id'],
-                    'quantity' => $flour['weight'],
-                    'percentage' => $flour['percentage'] ?? 0,
-                    'is_flour' => true,
-                ]);
+            // Dodaj mąkę (tylko jeśli nie "receptura bez mąki")
+            if ($request->has('flour')) {
+                foreach ($request->flour as $flour) {
+                    RecipeStep::create([
+                        'recipe_id' => $recipe->id,
+                        'order' => $order++,
+                        'type' => 'ingredient',
+                        'ingredient_id' => $flour['ingredient_id'],
+                        'quantity' => $flour['weight'],
+                        'percentage' => $flour['percentage'] ?? 0,
+                        'is_flour' => true,
+                    ]);
+                }
             }
             
             // Dodaj pozostałe składniki

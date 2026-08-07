@@ -22,7 +22,8 @@ class Recipe extends Model
         'description',
         'total_steps',
         'estimated_time',
-        'output_quantity'
+        'output_quantity',
+        'without_flour'
     ];
 
     protected $casts = [

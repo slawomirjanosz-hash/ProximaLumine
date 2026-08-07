@@ -35,13 +35,21 @@
             <small class="text-gray-500">Ile sztuk produktu finalnego wychodzi z tej receptury (np. 100 sztuk chleba)</small>
         </div>
         
+        <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="without_flour" id="withoutFlourCheckbox" onchange="toggleFlourSection()" class="w-5 h-5">
+                <span class="text-sm font-medium text-gray-700">Receptura bez mąki</span>
+            </label>
+            <small class="text-gray-600 mt-2 block">Zaznacz jeśli chcesz tworzyć recepturę bez wymuszenia mąki jako bazowego procenta. Wtedy po prostu dodajesz składniki jakie chcesz.</small>
+        </div>
+        
         <hr class="my-6">
         
         <!-- TABELA SKŁADNIKÓW -->
         <h2 class="text-xl font-bold mb-4">Składniki Receptury</h2>
         
         <!-- Sekcja Mąki -->
-        <div class="mb-6">
+        <div id="flourSection" class="mb-6">
             <div class="flex justify-between items-center mb-3">
                 <h3 class="text-lg font-semibold text-amber-700">🌾 Mąka (suma = 100%)</h3>
                 <button type="button" onclick="addFlourRow()" class="px-3 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 text-sm">
@@ -87,7 +95,7 @@
                         <tr class="border-b border-green-400">
                             <th class="text-left py-2 px-2 text-sm">Składnik</th>
                             <th class="text-left py-2 px-2 text-sm">Ilość</th>
-                            <th class="text-left py-2 px-2 text-sm">Procent (% od mąki)</th>
+                            <th class="text-left py-2 px-2 text-sm" id="ingredientPercentColumn">Procent (% od mąki)</th>
                             <th class="w-12"></th>
                         </tr>
                     </thead>
@@ -95,7 +103,7 @@
                         <!-- Wiersze składników dodawane dynamicznie -->
                     </tbody>
                 </table>
-                <p class="text-xs text-gray-600 mt-2">💡 Procent odnosi się do całkowitej wagi mąki</p>
+                <p class="text-xs text-gray-600 mt-2">💡 Procent odnosi się do całkowitej wagi mąki (lub do sztuki, jeśli brak mąki)</p>
             </div>
         </div>
         
@@ -276,20 +284,52 @@ function recalculateIngredients() {
 
 // ===== WALIDACJA FORMULARZA =====
 document.querySelector('form').addEventListener('submit', function(e) {
-    const flourTotal = parseFloat(document.getElementById('flourTotalPercent').textContent);
+    const withoutFlour = document.getElementById('withoutFlourCheckbox').checked;
     
-    if (Math.abs(flourTotal - 100) > 0.01) {
-        e.preventDefault();
-        alert('BŁĄD: Suma procentów mąki musi wynosić 100%! Aktualnie: ' + flourTotal + '%');
-        return false;
+    if (!withoutFlour) {
+        const flourTotal = parseFloat(document.getElementById('flourTotalPercent').textContent);
+        
+        if (Math.abs(flourTotal - 100) > 0.01) {
+            e.preventDefault();
+            alert('BŁĄD: Suma procentów mąki musi wynosić 100%! Aktualnie: ' + flourTotal + '%');
+            return false;
+        }
+        
+        const flourRows = document.querySelectorAll('[id^="flour-"]').length;
+        if (flourRows === 0) {
+            e.preventDefault();
+            alert('Musisz dodać przynajmniej jeden rodzaj mąki!');
+            return false;
+        }
     }
+});
+
+// ===== TOGGLE FLOUR SECTION =====
+function toggleFlourSection() {
+    const checkbox = document.getElementById('withoutFlourCheckbox').checked;
+    const flourSection = document.getElementById('flourSection');
+    const ingredientPercentColumn = document.getElementById('ingredientPercentColumn');
     
-    const flourRows = document.querySelectorAll('[id^="flour-"]').length;
-    if (flourRows === 0) {
-        e.preventDefault();
-        alert('Musisz dodać przynajmniej jeden rodzaj mąki!');
-        return false;
+    if (checkbox) {
+        // Ukryj sekcję mąki
+        flourSection.style.display = 'none';
+        // Zmień nagłówek "Procent (% od mąki)" na "Procent (%)"
+        if (ingredientPercentColumn) {
+            ingredientPercentColumn.textContent = 'Procent (%)';
+        }
+    } else {
+        // Pokaż sekcję mąki
+        flourSection.style.display = 'block';
+        // Zmień nagłówek z powrotem
+        if (ingredientPercentColumn) {
+            ingredientPercentColumn.textContent = 'Procent (% od mąki)';
+        }
     }
+}
+
+// Inicjalizuj stan przy załadowaniu strony
+document.addEventListener('DOMContentLoaded', function() {
+    toggleFlourSection();
 });
 </script>
 

@@ -15,7 +15,7 @@
     @endif
 
 
-    <form method="POST" action="{{ route('recipes.update', $recipe) }}" class="bg-white rounded-lg shadow p-4">
+    <form method="POST" action="{{ route('recipes.update', $recipe) }}" id="recipeForm" class="bg-white rounded-lg shadow p-4">
         @csrf
         @method('PUT')
         <div class="flex flex-col sm:flex-row sm:items-end gap-2 mb-3">
@@ -33,13 +33,21 @@
             <textarea name="description" rows="2" class="w-full px-2 py-1 border rounded text-sm">{{ $recipe->description }}</textarea>
         </div>
         
+        <div class="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="without_flour" id="withoutFlourCheckbox" {{ $recipe->without_flour ? 'checked' : '' }} onchange="toggleFlourSection()" class="w-5 h-5">
+                <span class="text-sm font-medium text-gray-700">Receptura bez mąki</span>
+            </label>
+            <small class="text-gray-600 mt-2 block">Zaznacz jeśli chcesz tworzyć recepturę bez wymuszenia mąki jako bazowego procenta. Wtedy po prostu dodajesz składniki jakie chcesz.</small>
+        </div>
+        
         <hr class="my-6">
         
         <!-- TABELA SKŁADNIKÓW -->
         <h2 class="text-xl font-bold mb-4">Składniki Receptury</h2>
         
         <!-- Sekcja Mąki -->
-        <div class="mb-6">
+        <div id="flourSection" class="mb-6">
             <div class="flex justify-between items-center mb-2">
                 <h3 class="text-base font-semibold text-amber-700">🌾 Mąka (suma = 100%)</h3>
                 <button type="button" onclick="addFlourRow()" class="px-3 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 text-sm">
@@ -113,7 +121,7 @@
                         <tr class="border-b border-green-400">
                             <th class="text-left py-1 px-1 text-xs">Składnik</th>
                             <th class="text-left py-1 px-1 text-xs" style="width:110px;">Ilość / jednostka</th>
-                            <th class="text-left py-1 px-1 text-xs" style="width:90px;">Procent (%)</th>
+                            <th class="text-left py-1 px-1 text-xs" style="width:90px;" id="ingredientPercentColumn">Procent (% od mąki)</th>
                             <th class="w-8"></th>
                         </tr>
                     </thead>
@@ -150,7 +158,7 @@
                         @endforeach
                     </tbody>
                 </table>
-                <p class="text-xs text-gray-600 mt-2">💡 Procent odnosi się do całkowitej wagi mąki</p>
+                <p class="text-xs text-gray-600 mt-2">💡 Procent odnosi się do całkowitej wagi mąki (lub do sztuki, jeśli brak mąki)</p>
             </div>
         </div>
         
@@ -341,20 +349,50 @@ function recalculateIngredients() {
 
 // ===== WALIDACJA FORMULARZA =====
 document.getElementById('recipeForm').addEventListener('submit', function(e) {
-    let totalPercent = 0;
-    document.querySelectorAll('.flour-percentage').forEach(input => {
-        totalPercent += parseFloat(input.value) || 0;
-    });
+    const withoutFlour = document.getElementById('withoutFlourCheckbox').checked;
     
-    if (Math.abs(totalPercent - 100) > 0.01) {
-        e.preventDefault();
-        alert(`Suma procentów mąki musi wynosić 100%!\nAktualna suma: ${totalPercent.toFixed(2)}%`);
-        return false;
+    if (!withoutFlour) {
+        let totalPercent = 0;
+        document.querySelectorAll('.flour-percentage').forEach(input => {
+            totalPercent += parseFloat(input.value) || 0;
+        });
+        
+        if (Math.abs(totalPercent - 100) > 0.01) {
+            e.preventDefault();
+            alert(`Suma procentów mąki musi wynosić 100%!\nAktualna suma: ${totalPercent.toFixed(2)}%`);
+            return false;
+        }
     }
 });
 
+// ===== TOGGLE FLOUR SECTION =====
+function toggleFlourSection() {
+    const checkbox = document.getElementById('withoutFlourCheckbox').checked;
+    const flourSection = document.getElementById('flourSection');
+    const ingredientPercentColumn = document.getElementById('ingredientPercentColumn');
+    
+    if (checkbox) {
+        // Ukryj sekcję mąki
+        flourSection.style.display = 'none';
+        // Zmień nagłówek
+        if (ingredientPercentColumn) {
+            ingredientPercentColumn.textContent = 'Procent (%)';
+        }
+    } else {
+        // Pokaż sekcję mąki
+        flourSection.style.display = 'block';
+        // Zmień nagłówek z powrotem
+        if (ingredientPercentColumn) {
+            ingredientPercentColumn.textContent = 'Procent (% od mąki)';
+        }
+    }
+}
+
 // ===== INICJALIZACJA PO ZAŁADOWANIU STRONY =====
 document.addEventListener('DOMContentLoaded', function() {
+    // Inicjalizuj stan sekcji mąki
+    toggleFlourSection();
+    
     // Ustaw jednostki dla istniejących składników
     document.querySelectorAll('[id^="ingredient-"]').forEach(row => {
         const id = row.id.replace('ingredient-', '');
