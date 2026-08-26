@@ -142,7 +142,7 @@ class RecipeController extends Controller
             // Dodaj pozostałe składniki
             if ($request->has('ingredient')) {
                 foreach ($request->ingredient as $ingredient) {
-                    if (isset($ingredient['ingredient_id']) && isset($ingredient['quantity']) && isset($ingredient['percentage'])) {
+                    if (isset($ingredient['ingredient_id']) && isset($ingredient['quantity'])) {
                         RecipeStep::create([
                             'recipe_id' => $recipe->id,
                             'order' => $order++,
@@ -256,7 +256,7 @@ class RecipeController extends Controller
             // Dodaj pozostałe składniki
             if ($request->has('ingredient')) {
                 foreach ($request->ingredient as $ingredient) {
-                    if (isset($ingredient['ingredient_id']) && isset($ingredient['quantity']) && isset($ingredient['percentage'])) {
+                    if (isset($ingredient['ingredient_id']) && isset($ingredient['quantity'])) {
                         RecipeStep::create([
                             'recipe_id' => $recipe->id,
                             'order' => $order++,

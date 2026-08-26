@@ -121,7 +121,7 @@
                         <tr class="border-b border-green-400">
                             <th class="text-left py-1 px-1 text-xs">Składnik</th>
                             <th class="text-left py-1 px-1 text-xs" style="width:110px;">Ilość / jednostka</th>
-                            <th class="text-left py-1 px-1 text-xs" style="width:90px;" id="ingredientPercentColumn">Procent (% od mąki)</th>
+                            <th class="text-left py-1 px-1 text-xs ingredient-percent-header" style="width:90px;" id="ingredientPercentColumn">Procent (% od mąki)</th>
                             <th class="w-8"></th>
                         </tr>
                     </thead>
@@ -145,7 +145,7 @@
                                        class="w-20 px-1 py-1 border rounded text-xs ingredient-quantity" id="ingredient-quantity-{{ $loop->iteration }}">
                                 <span class="text-xs text-gray-500 ml-1" id="ingredient-unit-{{ $loop->iteration }}">{{ $step->ingredient->unit ?? '' }}</span>
                             </td>
-                            <td class="py-1 px-1">
+                            <td class="py-1 px-1 ingredient-percent-cell">
                                 <input type="number" name="ingredient[{{ $loop->iteration }}][percentage]" step="0.01" min="0.01" required 
                                        value="{{ $step->percentage }}"
                                        oninput="updateIngredientQuantity({{ $loop->iteration }})" 
@@ -158,7 +158,7 @@
                         @endforeach
                     </tbody>
                 </table>
-                <p class="text-xs text-gray-600 mt-2">💡 Procent odnosi się do całkowitej wagi mąki (lub do sztuki, jeśli brak mąki)</p>
+                <p class="text-xs text-gray-600 mt-2 ingredient-percent-hint">💡 Procent odnosi się do całkowitej wagi mąki.</p>
             </div>
         </div>
         
@@ -296,7 +296,7 @@ function addIngredientRow() {
                        class="w-20 px-1 py-1 border rounded text-xs ingredient-quantity" id="ingredient-quantity-${ingredientCounter}">
                 <span class="text-xs text-gray-500 ml-1" id="ingredient-unit-${ingredientCounter}"></span>
             </td>
-            <td class="py-1 px-1">
+            <td class="py-1 px-1 ingredient-percent-cell">
                 <input type="number" name="ingredient[${ingredientCounter}][percentage]" step="0.01" min="0.01" required 
                        oninput="updateIngredientQuantity(${ingredientCounter})" 
                        class="w-16 px-1 py-1 border rounded text-xs ingredient-percentage" id="ingredient-percent-${ingredientCounter}">
@@ -307,6 +307,7 @@ function addIngredientRow() {
         </tr>
     `;
     document.getElementById('ingredientTable').insertAdjacentHTML('beforeend', html);
+    toggleFlourSection();
 }
 
 function removeIngredientRow(id) {
@@ -369,23 +370,20 @@ document.getElementById('recipeForm').addEventListener('submit', function(e) {
 function toggleFlourSection() {
     const checkbox = document.getElementById('withoutFlourCheckbox').checked;
     const flourSection = document.getElementById('flourSection');
-    const ingredientPercentColumn = document.getElementById('ingredientPercentColumn');
+    const percentageElements = document.querySelectorAll('.ingredient-percent-header, .ingredient-percent-cell, .ingredient-percent-hint');
+    const percentageInputs = document.querySelectorAll('.ingredient-percentage');
     
     if (checkbox) {
-        // Ukryj sekcję mąki
         flourSection.style.display = 'none';
-        // Zmień nagłówek
-        if (ingredientPercentColumn) {
-            ingredientPercentColumn.textContent = 'Procent (%)';
-        }
     } else {
-        // Pokaż sekcję mąki
         flourSection.style.display = 'block';
-        // Zmień nagłówek z powrotem
-        if (ingredientPercentColumn) {
-            ingredientPercentColumn.textContent = 'Procent (% od mąki)';
-        }
     }
+
+    percentageElements.forEach(element => element.hidden = checkbox);
+    percentageInputs.forEach(input => {
+        input.disabled = checkbox;
+        input.required = !checkbox;
+    });
 }
 
 // ===== INICJALIZACJA PO ZAŁADOWANIU STRONY =====

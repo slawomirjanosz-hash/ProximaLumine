@@ -95,7 +95,7 @@
                         <tr class="border-b border-green-400">
                             <th class="text-left py-2 px-2 text-sm">Składnik</th>
                             <th class="text-left py-2 px-2 text-sm">Ilość</th>
-                            <th class="text-left py-2 px-2 text-sm" id="ingredientPercentColumn">Procent (% od mąki)</th>
+                            <th class="text-left py-2 px-2 text-sm ingredient-percent-header" id="ingredientPercentColumn">Procent (% od mąki)</th>
                             <th class="w-12"></th>
                         </tr>
                     </thead>
@@ -103,7 +103,7 @@
                         <!-- Wiersze składników dodawane dynamicznie -->
                     </tbody>
                 </table>
-                <p class="text-xs text-gray-600 mt-2">💡 Procent odnosi się do całkowitej wagi mąki (lub do sztuki, jeśli brak mąki)</p>
+                <p class="text-xs text-gray-600 mt-2 ingredient-percent-hint">💡 Procent odnosi się do całkowitej wagi mąki.</p>
             </div>
         </div>
         
@@ -231,7 +231,7 @@ function addIngredientRow() {
                        class="w-24 px-2 py-1 border rounded text-sm ingredient-quantity" id="ingredient-quantity-${ingredientCounter}">
                 <span class="text-xs text-gray-500 ml-1" id="ingredient-unit-${ingredientCounter}"></span>
             </td>
-            <td class="py-2 px-2">
+            <td class="py-2 px-2 ingredient-percent-cell">
                 <input type="number" name="ingredient[${ingredientCounter}][percentage]" step="0.01" min="0.01" required 
                        oninput="updateIngredientQuantity(${ingredientCounter})" 
                        class="w-full px-2 py-1 border rounded text-sm ingredient-percentage" id="ingredient-percent-${ingredientCounter}">
@@ -242,6 +242,7 @@ function addIngredientRow() {
         </tr>
     `;
     document.getElementById('ingredientTable').insertAdjacentHTML('beforeend', html);
+    toggleFlourSection();
 }
 
 function removeIngredientRow(id) {
@@ -308,23 +309,20 @@ document.querySelector('form').addEventListener('submit', function(e) {
 function toggleFlourSection() {
     const checkbox = document.getElementById('withoutFlourCheckbox').checked;
     const flourSection = document.getElementById('flourSection');
-    const ingredientPercentColumn = document.getElementById('ingredientPercentColumn');
+    const percentageElements = document.querySelectorAll('.ingredient-percent-header, .ingredient-percent-cell, .ingredient-percent-hint');
+    const percentageInputs = document.querySelectorAll('.ingredient-percentage');
     
     if (checkbox) {
-        // Ukryj sekcję mąki
         flourSection.style.display = 'none';
-        // Zmień nagłówek "Procent (% od mąki)" na "Procent (%)"
-        if (ingredientPercentColumn) {
-            ingredientPercentColumn.textContent = 'Procent (%)';
-        }
     } else {
-        // Pokaż sekcję mąki
         flourSection.style.display = 'block';
-        // Zmień nagłówek z powrotem
-        if (ingredientPercentColumn) {
-            ingredientPercentColumn.textContent = 'Procent (% od mąki)';
-        }
     }
+
+    percentageElements.forEach(element => element.hidden = checkbox);
+    percentageInputs.forEach(input => {
+        input.disabled = checkbox;
+        input.required = !checkbox;
+    });
 }
 
 // Inicjalizuj stan przy załadowaniu strony
