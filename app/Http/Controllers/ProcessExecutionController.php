@@ -25,14 +25,16 @@ class ProcessExecutionController extends Controller
         }
         
         // Oblicz przeskalowane składniki
-        $scaledIngredients = $this->scaleIngredients($process->recipe, $process->quantity);
+        $scaledIngredients = $this->scaleIngredients($process->recipe, $process->quantity, $process->quantity_type);
         
         return view('processes.execute', compact('process', 'scaledIngredients'));
     }
     
-    private function scaleIngredients($recipe, int $quantity)
+    private function scaleIngredients($recipe, float $quantity, ?string $quantityType)
     {
-        $scaleFactor = $quantity / ($recipe->output_quantity ?: 1);
+        $scaleFactor = $quantityType === 'percentage'
+            ? $quantity / 100
+            : $quantity / ($recipe->output_quantity ?: 1);
         
         $flourSteps = $recipe->steps()
             ->where('is_flour', true)

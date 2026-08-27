@@ -47,7 +47,7 @@
                             <div class="space-y-2 mb-4">
                                 <div class="flex justify-between">
                                     <span class="text-gray-600">Ilość:</span>
-                                    <span class="font-semibold">{{ $process->quantity }} szt.</span>
+                                    <span class="font-semibold">{{ $process->quantity }} {{ $process->quantity_type === 'percentage' ? '%' : 'szt.' }}</span>
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-gray-600">Koszt:</span>

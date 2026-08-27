@@ -33,7 +33,7 @@
                     </div>
                     <div>
                         <p class="text-sm text-gray-600">Ilość do produkcji</p>
-                        <p class="font-semibold text-blue-600">{{ $process->quantity }} szt.</p>
+                        <p class="font-semibold text-blue-600">{{ $process->quantity }} {{ $process->quantity_type === 'percentage' ? '%' : 'szt.' }}</p>
                     </div>
                     <div>
                         <p class="text-sm text-gray-600">Całkowity koszt</p>

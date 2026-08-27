@@ -10,10 +10,15 @@ class Process extends Model
         'recipe_id',
         'name',
         'quantity',
+        'quantity_type',
         'total_cost',
         'notes',
         'status',
         'started_at',
+    ];
+
+    protected $casts = [
+        'quantity' => 'float',
     ];
 
     public function recipe()

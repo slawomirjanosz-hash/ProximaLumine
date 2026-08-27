@@ -39,10 +39,19 @@
                 </div>
 
                 <div class="mb-3 flex items-center gap-3">
-                          <label for="quantity" class="text-sm font-medium text-gray-700 w-40 whitespace-nowrap">Ilość do wyprod. (szt):</label>
-                          <input type="number" name="quantity" id="quantity" required min="1" value="{{ old('quantity', $process->quantity) }}"
+                          <label for="quantity" id="quantityLabel" class="text-sm font-medium text-gray-700 w-40 whitespace-nowrap">Ilość do wyprod. (szt.):</label>
+                          <select name="quantity_type" id="quantity_type" onchange="updateQuantityType()"
+                              class="w-20 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                              <option value="pieces" {{ old('quantity_type', $process->quantity_type ?? 'pieces') === 'pieces' ? 'selected' : '' }}>szt.</option>
+                              <option value="percentage" {{ old('quantity_type', $process->quantity_type) === 'percentage' ? 'selected' : '' }}>%</option>
+                          </select>
+                          <input type="number" name="quantity" id="quantity" required min="1" step="1" value="{{ old('quantity', $process->quantity) }}"
                               oninput="calculateScale()"
                               class="md:w-1/2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+
+                <div id="scaleInfo" class="mb-3 ml-43 text-sm text-blue-700 hidden">
+                    Skala receptury: <span id="scaleFactor" class="font-semibold"></span>x
                 </div>
 
                 <div class="mb-3 flex items-center gap-3">
@@ -382,7 +391,9 @@
             
             if (selected.value && quantity) {
                 const baseOutput = parseFloat(selected.dataset.output);
-                const factor = (quantity / baseOutput).toFixed(2);
+                const factor = document.getElementById('quantity_type').value === 'percentage'
+                    ? (quantity / 100).toFixed(2)
+                    : (quantity / baseOutput).toFixed(2);
                 scaleFactor.textContent = factor;
                 scaleInfo.classList.remove('hidden');
             } else {
@@ -390,8 +401,21 @@
             }
         }
 
+        function updateQuantityType() {
+            const isPercentage = document.getElementById('quantity_type').value === 'percentage';
+            const quantityInput = document.getElementById('quantity');
+
+            document.getElementById('quantityLabel').textContent = isPercentage
+                ? 'Ilość do wyprod. (%):'
+                : 'Ilość do wyprod. (szt.):';
+            quantityInput.min = isPercentage ? '0.001' : '1';
+            quantityInput.step = isPercentage ? '0.001' : '1';
+            calculateScale();
+        }
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
+            updateQuantityType();
             calculateScale();
         });
     </script>

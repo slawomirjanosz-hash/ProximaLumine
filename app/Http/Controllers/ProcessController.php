@@ -26,7 +26,8 @@ class ProcessController extends Controller
         $request->validate([
             'recipe_id' => 'required|exists:recipes,id',
             'name' => 'required|string|max:255',
-            'quantity' => 'required|integer|min:1',
+            'quantity' => 'required|numeric|min:0.001',
+            'quantity_type' => 'required|in:pieces,percentage',
             'notes' => 'nullable|string',
             'steps.*.action_name' => 'required|string',
             'steps.*.action_description' => 'nullable|string',
@@ -35,13 +36,13 @@ class ProcessController extends Controller
 
         $recipe = Recipe::findOrFail($request->recipe_id);
         
-        // Oblicz koszt na podstawie składników przeskalowanych do quantity
-        $totalCost = $this->calculateCost($recipe, $request->quantity);
+        $totalCost = $this->calculateCost($recipe, $request->quantity, $request->quantity_type);
 
         $process = Process::create([
             'recipe_id' => $request->recipe_id,
             'name' => $request->name,
             'quantity' => $request->quantity,
+            'quantity_type' => $request->quantity_type,
             'total_cost' => $totalCost,
             'notes' => $request->notes,
         ]);
@@ -76,7 +77,7 @@ class ProcessController extends Controller
         }
         
         // Przelicz składniki dla zadanej ilości
-        $scaledIngredients = $this->scaleIngredients($process->recipe, $process->quantity);
+        $scaledIngredients = $this->scaleIngredients($process->recipe, $process->quantity, $process->quantity_type);
         
         return view('processes.show', compact('process', 'scaledIngredients'));
     }
@@ -104,7 +105,8 @@ class ProcessController extends Controller
         $request->validate([
             'recipe_id' => 'required|exists:recipes,id',
             'name' => 'required|string|max:255',
-            'quantity' => 'required|integer|min:1',
+            'quantity' => 'required|numeric|min:0.001',
+            'quantity_type' => 'required|in:pieces,percentage',
             'notes' => 'nullable|string',
             'steps.*.action_name' => 'required|string',
             'steps.*.action_description' => 'nullable|string',
@@ -112,12 +114,13 @@ class ProcessController extends Controller
         ]);
 
         $recipe = Recipe::findOrFail($request->recipe_id);
-        $totalCost = $this->calculateCost($recipe, $request->quantity);
+        $totalCost = $this->calculateCost($recipe, $request->quantity, $request->quantity_type);
 
         $process->update([
             'recipe_id' => $request->recipe_id,
             'name' => $request->name,
             'quantity' => $request->quantity,
+            'quantity_type' => $request->quantity_type,
             'total_cost' => $totalCost,
             'notes' => $request->notes,
         ]);
@@ -154,9 +157,9 @@ class ProcessController extends Controller
         return response()->json(['url' => route('processes.execute', $process)]);
     }
 
-    private function scaleIngredients(Recipe $recipe, int $quantity)
+    private function scaleIngredients(Recipe $recipe, float $quantity, string $quantityType)
     {
-        $scaleFactor = $quantity / ($recipe->output_quantity ?: 1);
+        $scaleFactor = $this->getScaleFactor($recipe, $quantity, $quantityType);
         
         $flourSteps = $recipe->steps()
             ->where('is_flour', true)
@@ -198,9 +201,9 @@ class ProcessController extends Controller
         ];
     }
 
-    private function calculateCost(Recipe $recipe, int $quantity)
+    private function calculateCost(Recipe $recipe, float $quantity, string $quantityType)
     {
-        $scaleFactor = $quantity / ($recipe->output_quantity ?: 1);
+        $scaleFactor = $this->getScaleFactor($recipe, $quantity, $quantityType);
         $totalCost = 0;
 
         foreach ($recipe->steps()->with('ingredient')->get() as $step) {
@@ -215,7 +218,7 @@ class ProcessController extends Controller
     private function scaleIngredientsWithRemaining(Process $process)
     {
         $recipe = $process->recipe;
-        $scaleFactor = $process->quantity / ($recipe->output_quantity ?: 1);
+        $scaleFactor = $this->getScaleFactor($recipe, $process->quantity, $process->quantity_type);
         
         // Oblicz ile zostało każdego składnika
         $usedIngredients = [];
@@ -294,6 +297,13 @@ class ProcessController extends Controller
             'ingredients' => $ingredients,
             'scaleFactor' => $scaleFactor,
         ];
+    }
+
+    private function getScaleFactor(Recipe $recipe, float $quantity, ?string $quantityType): float
+    {
+        return $quantityType === 'percentage'
+            ? $quantity / 100
+            : $quantity / ($recipe->output_quantity ?: 1);
     }
 }
 
