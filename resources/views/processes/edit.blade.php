@@ -51,7 +51,7 @@
                 </div>
 
                 <div id="scaleInfo" class="mb-3 ml-43 text-sm text-blue-700 hidden">
-                    Skala receptury: <span id="scaleFactor" class="font-semibold"></span>x
+                    <span id="quantityEquivalent"></span> | Skala receptury: <span id="scaleFactor" class="font-semibold"></span>x
                 </div>
 
                 <div class="mb-3 flex items-center gap-3">
@@ -388,12 +388,15 @@
             const quantity = document.getElementById('quantity').value;
             const scaleInfo = document.getElementById('scaleInfo');
             const scaleFactor = document.getElementById('scaleFactor');
+            const quantityEquivalent = document.getElementById('quantityEquivalent');
             
             if (selected.value && quantity) {
                 const baseOutput = parseFloat(selected.dataset.output);
-                const factor = document.getElementById('quantity_type').value === 'percentage'
-                    ? (quantity / 100).toFixed(2)
-                    : (quantity / baseOutput).toFixed(2);
+                const isPercentage = document.getElementById('quantity_type').value === 'percentage';
+                const factor = isPercentage ? (quantity / 100).toFixed(2) : (quantity / baseOutput).toFixed(2);
+                quantityEquivalent.textContent = isPercentage
+                    ? `Około ${(baseOutput * quantity / 100).toFixed(1)} szt.`
+                    : `Około ${(quantity / baseOutput * 100).toFixed(1)}%`;
                 scaleFactor.textContent = factor;
                 scaleInfo.classList.remove('hidden');
             } else {
